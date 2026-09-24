@@ -1,0 +1,11 @@
+.DS_Store
+build/
+design/
+Packages/GooseKit/.build/
+Packages/GooseSSH/.build/
+Packages/GooseTailcat/.build/
+*.xcuserstate
+.swiftpm/
+xcuserdata/
+build-rel/
+build-ios/
