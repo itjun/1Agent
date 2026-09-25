@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Goose Agent</string>
+	<string>1Agent</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconName</key>
@@ -20,7 +20,7 @@
 		<string>zh-Hans</string>
 	</array>
 	<key>CFBundleName</key>
-	<string>Goose Agent</string>
+	<string>1Agent</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -39,10 +39,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>dev.eachann.gooseagent</string>
+			<string>com.itjun.1agent</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>gooseagent</string>
+				<string>oneagent</string>
 			</array>
 		</dict>
 	</array>

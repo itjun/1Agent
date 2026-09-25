@@ -76,7 +76,7 @@ struct RootView: View {
         .environment(\.windowChrome, chrome)
         .ignoresSafeArea(edges: .top)
         .preferredColorScheme(appearance.preferredColorScheme)
-        .gooseagentHideFocusRing()
+        .oneagentHideFocusRing()
         .task { model.reloadHosts() }
         .onOpenURL { model.openExternalURL($0) }
         .onAppear {
@@ -91,7 +91,7 @@ struct RootView: View {
             HostPicker(model: model)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
                 .environment(\.windowChrome, chrome)
-                .gooseagentHideFocusRing()
+                .oneagentHideFocusRing()
         }
     }
 

@@ -61,7 +61,7 @@ struct GooseAgentApp: App {
     }
 
     var body: some Scene {
-        Window(String(localized: "Goose Agent"), id: "main") {
+        Window(String(localized: "1Agent"), id: "main") {
             RootView(model: appDelegate.model)
         }
         .defaultSize(width: 1100, height: 720)

@@ -1,4 +1,4 @@
-# Goose Agent
+# 1Agent
 
 Private macOS app that opens SSH sessions from your `~/.ssh/config`.
 
@@ -12,4 +12,4 @@ Requires macOS, Xcode, and XcodeGen:
 make build
 ```
 
-The app uses bundle identifier `dev.eachann.gooseagent`; the Finder-visible app name is **Goose Agent**.
+The app uses bundle identifier `com.itjun.1agent`; the Finder-visible app name is **1Agent**.

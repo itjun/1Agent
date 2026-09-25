@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# After a Debug build: install Goose Agent.app into /Applications.
+# After a Debug build: install 1Agent.app into /Applications.
 # If the app is running, quit first; always launch the installed build.
 set -euo pipefail
 
-APP_NAME="Goose Agent"
+APP_NAME="1Agent"
 APP_BUNDLE="${APP_NAME}.app"
 SRC="${1:-}"
 if [[ -z "$SRC" ]]; then
@@ -19,14 +19,14 @@ fi
 
 was_running=0
 if pgrep -f "/${APP_BUNDLE}/Contents/MacOS/" >/dev/null 2>&1 \
-  || osascript -e "application id \"dev.eachann.gooseagent\" is running" 2>/dev/null | grep -qi true \
+  || osascript -e "application id \"com.itjun.1agent\" is running" 2>/dev/null | grep -qi true \
   || osascript -e "application \"${APP_NAME}\" is running" 2>/dev/null | grep -qi true; then
   was_running=1
 fi
 
 if [[ "$was_running" -eq 1 ]]; then
   echo "→ ${APP_NAME} is running; quitting…"
-  osascript -e "tell application id \"dev.eachann.gooseagent\" to quit" 2>/dev/null \
+  osascript -e "tell application id \"com.itjun.1agent\" to quit" 2>/dev/null \
     || osascript -e "tell application \"${APP_NAME}\" to quit" 2>/dev/null \
     || true
   # Wait until process exits (up to ~15s)

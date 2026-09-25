@@ -9,7 +9,7 @@ import SwiftUI
 // (NSButton, segmented pickers, toggles, sheet Cancel/Open, etc.).
 //
 // Chosen approach (layered):
-// 1. SwiftUI: `View.gooseagentHideFocusRing()` → `.focusEffectDisabled()`, applied on
+// 1. SwiftUI: `View.oneagentHideFocusRing()` → `.focusEffectDisabled()`, applied on
 //    RootView, each sheet root, Settings, and key card buttons so descendant
 //    SwiftUI focus effects stay off where that API works.
 // 2. AppKit: on launch, swizzle `NSView.viewDidMoveToWindow` so newly attached
@@ -21,7 +21,7 @@ import SwiftUI
 /// Disables SwiftUI focus-effect chrome without affecting key equivalents.
 extension View {
     @ViewBuilder
-    func gooseagentHideFocusRing() -> some View {
+    func oneagentHideFocusRing() -> some View {
         self.focusEffectDisabled()
     }
 }
@@ -36,7 +36,7 @@ enum GooseAgentFocusRing {
         guard !didInstall else { return }
         didInstall = true
 
-        NSView.gooseagentSwizzleViewDidMoveToWindowIfNeeded()
+        NSView.oneagentSwizzleViewDidMoveToWindowIfNeeded()
 
         keyWindowObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification,
@@ -87,15 +87,15 @@ enum GooseAgentFocusRing {
 
 // MARK: - NSView swizzle
 
-private var gooseagentDidSwizzleViewDidMoveToWindow = false
+private var oneagentDidSwizzleViewDidMoveToWindow = false
 
 extension NSView {
-    fileprivate static func gooseagentSwizzleViewDidMoveToWindowIfNeeded() {
-        guard !gooseagentDidSwizzleViewDidMoveToWindow else { return }
-        gooseagentDidSwizzleViewDidMoveToWindow = true
+    fileprivate static func oneagentSwizzleViewDidMoveToWindowIfNeeded() {
+        guard !oneagentDidSwizzleViewDidMoveToWindow else { return }
+        oneagentDidSwizzleViewDidMoveToWindow = true
 
         let original = #selector(NSView.viewDidMoveToWindow)
-        let swizzled = #selector(NSView.gooseagent_viewDidMoveToWindow)
+        let swizzled = #selector(NSView.oneagent_viewDidMoveToWindow)
         guard
             let originalMethod = class_getInstanceMethod(NSView.self, original),
             let swizzledMethod = class_getInstanceMethod(NSView.self, swizzled)
@@ -103,9 +103,9 @@ extension NSView {
         method_exchangeImplementations(originalMethod, swizzledMethod)
     }
 
-    @objc fileprivate func gooseagent_viewDidMoveToWindow() {
+    @objc fileprivate func oneagent_viewDidMoveToWindow() {
         // After exchange this calls the real implementation.
-        gooseagent_viewDidMoveToWindow()
+        oneagent_viewDidMoveToWindow()
         // Only act once we are actually in a window (not on detach).
         guard window != nil else { return }
         GooseAgentFocusRing.stripIfNeeded(self)
