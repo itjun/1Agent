@@ -47,6 +47,10 @@ targets:
         CFBundleLocalizations:
           - en
           - zh-Hans
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.eachann.gooseagent
+            CFBundleURLSchemes:
+              - gooseagent
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.eachann.gooseagent

@@ -77,6 +77,7 @@ struct RootView: View {
         .preferredColorScheme(appearance.preferredColorScheme)
         .gooseagentHideFocusRing()
         .task { model.reloadHosts() }
+        .onOpenURL { model.openExternalURL($0) }
         .onAppear {
             TerminalAppearance.migrateLegacyThemeIfNeeded()
             TerminalThemeFamily.migrateIfNeeded()

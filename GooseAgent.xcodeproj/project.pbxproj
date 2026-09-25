@@ -21,6 +21,7 @@
 		7A5326F1115D0EEF752C041B /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66EB9D5469DCB225F4A076DE /* TerminalProcess.swift */; };
 		7FD8D73E6CDA988673536239 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732F9170602B669E81159F52 /* TerminalView.swift */; };
 		97BE71DCD1C2AAA54F07F029 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 04EBB4762B2989E6006F6B64 /* AppIcon.icon */; };
+		9C96C4AFC9D95B82C341BC09 /* ExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37BA2BE7AECFC2BDFB65A89A /* ExternalOpen.swift */; };
 		9F164E9B77F9B99DBBA33B84 /* goose-agent-icon-rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = E7E2A7F621AFA059A5F10DAA /* goose-agent-icon-rounded.png */; };
 		A6DDC30A0F37B9BFC39E01B3 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA11A60FA0A8D8CF52FFB622 /* AppModel.swift */; };
 		A7002F06B475BFB10B70AC29 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55B4A431088B25F31456757D /* AppLanguage.swift */; };
@@ -39,6 +40,7 @@
 		03C4DFFDB66110F7CCA240DB /* GooseAgentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooseAgentApp.swift; sourceTree = "<group>"; };
 		04EBB4762B2989E6006F6B64 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		10EA44CA6D3049DA498E15A5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		37BA2BE7AECFC2BDFB65A89A /* ExternalOpen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalOpen.swift; sourceTree = "<group>"; };
 		50A9BFE09F3B264221BC3B5C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		53B85E268A6C9A84819DCD81 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		55B4A431088B25F31456757D /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 				DA11A60FA0A8D8CF52FFB622 /* AppModel.swift */,
 				FE1C795A49452527C34114FF /* Assets.xcassets */,
 				715F523C498B5CDB52BF61A5 /* ContentView.swift */,
+				37BA2BE7AECFC2BDFB65A89A /* ExternalOpen.swift */,
 				97D13F5F76FD535FCB67D99E /* FocusRing.swift */,
 				03C4DFFDB66110F7CCA240DB /* GooseAgentApp.swift */,
 				E2078F4D1BF0C0CA8388C4A4 /* Info.plist */,
@@ -239,6 +242,7 @@
 				A7002F06B475BFB10B70AC29 /* AppLanguage.swift in Sources */,
 				A6DDC30A0F37B9BFC39E01B3 /* AppModel.swift in Sources */,
 				1DDEF4F71B12016A05677225 /* ContentView.swift in Sources */,
+				9C96C4AFC9D95B82C341BC09 /* ExternalOpen.swift in Sources */,
 				4C5E2B5FFE7E5D1222F61593 /* FocusRing.swift in Sources */,
 				0E2A51084B2FD6EFAD1D8671 /* GooseAgentApp.swift in Sources */,
 				460A6F7E1AF4705FA8B05AB0 /* KeyboardShortcuts.swift in Sources */,

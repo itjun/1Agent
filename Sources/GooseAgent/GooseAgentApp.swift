@@ -7,6 +7,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var shortcutMonitor: Any?
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            model.openExternalURL(url)
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         GooseAgentFocusRing.install()
         TerminalDefaults.registerBundledFonts()

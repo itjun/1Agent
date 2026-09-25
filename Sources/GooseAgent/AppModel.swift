@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 enum TabDropHighlight: Equatable {
@@ -29,6 +30,8 @@ final class AppModel: ObservableObject {
     @Published var hostPickerPresented = false
     @Published var showingSettings = false
     private var dropEpoch = 0
+    private var lastExternalKey = ""
+    private var lastExternalAt = Date.distantPast
 
     var selectedTab: TerminalTab? {
         guard let selectedTabID else { return nil }
@@ -73,14 +76,46 @@ final class AppModel: ObservableObject {
     }
 
     func openHost(_ alias: String) {
+        openHosts([alias])
+    }
+
+    /// Opens one tab per SSH config alias. The same URL delivered twice in a short
+    /// window (AppDelegate and SwiftUI) is ignored.
+    func openExternalURL(_ url: URL) {
+        let aliases = ExternalOpen.hostAliases(from: url)
+        guard !aliases.isEmpty else { return }
+        let key = aliases.joined(separator: "\n")
+        let now = Date()
+        if key == lastExternalKey, now.timeIntervalSince(lastExternalAt) < 0.4 {
+            return
+        }
+        lastExternalKey = key
+        lastExternalAt = now
+        openHosts(aliases)
+    }
+
+    func openHosts(_ aliases: [String]) {
+        let aliases = aliases
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !aliases.isEmpty else { return }
         hostPickerPresented = false
+        NSApp.activate()
+        for window in NSApp.windows where window.canBecomeKey {
+            window.makeKeyAndOrderFront(nil)
+            break
+        }
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
             launchEnvironment = environment
-            let tab = TerminalTab(id: UUID(), alias: alias, generation: 0, exited: false)
-            tabs.append(tab)
-            selectedTabID = tab.id
+            var lastID: UUID?
+            for alias in aliases {
+                let tab = TerminalTab(id: UUID(), alias: alias, generation: 0, exited: false)
+                tabs.append(tab)
+                lastID = tab.id
+            }
+            selectedTabID = lastID
             showingSettings = false
         }
     }
