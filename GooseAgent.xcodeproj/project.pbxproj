@@ -7,187 +7,60 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		016A1F876BD6506B62F8E1BF /* codex.svg in Resources */ = {isa = PBXBuildFile; fileRef = 702CB9CE07475F285ABA35F2 /* codex.svg */; };
-		0A16AFB0483ABBE511E67059 /* kiro-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = 5CC30BE68BD141686B06DC22 /* kiro-color.svg */; };
-		0A3529244FECD0376FD34CC9 /* pi.svg in Resources */ = {isa = PBXBuildFile; fileRef = 3CE120D5A1121044ECF141FE /* pi.svg */; };
-		0A76A5158F904E203A4C65D3 /* kiro.svg in Resources */ = {isa = PBXBuildFile; fileRef = 2542E6DF98ED9DDEB1F9DEB0 /* kiro.svg */; };
-		0BF75E050A2B41CBA6EF1C34 /* openai.svg in Resources */ = {isa = PBXBuildFile; fileRef = 1A9CEF8F6967D5DA156ECD4C /* openai.svg */; };
-		0CD0D8AAA0C11C8581607D2A /* DeviceFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 493FEA59E98693FA2022A17A /* DeviceFilesView.swift */; };
 		0E2A51084B2FD6EFAD1D8671 /* GooseAgentApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C4DFFDB66110F7CCA240DB /* GooseAgentApp.swift */; };
 		102143063049D54F8E313C8A /* goose-agent-icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = E956CE7488F67C143B7A1E53 /* goose-agent-icon.svg */; };
-		17AFE0CFBEFEBA71685F712E /* MobileDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF6E7789DDBE9B011BCE340 /* MobileDevice.swift */; };
+		187D30EBA08CA7260AB7A628 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6461F3D8EBA055D5B7E7C6A5 /* SSHLaunch.swift */; };
 		1DDEF4F71B12016A05677225 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 715F523C498B5CDB52BF61A5 /* ContentView.swift */; };
-		2D7AA14A948B0879510E73B2 /* linux.svg in Resources */ = {isa = PBXBuildFile; fileRef = DC0BF7906C11A80EF3B23411 /* linux.svg */; };
-		2E1EE5FB128971765861A97F /* archlinux.svg in Resources */ = {isa = PBXBuildFile; fileRef = 75233338A6D504CC0707C951 /* archlinux.svg */; };
-		30BBF8CEDE148AD2A7DC1A83 /* SessionIndexHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1488669FB32214F82DF87C /* SessionIndexHints.swift */; };
-		31B9B13EE5D87990C2CCA32E /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7215D417B78A857D254EEEA1 /* NotificationManager.swift */; };
 		338A17D17BF6913EDD08022E /* goose-agent-icon-1024.png in Resources */ = {isa = PBXBuildFile; fileRef = 8779D2E9AE46873518E37718 /* goose-agent-icon-1024.png */; };
-		3394AA23AC77CB158615353A /* grok.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4DF7025E849A4E46867BB83A /* grok.svg */; };
-		3422D8D9FD4C08A152115C16 /* CodexTooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3CE6A2E7AAE39F30F327DF /* CodexTooltip.swift */; };
-		3699E7A7D96C92E4DDCF35F5 /* GooseKit in Frameworks */ = {isa = PBXBuildFile; productRef = DB515CB77FA37384EE04C7F2 /* GooseKit */; };
-		3BC0894B148B20AC262B3D96 /* PiLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AB963E998C3CD1820E26E8 /* PiLaunchView.swift */; };
-		3DDAB1E2009D786F3E78DAC0 /* GooseKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8CCA37513C08661044CD359 /* GooseKit */; };
-		3FAB558B61BD62AB752E3F06 /* moonshot.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7F5A92DBB774594F15BC7A5F /* moonshot.svg */; };
-		40FE08C4DA830B8DE9F40549 /* ubuntu.svg in Resources */ = {isa = PBXBuildFile; fileRef = 5829FA488E972C511382B35F /* ubuntu.svg */; };
-		451087A6F6F994EF2F2AE165 /* qwen.svg in Resources */ = {isa = PBXBuildFile; fileRef = 377B5BC44F238A509847AE31 /* qwen.svg */; };
+		3699E7A7D96C92E4DDCF35F5 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 19EF0D49155FBFD3C9F50C7D /* GhosttyTerminal */; };
 		460A6F7E1AF4705FA8B05AB0 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B85E268A6C9A84819DCD81 /* KeyboardShortcuts.swift */; };
-		4665CA74AAF7D5F0F13A15E8 /* apple.svg in Resources */ = {isa = PBXBuildFile; fileRef = F527BDEBFC3E819792DF482D /* apple.svg */; };
 		4C5E2B5FFE7E5D1222F61593 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97D13F5F76FD535FCB67D99E /* FocusRing.swift */; };
-		4F4873F7AC961E8F1E819F0E /* rockylinux.svg in Resources */ = {isa = PBXBuildFile; fileRef = F07A75DF4BBE7C5F9E2BA0F2 /* rockylinux.svg */; };
-		547C8489619F0AFFF71A01A9 /* deepseek-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = 32E1D74EF611E7442B5E2CC2 /* deepseek-color.svg */; };
 		57082167C0D91E84790CEFDD /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BFAB0AA4280BFE99E3907A44 /* Localizable.xcstrings */; };
-		57558C6C6D35E7F84B49F52C /* amp.svg in Resources */ = {isa = PBXBuildFile; fileRef = 2841A8DE06328E98DA136D85 /* amp.svg */; };
-		5A6C1AE4579690A5886F5F63 /* deepseek.svg in Resources */ = {isa = PBXBuildFile; fileRef = 32B2D9877BDDFEB50A92D0FA /* deepseek.svg */; };
-		5C4EACE64E66B4504CD389F5 /* GooseAgentMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F04B026B307DA36A93391A2E /* GooseAgentMobileApp.swift */; };
-		5D3F6B812444649C85050F2B /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BFAB0AA4280BFE99E3907A44 /* Localizable.xcstrings */; };
-		5FD4895DB9A10578F8621328 /* SpaceRowDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947C7BBDBB9CB2838506B9AD /* SpaceRowDrag.swift */; };
-		60341A2075C80ED129BDC984 /* gemini.svg in Resources */ = {isa = PBXBuildFile; fileRef = 40F032ED2BA911609CE5B84A /* gemini.svg */; };
-		62A5A883C0D3C86827C1CBCD /* copilot-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = AF6529C1F80B4C41B5FD44B8 /* copilot-color.svg */; };
-		642FA55CBDA766A7DF0A70F0 /* MobileRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710D1BE169BF74347467C702 /* MobileRootView.swift */; };
-		64A777732D4E9CEF0C970954 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 19EF0D49155FBFD3C9F50C7D /* GhosttyTerminal */; };
+		5734C2BDF91710258B4FAEAC /* SSHConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815E9B2209CF83AD404D5C32 /* SSHConfig.swift */; };
 		6785844D897BEA088F5E386C /* SymbolsNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = C8371FB73E37B67CCCE877E9 /* SymbolsNerdFont-LICENSE.txt */; };
-		68E18C5FA0BD6AC443525318 /* fedora.svg in Resources */ = {isa = PBXBuildFile; fileRef = 08CAB9C06CB0A519985B497C /* fedora.svg */; };
-		6BF7BB652EA4CE9FDCF8A9E9 /* qwen-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = C424CC8EF869A3F1705B1A6B /* qwen-color.svg */; };
-		70DE1FD7F9ED23A25306CC8F /* all-spaces.svg in Resources */ = {isa = PBXBuildFile; fileRef = 00CD4A82E9310FFCAB56591B /* all-spaces.svg */; };
-		725237342ADBF5E42B6E60E5 /* SplitContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF602171973F6F9D852318E /* SplitContainer.swift */; };
 		7A5326F1115D0EEF752C041B /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66EB9D5469DCB225F4A076DE /* TerminalProcess.swift */; };
-		7D08D2126BAF6260F74E8D3E /* UsageRequestGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487259C28412B48D15F5C9E6 /* UsageRequestGate.swift */; };
-		7D2B177B7C026CF0835014FA /* opencode.svg in Resources */ = {isa = PBXBuildFile; fileRef = 12E8EFCFB2413A071347AF7D /* opencode.svg */; };
 		7FD8D73E6CDA988673536239 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732F9170602B669E81159F52 /* TerminalView.swift */; };
-		86657FFF4E2441B992005830 /* codex-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = ABF6CFB251512705EE3BA19F /* codex-color.svg */; };
-		86AB93616AF9A4EA8F42A290 /* MobileTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09FA6CBD44B0748D674A3730 /* MobileTransport.swift */; };
-		910B85B41F12EE20287977C4 /* devin.svg in Resources */ = {isa = PBXBuildFile; fileRef = 6AB7832E08DDFBC6FD474D6E /* devin.svg */; };
 		97BE71DCD1C2AAA54F07F029 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 04EBB4762B2989E6006F6B64 /* AppIcon.icon */; };
-		99111BAB90558D5D988275DE /* GooseSSH in Frameworks */ = {isa = PBXBuildFile; productRef = 0CD378F2D0785C34517D1D75 /* GooseSSH */; };
-		9ABBDE63E573964731B2D5C8 /* copilot.svg in Resources */ = {isa = PBXBuildFile; fileRef = 1468CBF5239F2E3852816299 /* copilot.svg */; };
-		9B24E3D395D5BBBF872FB025 /* TerminalSplitTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1C9DC814CDEF473CA283CA /* TerminalSplitTree.swift */; };
 		9F164E9B77F9B99DBBA33B84 /* goose-agent-icon-rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = E7E2A7F621AFA059A5F10DAA /* goose-agent-icon-rounded.png */; };
-		A60E69A91DA378E48F6BCEAB /* kimi-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = A6DA194B4FB5DBA62C766F78 /* kimi-color.svg */; };
 		A6DDC30A0F37B9BFC39E01B3 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA11A60FA0A8D8CF52FFB622 /* AppModel.swift */; };
 		A7002F06B475BFB10B70AC29 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55B4A431088B25F31456757D /* AppLanguage.swift */; };
-		A92B05112B93C11F172813C8 /* cursor.svg in Resources */ = {isa = PBXBuildFile; fileRef = 50993CC1C2AACABBC7945113 /* cursor.svg */; };
-		AC25E19FE4B4BACF9E7F3C92 /* centos.svg in Resources */ = {isa = PBXBuildFile; fileRef = 9E36566874920652C6B5505D /* centos.svg */; };
+		A719692A3106ACBCEB06F22D /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F8327C80241A88BB859F0B /* PaneLayout.swift */; };
 		ACB72C69EB8C9217B0C516F7 /* TerminalColorFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E535B23B91A8FA3866B182E /* TerminalColorFilter.swift */; };
 		AE3DACA26BC9BE3D6E64A0AE /* TerminalDark.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = EDA23966E7AC86D9798F4852 /* TerminalDark.ghostty */; };
-		B10D44798A344C1B3C15606B /* GooseTailcat in Frameworks */ = {isa = PBXBuildFile; productRef = A3434F295FF5C64EF25E331E /* GooseTailcat */; };
+		B10D44798A344C1B3C15606B /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 3686077977E8DA8DC69A6937 /* GhosttyTheme */; };
 		B113018EC308AB85DC2D656E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE1C795A49452527C34114FF /* Assets.xcassets */; };
-		B14C77F85D4E570761321D1B /* SidebarSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798C0C64DEFE05BC3BCF476A /* SidebarSection.swift */; };
-		B61785D8DFB3D1E452ED6518 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A716D82248AB482CF5AA291 /* SearchView.swift */; };
 		B628576B2469CF5D3C3BEACA /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EA44CA6D3049DA498E15A5 /* Theme.swift */; };
-		B7A7B62B153188AA2A9031AE /* EmptyState.png in Resources */ = {isa = PBXBuildFile; fileRef = 5253A1690C32FF1E0934D9C6 /* EmptyState.png */; };
-		BBE2E33248DEC7FCB6C8C9D5 /* MobileTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D713A6C594FC6491B63D7B /* MobileTerminalView.swift */; };
-		BEEC84D3808967E6C45887D2 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 7AE0C41272D662930D3558D0 /* GhosttyTerminal */; };
-		BFEB8D4E0BEBB11DD476A074 /* BrandIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7A4D1529341FF3FC933A9B9 /* BrandIcon.swift */; };
-		C0D72DBD5B97ABA2CEE128EF /* alpinelinux.svg in Resources */ = {isa = PBXBuildFile; fileRef = 06EF2CA945409F47D4D53707 /* alpinelinux.svg */; };
-		C32CCAC14256AB583B5EFBEE /* kimi.svg in Resources */ = {isa = PBXBuildFile; fileRef = 0879B1BE2DA3EEA7535B9CF6 /* kimi.svg */; };
+		C57E1247E48813AADA25952C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A9BFE09F3B264221BC3B5C /* SettingsView.swift */; };
 		C664558197065B07B4D6CEE4 /* SymbolsNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CE22BD3012E827F0F11ECA4A /* SymbolsNerdFontMono-Regular.ttf */; };
-		CA2240700C9B5DAA0E531574 /* nixos.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4A2391777E83D6773B5B668C /* nixos.svg */; };
-		CDFDB6126DD5C852B06A9AA3 /* claude-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = 0B9D755E37E6894880B43D43 /* claude-color.svg */; };
-		D2CE18753364265EE0492F2D /* amp-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = 1666CD9EE6BA4265A902FF3D /* amp-color.svg */; };
-		DFA64B52C1B21D4EAD8092DC /* devin-color.svg in Resources */ = {isa = PBXBuildFile; fileRef = E57D4CC45624A60426672662 /* devin-color.svg */; };
 		E075A7CC607597E93DBB069A /* TerminalLight.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = 9A45B8BA461A2B469E89ACB1 /* TerminalLight.ghostty */; };
-		E0D7C9FF5FF3210B4594C233 /* GooseTailcat in Frameworks */ = {isa = PBXBuildFile; productRef = C1B25C888AF3A09E26D3B462 /* GooseTailcat */; };
-		E690610FB71A258AFBB29D57 /* githubcopilot.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4241FCBC95570A4A68955930 /* githubcopilot.svg */; };
-		E9FF59171E8A24026DA2DEBC /* debian.svg in Resources */ = {isa = PBXBuildFile; fileRef = 195E02F4DD6BC916ECED74D7 /* debian.svg */; };
-		EDF62C992EF88AD994583C06 /* DeviceKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5367275B17E171BA1117F81E /* DeviceKey.swift */; };
-		EEDD29A32E6D3E02395EC2A6 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02301265B541C185C1E1776F /* SidebarView.swift */; };
-		EEE752B9E7E839B7DD4BB80D /* cline.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8ECD01EE2811EA5498CF6F67 /* cline.svg */; };
-		F01380078F0189093F0C256A /* freebsd.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7F5411B3DE925C6AC2CD3200 /* freebsd.svg */; };
-		F0796877FC7818CBEA13498A /* ProjectIconLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B4E7260DDB615CAD002260F /* ProjectIconLoader.swift */; };
-		F245BFB9E0FB08EFAD971D20 /* UsagePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 313378B40362606BE190403B /* UsagePanel.swift */; };
-		FC8B0523B0A98B8A3E167728 /* claude.svg in Resources */ = {isa = PBXBuildFile; fileRef = 1B58B68076AC6724C2223F2F /* claude.svg */; };
-		FFD1EEEF338FB81246046E2F /* MobileAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588BF4B8BA88FDCD9391684B /* MobileAppModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		00CD4A82E9310FFCAB56591B /* all-spaces.svg */ = {isa = PBXFileReference; path = "all-spaces.svg"; sourceTree = "<group>"; };
-		02301265B541C185C1E1776F /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		03C4DFFDB66110F7CCA240DB /* GooseAgentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooseAgentApp.swift; sourceTree = "<group>"; };
 		04EBB4762B2989E6006F6B64 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
-		06EF2CA945409F47D4D53707 /* alpinelinux.svg */ = {isa = PBXFileReference; path = alpinelinux.svg; sourceTree = "<group>"; };
-		0879B1BE2DA3EEA7535B9CF6 /* kimi.svg */ = {isa = PBXFileReference; path = kimi.svg; sourceTree = "<group>"; };
-		08CAB9C06CB0A519985B497C /* fedora.svg */ = {isa = PBXFileReference; path = fedora.svg; sourceTree = "<group>"; };
-		09FA6CBD44B0748D674A3730 /* MobileTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileTransport.swift; sourceTree = "<group>"; };
-		0B9D755E37E6894880B43D43 /* claude-color.svg */ = {isa = PBXFileReference; path = "claude-color.svg"; sourceTree = "<group>"; };
 		10EA44CA6D3049DA498E15A5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		12E8EFCFB2413A071347AF7D /* opencode.svg */ = {isa = PBXFileReference; path = opencode.svg; sourceTree = "<group>"; };
-		1468CBF5239F2E3852816299 /* copilot.svg */ = {isa = PBXFileReference; path = copilot.svg; sourceTree = "<group>"; };
-		146FF80A51A63A56804A250D /* GooseTailcat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GooseTailcat; path = Packages/GooseTailcat; sourceTree = SOURCE_ROOT; };
-		1666CD9EE6BA4265A902FF3D /* amp-color.svg */ = {isa = PBXFileReference; path = "amp-color.svg"; sourceTree = "<group>"; };
-		195E02F4DD6BC916ECED74D7 /* debian.svg */ = {isa = PBXFileReference; path = debian.svg; sourceTree = "<group>"; };
-		1A9CEF8F6967D5DA156ECD4C /* openai.svg */ = {isa = PBXFileReference; path = openai.svg; sourceTree = "<group>"; };
-		1B58B68076AC6724C2223F2F /* claude.svg */ = {isa = PBXFileReference; path = claude.svg; sourceTree = "<group>"; };
-		2542E6DF98ED9DDEB1F9DEB0 /* kiro.svg */ = {isa = PBXFileReference; path = kiro.svg; sourceTree = "<group>"; };
-		2841A8DE06328E98DA136D85 /* amp.svg */ = {isa = PBXFileReference; path = amp.svg; sourceTree = "<group>"; };
-		313378B40362606BE190403B /* UsagePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsagePanel.swift; sourceTree = "<group>"; };
-		32B2D9877BDDFEB50A92D0FA /* deepseek.svg */ = {isa = PBXFileReference; path = deepseek.svg; sourceTree = "<group>"; };
-		32E1D74EF611E7442B5E2CC2 /* deepseek-color.svg */ = {isa = PBXFileReference; path = "deepseek-color.svg"; sourceTree = "<group>"; };
-		342EB3E2C9EBB6A8AFAC9DFD /* GooseSSH */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GooseSSH; path = Packages/GooseSSH; sourceTree = SOURCE_ROOT; };
-		377B5BC44F238A509847AE31 /* qwen.svg */ = {isa = PBXFileReference; path = qwen.svg; sourceTree = "<group>"; };
-		3A716D82248AB482CF5AA291 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
-		3B4E7260DDB615CAD002260F /* ProjectIconLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectIconLoader.swift; sourceTree = "<group>"; };
-		3CE120D5A1121044ECF141FE /* pi.svg */ = {isa = PBXFileReference; path = pi.svg; sourceTree = "<group>"; };
-		40F032ED2BA911609CE5B84A /* gemini.svg */ = {isa = PBXFileReference; path = gemini.svg; sourceTree = "<group>"; };
-		4241FCBC95570A4A68955930 /* githubcopilot.svg */ = {isa = PBXFileReference; path = githubcopilot.svg; sourceTree = "<group>"; };
-		487259C28412B48D15F5C9E6 /* UsageRequestGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageRequestGate.swift; sourceTree = "<group>"; };
-		493FEA59E98693FA2022A17A /* DeviceFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceFilesView.swift; sourceTree = "<group>"; };
-		4A2391777E83D6773B5B668C /* nixos.svg */ = {isa = PBXFileReference; path = nixos.svg; sourceTree = "<group>"; };
-		4DF7025E849A4E46867BB83A /* grok.svg */ = {isa = PBXFileReference; path = grok.svg; sourceTree = "<group>"; };
-		50993CC1C2AACABBC7945113 /* cursor.svg */ = {isa = PBXFileReference; path = cursor.svg; sourceTree = "<group>"; };
-		5253A1690C32FF1E0934D9C6 /* EmptyState.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = EmptyState.png; sourceTree = "<group>"; };
-		5367275B17E171BA1117F81E /* DeviceKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceKey.swift; sourceTree = "<group>"; };
+		50A9BFE09F3B264221BC3B5C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		53B85E268A6C9A84819DCD81 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
-		54D6AD44C6AF0C0A19A6AFC4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		55B4A431088B25F31456757D /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
-		5829FA488E972C511382B35F /* ubuntu.svg */ = {isa = PBXFileReference; path = ubuntu.svg; sourceTree = "<group>"; };
-		588BF4B8BA88FDCD9391684B /* MobileAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileAppModel.swift; sourceTree = "<group>"; };
-		5CC30BE68BD141686B06DC22 /* kiro-color.svg */ = {isa = PBXFileReference; path = "kiro-color.svg"; sourceTree = "<group>"; };
+		6461F3D8EBA055D5B7E7C6A5 /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
 		66EB9D5469DCB225F4A076DE /* TerminalProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProcess.swift; sourceTree = "<group>"; };
-		6AB7832E08DDFBC6FD474D6E /* devin.svg */ = {isa = PBXFileReference; path = devin.svg; sourceTree = "<group>"; };
-		702CB9CE07475F285ABA35F2 /* codex.svg */ = {isa = PBXFileReference; path = codex.svg; sourceTree = "<group>"; };
-		710D1BE169BF74347467C702 /* MobileRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileRootView.swift; sourceTree = "<group>"; };
 		715F523C498B5CDB52BF61A5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		7215D417B78A857D254EEEA1 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		732F9170602B669E81159F52 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
-		75233338A6D504CC0707C951 /* archlinux.svg */ = {isa = PBXFileReference; path = archlinux.svg; sourceTree = "<group>"; };
-		798C0C64DEFE05BC3BCF476A /* SidebarSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSection.swift; sourceTree = "<group>"; };
-		7F5411B3DE925C6AC2CD3200 /* freebsd.svg */ = {isa = PBXFileReference; path = freebsd.svg; sourceTree = "<group>"; };
-		7F5A92DBB774594F15BC7A5F /* moonshot.svg */ = {isa = PBXFileReference; path = moonshot.svg; sourceTree = "<group>"; };
-		809162B2D74FC7A496E22B27 /* GooseAgentMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GooseAgentMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		85D713A6C594FC6491B63D7B /* MobileTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileTerminalView.swift; sourceTree = "<group>"; };
+		815E9B2209CF83AD404D5C32 /* SSHConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfig.swift; sourceTree = "<group>"; };
 		8779D2E9AE46873518E37718 /* goose-agent-icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-1024.png"; sourceTree = "<group>"; };
 		8E535B23B91A8FA3866B182E /* TerminalColorFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalColorFilter.swift; sourceTree = "<group>"; };
-		8ECD01EE2811EA5498CF6F67 /* cline.svg */ = {isa = PBXFileReference; path = cline.svg; sourceTree = "<group>"; };
-		947C7BBDBB9CB2838506B9AD /* SpaceRowDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceRowDrag.swift; sourceTree = "<group>"; };
 		97D13F5F76FD535FCB67D99E /* FocusRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusRing.swift; sourceTree = "<group>"; };
 		9A45B8BA461A2B469E89ACB1 /* TerminalLight.ghostty */ = {isa = PBXFileReference; path = TerminalLight.ghostty; sourceTree = "<group>"; };
-		9E36566874920652C6B5505D /* centos.svg */ = {isa = PBXFileReference; path = centos.svg; sourceTree = "<group>"; };
-		A6DA194B4FB5DBA62C766F78 /* kimi-color.svg */ = {isa = PBXFileReference; path = "kimi-color.svg"; sourceTree = "<group>"; };
-		ABF6CFB251512705EE3BA19F /* codex-color.svg */ = {isa = PBXFileReference; path = "codex-color.svg"; sourceTree = "<group>"; };
-		AC3CE6A2E7AAE39F30F327DF /* CodexTooltip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexTooltip.swift; sourceTree = "<group>"; };
-		AF6529C1F80B4C41B5FD44B8 /* copilot-color.svg */ = {isa = PBXFileReference; path = "copilot-color.svg"; sourceTree = "<group>"; };
-		BD209D247B87CA58D339ABF1 /* GooseKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GooseKit; path = Packages/GooseKit; sourceTree = SOURCE_ROOT; };
 		BFAB0AA4280BFE99E3907A44 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		C424CC8EF869A3F1705B1A6B /* qwen-color.svg */ = {isa = PBXFileReference; path = "qwen-color.svg"; sourceTree = "<group>"; };
+		C3F8327C80241A88BB859F0B /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
 		C8371FB73E37B67CCCE877E9 /* SymbolsNerdFont-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SymbolsNerdFont-LICENSE.txt"; sourceTree = "<group>"; };
-		CA1C9DC814CDEF473CA283CA /* TerminalSplitTree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSplitTree.swift; sourceTree = "<group>"; };
 		CE22BD3012E827F0F11ECA4A /* SymbolsNerdFontMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SymbolsNerdFontMono-Regular.ttf"; sourceTree = "<group>"; };
 		DA11A60FA0A8D8CF52FFB622 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		DB85A58DE9A851583EDCE61D /* GooseAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GooseAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		DBF6E7789DDBE9B011BCE340 /* MobileDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileDevice.swift; sourceTree = "<group>"; };
-		DC0BF7906C11A80EF3B23411 /* linux.svg */ = {isa = PBXFileReference; path = linux.svg; sourceTree = "<group>"; };
 		E2078F4D1BF0C0CA8388C4A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		E57D4CC45624A60426672662 /* devin-color.svg */ = {isa = PBXFileReference; path = "devin-color.svg"; sourceTree = "<group>"; };
 		E7E2A7F621AFA059A5F10DAA /* goose-agent-icon-rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-rounded.png"; sourceTree = "<group>"; };
 		E956CE7488F67C143B7A1E53 /* goose-agent-icon.svg */ = {isa = PBXFileReference; path = "goose-agent-icon.svg"; sourceTree = "<group>"; };
 		EDA23966E7AC86D9798F4852 /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
-		EEF602171973F6F9D852318E /* SplitContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitContainer.swift; sourceTree = "<group>"; };
-		EF1488669FB32214F82DF87C /* SessionIndexHints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionIndexHints.swift; sourceTree = "<group>"; };
-		F04B026B307DA36A93391A2E /* GooseAgentMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooseAgentMobileApp.swift; sourceTree = "<group>"; };
-		F07A75DF4BBE7C5F9E2BA0F2 /* rockylinux.svg */ = {isa = PBXFileReference; path = rockylinux.svg; sourceTree = "<group>"; };
-		F1AB963E998C3CD1820E26E8 /* PiLaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiLaunchView.swift; sourceTree = "<group>"; };
-		F527BDEBFC3E819792DF482D /* apple.svg */ = {isa = PBXFileReference; path = apple.svg; sourceTree = "<group>"; };
-		F7A4D1529341FF3FC933A9B9 /* BrandIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandIcon.swift; sourceTree = "<group>"; };
 		FE1C795A49452527C34114FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -196,42 +69,18 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3699E7A7D96C92E4DDCF35F5 /* GooseKit in Frameworks */,
-				B10D44798A344C1B3C15606B /* GooseTailcat in Frameworks */,
-				64A777732D4E9CEF0C970954 /* GhosttyTerminal in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7A515D192EC83100826F620D /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3DDAB1E2009D786F3E78DAC0 /* GooseKit in Frameworks */,
-				99111BAB90558D5D988275DE /* GooseSSH in Frameworks */,
-				E0D7C9FF5FF3210B4594C233 /* GooseTailcat in Frameworks */,
-				BEEC84D3808967E6C45887D2 /* GhosttyTerminal in Frameworks */,
+				3699E7A7D96C92E4DDCF35F5 /* GhosttyTerminal in Frameworks */,
+				B10D44798A344C1B3C15606B /* GhosttyTheme in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		10D4BFEABD851A970CF51EC1 /* Packages */ = {
-			isa = PBXGroup;
-			children = (
-				BD209D247B87CA58D339ABF1 /* GooseKit */,
-				342EB3E2C9EBB6A8AFAC9DFD /* GooseSSH */,
-				146FF80A51A63A56804A250D /* GooseTailcat */,
-			);
-			path = Packages;
-			sourceTree = "<group>";
-		};
 		2625B80CF0C24A37565CDB99 = {
 			isa = PBXGroup;
 			children = (
 				F978E202FA6AEA632044D60E /* GooseAgent */,
-				9062E945E64CDF8987FA729A /* GooseAgentMobile */,
-				10D4BFEABD851A970CF51EC1 /* Packages */,
 				8030EB873E8939D005CFC0CD /* Resources */,
 				AEBC1E80722170153A4474C5 /* Products */,
 			);
@@ -256,105 +105,24 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
-		603ABB8DAA430772B56573F6 /* OSIcons */ = {
-			isa = PBXGroup;
-			children = (
-				06EF2CA945409F47D4D53707 /* alpinelinux.svg */,
-				F527BDEBFC3E819792DF482D /* apple.svg */,
-				75233338A6D504CC0707C951 /* archlinux.svg */,
-				9E36566874920652C6B5505D /* centos.svg */,
-				195E02F4DD6BC916ECED74D7 /* debian.svg */,
-				08CAB9C06CB0A519985B497C /* fedora.svg */,
-				7F5411B3DE925C6AC2CD3200 /* freebsd.svg */,
-				DC0BF7906C11A80EF3B23411 /* linux.svg */,
-				4A2391777E83D6773B5B668C /* nixos.svg */,
-				F07A75DF4BBE7C5F9E2BA0F2 /* rockylinux.svg */,
-				5829FA488E972C511382B35F /* ubuntu.svg */,
-			);
-			path = OSIcons;
-			sourceTree = "<group>";
-		};
-		7895E264E4FB01AE650DA4DF /* AgentIcons */ = {
-			isa = PBXGroup;
-			children = (
-				1666CD9EE6BA4265A902FF3D /* amp-color.svg */,
-				2841A8DE06328E98DA136D85 /* amp.svg */,
-				0B9D755E37E6894880B43D43 /* claude-color.svg */,
-				1B58B68076AC6724C2223F2F /* claude.svg */,
-				8ECD01EE2811EA5498CF6F67 /* cline.svg */,
-				ABF6CFB251512705EE3BA19F /* codex-color.svg */,
-				702CB9CE07475F285ABA35F2 /* codex.svg */,
-				AF6529C1F80B4C41B5FD44B8 /* copilot-color.svg */,
-				1468CBF5239F2E3852816299 /* copilot.svg */,
-				50993CC1C2AACABBC7945113 /* cursor.svg */,
-				32E1D74EF611E7442B5E2CC2 /* deepseek-color.svg */,
-				32B2D9877BDDFEB50A92D0FA /* deepseek.svg */,
-				E57D4CC45624A60426672662 /* devin-color.svg */,
-				6AB7832E08DDFBC6FD474D6E /* devin.svg */,
-				40F032ED2BA911609CE5B84A /* gemini.svg */,
-				4241FCBC95570A4A68955930 /* githubcopilot.svg */,
-				4DF7025E849A4E46867BB83A /* grok.svg */,
-				A6DA194B4FB5DBA62C766F78 /* kimi-color.svg */,
-				0879B1BE2DA3EEA7535B9CF6 /* kimi.svg */,
-				5CC30BE68BD141686B06DC22 /* kiro-color.svg */,
-				2542E6DF98ED9DDEB1F9DEB0 /* kiro.svg */,
-				7F5A92DBB774594F15BC7A5F /* moonshot.svg */,
-				1A9CEF8F6967D5DA156ECD4C /* openai.svg */,
-				12E8EFCFB2413A071347AF7D /* opencode.svg */,
-				3CE120D5A1121044ECF141FE /* pi.svg */,
-				C424CC8EF869A3F1705B1A6B /* qwen-color.svg */,
-				377B5BC44F238A509847AE31 /* qwen.svg */,
-			);
-			path = AgentIcons;
-			sourceTree = "<group>";
-		};
 		8030EB873E8939D005CFC0CD /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				5253A1690C32FF1E0934D9C6 /* EmptyState.png */,
 				BFAB0AA4280BFE99E3907A44 /* Localizable.xcstrings */,
 				EDA23966E7AC86D9798F4852 /* TerminalDark.ghostty */,
 				9A45B8BA461A2B469E89ACB1 /* TerminalLight.ghostty */,
-				7895E264E4FB01AE650DA4DF /* AgentIcons */,
 				4C017756D4B21E5BD6A0C97C /* AppIcon */,
 				5E7385F3D58524D6C19CE53F /* Fonts */,
-				603ABB8DAA430772B56573F6 /* OSIcons */,
-				B2B4BBD7E018AAB0BB6234D4 /* SpaceIcons */,
 			);
 			path = Resources;
-			sourceTree = "<group>";
-		};
-		9062E945E64CDF8987FA729A /* GooseAgentMobile */ = {
-			isa = PBXGroup;
-			children = (
-				5367275B17E171BA1117F81E /* DeviceKey.swift */,
-				F04B026B307DA36A93391A2E /* GooseAgentMobileApp.swift */,
-				54D6AD44C6AF0C0A19A6AFC4 /* Info.plist */,
-				588BF4B8BA88FDCD9391684B /* MobileAppModel.swift */,
-				DBF6E7789DDBE9B011BCE340 /* MobileDevice.swift */,
-				710D1BE169BF74347467C702 /* MobileRootView.swift */,
-				85D713A6C594FC6491B63D7B /* MobileTerminalView.swift */,
-				09FA6CBD44B0748D674A3730 /* MobileTransport.swift */,
-			);
-			name = GooseAgentMobile;
-			path = Sources/GooseAgentMobile;
 			sourceTree = "<group>";
 		};
 		AEBC1E80722170153A4474C5 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				DB85A58DE9A851583EDCE61D /* GooseAgent.app */,
-				809162B2D74FC7A496E22B27 /* GooseAgentMobile.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		B2B4BBD7E018AAB0BB6234D4 /* SpaceIcons */ = {
-			isa = PBXGroup;
-			children = (
-				00CD4A82E9310FFCAB56591B /* all-spaces.svg */,
-			);
-			path = SpaceIcons;
 			sourceTree = "<group>";
 		};
 		F978E202FA6AEA632044D60E /* GooseAgent */ = {
@@ -364,30 +132,19 @@
 				55B4A431088B25F31456757D /* AppLanguage.swift */,
 				DA11A60FA0A8D8CF52FFB622 /* AppModel.swift */,
 				FE1C795A49452527C34114FF /* Assets.xcassets */,
-				F7A4D1529341FF3FC933A9B9 /* BrandIcon.swift */,
-				AC3CE6A2E7AAE39F30F327DF /* CodexTooltip.swift */,
 				715F523C498B5CDB52BF61A5 /* ContentView.swift */,
-				493FEA59E98693FA2022A17A /* DeviceFilesView.swift */,
 				97D13F5F76FD535FCB67D99E /* FocusRing.swift */,
 				03C4DFFDB66110F7CCA240DB /* GooseAgentApp.swift */,
 				E2078F4D1BF0C0CA8388C4A4 /* Info.plist */,
 				53B85E268A6C9A84819DCD81 /* KeyboardShortcuts.swift */,
-				7215D417B78A857D254EEEA1 /* NotificationManager.swift */,
-				F1AB963E998C3CD1820E26E8 /* PiLaunchView.swift */,
-				3B4E7260DDB615CAD002260F /* ProjectIconLoader.swift */,
-				3A716D82248AB482CF5AA291 /* SearchView.swift */,
-				EF1488669FB32214F82DF87C /* SessionIndexHints.swift */,
-				798C0C64DEFE05BC3BCF476A /* SidebarSection.swift */,
-				02301265B541C185C1E1776F /* SidebarView.swift */,
-				947C7BBDBB9CB2838506B9AD /* SpaceRowDrag.swift */,
-				EEF602171973F6F9D852318E /* SplitContainer.swift */,
+				C3F8327C80241A88BB859F0B /* PaneLayout.swift */,
+				50A9BFE09F3B264221BC3B5C /* SettingsView.swift */,
+				815E9B2209CF83AD404D5C32 /* SSHConfig.swift */,
+				6461F3D8EBA055D5B7E7C6A5 /* SSHLaunch.swift */,
 				8E535B23B91A8FA3866B182E /* TerminalColorFilter.swift */,
 				66EB9D5469DCB225F4A076DE /* TerminalProcess.swift */,
-				CA1C9DC814CDEF473CA283CA /* TerminalSplitTree.swift */,
 				732F9170602B669E81159F52 /* TerminalView.swift */,
 				10EA44CA6D3049DA498E15A5 /* Theme.swift */,
-				313378B40362606BE190403B /* UsagePanel.swift */,
-				487259C28412B48D15F5C9E6 /* UsageRequestGate.swift */,
 			);
 			name = GooseAgent;
 			path = Sources/GooseAgent;
@@ -396,29 +153,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3D75D9163A50429D87F8B93F /* GooseAgentMobile */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 71110AFCC0C6BFA4A02EC75B /* Build configuration list for PBXNativeTarget "GooseAgentMobile" */;
-			buildPhases = (
-				5CCCECDB9A94F67B633A2946 /* Sources */,
-				6510DF6884D0672A78827C7B /* Resources */,
-				7A515D192EC83100826F620D /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = GooseAgentMobile;
-			packageProductDependencies = (
-				D8CCA37513C08661044CD359 /* GooseKit */,
-				0CD378F2D0785C34517D1D75 /* GooseSSH */,
-				C1B25C888AF3A09E26D3B462 /* GooseTailcat */,
-				7AE0C41272D662930D3558D0 /* GhosttyTerminal */,
-			);
-			productName = GooseAgentMobile;
-			productReference = 809162B2D74FC7A496E22B27 /* GooseAgentMobile.app */;
-			productType = "com.apple.product-type.application";
-		};
 		A1046CAC98C4DF12C047F4B3 /* GooseAgent */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9CCBE7B8F226EA7DBF00D9E0 /* Build configuration list for PBXNativeTarget "GooseAgent" */;
@@ -426,7 +160,6 @@
 				799B46B42D70C104E992CF69 /* Sources */,
 				DD10A1A321A9BF738D077C5B /* Resources */,
 				1C83D6EE52F8D71EC83D8C7F /* Frameworks */,
-				C61E386F21B205B9072A9338 /* Package usage helper */,
 			);
 			buildRules = (
 			);
@@ -434,9 +167,8 @@
 			);
 			name = GooseAgent;
 			packageProductDependencies = (
-				DB515CB77FA37384EE04C7F2 /* GooseKit */,
-				A3434F295FF5C64EF25E331E /* GooseTailcat */,
 				19EF0D49155FBFD3C9F50C7D /* GhosttyTerminal */,
+				3686077977E8DA8DC69A6937 /* GhosttyTheme */,
 			);
 			productName = GooseAgent;
 			productReference = DB85A58DE9A851583EDCE61D /* GooseAgent.app */;
@@ -451,10 +183,6 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					3D75D9163A50429D87F8B93F = {
-						DevelopmentTeam = NCFNX3LJ83;
-						ProvisioningStyle = Automatic;
-					};
 					A1046CAC98C4DF12C047F4B3 = {
 						DevelopmentTeam = NCFNX3LJ83;
 						ProvisioningStyle = Manual;
@@ -472,9 +200,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C7988C146C4022B224156BC4 /* XCRemoteSwiftPackageReference "libghostty-spm" */,
-				AE11B94958BCE110FC9A847A /* XCLocalSwiftPackageReference "Packages/GooseKit" */,
-				45925F65963B49388F9A2F3C /* XCLocalSwiftPackageReference "Packages/GooseSSH" */,
-				9F4DF62836B513879FE56154 /* XCLocalSwiftPackageReference "Packages/GooseTailcat" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AEBC1E80722170153A4474C5 /* Products */;
@@ -482,178 +207,55 @@
 			projectRoot = "";
 			targets = (
 				A1046CAC98C4DF12C047F4B3 /* GooseAgent */,
-				3D75D9163A50429D87F8B93F /* GooseAgentMobile */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		6510DF6884D0672A78827C7B /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5D3F6B812444649C85050F2B /* Localizable.xcstrings in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DD10A1A321A9BF738D077C5B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				97BE71DCD1C2AAA54F07F029 /* AppIcon.icon in Resources */,
 				B113018EC308AB85DC2D656E /* Assets.xcassets in Resources */,
-				B7A7B62B153188AA2A9031AE /* EmptyState.png in Resources */,
 				57082167C0D91E84790CEFDD /* Localizable.xcstrings in Resources */,
 				6785844D897BEA088F5E386C /* SymbolsNerdFont-LICENSE.txt in Resources */,
 				C664558197065B07B4D6CEE4 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
 				AE3DACA26BC9BE3D6E64A0AE /* TerminalDark.ghostty in Resources */,
 				E075A7CC607597E93DBB069A /* TerminalLight.ghostty in Resources */,
-				70DE1FD7F9ED23A25306CC8F /* all-spaces.svg in Resources */,
-				C0D72DBD5B97ABA2CEE128EF /* alpinelinux.svg in Resources */,
-				D2CE18753364265EE0492F2D /* amp-color.svg in Resources */,
-				57558C6C6D35E7F84B49F52C /* amp.svg in Resources */,
-				4665CA74AAF7D5F0F13A15E8 /* apple.svg in Resources */,
-				2E1EE5FB128971765861A97F /* archlinux.svg in Resources */,
-				AC25E19FE4B4BACF9E7F3C92 /* centos.svg in Resources */,
-				CDFDB6126DD5C852B06A9AA3 /* claude-color.svg in Resources */,
-				FC8B0523B0A98B8A3E167728 /* claude.svg in Resources */,
-				EEE752B9E7E839B7DD4BB80D /* cline.svg in Resources */,
-				86657FFF4E2441B992005830 /* codex-color.svg in Resources */,
-				016A1F876BD6506B62F8E1BF /* codex.svg in Resources */,
-				62A5A883C0D3C86827C1CBCD /* copilot-color.svg in Resources */,
-				9ABBDE63E573964731B2D5C8 /* copilot.svg in Resources */,
-				A92B05112B93C11F172813C8 /* cursor.svg in Resources */,
-				E9FF59171E8A24026DA2DEBC /* debian.svg in Resources */,
-				547C8489619F0AFFF71A01A9 /* deepseek-color.svg in Resources */,
-				5A6C1AE4579690A5886F5F63 /* deepseek.svg in Resources */,
-				DFA64B52C1B21D4EAD8092DC /* devin-color.svg in Resources */,
-				910B85B41F12EE20287977C4 /* devin.svg in Resources */,
-				68E18C5FA0BD6AC443525318 /* fedora.svg in Resources */,
-				F01380078F0189093F0C256A /* freebsd.svg in Resources */,
-				60341A2075C80ED129BDC984 /* gemini.svg in Resources */,
-				E690610FB71A258AFBB29D57 /* githubcopilot.svg in Resources */,
 				338A17D17BF6913EDD08022E /* goose-agent-icon-1024.png in Resources */,
 				9F164E9B77F9B99DBBA33B84 /* goose-agent-icon-rounded.png in Resources */,
 				102143063049D54F8E313C8A /* goose-agent-icon.svg in Resources */,
-				3394AA23AC77CB158615353A /* grok.svg in Resources */,
-				A60E69A91DA378E48F6BCEAB /* kimi-color.svg in Resources */,
-				C32CCAC14256AB583B5EFBEE /* kimi.svg in Resources */,
-				0A16AFB0483ABBE511E67059 /* kiro-color.svg in Resources */,
-				0A76A5158F904E203A4C65D3 /* kiro.svg in Resources */,
-				2D7AA14A948B0879510E73B2 /* linux.svg in Resources */,
-				3FAB558B61BD62AB752E3F06 /* moonshot.svg in Resources */,
-				CA2240700C9B5DAA0E531574 /* nixos.svg in Resources */,
-				0BF75E050A2B41CBA6EF1C34 /* openai.svg in Resources */,
-				7D2B177B7C026CF0835014FA /* opencode.svg in Resources */,
-				0A3529244FECD0376FD34CC9 /* pi.svg in Resources */,
-				6BF7BB652EA4CE9FDCF8A9E9 /* qwen-color.svg in Resources */,
-				451087A6F6F994EF2F2AE165 /* qwen.svg in Resources */,
-				4F4873F7AC961E8F1E819F0E /* rockylinux.svg in Resources */,
-				40FE08C4DA830B8DE9F40549 /* ubuntu.svg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		C61E386F21B205B9072A9338 /* Package usage helper */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Package usage helper";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "for arch in $ARCHS; do\n  bash \"$SRCROOT/scripts/package-usage-helper.sh\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/UsageHelper\" \"$arch\"\ndone\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
-		5CCCECDB9A94F67B633A2946 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				EDF62C992EF88AD994583C06 /* DeviceKey.swift in Sources */,
-				5C4EACE64E66B4504CD389F5 /* GooseAgentMobileApp.swift in Sources */,
-				FFD1EEEF338FB81246046E2F /* MobileAppModel.swift in Sources */,
-				17AFE0CFBEFEBA71685F712E /* MobileDevice.swift in Sources */,
-				642FA55CBDA766A7DF0A70F0 /* MobileRootView.swift in Sources */,
-				BBE2E33248DEC7FCB6C8C9D5 /* MobileTerminalView.swift in Sources */,
-				86AB93616AF9A4EA8F42A290 /* MobileTransport.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		799B46B42D70C104E992CF69 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				A7002F06B475BFB10B70AC29 /* AppLanguage.swift in Sources */,
 				A6DDC30A0F37B9BFC39E01B3 /* AppModel.swift in Sources */,
-				BFEB8D4E0BEBB11DD476A074 /* BrandIcon.swift in Sources */,
-				3422D8D9FD4C08A152115C16 /* CodexTooltip.swift in Sources */,
 				1DDEF4F71B12016A05677225 /* ContentView.swift in Sources */,
-				0CD0D8AAA0C11C8581607D2A /* DeviceFilesView.swift in Sources */,
 				4C5E2B5FFE7E5D1222F61593 /* FocusRing.swift in Sources */,
 				0E2A51084B2FD6EFAD1D8671 /* GooseAgentApp.swift in Sources */,
 				460A6F7E1AF4705FA8B05AB0 /* KeyboardShortcuts.swift in Sources */,
-				31B9B13EE5D87990C2CCA32E /* NotificationManager.swift in Sources */,
-				3BC0894B148B20AC262B3D96 /* PiLaunchView.swift in Sources */,
-				F0796877FC7818CBEA13498A /* ProjectIconLoader.swift in Sources */,
-				B61785D8DFB3D1E452ED6518 /* SearchView.swift in Sources */,
-				30BBF8CEDE148AD2A7DC1A83 /* SessionIndexHints.swift in Sources */,
-				B14C77F85D4E570761321D1B /* SidebarSection.swift in Sources */,
-				EEDD29A32E6D3E02395EC2A6 /* SidebarView.swift in Sources */,
-				5FD4895DB9A10578F8621328 /* SpaceRowDrag.swift in Sources */,
-				725237342ADBF5E42B6E60E5 /* SplitContainer.swift in Sources */,
+				A719692A3106ACBCEB06F22D /* PaneLayout.swift in Sources */,
+				5734C2BDF91710258B4FAEAC /* SSHConfig.swift in Sources */,
+				187D30EBA08CA7260AB7A628 /* SSHLaunch.swift in Sources */,
+				C57E1247E48813AADA25952C /* SettingsView.swift in Sources */,
 				ACB72C69EB8C9217B0C516F7 /* TerminalColorFilter.swift in Sources */,
 				7A5326F1115D0EEF752C041B /* TerminalProcess.swift in Sources */,
-				9B24E3D395D5BBBF872FB025 /* TerminalSplitTree.swift in Sources */,
 				7FD8D73E6CDA988673536239 /* TerminalView.swift in Sources */,
 				B628576B2469CF5D3C3BEACA /* Theme.swift in Sources */,
-				F245BFB9E0FB08EFAD971D20 /* UsagePanel.swift in Sources */,
-				7D08D2126BAF6260F74E8D3E /* UsageRequestGate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		297B61D7D38A15042E5AFD26 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = arm64;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = NCFNX3LJ83;
-				EXCLUDED_ARCHS__sdk_iphonesimulator__ = x86_64;
-				INFOPLIST_FILE = Sources/GooseAgentMobile/Info.plist;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 0.1.0;
-				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.eachann.gooseagent.ios;
-				PRODUCT_NAME = "Goose Agent";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.10;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 		5098B3D9FB9CB1044D850E01 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -710,6 +312,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -771,33 +374,6 @@
 			};
 			name = Debug;
 		};
-		A29C3F643FA388D723D1F287 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = arm64;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = NCFNX3LJ83;
-				EXCLUDED_ARCHS__sdk_iphonesimulator__ = x86_64;
-				INFOPLIST_FILE = Sources/GooseAgentMobile/Info.plist;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 0.1.0;
-				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.eachann.gooseagent.ios;
-				PRODUCT_NAME = "Goose Agent";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.10;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
 		EEFA60AB4FD6D06A463D6A6B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -847,6 +423,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -865,15 +442,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		71110AFCC0C6BFA4A02EC75B /* Build configuration list for PBXNativeTarget "GooseAgentMobile" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A29C3F643FA388D723D1F287 /* Debug */,
-				297B61D7D38A15042E5AFD26 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		9CCBE7B8F226EA7DBF00D9E0 /* Build configuration list for PBXNativeTarget "GooseAgent" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -884,21 +452,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		45925F65963B49388F9A2F3C /* XCLocalSwiftPackageReference "Packages/GooseSSH" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/GooseSSH;
-		};
-		9F4DF62836B513879FE56154 /* XCLocalSwiftPackageReference "Packages/GooseTailcat" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/GooseTailcat;
-		};
-		AE11B94958BCE110FC9A847A /* XCLocalSwiftPackageReference "Packages/GooseKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/GooseKit;
-		};
-/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
 		C7988C146C4022B224156BC4 /* XCRemoteSwiftPackageReference "libghostty-spm" */ = {
@@ -912,35 +465,15 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		0CD378F2D0785C34517D1D75 /* GooseSSH */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GooseSSH;
-		};
 		19EF0D49155FBFD3C9F50C7D /* GhosttyTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C7988C146C4022B224156BC4 /* XCRemoteSwiftPackageReference "libghostty-spm" */;
 			productName = GhosttyTerminal;
 		};
-		7AE0C41272D662930D3558D0 /* GhosttyTerminal */ = {
+		3686077977E8DA8DC69A6937 /* GhosttyTheme */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C7988C146C4022B224156BC4 /* XCRemoteSwiftPackageReference "libghostty-spm" */;
-			productName = GhosttyTerminal;
-		};
-		A3434F295FF5C64EF25E331E /* GooseTailcat */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GooseTailcat;
-		};
-		C1B25C888AF3A09E26D3B462 /* GooseTailcat */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GooseTailcat;
-		};
-		D8CCA37513C08661044CD359 /* GooseKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GooseKit;
-		};
-		DB515CB77FA37384EE04C7F2 /* GooseKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GooseKit;
+			productName = GhosttyTheme;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

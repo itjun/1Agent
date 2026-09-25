@@ -1,17 +1,15 @@
 # Goose Agent
 
-Private macOS workspace for Goose Agent, a native terminal UI for local and remote coding-agent sessions.
+Private macOS app that opens SSH sessions from your `~/.ssh/config`.
+
+The sidebar is a vertical list of open tabs. ⌘T opens a new tab where you pick a `Host` from `~/.ssh/config` (including `Include`). Choosing one runs `/usr/bin/ssh -tt -- <alias>`, so ProxyJump, keys, and the rest of the config stay with OpenSSH. The remote shell is started with `TERM=xterm-256color`.
 
 ## Local build
 
-Requires macOS, Xcode, and XcodeGen. Generate the project and build a debug app with:
+Requires macOS, Xcode, and XcodeGen:
 
 ```sh
 make build
 ```
 
 The app uses bundle identifier `dev.eachann.gooseagent`; the Finder-visible app name is **Goose Agent**.
-
-## Sidebar
-
-In Priority sessions, New Space appears before New Terminal. Available agents enabled in Settings appear directly below New Terminal in the configured order; choosing one opens it in the current space or asks for a space when none is selected. The sidebar scrolls with the session list when these shortcuts exceed the window height.

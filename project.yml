@@ -9,12 +9,6 @@ options:
     - en
     - zh-Hans
 packages:
-  GooseKit:
-    path: Packages/GooseKit
-  GooseSSH:
-    path: Packages/GooseSSH
-  GooseTailcat:
-    path: Packages/GooseTailcat
   GhosttyTerminal:
     url: https://github.com/Lakr233/libghostty-spm
     # Prebuilt libghostty xcframework — pin exactly and review the checksum diff
@@ -33,18 +27,10 @@ targets:
           - Localizable.xcstrings
       - path: Resources/Localizable.xcstrings
     dependencies:
-      - package: GooseKit
-      - package: GooseTailcat
-        product: GooseTailcat
       - package: GhosttyTerminal
         product: GhosttyTerminal
-    postBuildScripts:
-      - name: Package usage helper
-        basedOnDependencyAnalysis: false
-        script: |
-          for arch in $ARCHS; do
-            bash "$SRCROOT/scripts/package-usage-helper.sh" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/UsageHelper" "$arch"
-          done
+      - package: GhosttyTerminal
+        product: GhosttyTheme
     info:
       path: Sources/GooseAgent/Info.plist
       properties:
@@ -78,63 +64,9 @@ targets:
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
       configs:
         Debug:
-          # real identity so UserNotifications & friends work in dev builds
           CODE_SIGN_IDENTITY: "Developer ID Application: MOE AI LLC (NCFNX3LJ83)"
           ONLY_ACTIVE_ARCH: YES
         Release:
           CODE_SIGN_IDENTITY: "Developer ID Application: MOE AI LLC (NCFNX3LJ83)"
           ONLY_ACTIVE_ARCH: NO
           ARCHS: "arm64 x86_64"
-
-  GooseAgentMobile:
-    type: application
-    platform: iOS
-    deploymentTarget: "18.0"
-    sources:
-      - Sources/GooseAgentMobile
-      - path: Resources/Localizable.xcstrings
-    dependencies:
-      - package: GooseKit
-      - package: GooseSSH
-      - package: GooseTailcat
-        product: GooseTailcat
-      - package: GhosttyTerminal
-        product: GhosttyTerminal
-    info:
-      path: Sources/GooseAgentMobile/Info.plist
-      properties:
-        CFBundleName: "Goose Agent"
-        CFBundleDisplayName: "Goose Agent"
-        CFBundleShortVersionString: "$(MARKETING_VERSION)"
-        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        LSApplicationCategoryType: public.app-category.developer-tools
-        UILaunchScreen: {}
-        UISupportedInterfaceOrientations:
-          - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
-        UISupportedInterfaceOrientations~ipad:
-          - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationPortraitUpsideDown
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
-        NSLocalNetworkUsageDescription: >-
-          Goose Agent connects to your Macs over SSH on your local network to reach
-          the Goose Agent session running on them.
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.eachann.gooseagent.ios
-        PRODUCT_NAME: "Goose Agent"
-        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
-        TARGETED_DEVICE_FAMILY: "1,2"
-        SWIFT_VERSION: "5.10"
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
-        CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: NCFNX3LJ83
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        # The bundled libssh2/OpenSSL xcframeworks ship arm64 device + arm64
-        # simulator slices only (see Packages/GooseSSH/Artifacts/PROVENANCE.md).
-        ARCHS: arm64
-        ONLY_ACTIVE_ARCH: NO
-        EXCLUDED_ARCHS__sdk_iphonesimulator__: x86_64

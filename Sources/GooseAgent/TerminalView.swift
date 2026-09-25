@@ -1,26 +1,19 @@
 import AppKit
+import CoreText
 import GhosttyTerminal
-import GooseKit
+import GhosttyTheme
 import SwiftUI
-import UniformTypeIdentifiers
 
 enum TerminalDefaults {
-    static let fontNameKey = "terminal.fontName"   // "" = system monospaced
-    static let fontSizeKey = "terminal.fontSize"
-    static let thinStrokesKey = "terminal.thinStrokes"
-    static let fontWeightKey = "terminal.fontWeight"
-    static let lineSpacingKey = "terminal.lineSpacing"
-    static let defaultFontSize: Double = 12.5
-    /// `NSFont.Weight` rawValue; 0 is `.regular`. Only the system monospaced font
-    /// has selectable weights — named families ship fixed faces and ignore this.
+    static let defaultFontSize: Double = 13
     static let defaultFontWeight: Double = 0
-    static let defaultLineSpacing: Double = 1.0
+    static let defaultLineSpacing: Double = 1
     static let darkBackgroundHex = "#101012"
     static let darkForegroundHex = "#D6D6D6"
     static let lightBackgroundHex = "#FFFFFF"
     static let lightForegroundHex = "#3A3A3A"
+    static let symbolFallbackFamily = "Symbols Nerd Font Mono"
 
-    /// The 16-color ANSI palette used by Apple's Terminal.app.
     static let darkPalette: [(red: Int, green: Int, blue: Int)] = [
         (0, 0, 0), (194, 54, 33), (37, 188, 36), (173, 173, 39),
         (73, 46, 225), (211, 56, 211), (51, 187, 200), (203, 204, 205),
@@ -28,10 +21,6 @@ enum TerminalDefaults {
         (88, 51, 255), (249, 53, 248), (20, 240, 240), (233, 235, 235),
     ]
 
-    /// Per entry, keep whichever of the original and luminance-flipped color reads
-    /// better on the light background: the flip rescues colors designed for dark
-    /// backgrounds (white, the bright variants), but ANSI red/blue/magenta/black
-    /// are already dark and would wash out to pastels.
     static let lightPalette: [(red: Int, green: Int, blue: Int)] = darkPalette.map { color in
         let flipped = LightTerminalANSIAdapter.lightRGB(
             red: color.red,
@@ -47,57 +36,17 @@ enum TerminalDefaults {
         return originalContrast >= flippedContrast ? color : flipped
     }
 
-    /// Bundled Nerd Font symbols (MIT, github.com/ryanoasis/nerd-fonts), used
-    /// as a fallback for the icon glyphs agent TUIs draw.
-    static let symbolFallbackFamily = "Symbols Nerd Font Mono"
-
-    /// Registers the bundled symbols font for this process. Call once at launch.
     static func registerBundledFonts() {
         guard let url = Bundle.main.url(forResource: "SymbolsNerdFontMono-Regular", withExtension: "ttf") else { return }
         CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
     }
-
-    static func font(name: String, size: Double, weight: Double = defaultFontWeight) -> NSFont {
-        let base: NSFont
-        if !name.isEmpty, let custom = NSFont(name: name, size: size) {
-            base = custom
-        } else {
-            base = NSFont.monospacedSystemFont(ofSize: size, weight: NSFont.Weight(weight))
-        }
-        return withSymbolFallback(base, size: size)
-    }
-
-    /// Nerd Font icons live in Unicode's Private Use Area, which CoreText's
-    /// default cascade never resolves — agent TUIs like pi's powerfooter came
-    /// out as tofu boxes unless the user's chosen terminal font happened to be
-    /// a patched Nerd Font. A cascade entry pointing at the bundled symbols
-    /// font resolves PUA glyphs for every terminal font; the system cascade
-    /// still runs after it, so emoji and CJK fallback stay untouched.
-    private static func withSymbolFallback(_ base: NSFont, size: Double) -> NSFont {
-        let fallback = NSFontDescriptor(fontAttributes: [.family: symbolFallbackFamily])
-        let descriptor = base.fontDescriptor.addingAttributes([.cascadeList: [fallback]])
-        return NSFont(descriptor: descriptor, size: size) ?? base
-    }
-
-    /// Fixed-pitch font families available on this Mac, for the settings picker.
-    static func monospacedFamilies() -> [String] {
-        let manager = NSFontManager.shared
-        return manager.availableFontFamilies.filter { family in
-            guard let font = NSFont(name: family, size: 12) else { return false }
-            return font.isFixedPitch
-        }.sorted()
-    }
 }
 
-/// The process-wide Ghostty app object: every terminal surface shares it, so
-/// appearance settings land once here instead of per view. Ghostty owns the
-/// light/dark switch itself — the theme below carries both palettes and the
-/// view forwards the effective appearance.
 @MainActor
 enum GhosttyRuntime {
     static let controller = TerminalController(
         configSource: appearanceConfigSource,
-        theme: makeTheme()
+        theme: builtinTheme()
     )
 
     static var appearanceConfigSource: TerminalController.ConfigSource {
@@ -105,85 +54,40 @@ enum GhosttyRuntime {
               let dark = Bundle.main.url(forResource: "TerminalDark", withExtension: "ghostty") else {
             preconditionFailure("Missing bundled terminal appearance markers")
         }
-        // ponytail: libghostty 1.6 only updates CSI 996/2031's scheme when the
-        // config has distinct conditional themes. Remove once upstream fixes
-        // reporting for unconditional configs; actual colors stay in makeTheme.
         return .generated(TerminalConfiguration.default.rendered
             + "\ntheme = light:\(light.path),dark:\(dark.path)\n")
     }
 
-    /// Font settings are hot-applied; surfaces pick the change up without a
-    /// rebuild, so this runs from every view update — the controller dedupes.
-    static func applyFontSettings(fontName: String, fontSize: Double, fontWeight: Double, lineSpacing: Double) {
-        controller.setTerminalConfiguration(
-            fontConfiguration(fontName: fontName, fontSize: fontSize, fontWeight: fontWeight, lineSpacing: lineSpacing)
-        )
+    static func applyFontSettings() {
+        controller.setTerminalConfiguration(fontConfiguration())
     }
 
-    private static func fontConfiguration(
-        fontName: String,
-        fontSize: Double,
-        fontWeight: Double,
-        lineSpacing: Double
-    ) -> TerminalConfiguration {
+    /// Each family supplies a light and a night palette. Ghostty switches with the appearance.
+    static func apply(family: TerminalThemeFamily) {
+        let builtin = builtinTheme()
+        let light = family.lightConfiguration() ?? builtin.light
+        let dark = family.darkConfiguration() ?? builtin.dark
+        controller.setTheme(TerminalTheme(light: light, dark: dark))
+    }
+
+    private static func fontConfiguration() -> TerminalConfiguration {
         TerminalConfiguration { builder in
-            builder.withFontSize(Float(fontSize))
+            builder.withFontSize(Float(TerminalDefaults.defaultFontSize))
             builder.withCursorStyle(.block)
             builder.withCursorStyleBlink(true)
-            // The controller's base config is TerminalConfiguration.default,
-            // which enables font-thicken — counter it; fake bold at terminal
-            // sizes is what the "thin strokes" default exists to avoid.
             builder.withFontThicken(false)
-            // Option-as-Meta keeps readline chords (⌥⌫ → ESC DEL etc.) working.
+            builder.withFontFamily("SF Mono")
             builder.withCustom("macos-option-as-alt", "true")
-            // GooseAgent owns copy only while Ghostty has a local selection. With
-            // no local selection, Command-C must reach a mouse-aware pane app.
             builder.withCustom("keybind", "super+c=unbind")
-            // Agent TUI copy actions use OSC 52. Keep writes enabled explicitly
-            // rather than depending on Ghostty's default clipboard policy.
             builder.withCustom("clipboard-write", "allow")
-            // Shift is GooseAgent's unconditional local-selection escape hatch.
-            // Plain TUI gestures have Shift removed before reaching Ghostty,
-            // so disabling application shift capture cannot affect them.
             builder.withCustom("mouse-shift-capture", "never")
-            if !fontName.isEmpty {
-                builder.withFontFamily(fontName)
-            } else {
-                builder.withFontFamily("SF Mono")
-                if let face = fontFaceName(forWeight: fontWeight) {
-                    // Weight selection only exists for the system font; named
-                    // families ship fixed faces and ignore the picker.
-                    builder.withCustom("font-style", face)
-                }
-            }
-            // Nerd Font icons live in Unicode's Private Use Area, which
-            // CoreText's default cascade never resolves. A second font-family
-            // entry would be Ghostty's fallback list, but Ghostty then derives
-            // cell metrics from the symbols font (square advance == line height),
-            // wrecking the grid — so the PUA ranges are codepoint-mapped instead.
             builder.withCustom("font-codepoint-map", "U+E000-U+F8FF=\(TerminalDefaults.symbolFallbackFamily)")
             builder.withCustom("font-codepoint-map", "U+F0000-U+FFFFD=\(TerminalDefaults.symbolFallbackFamily)")
             builder.withCustom("font-codepoint-map", "U+100000-U+10FFFD=\(TerminalDefaults.symbolFallbackFamily)")
-            if lineSpacing != TerminalDefaults.defaultLineSpacing {
-                let percent = Int(((lineSpacing - 1.0) * 100).rounded())
-                builder.withCustom("adjust-cell-height", "\(percent)%")
-            }
         }
     }
 
-    /// `NSFont.Weight` rawValue → SF Mono face name (Ghostty's `font-style`).
-    private static func fontFaceName(forWeight weight: Double) -> String? {
-        switch weight {
-        case ..<(-0.3): return "Light"
-        case ..<0.15: return nil
-        case ..<0.27: return "Medium"
-        case ..<0.35: return "Semibold"
-        case ..<0.5: return "Bold"
-        default: return "Heavy"
-        }
-    }
-
-    private static func makeTheme() -> TerminalTheme {
+    private static func builtinTheme() -> TerminalTheme {
         let dark = TerminalConfiguration { builder in
             builder.withBackground(TerminalDefaults.darkBackgroundHex)
             builder.withForeground(TerminalDefaults.darkForegroundHex)
@@ -210,83 +114,258 @@ enum GhosttyRuntime {
     }
 }
 
-/// The child's complete environment: TERM/COLORTERM/LANG plus the few user
-/// variables terminal programs expect, with the command's own variables
-/// winning except for the renderer identity and startup appearance hint. The
-/// child deliberately does NOT inherit the app's sparse launch environment;
-/// GooseService supplies PATH & friends itself.
-///
-/// `TERM_PROGRAM=ghostty` identifies the actual renderer; the portable
-/// `TERM=xterm-256color` also works on SSH hosts without Ghostty's terminfo.
-/// Cmd+D local splits spawn this PTY instead of `gooseagent attach`; the identity keeps
-/// agent TUIs' Kitty graphics and OSC 8 hyperlink paths enabled by their allowlists.
-private func terminalEnvironment(
-    _ commandEnvironment: [String: String],
-    dark: Bool
-) -> [String] {
-    var environment = [
-        "TERM=xterm-256color",
-        "COLORTERM=truecolor",
-        "LANG=en_US.UTF-8",
-        "TERM_PROGRAM=ghostty",
-    ]
-    let launch = ProcessInfo.processInfo.environment
-    for key in ["LOGNAME", "USER", "DISPLAY", "LC_TYPE", "HOME"] {
-        if let value = launch[key] {
-            environment.append("\(key)=\(value)")
+extension GhosttyThemeDefinition {
+    func terminalConfiguration() -> TerminalConfiguration {
+        TerminalConfiguration { builder in
+            builder.withBackground(Self.ghosttyHex(background))
+            builder.withForeground(Self.ghosttyHex(foreground))
+            if let cursorColor { builder.withCursorColor(Self.ghosttyHex(cursorColor)) }
+            if let cursorText { builder.withCursorText(Self.ghosttyHex(cursorText)) }
+            if let selectionBackground { builder.withSelectionBackground(Self.ghosttyHex(selectionBackground)) }
+            if let selectionForeground { builder.withSelectionForeground(Self.ghosttyHex(selectionForeground)) }
+            for (index, color) in palette.sorted(by: { $0.key < $1.key }) {
+                builder.withPalette(index, color: Self.ghosttyHex(color))
+            }
         }
     }
-    for (key, value) in commandEnvironment {
-        environment.removeAll { $0.hasPrefix("\(key)=") }
-        environment.append("\(key)=\(value)")
+
+    static func ghosttyHex(_ raw: String) -> String {
+        raw.hasPrefix("#") ? raw : "#\(raw)"
     }
-    // Keep the terminal identity authoritative even when a cached login shell
-    // contains values for another emulator. COLORFGBG is a startup hint only;
-    // the child environment cannot be changed after exec, so later appearance
-    // changes use Ghostty's native scheme API.
-    for entry in [
-        "TERM=xterm-256color",
-        "COLORTERM=truecolor",
-        "TERM_PROGRAM=ghostty",
-        "COLORFGBG=\(dark ? "15;0" : "0;15")",
-    ] {
-        let key = entry.prefix(while: { $0 != "=" })
-        environment.removeAll { $0.hasPrefix("\(key)=") }
-        environment.append(entry)
+
+    /// Light backgrounds belong in the white-theme list. Night themes stay in the other list.
+    var isLightBackground: Bool {
+        Self.relativeLuminance(of: background) >= 0.45
     }
-    // The package owns Ghostty's shell integration resources. Pass the path to
-    // children only when the bundle really contains it; never invent a path.
-    environment.removeAll { $0.hasPrefix("GHOSTTY_RESOURCES_DIR=") }
-    if let path = GhosttyRuntimeResources.directoryURL?.path,
-       FileManager.default.fileExists(atPath: path) {
-        environment.append("GHOSTTY_RESOURCES_DIR=\(path)")
+
+    private static func relativeLuminance(of raw: String) -> Double {
+        var hex = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if hex.hasPrefix("#") { hex.removeFirst() }
+        guard hex.count == 6, let value = Int(hex, radix: 16) else { return 0 }
+        func channel(_ component: Int) -> Double {
+            let s = Double(component) / 255
+            return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
+        }
+        let red = channel((value >> 16) & 0xFF)
+        let green = channel((value >> 8) & 0xFF)
+        let blue = channel(value & 0xFF)
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
     }
+}
+
+enum TerminalAppearance: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    static let storageKey = "appearance.colorScheme"
+    static let lightThemeKey = "appearance.terminalTheme.light"
+    static let darkThemeKey = "appearance.terminalTheme.dark"
+    /// Previous single-theme choice, copied into the matching light or dark slot once.
+    static let legacyThemeKey = "appearance.terminalTheme"
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .system: "Follow System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    var preferredColorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    func isDark(system: ColorScheme) -> Bool {
+        switch self {
+        case .system: system == .dark
+        case .light: false
+        case .dark: true
+        }
+    }
+
+    static func migrateLegacyThemeIfNeeded() {
+        let defaults = UserDefaults.standard
+        let legacy = defaults.string(forKey: legacyThemeKey) ?? ""
+        guard !legacy.isEmpty, let theme = GhosttyThemeCatalog.theme(named: legacy) else { return }
+        let key = theme.isLightBackground ? lightThemeKey : darkThemeKey
+        if (defaults.string(forKey: key) ?? "").isEmpty {
+            defaults.set(legacy, forKey: key)
+        }
+        defaults.removeObject(forKey: legacyThemeKey)
+    }
+}
+
+/// Codex Absolutely colors. `surface` is the window, `ink` is the text, `accent` is the highlight.
+struct AbsolutelyTheme {
+    var surface: String
+    var ink: String
+    var accent: String
+    var added: String
+    var removed: String
+
+    static let light = AbsolutelyTheme(
+        surface: "#f9f9f7",
+        ink: "#2d2d2b",
+        accent: "#cc7d5e",
+        added: "#00c853",
+        removed: "#ff5f38"
+    )
+
+    static let dark = AbsolutelyTheme(
+        surface: "#2d2d2b",
+        ink: "#f9f9f7",
+        accent: "#cc7d5e",
+        added: "#00c853",
+        removed: "#ff5f38"
+    )
+
+    func terminalConfiguration() -> TerminalConfiguration {
+        let warm = "#8a7064"
+        let brightWarm = "#d49278"
+        return TerminalConfiguration { builder in
+            builder.withBackground(surface)
+            builder.withForeground(ink)
+            builder.withCursorColor(accent)
+            builder.withCursorText("#2d2d2b")
+            builder.withSelectionBackground(accent)
+            builder.withSelectionForeground(surface)
+            let colors = [
+                ink, removed, added, accent, warm, removed, added, ink,
+                warm, removed, added, brightWarm, warm, removed, added, surface,
+            ]
+            for (index, color) in colors.enumerated() {
+                builder.withPalette(index, color: color)
+            }
+        }
+    }
+
+    func chrome() -> WindowChrome {
+        WindowChrome(theme: GhosttyThemeDefinition(
+            name: "Absolutely",
+            background: surface,
+            foreground: ink,
+            cursorColor: accent,
+            palette: [1: removed, 2: added, 4: accent]
+        ))
+    }
+}
+
+/// A small set of light/night pairs. Appearance mode chooses which half is on screen.
+enum TerminalThemeFamily: String, CaseIterable, Identifiable {
+    case absolutely
+    case github
+    case ayu
+    case oneHalf
+
+    static let storageKey = "appearance.themeFamily"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .absolutely: "Absolutely"
+        case .github: "GitHub"
+        case .ayu: "Ayu"
+        case .oneHalf: "One Half"
+        }
+    }
+
+    var lightName: String? {
+        switch self {
+        case .absolutely: nil
+        case .github: "GitHub Light Default"
+        case .ayu: "Ayu Light"
+        case .oneHalf: "One Half Light"
+        }
+    }
+
+    var darkName: String? {
+        switch self {
+        case .absolutely: nil
+        case .github: "GitHub Dark Default"
+        case .ayu: "Ayu"
+        case .oneHalf: "One Half Dark"
+        }
+    }
+
+    var lightPaint: AbsolutelyTheme? {
+        self == .absolutely ? .light : nil
+    }
+
+    var darkPaint: AbsolutelyTheme? {
+        self == .absolutely ? .dark : nil
+    }
+
+    func lightConfiguration() -> TerminalConfiguration? {
+        if let lightPaint { return lightPaint.terminalConfiguration() }
+        return lightName.flatMap { GhosttyThemeCatalog.theme(named: $0)?.terminalConfiguration() }
+    }
+
+    func darkConfiguration() -> TerminalConfiguration? {
+        if let darkPaint { return darkPaint.terminalConfiguration() }
+        return darkName.flatMap { GhosttyThemeCatalog.theme(named: $0)?.terminalConfiguration() }
+    }
+
+    static func from(raw: String) -> TerminalThemeFamily {
+        if raw == "atomOne" || raw == "absolutely" { return .absolutely }
+        return TerminalThemeFamily(rawValue: raw) ?? .github
+    }
+
+    static func current(defaults: UserDefaults = .standard) -> TerminalThemeFamily {
+        if let raw = defaults.string(forKey: storageKey) {
+            return from(raw: raw)
+        }
+        let hint = [
+            defaults.string(forKey: TerminalAppearance.lightThemeKey),
+            defaults.string(forKey: TerminalAppearance.darkThemeKey),
+            defaults.string(forKey: TerminalAppearance.legacyThemeKey),
+        ]
+        .compactMap { $0 }
+        .joined(separator: " ")
+        if hint.contains("Ayu") { return .ayu }
+        if hint.contains("One Half") { return .oneHalf }
+        if hint.contains("Atom One") || hint.localizedCaseInsensitiveContains("absolutely") { return .absolutely }
+        return .github
+    }
+
+    static func migrateIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: storageKey) == nil else { return }
+        defaults.set(current(defaults: defaults).rawValue, forKey: storageKey)
+    }
+}
+
+/// `ssh` copies `TERM` from its own environment onto the remote pty.
+/// Keep that value at `xterm-256color` even if a caller passed something else.
+private func sshChildEnvironment(_ commandEnvironment: [String]) -> [String] {
+    var environment = commandEnvironment.filter {
+        let key = $0.prefix(while: { $0 != "=" })
+        return key != "TERM" && key != "COLORTERM" && key != "COLORFGBG"
+            && !key.hasPrefix("TERM_PROGRAM") && key != "GHOSTTY_RESOURCES_DIR"
+    }
+    environment.append("TERM=xterm-256color")
     return environment
 }
 
-/// Owns the local PTY child and the host-managed Ghostty session that renders
-/// it: process output flows through the light-theme ANSI adapter into the
-/// surface, and bytes the surface produces (keyboard input, DA/OSC replies)
-/// are written to the PTY verbatim.
 final class TerminalProcessHost {
     let session: InMemoryTerminalSession
     let process = TerminalProcess()
-    /// Guards `lightAdapter`: written on the main thread (theme switch), read on
-    /// the process's IO queue.
     private let adapterLock = NSLock()
     private var lightAdapter: LightTerminalANSIAdapter?
-    /// Exit and EOF are delivered independently; keep the status until Ghostty
-    /// has received every PTY output chunk before reporting process completion.
     private var processEnded = false
     private var outputDrained = false
     private var ghosttyNotified = false
     private var processExitCode: Int32?
     private var startedAt: TimeInterval = 0
 
-    /// Called on the main queue with the child's real exit status.
     var onExit: ((Int32?) -> Void)?
-    /// Main-queue signal: output has been delivered to the in-memory renderer.
-    private(set) var hasReceivedOutput = false
 
     init() {
         let process = self.process
@@ -300,8 +379,6 @@ final class TerminalProcessHost {
                     heightPixels: viewport.heightPixels
                 )
             },
-            // Only grid changes reach the PTY; pixel-only updates would just
-            // re-report the same winsize.
             suppressesPixelOnlyResizes: true
         )
         process.onOutput = { [weak self] data in self?.receiveOutput(data) }
@@ -320,12 +397,12 @@ final class TerminalProcessHost {
         }
     }
 
-    func start(command: TerminalCommand, dark: Bool) {
+    func start(executable: String, args: [String], environment: [String]) {
         startedAt = ProcessInfo.processInfo.systemUptime
         process.start(
-            executable: command.executable,
-            args: command.args,
-            environment: terminalEnvironment(command.environment, dark: dark)
+            executable: executable,
+            args: args,
+            environment: sshChildEnvironment(environment)
         )
     }
 
@@ -337,8 +414,6 @@ final class TerminalProcessHost {
     private func finishGhosttyIfReady() {
         guard processEnded, outputDrained, !ghosttyNotified else { return }
         ghosttyNotified = true
-        // The app keeps nil for a signaled child; Ghostty's host-managed
-        // completion API requires a numeric code, so report a failure.
         let elapsed = ProcessInfo.processInfo.systemUptime - startedAt
         session.finish(
             exitCode: UInt32(processExitCode ?? 1),
@@ -346,9 +421,6 @@ final class TerminalProcessHost {
         )
     }
 
-    /// The light theme rewrites program-emitted colors for contrast on white.
-    /// Switching themes installs a fresh adapter so a partial SGR retained at a
-    /// chunk boundary cannot prepend stale bytes to the other theme's output.
     func setLightColorsEnabled(_ enabled: Bool) {
         adapterLock.lock()
         lightAdapter = enabled ? LightTerminalANSIAdapter() : nil
@@ -366,92 +438,52 @@ final class TerminalProcessHost {
             adapterLock.unlock()
             session.receive(data)
         }
-        DispatchQueue.main.async { [weak self] in
-            self?.hasReceivedOutput = true
+    }
+}
+
+@MainActor
+enum SSHTerminalRegistry {
+    private struct WeakView { weak var view: SSHTerminalNSView? }
+    private static var views: [String: WeakView] = [:]
+
+    static func register(_ view: SSHTerminalNSView, for id: String) {
+        views[id] = WeakView(view: view)
+    }
+
+    static func unregister(_ id: String) {
+        views[id] = nil
+    }
+
+    static func focus(_ id: String) {
+        DispatchQueue.main.async {
+            guard let view = views[id]?.view, let window = view.window else { return }
+            window.makeFirstResponder(view)
         }
     }
 }
 
-private struct ClipboardFile: Sendable {
-    let localURL: URL
-    let removeAfterUpload: Bool
-}
-
-private struct PendingAttachmentPaste: Sendable {
-    let files: [ClipboardFile]
-    let pathSyntax: AgentAttachmentPathSyntax
-}
-
-private enum ClipboardFileError: LocalizedError {
-    case unsupportedItem
-    case imageEncodingFailed
-    case transferUnavailable
-
-    var errorDescription: String? {
-        switch self {
-        case .unsupportedItem: return String(localized: "Remote paste supports regular files, not folders or special files.")
-        case .imageEncodingFailed: return String(localized: "The clipboard image could not be encoded as PNG.")
-        case .transferUnavailable: return String(localized: "The remote file transfer service is unavailable.")
-        }
-    }
-}
-
-/// The terminal view: Ghostty's `AppTerminalView` plus gooseagent's local behavior.
-///
-/// Keyboard: Shift+Return sends ESC CR so agent TUIs insert a line break instead
-/// of submitting (legacy encoding sends a bare `\r` for both, so the modifier
-/// never reaches the TUI), and the ⌘/⌥ text-editing chords send readline bytes —
-/// Ghostty / VS Code / iTerm Natural Text Editing. Both go through the session's
-/// raw input path, bypassing key translation, and stay local while an IME
-/// composition is open.
-///
-/// Mouse: one side owns each complete gesture. Plain gestures follow Ghostty's
-/// negotiated mouse capture and reach the TUI; Shift gestures stay local for
-/// terminal selection. Turning Mouse Reporting off also keeps the complete
-/// gesture local.
-///
-/// IME: Ghostty implements `NSTextInputClient` itself and renders the marked
-/// text in the grid; the only hook needed here is keeping ⌘/⌃ chords off the
-/// PTY while `hasMarkedText()`.
-final class LineBreakTerminalView: AppTerminalView {
+final class SSHTerminalNSView: AppTerminalView {
     var onFocus: (() -> Void)?
-    var inputSuppressed = false
+    var appliedDarkAppearance: Int?
+    weak var attachedSurface: TerminalSurface?
+    weak var processHost: TerminalProcessHost?
+    private var gestureIsLocal = false
+    private var locallyConsumedKeyCode: UInt16?
+
     override func becomeFirstResponder() -> Bool {
-        guard !inputSuppressed else { return false }
         let accepted = super.becomeFirstResponder()
         if accepted { onFocus?() }
         return accepted
     }
 
-    /// When false, mouse button events always stay local even if the TUI
-    /// requested mouse reporting (Shift bypasses it either way).
-    var mouseReportingEnabled = true
-    var appliedDarkAppearance: Bool?
-    /// The live surface, captured by the coordinator's lifecycle delegate —
-    /// `AppTerminalView.surface` is internal, so selection queries come in here.
-    weak var attachedSurface: TerminalSurface?
-    weak var processHost: TerminalProcessHost?
-
-    /// Fixed at mouse-down so press, motion and release cannot split between
-    /// the TUI and Ghostty's local selection.
-    private var gestureIsLocal = false
-    /// A locally handled key must consume its matching release too; kitty
-    /// report-events applications otherwise receive a release-only key.
-    private var locallyConsumedKeyCode: UInt16?
-
-    // MARK: Keyboard
-
     override func keyDown(with event: NSEvent) {
         locallyConsumedKeyCode = nil
         if hasMarkedText() {
-            // Command/Control chords must stay with the IME until composition
-            // ends; other keys still reach Ghostty so preedit can update.
             let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if modifiers.contains(.command) || modifiers.contains(.control) { return }
             super.keyDown(with: event)
             return
         }
-        // Pure Option shortcuts bypass performKeyEquivalent for first-responder views.
         let modifiers = event.modifierFlags
             .intersection(.deviceIndependentFlagsMask)
             .intersection([.command, .control, .option, .shift])
@@ -475,42 +507,32 @@ final class LineBreakTerminalView: AppTerminalView {
         super.keyUp(with: event)
     }
 
-    /// Mac Delete is Backspace (keyCode 51). ⌥⌘ arrows move split focus and
-    /// are left alone; ⌘A/⌘E/⌘W and the other app chords never match here.
     private static func ptyBytes(forMacEditingKey event: NSEvent) -> String? {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let commandOnly = modifiers.contains(.command)
             && modifiers.isDisjoint(with: [.option, .control])
         let optionOnly = modifiers.contains(.option)
             && modifiers.isDisjoint(with: [.command, .control])
-
         if commandOnly {
             switch event.keyCode {
-            case 51:  return "\u{15}"  // ⌘⌫ → ^U
-            case 123: return "\u{01}"  // ⌘← → ^A
-            case 124: return "\u{05}"  // ⌘→ → ^E
-            case 117: return "\u{0b}"  // ⌘⌦ → ^K
+            case 51: return "\u{15}"
+            case 123: return "\u{01}"
+            case 124: return "\u{05}"
+            case 117: return "\u{0b}"
             default: break
             }
         }
         if optionOnly {
             switch event.keyCode {
-            case 51:  return "\u{1b}\u{7f}"  // ⌥⌫ → ESC DEL
-            case 123: return "\u{1b}b"       // ⌥← → ESC b
-            case 124: return "\u{1b}f"       // ⌥→ → ESC f
-            case 117: return "\u{1b}d"       // ⌥⌦ → ESC d
+            case 51: return "\u{1b}\u{7f}"
+            case 123: return "\u{1b}b"
+            case 124: return "\u{1b}f"
+            case 117: return "\u{1b}d"
             default: break
             }
         }
-        if event.keyCode == 36 || event.keyCode == 76,  // Return, keypad Enter
-           modifiers.contains(.shift),
-           modifiers.isDisjoint(with: [.command, .control, .option]) {
-            return "\u{1b}\r"
-        }
         return nil
     }
-
-    // MARK: Mouse
 
     private func isSelectionGesture(_ event: NSEvent) -> Bool {
         event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.shift)
@@ -518,15 +540,11 @@ final class LineBreakTerminalView: AppTerminalView {
 
     private func routedMouseEvent(_ event: NSEvent) -> NSEvent {
         guard isMouseCaptured else { return event }
-        return gestureIsLocal
-            ? event.addingShiftModifier()
-            : event.removingShiftModifier()
+        return gestureIsLocal ? event.addingShiftModifier() : event.removingShiftModifier()
     }
 
     override func mouseDown(with event: NSEvent) {
-        gestureIsLocal = !mouseReportingEnabled
-            || isSelectionGesture(event)
-            || !isMouseCaptured
+        gestureIsLocal = isSelectionGesture(event) || !isMouseCaptured
         super.mouseDown(with: routedMouseEvent(event))
     }
 
@@ -539,11 +557,6 @@ final class LineBreakTerminalView: AppTerminalView {
         super.mouseUp(with: routedMouseEvent(event))
     }
 
-    // MARK: Context menu
-
-    // The right mouse button always opens the context menu and never reaches
-    // the TUI. Link items key off the selected text; while mouse reporting is
-    // active, Shift-double-click selects a whole URL locally.
     override func rightMouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
     }
@@ -601,12 +614,9 @@ final class LineBreakTerminalView: AppTerminalView {
 
     @discardableResult
     private func copyLocalSelection() -> Bool {
-        guard let selection = attachedSurface?.readSelection(), !selection.isEmpty else {
-            return false
-        }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        return pasteboard.setString(selection, forType: .string)
+        guard let selection = attachedSurface?.readSelection(), !selection.isEmpty else { return false }
+        NSPasteboard.general.clearContents()
+        return NSPasteboard.general.setString(selection, forType: .string)
     }
 
     static func firstURL(in text: String) -> URL? {
@@ -619,27 +629,8 @@ final class LineBreakTerminalView: AppTerminalView {
         return url
     }
 
-    // MARK: Paste and attachments
-
-    var attachmentCapabilities: AgentAttachmentCapabilities?
-    var attachmentDeviceKind: Device.Kind = .local
-    var attachmentService: GooseService?
-    var onAttachmentError: ((String) -> Void)?
-    var onAttachmentUploadingChanged: ((Bool) -> Void)?
-    private var pendingUploads: [PendingAttachmentPaste] = []
-    private var uploadTask: Task<Void, Never>?
-
-    deinit {
-        uploadTask?.cancel()
-    }
-
-    // ⌘C/⌘V are intercepted here because the app has no Edit menu. Copy stays
-    // local only when Ghostty owns a selection; otherwise the physical key is
-    // sent to the TUI now that its global copy binding is unbound above.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.type == .keyDown,
-              window?.firstResponder === self
-        else {
+        guard event.type == .keyDown, window?.firstResponder === self else {
             return super.performKeyEquivalent(with: event)
         }
         let modifiers = event.modifierFlags
@@ -655,11 +646,9 @@ final class LineBreakTerminalView: AppTerminalView {
             return true
         }
         if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "v" {
-            handlePaste()
+            pastePlainText()
             return true
         }
-        // Ghostty consumes its default bindings before AppKit reaches the menu.
-        // Give GooseAgent's commands priority over those standalone-terminal actions.
         if !modifiers.isDisjoint(with: [.command, .control, .option, .shift]),
            NSApp.mainMenu?.performKeyEquivalent(with: event) == true {
             locallyConsumedKeyCode = event.keyCode
@@ -668,221 +657,13 @@ final class LineBreakTerminalView: AppTerminalView {
         return super.performKeyEquivalent(with: event)
     }
 
-    // `AppTerminalView`'s own `paste(_:)` is internal and cannot be overridden,
-    // so the attachment flow is reached through ⌘V (performKeyEquivalent) and
-    // this context-menu action. The app has no Edit menu, so those are the only
-    // two paste entry points.
     @objc private func performPaste(_: Any?) {
-        handlePaste()
+        pastePlainText()
     }
 
-    private func handlePaste() {
-        let pasteboard = NSPasteboard.general
-        if let fileURLs = Self.fileURLs(in: pasteboard), !fileURLs.isEmpty {
-            let action = AgentAttachmentDeliveryPolicy.action(
-                capabilities: attachmentCapabilities,
-                deviceKind: attachmentDeviceKind,
-                source: .files(allImages: fileURLs.allSatisfy(Self.isImageFile))
-            )
-            handleFilePaste(action: action, fileURLs: fileURLs)
-            return
-        }
-
-        guard Self.containsImageData(in: pasteboard) else {
-            pastePasteboardText()
-            return
-        }
-
-        let action = AgentAttachmentDeliveryPolicy.action(
-            capabilities: attachmentCapabilities,
-            deviceKind: attachmentDeviceKind,
-            source: .imageData
-        )
-        switch action {
-        case .unsupported:
-            pastePasteboardText()
-        case .nativeClipboard:
-            forwardNativeClipboardPaste()
-        case .devicePaths(let pathSyntax):
-            do {
-                guard let files = try Self.clipboardFiles(in: pasteboard) else {
-                    pastePasteboardText()
-                    return
-                }
-                enqueuePathPaste(files, pathSyntax: pathSyntax)
-            } catch {
-                reportAttachmentError(error)
-            }
-        }
-    }
-
-    private func pastePasteboardText() {
-        guard let text = NSPasteboard.general.string(forType: .string) else { return }
+    private func pastePlainText() {
+        guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else { return }
         paste(text: text)
-    }
-
-    private func handleFilePaste(
-        action: AgentAttachmentDeliveryAction,
-        fileURLs: [URL]
-    ) {
-        switch action {
-        case .unsupported:
-            pastePasteboardText()
-        case .nativeClipboard:
-            forwardNativeClipboardPaste()
-        case .devicePaths(let pathSyntax):
-            if case .local = attachmentDeviceKind {
-                sendPastedText(fileURLs.map { pathSyntax.format($0.path) }.joined(separator: " "))
-                return
-            }
-            do {
-                let files = try Self.clipboardFiles(from: fileURLs)
-                enqueuePathPaste(files, pathSyntax: pathSyntax)
-            } catch {
-                reportAttachmentError(error)
-            }
-        }
-    }
-
-    /// Ask the remote program to paste from its own clipboard with a literal
-    /// ^V byte — the "native clipboard" delivery path.
-    private func forwardNativeClipboardPaste() {
-        processHost?.session.sendInput(Data([0x16]))
-    }
-
-    private func enqueuePathPaste(
-        _ files: [ClipboardFile],
-        pathSyntax: AgentAttachmentPathSyntax
-    ) {
-        guard let attachmentService else {
-            discardTemporaries(in: files)
-            reportAttachmentError(ClipboardFileError.transferUnavailable)
-            return
-        }
-        pendingUploads.append(PendingAttachmentPaste(files: files, pathSyntax: pathSyntax))
-        guard uploadTask == nil else { return }
-        onAttachmentUploadingChanged?(true)
-        uploadTask = Task { [weak self] in
-            await self?.drainPathPastes(using: attachmentService)
-        }
-    }
-
-    /// Materializes one paste at a time so paths reach the agent in paste order.
-    @MainActor
-    private func drainPathPastes(using service: GooseService) async {
-        while !pendingUploads.isEmpty {
-            let paste = pendingUploads.removeFirst()
-            let files = paste.files
-            defer { discardTemporaries(in: files) }
-            do {
-                var devicePaths: [String] = []
-                for file in files {
-                    try Task.checkCancellation()
-                    devicePaths.append(try await service.stageAttachment(from: file.localURL))
-                }
-                try Task.checkCancellation()
-                sendPastedText(devicePaths.map(paste.pathSyntax.format).joined(separator: " "))
-            } catch is CancellationError {
-                break
-            } catch {
-                reportAttachmentError(error)
-            }
-        }
-        pendingUploads.forEach { discardTemporaries(in: $0.files) }
-        pendingUploads.removeAll()
-        uploadTask = nil
-        onAttachmentUploadingChanged?(false)
-    }
-
-    private func discardTemporaries(in files: [ClipboardFile]) {
-        for file in files where file.removeAfterUpload {
-            try? FileManager.default.removeItem(at: file.localURL)
-        }
-    }
-
-    /// Ghostty's text path wraps the payload in bracketed-paste markers when
-    /// the program asked for them.
-    private func sendPastedText(_ text: String) {
-        paste(text: text)
-    }
-
-    private func reportAttachmentError(_ error: Error) {
-        onAttachmentError?(error.localizedDescription)
-    }
-
-    private static func clipboardFiles(in pasteboard: NSPasteboard) throws -> [ClipboardFile]? {
-        if let fileURLs = fileURLs(in: pasteboard), !fileURLs.isEmpty {
-            return try clipboardFiles(from: fileURLs)
-        }
-
-        guard !hasText(in: pasteboard),
-              let image = pasteboard.readObjects(
-                  forClasses: [NSImage.self],
-                  options: nil
-              )?.first as? NSImage
-        else {
-            return nil
-        }
-        guard let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:])
-        else {
-            throw ClipboardFileError.imageEncodingFailed
-        }
-
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("gooseagent-clipboard", isDirectory: true)
-        try FileManager.default.createDirectory(
-            at: directory,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o700],
-            ofItemAtPath: directory.path
-        )
-        let localURL = directory.appendingPathComponent("\(UUID().uuidString.lowercased()).png")
-        try png.write(to: localURL, options: .atomic)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o600],
-            ofItemAtPath: localURL.path
-        )
-        return [ClipboardFile(localURL: localURL, removeAfterUpload: true)]
-    }
-
-    private static func clipboardFiles(from fileURLs: [URL]) throws -> [ClipboardFile] {
-        try fileURLs.map { url in
-            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
-            guard values.isRegularFile == true else {
-                throw ClipboardFileError.unsupportedItem
-            }
-            return ClipboardFile(localURL: url, removeAfterUpload: false)
-        }
-    }
-
-    private static func fileURLs(in pasteboard: NSPasteboard) -> [URL]? {
-        pasteboard.readObjects(
-            forClasses: [NSURL.self],
-            options: [.urlReadingFileURLsOnly: true]
-        ) as? [URL]
-    }
-
-    private static func containsImageData(in pasteboard: NSPasteboard) -> Bool {
-        !hasText(in: pasteboard)
-            && pasteboard.canReadObject(forClasses: [NSImage.self], options: nil)
-    }
-
-    private static func isImageFile(_ url: URL) -> Bool {
-        guard let values = try? url.resourceValues(forKeys: [.contentTypeKey]),
-              let contentType = values.contentType
-        else { return false }
-        return contentType.conforms(to: .image)
-    }
-
-    /// Keynote, Excel and Preview attach a TIFF snapshot to copied text, so a
-    /// pasteboard only counts as an image when it carries no text at all.
-    private static func hasText(in pasteboard: NSPasteboard) -> Bool {
-        pasteboard.canReadObject(forClasses: [NSString.self], options: nil)
     }
 }
 
@@ -916,72 +697,44 @@ private extension NSEvent {
     }
 }
 
-/// Embeds a Ghostty terminal running a direct agent or ordinary-terminal attach
-/// (locally or over SSH).
-struct AttachTerminalView: NSViewRepresentable {
-    let device: Device
-    let target: TerminalAttachTarget
-    /// Registry identity (the `AttachedEntry.id`), so the view stays addressable for
-    /// focus while kept alive in the background. nil when not tracked.
-    var sessionID: String? = nil
-    /// The device's gooseagent server version, so attach picks a matching CLI binary.
-    var serverVersion: String?
-    /// nil when the server or active manifest does not advertise attachment support.
-    let attachmentCapabilities: AgentAttachmentCapabilities?
-    var fontName: String = ""
-    var fontSize: Double = TerminalDefaults.defaultFontSize
-    /// No longer maps to anything: Ghostty's renderer has no font-smoothing
-    /// toggle. The setting stays so existing preferences keep syncing.
-    var thinStrokes: Bool = true
-    var fontWeight: Double = TerminalDefaults.defaultFontWeight
-    var lineSpacing: Double = TerminalDefaults.defaultLineSpacing
-    /// From SwiftUI's environment so theme switches re-render immediately.
-    var dark: Bool = false
-    /// When false, mouse drags always select text locally even if the TUI
-    /// requested mouse reporting (Shift+drag bypasses it either way).
-    var mouseReporting: Bool = true
-    var onAttachmentError: (String) -> Void = { _ in }
-    var onAttachmentUploadingChanged: (Bool) -> Void = { _ in }
-    /// Called on the main queue when the attach process exits: the pane was taken
-    /// over by another client, the SSH connection dropped, or gooseagent went away. A
-    /// dead session otherwise keeps its last frame and silently eats every
-    /// keystroke, which reads as a freeze.
-    var onExit: ((Int32?) -> Void)? = nil
-    var onFocus: (() -> Void)? = nil
-    var inputSuppressed = false
+struct SSHTerminalView: NSViewRepresentable {
+    var sessionID: String
+    var alias: String
+    var environment: [String]
+    var dark: Bool
+    /// Catalog themes already include their own palette, so the light-color rewrite stays off.
+    var usesCatalogTheme: Bool = false
+    var onExit: () -> Void
+    var onFocus: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeNSView(context: Context) -> LineBreakTerminalView {
+    func makeNSView(context: Context) -> SSHTerminalNSView {
         let host = TerminalProcessHost()
-        let view = LineBreakTerminalView(frame: .zero)
+        let view = SSHTerminalNSView(frame: .zero)
         view.processHost = host
-        view.onFocus = onFocus
-        view.inputSuppressed = inputSuppressed
-        configurePasteHandling(view)
         context.coordinator.view = view
         context.coordinator.host = host
         context.coordinator.sessionID = sessionID
         context.coordinator.onExit = onExit
-        host.onExit = { [weak coordinator = context.coordinator] code in
-            coordinator?.processDidExit(code)
+        context.coordinator.onFocus = onFocus
+        view.onFocus = { [weak coordinator = context.coordinator] in
+            coordinator?.onFocus?()
+        }
+        host.onExit = { [weak coordinator = context.coordinator] _ in
+            coordinator?.processDidExit()
         }
         view.delegate = context.coordinator
         view.controller = GhosttyRuntime.controller
         view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
-        configureAppearance(view)
-
-        let service = GooseService(device: device)
-        view.attachmentService = service
-        let command = service.attachCommand(target: target, serverVersion: serverVersion)
-        context.coordinator.authorizationID = command.authorizationID
-        context.coordinator.scheduleAuthorizationCleanup()
-        host.start(command: command, dark: dark)
-        if let sessionID {
-            AttachViewRegistry.register(view, for: sessionID)
-        }
-        // A newly attached view needs a runloop pass to join its window before
-        // receiving focus. Selection changes retain this view instead of rebuilding it.
+        applyAppearance(view, dark: dark, usesCatalogTheme: usesCatalogTheme)
+        host.setLightColorsEnabled(!usesCatalogTheme && !dark)
+        host.start(
+            executable: "/usr/bin/ssh",
+            args: ["-tt", "--", alias],
+            environment: environment
+        )
+        SSHTerminalRegistry.register(view, for: sessionID)
         DispatchQueue.main.async { [weak view] in
             guard let view, let window = view.window else { return }
             window.makeFirstResponder(view)
@@ -989,73 +742,36 @@ struct AttachTerminalView: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: LineBreakTerminalView, context: Context) {
-        nsView.onFocus = onFocus
-        nsView.inputSuppressed = inputSuppressed
-        if inputSuppressed, nsView.window?.firstResponder === nsView {
-            nsView.window?.makeFirstResponder(nil)
-        }
-        configurePasteHandling(nsView)
+    func updateNSView(_ nsView: SSHTerminalNSView, context: Context) {
         context.coordinator.onExit = onExit
-        configureAppearance(nsView)
+        context.coordinator.onFocus = onFocus
+        applyAppearance(nsView, dark: dark, usesCatalogTheme: usesCatalogTheme)
     }
 
-    /// Re-applied on update because capabilities can arrive after the terminal
-    /// view is created, without changing its identity.
-    private func configurePasteHandling(_ view: LineBreakTerminalView) {
-        view.attachmentCapabilities = attachmentCapabilities
-        view.attachmentDeviceKind = device.kind
-        view.onAttachmentError = onAttachmentError
-        view.onAttachmentUploadingChanged = onAttachmentUploadingChanged
-    }
-
-    static func dismantleNSView(_ nsView: LineBreakTerminalView, coordinator: Coordinator) {
-        // A view being torn down must not report its own teardown as an exit.
+    static func dismantleNSView(_ nsView: SSHTerminalNSView, coordinator: Coordinator) {
         coordinator.onExit = nil
         if let sessionID = coordinator.sessionID {
-            AttachViewRegistry.unregister(sessionID)
+            SSHTerminalRegistry.unregister(sessionID)
         }
         coordinator.host?.terminate()
     }
 
-    private func configureAppearance(_ view: LineBreakTerminalView) {
-        applyTerminalAppearance(
-            view,
-            fontName: fontName,
-            fontSize: fontSize,
-            thinStrokes: thinStrokes,
-            fontWeight: fontWeight,
-            lineSpacing: lineSpacing,
-            dark: dark,
-            mouseReporting: mouseReporting
-        )
+    private func applyAppearance(_ view: SSHTerminalNSView, dark: Bool, usesCatalogTheme: Bool) {
+        GhosttyRuntime.applyFontSettings()
+        view.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        GhosttyRuntime.controller.setColorScheme(dark ? .dark : .light)
+        let signature = usesCatalogTheme ? (dark ? 2 : 3) : (dark ? 1 : 0)
+        guard view.appliedDarkAppearance != signature else { return }
+        view.appliedDarkAppearance = signature
+        view.processHost?.setLightColorsEnabled(!usesCatalogTheme && !dark)
     }
 
     final class Coordinator: NSObject, TerminalSurfaceLifecycleDelegate {
-        /// Written on the main actor; read from `deinit`, which is nonisolated.
-        nonisolated(unsafe) var authorizationID: UUID?
         var sessionID: String?
-        var onExit: ((Int32?) -> Void)?
-        weak var view: LineBreakTerminalView?
+        var onExit: (() -> Void)?
+        var onFocus: (() -> Void)?
+        weak var view: SSHTerminalNSView?
         var host: TerminalProcessHost?
-
-        deinit {
-            if let authorizationID {
-                try? SSHCredentialStore.removeAuthorization(authorizationID)
-            }
-        }
-
-        func scheduleAuthorizationCleanup() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
-                self?.discardAuthorization()
-            }
-        }
-
-        private func discardAuthorization() {
-            guard let authorizationID else { return }
-            try? SSHCredentialStore.removeAuthorization(authorizationID)
-            self.authorizationID = nil
-        }
 
         func terminalDidAttachSurface(_ surface: TerminalSurface) {
             view?.attachedSurface = surface
@@ -1065,225 +781,10 @@ struct AttachTerminalView: NSViewRepresentable {
             view?.attachedSurface = nil
         }
 
-        func processDidExit(_ code: Int32?) {
-            discardAuthorization()
+        func processDidExit() {
             let callback = onExit
-            onExit = nil  // report once
-            callback?(code)
-        }
-    }
-}
-
-@MainActor
-func applyTerminalAppearance(
-    _ view: LineBreakTerminalView,
-    fontName: String, fontSize: Double, thinStrokes _: Bool,
-    fontWeight: Double, lineSpacing: Double, dark: Bool, mouseReporting: Bool
-) {
-    GhosttyRuntime.applyFontSettings(
-        fontName: fontName,
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        lineSpacing: lineSpacing
-    )
-    view.mouseReportingEnabled = mouseReporting
-    // SwiftUI's scheme must reach the surface, not just the shared controller:
-    // Ghostty answers CSI 996 using each surface's conditional theme state.
-    view.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-    GhosttyRuntime.controller.setColorScheme(dark ? .dark : .light)
-    // Colors are theme-only; keep the rest above this early return.
-    guard view.appliedDarkAppearance != dark else { return }
-    view.appliedDarkAppearance = dark
-    view.processHost?.setLightColorsEnabled(!dark)
-}
-
-/// Weak lookup of retained attach views by their stable `AttachedEntry.id`.
-enum AttachViewRegistry {
-    private struct WeakView { weak var view: LineBreakTerminalView? }
-    private static let lock = NSLock()
-    private static var views: [String: WeakView] = [:]
-
-    static func register(_ view: LineBreakTerminalView, for id: String) {
-        lock.lock()
-        views[id] = WeakView(view: view)
-        lock.unlock()
-    }
-
-    static func unregister(_ id: String) {
-        lock.lock()
-        views[id] = nil
-        lock.unlock()
-    }
-
-    static func view(for id: String) -> LineBreakTerminalView? {
-        lock.lock()
-        defer { lock.unlock() }
-        return views[id]?.view
-    }
-
-    static func focus(_ id: String) {
-        DispatchQueue.main.async {
-            guard let view = view(for: id), let window = view.window else { return }
-            window.makeFirstResponder(view)
-        }
-    }
-}
-
-/// A standalone local or SSH login shell, or the local login shell beside an
-/// agent attach. Standalone views stay alive while deselected, so re-selecting
-/// one uses the registry to restore keyboard focus.
-@MainActor
-enum ShellViewRegistry {
-    private struct WeakView { weak var view: LineBreakTerminalView? }
-    private static var views: [UUID: WeakView] = [:]
-
-    static func register(_ view: LineBreakTerminalView, for id: UUID) {
-        views[id] = WeakView(view: view)
-    }
-
-    static func unregister(_ id: UUID) {
-        views[id] = nil
-    }
-
-    static func view(for id: UUID) -> LineBreakTerminalView? { views[id]?.view }
-
-    static func focus(_ id: UUID) {
-        DispatchQueue.main.async {
-            guard let view = views[id]?.view, let window = view.window else { return }
-            window.makeFirstResponder(view)
-        }
-    }
-}
-
-struct ShellTerminalView: NSViewRepresentable {
-    /// Stable registry identity for standalone and split shells.
-    var sessionID: UUID?
-    var device: Device = .local
-    /// Startup directory for the shell this spawns; nil uses the transport's own
-    /// default (a login shell in $HOME for local, the remote default for SSH).
-    var workingDirectory: String? = nil
-    var fontName: String = ""
-    var fontSize: Double = TerminalDefaults.defaultFontSize
-    var thinStrokes: Bool = true
-    var fontWeight: Double = TerminalDefaults.defaultFontWeight
-    var lineSpacing: Double = TerminalDefaults.defaultLineSpacing
-    var dark: Bool = false
-    var mouseReporting: Bool = true
-    var onExit: ((Int32?) -> Void)? = nil
-    var onFocus: (() -> Void)? = nil
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func makeNSView(context: Context) -> LineBreakTerminalView {
-        let host = TerminalProcessHost()
-        let view = LineBreakTerminalView(frame: .zero)
-        view.processHost = host
-        view.onFocus = onFocus
-        context.coordinator.view = view
-        context.coordinator.host = host
-        context.coordinator.onExit = onExit
-        context.coordinator.sessionID = sessionID
-        host.onExit = { [weak coordinator = context.coordinator] code in
-            coordinator?.processDidExit(code)
-        }
-        view.delegate = context.coordinator
-        view.controller = GhosttyRuntime.controller
-        view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
-        applyTerminalAppearance(
-            view,
-            fontName: fontName,
-            fontSize: fontSize,
-            thinStrokes: thinStrokes,
-            fontWeight: fontWeight,
-            lineSpacing: lineSpacing,
-            dark: dark,
-            mouseReporting: mouseReporting
-        )
-
-        let command = GooseService(device: device, autoStartLocalServer: false)
-            .terminalCommand(workingDirectory: workingDirectory)
-        context.coordinator.authorizationID = command.authorizationID
-        context.coordinator.scheduleAuthorizationCleanup()
-        host.start(command: command, dark: dark)
-        if let sessionID {
-            ShellViewRegistry.register(view, for: sessionID)
-        }
-        // Opening a shell hands it the keyboard: `makeNSView` runs once per shell
-        // (the `.id` is stable across theme changes), so this never steals focus
-        // back afterwards. The hop to the next runloop pass is required — the
-        // view has no `window` yet while this runs.
-        DispatchQueue.main.async { [weak view] in
-            guard let view, let window = view.window else { return }
-            window.makeFirstResponder(view)
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: LineBreakTerminalView, context: Context) {
-        nsView.onFocus = onFocus
-        context.coordinator.onExit = onExit
-        applyTerminalAppearance(
-            nsView,
-            fontName: fontName,
-            fontSize: fontSize,
-            thinStrokes: thinStrokes,
-            fontWeight: fontWeight,
-            lineSpacing: lineSpacing,
-            dark: dark,
-            mouseReporting: mouseReporting
-        )
-    }
-
-    static func dismantleNSView(_ nsView: LineBreakTerminalView, coordinator: Coordinator) {
-        coordinator.onExit = nil
-        coordinator.discardAuthorization()
-        if let sessionID = coordinator.sessionID {
-            ShellViewRegistry.unregister(sessionID)
-        }
-        // terminate() sends SIGHUP and escalates to SIGKILL — see
-        // TerminalProcess.terminate for why SIGTERM is not enough.
-        coordinator.host?.terminate()
-    }
-
-    final class Coordinator: NSObject, TerminalSurfaceLifecycleDelegate {
-        var onExit: ((Int32?) -> Void)?
-        var sessionID: UUID?
-        /// Written on the main actor; read from `deinit`, which is nonisolated.
-        nonisolated(unsafe) var authorizationID: UUID?
-        weak var view: LineBreakTerminalView?
-        var host: TerminalProcessHost?
-
-        deinit {
-            if let authorizationID {
-                try? SSHCredentialStore.removeAuthorization(authorizationID)
-            }
-        }
-
-        func scheduleAuthorizationCleanup() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
-                self?.discardAuthorization()
-            }
-        }
-
-        func discardAuthorization() {
-            guard let authorizationID else { return }
-            try? SSHCredentialStore.removeAuthorization(authorizationID)
-            self.authorizationID = nil
-        }
-
-        func terminalDidAttachSurface(_ surface: TerminalSurface) {
-            view?.attachedSurface = surface
-        }
-
-        func terminalDidDetachSurface() {
-            view?.attachedSurface = nil
-        }
-
-        func processDidExit(_ code: Int32?) {
-            discardAuthorization()
-            let callback = onExit
-            onExit = nil  // report once
-            callback?(code)
+            onExit = nil
+            callback?()
         }
     }
 }

@@ -1,8 +1,7 @@
 import AppKit
-import GooseKit
+import GhosttyTheme
 import SwiftUI
 
-/// Design tokens from the gooseagent design canvas (waku-derived), light/dark adaptive.
 enum Theme {
     private static func dynamic(_ light: NSColor, _ dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
@@ -19,130 +18,140 @@ enum Theme {
         )
     }
 
-    // Bell sidebar hierarchy; ordinary rows keep their existing typography.
-    static let sidebarRowTitle = Font.system(size: 13)
+    static let sidebarRowTitle = Font.system(size: 13, weight: .medium)
     static let sidebarRowMeta = Font.system(size: 11)
-    static let sidebarGroupHeader = Font.system(size: 12.5, weight: .semibold)
+    static let sidebarGroupHeader = Font.system(size: 13, weight: .semibold)
 
-    // text ramp
     static let text = dynamic(hex(0x242424), hex(0xE2E2E2))
     static let textSecondary = dynamic(hex(0x666666), hex(0xA3A3A3))
-    static let textTertiary = dynamic(hex(0x858585), hex(0x7D7D7D))
-    static let textGhost = dynamic(hex(0xA4A4A4), hex(0x575757))
+    static let danger = dynamic(hex(0xC94F44), hex(0xE2726A))
 
-    // accent + status
     private static let accentLightValue: UInt32 = 0xC85F44
     private static let accentDarkValue: UInt32 = 0xE2795B
     static let accent = dynamic(hex(accentLightValue), hex(accentDarkValue))
-    static let accentWash = dynamic(hex(accentLightValue, alpha: 0.12), hex(accentDarkValue, alpha: 0.14))
 
-    /// Opaque `#RRGGBB` of `accent` for hosts that cannot take a dynamic Color.
     static func accentHex(dark: Bool) -> String {
         String(format: "#%06X", dark ? accentDarkValue : accentLightValue)
     }
-    static let working = dynamic(hex(0x2563EB), hex(0x3B82F6))
-    static let success = dynamic(hex(0x2FA35F), hex(0x62C987))
-    static let warning = dynamic(hex(0xB8862E), hex(0xE0B36A))
-    static let danger = dynamic(hex(0xC94F44), hex(0xE2726A))
 
-    // Muted hues keep the launch veil quiet; each transition retains its own sample.
-    static func randomPiLaunchInk() -> Color {
-        Color(hue: Double.random(in: 0..<1), saturation: 0.16, brightness: 0.62)
-    }
-
-    // surfaces
-    static let itemWash = dynamic(hex(0x141414, alpha: 0.06), hex(0xF0F0F0, alpha: 0.06))
-    static let itemWashSelected = dynamic(hex(0x141414, alpha: 0.07), hex(0xF0F0F0, alpha: 0.07))
-    static let contentBackground = dynamic(hex(0xF6F6F6), hex(0x181818))
     static let terminalBackground = dynamic(hex(0xFFFFFF), hex(0x101012))
     static let statusBarBackground = dynamic(hex(0xF1F1F2), hex(0x141416))
-    static let sidebarBorder = dynamic(hex(0xD9D9D9), hex(0x292929))
     static let hairline = dynamic(hex(0x000000, alpha: 0.08), hex(0xFFFFFF, alpha: 0.06))
+}
 
-    // Hover tooltip (Codex-style bubble + keycap pill).
-    static let tooltipBackground = dynamic(hex(0xFFFFFF), hex(0x2A2A2C))
-    static let tooltipText = dynamic(hex(0x242424), hex(0xE8E8E8))
-    static let tooltipKeycap = dynamic(hex(0xE7E7E7), hex(0x424244))
-    static let tooltipBorder = dynamic(hex(0xE5E5E5), hex(0x505052))
-    static let tooltipShadow = dynamic(hex(0x000000, alpha: 0.14), hex(0x000000, alpha: 0.5))
+/// Colors for the whole terminal window. A selected Ghostty theme paints the
+/// sidebar, header, and terminal together; otherwise the built-in light or dark set is used.
+struct WindowChrome: Equatable {
+    var background: Color
+    var elevated: Color
+    var text: Color
+    var secondary: Color
+    var hairline: Color
+    var accent: Color
+    var danger: Color
 
-    // Settings surfaces match the reference without changing the console theme.
-    static let settingsBackground = dynamic(hex(0xFFFFFF), hex(0x1E1E1E))
-    static let settingsSidebar = dynamic(hex(0xEDEDED), hex(0x282828))
-    static let settingsGroup = dynamic(hex(0xF7F7F7), hex(0x303030))
-    static let settingsSelection = dynamic(hex(0xDCDCDC), hex(0x414141))
-    static let settingsControl = dynamic(hex(0xEAEAEA), hex(0x414141))
-    static let settingsControlShadow = dynamic(hex(0x000000, alpha: 0.12), hex(0x000000, alpha: 0.3))
-    static let settingsAccent = Color(nsColor: .systemBlue)
-    static let settingsIconForeground = Color.white
-
-    /// Distinct tints for device chips (deliberately avoids the status colors).
-    static let devicePalette: [Color] = [
-        dynamic(hex(0x7C3AED), hex(0x8B5CF6)),  // violet
-        dynamic(hex(0x0D9488), hex(0x14B8A6)),  // teal
-        dynamic(hex(0xBE185D), hex(0xEC4899)),  // magenta
-        dynamic(hex(0x4338CA), hex(0x818CF8)),  // indigo
-        dynamic(hex(0x92640C), hex(0xC9964A)),  // bronze
-    ]
-
-    /// Stable per-device tint; Local stays neutral.
-    static func deviceTint(_ device: Device) -> Color {
-        if device.isLocal { return textSecondary }
-        let sum = device.id.uuidString.utf8.reduce(0) { $0 &+ Int($1) }
-        return devicePalette[sum % devicePalette.count]
+    init(
+        background: Color,
+        elevated: Color,
+        text: Color,
+        secondary: Color,
+        hairline: Color,
+        accent: Color,
+        danger: Color
+    ) {
+        self.background = background
+        self.elevated = elevated
+        self.text = text
+        self.secondary = secondary
+        self.hairline = hairline
+        self.accent = accent
+        self.danger = danger
     }
 
-    static func statusColor(_ status: AgentStatus) -> Color {
-        switch status {
-        case .working: return working
-        case .blocked: return warning
-        case .done: return success
-        case .idle, .unknown: return textGhost
+    static func resolve(isDark: Bool) -> WindowChrome {
+        let family = TerminalThemeFamily.current()
+        if isDark, let paint = family.darkPaint { return paint.chrome() }
+        if !isDark, let paint = family.lightPaint { return paint.chrome() }
+        let name = isDark ? family.darkName : family.lightName
+        if let name, let theme = GhosttyThemeCatalog.theme(named: name) {
+            return WindowChrome(theme: theme)
         }
+        return isDark ? builtinDark : builtinLight
+    }
+
+    init(theme: GhosttyThemeDefinition) {
+        let background = RGBColor(ghosttyHex: theme.background) ?? RGBColor(red: 0.06, green: 0.06, blue: 0.07)
+        let foreground = RGBColor(ghosttyHex: theme.foreground) ?? RGBColor(red: 0.9, green: 0.9, blue: 0.9)
+        let accent = RGBColor(ghosttyHex: theme.palette[4] ?? theme.cursorColor ?? theme.foreground) ?? foreground
+        let danger = RGBColor(ghosttyHex: theme.palette[1] ?? "E2726A") ?? RGBColor(red: 0.86, green: 0.32, blue: 0.28)
+        self.background = background.color
+        self.elevated = background.mixed(with: foreground, amount: 0.08).color
+        self.text = foreground.color
+        self.secondary = foreground.color.opacity(0.68)
+        self.hairline = foreground.color.opacity(0.16)
+        self.accent = accent.color
+        self.danger = danger.color
+    }
+
+    static let builtinLight = WindowChrome(
+        background: Color(red: 1, green: 1, blue: 1),
+        elevated: Color(red: 0.945, green: 0.945, blue: 0.949),
+        text: Color(red: 0.141, green: 0.141, blue: 0.141),
+        secondary: Color(red: 0.4, green: 0.4, blue: 0.4),
+        hairline: Color.black.opacity(0.08),
+        accent: Color(red: 0.784, green: 0.373, blue: 0.267),
+        danger: Color(red: 0.788, green: 0.310, blue: 0.267)
+    )
+
+    static let builtinDark = WindowChrome(
+        background: Color(red: 0.063, green: 0.063, blue: 0.071),
+        elevated: Color(red: 0.078, green: 0.078, blue: 0.086),
+        text: Color(red: 0.886, green: 0.886, blue: 0.886),
+        secondary: Color(red: 0.639, green: 0.639, blue: 0.639),
+        hairline: Color.white.opacity(0.08),
+        accent: Color(red: 0.886, green: 0.475, blue: 0.357),
+        danger: Color(red: 0.886, green: 0.447, blue: 0.416)
+    )
+}
+
+private struct RGBColor {
+    var red: Double
+    var green: Double
+    var blue: Double
+
+    var color: Color { Color(red: red, green: green, blue: blue) }
+
+    init(red: Double, green: Double, blue: Double) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+
+    init?(ghosttyHex raw: String) {
+        var hex = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if hex.hasPrefix("#") { hex.removeFirst() }
+        guard hex.count == 6, let value = Int(hex, radix: 16) else { return nil }
+        red = Double((value >> 16) & 0xFF) / 255
+        green = Double((value >> 8) & 0xFF) / 255
+        blue = Double(value & 0xFF) / 255
+    }
+
+    func mixed(with other: RGBColor, amount: Double) -> RGBColor {
+        RGBColor(
+            red: red + (other.red - red) * amount,
+            green: green + (other.green - green) * amount,
+            blue: blue + (other.blue - blue) * amount
+        )
     }
 }
 
-/// Codex-style conversation marks: spinner while running, a filled unread
-/// dot after a finish you have not opened, nothing once you have looked.
-struct AgentStatusGlyph: View {
-    let status: AgentStatus
-    var unreadDone: Bool = false
-
-    var body: some View {
-        switch status {
-        case .working:
-            SpinnerView(color: Theme.working)
-                .frame(width: 12, height: 12)
-        case .blocked:
-            Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.warning)
-        case .done:
-            if unreadDone {
-                Circle()
-                    .fill(Theme.working)
-                    .frame(width: 7, height: 7)
-            }
-        case .idle, .unknown:
-            EmptyView()
-        }
-    }
+private struct WindowChromeKey: EnvironmentKey {
+    static let defaultValue = WindowChrome.builtinLight
 }
 
-/// Space row uses the same glyph as an agent, for the strongest state inside.
-struct SpaceAttentionGlyph: View {
-    let attention: SpaceAttention
-
-    var body: some View {
-        switch attention {
-        case .blocked:
-            AgentStatusGlyph(status: .blocked)
-        case .unreadDone:
-            AgentStatusGlyph(status: .done, unreadDone: true)
-        case .working:
-            AgentStatusGlyph(status: .working)
-        case .none:
-            EmptyView()
-        }
+extension EnvironmentValues {
+    var windowChrome: WindowChrome {
+        get { self[WindowChromeKey.self] }
+        set { self[WindowChromeKey.self] = newValue }
     }
 }
