@@ -126,6 +126,17 @@ enum PaneLayout {
         }
     }
 
+    /// The pane under `local`, and the side that pane would split toward. A pane cannot split onto itself.
+    static func dropTarget(at local: CGPoint, frames: [UUID: CGRect], dragged: UUID) -> (UUID, SplitEdge)? {
+        for (id, frame) in frames where id != dragged && frame.contains(local) {
+            let point = CGPoint(x: local.x - frame.minX, y: local.y - frame.minY)
+            if let edge = SplitEdge.at(point, in: frame.size) {
+                return (id, edge)
+            }
+        }
+        return nil
+    }
+
     static func frames(of node: PaneNode, in rect: CGRect) -> [UUID: CGRect] {
         var result: [UUID: CGRect] = [:]
         collectFrames(node, in: rect, into: &result)

@@ -58,6 +58,19 @@ enum PaneLayoutTests {
         let reminder = PaneLayout.reminder(for: .center, in: pane)
         expect(reminder == CGRect(x: 10, y: 10, width: 180, height: 80), "reminder sits inside the pane")
 
+        let rightHit = PaneLayout.dropTarget(
+            at: CGPoint(x: 160, y: 50),
+            frames: [first: CGRect(x: 0, y: 0, width: 200, height: 100)],
+            dragged: second
+        )
+        expect(rightHit?.0 == first && rightHit?.1 == .right, "a point on the right half splits right")
+        let selfHit = PaneLayout.dropTarget(
+            at: CGPoint(x: 160, y: 50),
+            frames: [first: CGRect(x: 0, y: 0, width: 200, height: 100)],
+            dragged: first
+        )
+        expect(selfHit == nil, "a pane does not split onto itself")
+
         expect(PaneLayout.split(.leaf(first), target: first, with: second, edge: .center) == .leaf(second), "center drop takes the pane")
         expect(PaneLayout.splitRoot(.leaf(second)) == nil, "a single pane is not stored as a split")
         let taken = PaneLayout.split(splitRight, target: first, with: third, edge: .center)

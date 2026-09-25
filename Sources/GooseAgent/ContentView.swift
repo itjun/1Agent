@@ -1,7 +1,6 @@
 import AppKit
 import GhosttyTheme
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct RootView: View {
     @ObservedObject var model: AppModel
@@ -11,6 +10,7 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.github.rawValue
     @AppStorage("appearance.sidebarCollapsed") private var sidebarCollapsed = false
+    @StateObject private var dropRelay = CanvasDropRelay()
 
     private var tabLayout: TabPlacement {
         TabPlacement(rawValue: tabLayoutRaw) ?? .vertical
@@ -167,13 +167,6 @@ struct RootView: View {
                         ForEach(model.tabs) { tab in
                             tabRow(tab, compact: false)
                         }
-                        Color.clear
-                            .frame(height: 36)
-                            .onDrop(of: TabDrag.types, isTargeted: nil) { _ in
-                                guard let dragged = model.draggingTabID else { return false }
-                                model.receiveSidebarDrop(dragged, before: nil)
-                                return true
-                            }
                     }
                     .padding(.horizontal, 8)
                     .padding(.bottom, 12)
@@ -181,11 +174,7 @@ struct RootView: View {
             }
             settingsEntry
         }
-        .onDrop(of: TabDrag.types, isTargeted: sidebarTargeted) { _ in
-            guard let dragged = model.draggingTabID else { return false }
-            model.receiveSidebarDrop(dragged, before: nil)
-            return true
-        }
+        .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
     }
 
     private var horizontalTabs: some View {
@@ -214,11 +203,7 @@ struct RootView: View {
                 .frame(width: 88)
         }
         .frame(height: 44)
-        .onDrop(of: TabDrag.types, isTargeted: sidebarTargeted) { _ in
-            guard let dragged = model.draggingTabID else { return false }
-            model.receiveSidebarDrop(dragged, before: nil)
-            return true
-        }
+        .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
     }
 
     private var settingsHelp: String {
@@ -256,48 +241,37 @@ struct RootView: View {
         }
     }
 
-    private var sidebarTargeted: Binding<Bool> {
-        Binding(
-            get: { model.dropHighlight == .sidebar },
-            set: { isTargeted in
-                if isTargeted {
-                    model.noteDropEntered()
-                    model.dropHighlight = .sidebar
-                } else if model.dropHighlight == .sidebar {
-                    model.dropHighlight = nil
-                }
-            }
-        )
-    }
-
     private func tabRow(_ tab: TerminalTab, compact: Bool) -> some View {
         let selected = model.selectedTabID == tab.id && !model.showingSettings
         let host = tab.alias.flatMap { model.host($0) }
         return HStack(spacing: 6) {
-            Button {
-                model.selectTab(tab.id)
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(tab.alias ?? String(localized: "New Tab"))
-                        .font(Theme.sidebarRowTitle)
-                        .foregroundStyle(chrome.text)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(tab.alias ?? String(localized: "New Tab"))
+                    .font(Theme.sidebarRowTitle)
+                    .foregroundStyle(chrome.text)
+                    .lineLimit(1)
+                if !compact, let host, !host.subtitle.isEmpty {
+                    Text(host.subtitle)
+                        .font(Theme.sidebarRowMeta)
+                        .foregroundStyle(chrome.secondary)
                         .lineLimit(1)
-                    if !compact, let host, !host.subtitle.isEmpty {
-                        Text(host.subtitle)
-                            .font(Theme.sidebarRowMeta)
-                            .foregroundStyle(chrome.secondary)
-                            .lineLimit(1)
-                    }
-                    if !compact, tab.exited {
-                        Text("Connection closed")
-                            .font(Theme.sidebarRowMeta)
-                            .foregroundStyle(chrome.danger)
-                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+                if !compact, tab.exited {
+                    Text("Connection closed")
+                        .font(Theme.sidebarRowMeta)
+                        .foregroundStyle(chrome.danger)
+                }
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .overlay {
+                TabDragHandle(
+                    onClick: { model.selectTab(tab.id) },
+                    onBegan: { dropRelay.dragBegan(tab.id) },
+                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                    onEnded: { dropRelay.dragEnded(windowPoint: $0) }
+                )
+            }
             .help(compact ? (host?.sessionBadge ?? "") : "")
 
             Button {
@@ -318,23 +292,7 @@ struct RootView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(rowFill(selected: selected, tabID: tab.id))
         )
-        .onDrag {
-            guard tab.alias != nil else { return NSItemProvider() }
-            model.beginDrag(tab.id)
-            return NSItemProvider(object: (tab.alias ?? "") as NSString)
-        } preview: {
-            DragChip(
-                title: tab.alias ?? "",
-                text: chrome.text,
-                fill: chrome.elevated,
-                border: chrome.hairline
-            )
-        }
-        .onDrop(of: TabDrag.types, isTargeted: rowTargeted(tab.id)) { _ in
-            guard let dragged = model.draggingTabID else { return false }
-            model.receiveSidebarDrop(dragged, before: tab.id)
-            return true
-        }
+        .background(RowAnchor(id: tab.id, relay: dropRelay))
     }
 
     private func rowFill(selected: Bool, tabID: UUID) -> Color {
@@ -344,24 +302,11 @@ struct RootView: View {
         return selected ? chrome.accent.opacity(0.16) : Color.clear
     }
 
-    private func rowTargeted(_ id: UUID) -> Binding<Bool> {
-        Binding(
-            get: { model.dropHighlight == .sidebarRow(id) },
-            set: { isTargeted in
-                if isTargeted {
-                    model.noteDropEntered()
-                    model.dropHighlight = .sidebarRow(id)
-                } else if model.dropHighlight == .sidebarRow(id) {
-                    model.noteDropExited()
-                }
-            }
-        )
-    }
-
     private var detail: some View {
         ZStack {
             TerminalCanvas(
                 model: model,
+                dropRelay: dropRelay,
                 dark: appearance.isDark(system: colorScheme),
                 usesCatalogTheme: true
             )
@@ -392,86 +337,103 @@ enum SheetLayout {
     static let sessionBodyHeight: CGFloat = 520
 }
 
-private enum TabDrag {
-    static let types: [UTType] = [.plainText, .utf8PlainText]
+private final class AnchorBox {
+    weak var view: NSView?
+    init(_ view: NSView) { self.view = view }
 }
 
 private final class CanvasDropRelay: ObservableObject {
     var frames: [UUID: CGRect] = [:]
     weak var modelBox: AppModel?
+    weak var catcher: PaneDropCatcherView?
+    weak var sidebarAnchor: NSView?
+    var rowAnchors: [UUID: AnchorBox] = [:]
+    var dragTitle = ""
 
-    var isDragging: Bool {
-        MainActor.assumeIsolated { modelBox?.draggingTabID != nil }
-    }
-
-    func move(to point: CGPoint) {
-        let frames = frames
-        MainActor.assumeIsolated {
-            guard let model = modelBox, let dragged = model.draggingTabID else { return }
-            model.noteDropEntered()
-            guard let hit = Self.hit(point, frames: frames, dragged: dragged) else {
-                if case .edge = model.dropHighlight {
-                    model.dropHighlight = nil
-                }
-                return
-            }
-            let next = TabDropHighlight.edge(hit.0, hit.1)
-            if model.dropHighlight != next {
-                model.dropHighlight = next
-            }
-        }
-    }
-
-    func pointerLeftCanvas() {
+    func dragBegan(_ id: UUID) {
         MainActor.assumeIsolated {
             guard let model = modelBox else { return }
-            if case .edge = model.dropHighlight {
-                model.dropHighlight = nil
-            }
+            let alias = model.tabs.first { $0.id == id }?.alias ?? ""
+            dragTitle = model.host(alias)?.sessionBadge ?? alias
+            model.beginDrag(id)
         }
     }
 
-    func drop(at point: CGPoint) -> Bool {
+    func dragMoved(windowPoint: NSPoint) {
         let frames = frames
-        return MainActor.assumeIsolated {
-            guard let model = modelBox, let dragged = model.draggingTabID else { return false }
-            guard let hit = Self.hit(point, frames: frames, dragged: dragged) else { return false }
-            model.dropTab(dragged, onto: hit.0, edge: hit.1)
-            return true
+        let title = dragTitle
+        guard let catcher else { return }
+        catcher.layoutSubtreeIfNeeded()
+        let local = catcher.localPoint(windowPoint)
+        let overCanvas = catcher.bounds.contains(local) && catcher.bounds.width > 2
+        if overCanvas {
+            let zone = MainActor.assumeIsolated { () -> CGRect? in
+                guard let model = modelBox, let dragged = model.draggingTabID else { return nil }
+                guard let hit = PaneLayout.dropTarget(at: local, frames: frames, dragged: dragged) else {
+                    if case .edge = model.dropHighlight { model.dropHighlight = nil }
+                    return nil
+                }
+                let next = TabDropHighlight.edge(hit.0, hit.1)
+                if model.dropHighlight != next { model.dropHighlight = next }
+                guard let frame = frames[hit.0] else { return nil }
+                return PaneLayout.reminder(for: hit.1, in: frame)
+            }
+            catcher.present(zone: zone, windowPoint: windowPoint, title: title)
+            return
         }
-    }
-
-    func finishIfStillDragging() {
+        let sidebarHit = sidebarTarget(windowPoint)
         MainActor.assumeIsolated {
-            modelBox?.finishDragIfIdle()
+            guard let model = modelBox else { return }
+            let next: TabDropHighlight? = {
+                if let row = sidebarHit { return .sidebarRow(row) }
+                if sidebarAnchorContains(windowPoint) { return .sidebar }
+                return nil
+            }()
+            if model.dropHighlight != next { model.dropHighlight = next }
         }
+        catcher.present(zone: nil, windowPoint: windowPoint, title: title)
     }
 
-    func zoneRect(at point: CGPoint) -> CGRect? {
+    func dragEnded(windowPoint: NSPoint) {
         let frames = frames
-        return MainActor.assumeIsolated {
-            guard let dragged = modelBox?.draggingTabID else { return nil }
-            guard let hit = Self.hit(point, frames: frames, dragged: dragged) else { return nil }
-            guard let frame = frames[hit.0] else { return nil }
-            return PaneLayout.reminder(for: hit.1, in: frame)
+        let local = catcher?.localPoint(windowPoint) ?? .zero
+        let overCanvas = catcher.map { $0.bounds.contains(local) && $0.bounds.width > 2 } ?? false
+        let sidebarHit = sidebarTarget(windowPoint)
+        let onSidebar = sidebarAnchorContains(windowPoint)
+        catcher?.hide()
+        MainActor.assumeIsolated {
+            guard let model = modelBox, let dragged = model.draggingTabID else { return }
+            if overCanvas, let hit = PaneLayout.dropTarget(at: local, frames: frames, dragged: dragged) {
+                model.dropTab(dragged, onto: hit.0, edge: hit.1)
+                return
+            }
+            if onSidebar || sidebarHit != nil {
+                model.receiveSidebarDrop(dragged, before: sidebarHit)
+                return
+            }
+            model.endDrag()
         }
     }
 
-    private static func hit(_ point: CGPoint, frames: [UUID: CGRect], dragged: UUID) -> (UUID, SplitEdge)? {
-        for (id, frame) in frames where frame.contains(point) {
-            let local = CGPoint(x: point.x - frame.minX, y: point.y - frame.minY)
-            if let edge = SplitEdge.at(local, in: frame.size), id != dragged {
-                return (id, edge)
-            }
+    private func sidebarAnchorContains(_ windowPoint: NSPoint) -> Bool {
+        guard let sidebarAnchor, sidebarAnchor.window != nil else { return false }
+        let local = sidebarAnchor.convert(windowPoint, from: nil)
+        return sidebarAnchor.bounds.contains(local)
+    }
+
+    private func sidebarTarget(_ windowPoint: NSPoint) -> UUID? {
+        for (id, box) in rowAnchors {
+            guard let view = box.view, view.window != nil else { continue }
+            let local = view.convert(windowPoint, from: nil)
+            if view.bounds.contains(local) { return id }
         }
         return nil
     }
 }
 
-/// Sits over the terminal only while a tab is dragged, so the landing area stays visible.
+/// Drawn above the terminal while a tab is dragged. It does not take clicks.
 private final class DropSessionOverlay: NSView {
     let zone = DropZoneView()
-    weak var relay: CanvasDropRelay?
 
     override var isFlipped: Bool { true }
 
@@ -480,19 +442,11 @@ private final class DropSessionOverlay: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
         addSubview(zone)
-        registerForDraggedTypes([
-            .string,
-            NSPasteboard.PasteboardType(UTType.plainText.identifier),
-            NSPasteboard.PasteboardType(UTType.utf8PlainText.identifier),
-        ])
     }
 
     required init?(coder: NSCoder) { nil }
 
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        let local = convert(point, from: superview)
-        return bounds.contains(local) ? self : nil
-    }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     func show(rect: CGRect?) {
         guard let rect else {
@@ -500,37 +454,10 @@ private final class DropSessionOverlay: NSView {
             return
         }
         zone.isHidden = false
-        zone.frame = rect
+        if zone.frame != rect {
+            zone.frame = rect
+        }
         zone.needsDisplay = true
-    }
-
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard relay?.isDragging == true else { return [] }
-        follow(sender)
-        return .move
-    }
-
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard relay?.isDragging == true else { return [] }
-        follow(sender)
-        return .move
-    }
-
-    override func draggingExited(_ sender: NSDraggingInfo?) {
-        relay?.pointerLeftCanvas()
-        zone.isHidden = true
-    }
-
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let point = convert(sender.draggingLocation, from: nil)
-        guard relay?.isDragging == true else { return true }
-        return relay?.drop(at: point) ?? false
-    }
-
-    private func follow(_ sender: NSDraggingInfo) {
-        let point = convert(sender.draggingLocation, from: nil)
-        relay?.move(to: point)
-        show(rect: relay?.zoneRect(at: point))
     }
 }
 
@@ -559,96 +486,46 @@ private final class DropZoneView: NSView {
 private final class PaneDropCatcherView: NSView {
     weak var relay: CanvasDropRelay?
     let overlay = DropSessionOverlay()
+    let chip = DragChipView()
     var accent = NSColor.systemBlue
     var zoneBackground = NSColor.windowBackgroundColor
-    private var poll: Timer?
-    private var sawButtonDown = false
 
     override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-    }
-
-    required init?(coder: NSCoder) { nil }
-
     deinit {
-        poll?.invalidate()
         overlay.removeFromSuperview()
+        chip.removeFromSuperview()
     }
 
     func syncAppearance() {
-        overlay.relay = relay
         overlay.zone.accent = accent
         overlay.zone.zoneBackground = zoneBackground
-        let dragging = relay?.isDragging == true
-        if dragging {
-            guard poll == nil else { return }
-            sawButtonDown = NSEvent.pressedMouseButtons & 1 != 0
-            let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-                self?.pollMouse()
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            poll = timer
-        } else {
-            stopPolling()
-        }
+        chip.fill = zoneBackground
     }
 
-    private func pollMouse() {
-        guard relay?.isDragging == true else {
-            stopPolling()
-            return
-        }
-        layoutSubtreeIfNeeded()
-        guard bounds.width > 2, bounds.height > 2 else { return }
-        placeOverlay()
-        guard let local = mouseInCanvas() else { return }
-        let down = NSEvent.pressedMouseButtons & 1 != 0
-        if down {
-            sawButtonDown = true
-            if bounds.contains(local) {
-                relay?.move(to: local)
-                overlay.show(rect: relay?.zoneRect(at: local))
-            } else {
-                relay?.pointerLeftCanvas()
-                overlay.show(rect: nil)
-            }
-            return
-        }
-        guard sawButtonDown else { return }
-        if bounds.contains(local) {
-            _ = relay?.drop(at: local)
-        } else {
-            relay?.finishIfStillDragging()
-        }
-        stopPolling()
+    func localPoint(_ windowPoint: NSPoint) -> CGPoint {
+        convert(windowPoint, from: nil)
     }
 
-    private func mouseInCanvas() -> CGPoint? {
-        guard let window else { return nil }
-        let inWindow = window.convertPoint(fromScreen: NSEvent.mouseLocation)
-        return convert(inWindow, from: nil)
-    }
-
-    private func placeOverlay() {
+    func present(zone: CGRect?, windowPoint: NSPoint, title: String) {
         guard let content = window?.contentView, bounds.width > 2 else { return }
         let frame = convert(bounds, to: content)
         overlay.frame = frame
-        if overlay.superview !== content {
-            content.addSubview(overlay, positioned: .above, relativeTo: nil)
-        } else if content.subviews.last !== overlay {
-            content.addSubview(overlay, positioned: .above, relativeTo: nil)
-        }
+        content.addSubview(overlay, positioned: .above, relativeTo: nil)
+        overlay.show(rect: zone)
+        let size = DragChipView.size(for: title)
+        let cursor = content.convert(windowPoint, from: nil)
+        chip.title = title
+        chip.frame = CGRect(x: cursor.x + 14, y: cursor.y - size.height - 8, width: size.width, height: size.height)
+        chip.needsDisplay = true
+        content.addSubview(chip, positioned: .above, relativeTo: nil)
     }
 
-    private func stopPolling() {
-        poll?.invalidate()
-        poll = nil
-        sawButtonDown = false
+    func hide() {
         overlay.show(rect: nil)
         overlay.removeFromSuperview()
+        chip.removeFromSuperview()
     }
 }
 
@@ -660,38 +537,136 @@ private struct PaneDropCatcher: NSViewRepresentable {
     func makeNSView(context: Context) -> PaneDropCatcherView {
         let view = PaneDropCatcherView()
         view.relay = relay
+        relay.catcher = view
         return view
     }
 
     func updateNSView(_ view: PaneDropCatcherView, context: Context) {
         view.relay = relay
+        relay.catcher = view
         view.accent = NSColor(accent)
         view.zoneBackground = NSColor(background)
         view.syncAppearance()
     }
 }
 
-private struct DragChip: View {
-    var title: String
-    var text: Color
-    var fill: Color
-    var border: Color
+private final class DragChipView: NSView {
+    var title = ""
+    var fill = NSColor.windowBackgroundColor
 
-    var body: some View {
-        Text(title)
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(text)
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(fill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(border, lineWidth: 1)
-            )
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
+        fill.setFill()
+        path.fill()
+        NSColor.separatorColor.setStroke()
+        path.lineWidth = 1
+        path.stroke()
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+            .foregroundColor: NSColor.labelColor,
+        ]
+        let size = (title as NSString).size(withAttributes: attributes)
+        let origin = NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
+        (title as NSString).draw(at: origin, withAttributes: attributes)
+    }
+
+    static func size(for title: String) -> CGSize {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+        ]
+        let size = (title as NSString).size(withAttributes: attributes)
+        return CGSize(width: max(size.width + 20, 44), height: size.height + 10)
+    }
+}
+
+/// Follows the pointer until mouse-up. A system drag session does not report the landing point reliably.
+private final class TabDragHandleView: NSView {
+    var onClick: () -> Void = {}
+    var onBegan: () -> Void = {}
+    var onMoved: (NSPoint) -> Void = { _ in }
+    var onEnded: (NSPoint) -> Void = { _ in }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(convert(point, from: superview)) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let start = event.locationInWindow
+        var dragging = false
+        window.trackEvents(
+            matching: [.leftMouseDragged, .leftMouseUp],
+            timeout: 3600,
+            mode: .eventTracking
+        ) { event, stop in
+            guard let event else {
+                stop.pointee = true
+                return
+            }
+            let point = event.locationInWindow
+            if event.type == .leftMouseUp {
+                if dragging {
+                    self.onEnded(point)
+                } else {
+                    self.onClick()
+                }
+                stop.pointee = true
+                return
+            }
+            if !dragging, hypot(point.x - start.x, point.y - start.y) >= 6 {
+                dragging = true
+                self.onBegan()
+            }
+            if dragging {
+                self.onMoved(point)
+            }
+        }
+    }
+}
+
+private struct TabDragHandle: NSViewRepresentable {
+    var onClick: () -> Void
+    var onBegan: () -> Void
+    var onMoved: (NSPoint) -> Void
+    var onEnded: (NSPoint) -> Void
+
+    func makeNSView(context: Context) -> TabDragHandleView { TabDragHandleView() }
+
+    func updateNSView(_ view: TabDragHandleView, context: Context) {
+        view.onClick = onClick
+        view.onBegan = onBegan
+        view.onMoved = onMoved
+        view.onEnded = onEnded
+    }
+}
+
+private final class BoundsAnchorView: NSView {
+    override var isFlipped: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+private struct BoundsAnchor: NSViewRepresentable {
+    var onResolve: (NSView) -> Void
+
+    func makeNSView(context: Context) -> BoundsAnchorView { BoundsAnchorView() }
+
+    func updateNSView(_ view: BoundsAnchorView, context: Context) {
+        onResolve(view)
+    }
+}
+
+private struct RowAnchor: NSViewRepresentable {
+    var id: UUID
+    var relay: CanvasDropRelay
+
+    func makeNSView(context: Context) -> BoundsAnchorView { BoundsAnchorView() }
+
+    func updateNSView(_ view: BoundsAnchorView, context: Context) {
+        relay.rowAnchors[id] = AnchorBox(view)
     }
 }
 
@@ -701,9 +676,9 @@ private struct TerminalCanvas: View {
 
     @Environment(\.windowChrome) private var chrome
     @ObservedObject var model: AppModel
+    var dropRelay: CanvasDropRelay
     var dark: Bool
     var usesCatalogTheme: Bool
-    @StateObject private var dropRelay = CanvasDropRelay()
     @State private var ratioDrag: (id: UUID, start: CGFloat)?
 
     var body: some View {
@@ -798,18 +773,16 @@ private struct TerminalCanvas: View {
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(chrome.text)
                 .lineLimit(1)
-                .help(String(localized: "Drag across a pane. The highlighted side is where it splits. Drag back to the sidebar to dock."))
-                .onDrag {
-                    model.beginDrag(tab.id)
-                    return NSItemProvider(object: (model.host(alias)?.sessionBadge ?? alias) as NSString)
-                } preview: {
-                    DragChip(
-                        title: model.host(alias)?.sessionBadge ?? alias,
-                        text: chrome.text,
-                        fill: chrome.elevated,
-                        border: chrome.hairline
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay {
+                    TabDragHandle(
+                        onClick: { model.selectTab(tab.id) },
+                        onBegan: { dropRelay.dragBegan(tab.id) },
+                        onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                        onEnded: { dropRelay.dragEnded(windowPoint: $0) }
                     )
                 }
+                .help(String(localized: "Drag across a pane. The highlighted side is where it splits. Drag back to the sidebar to dock."))
         }
         .frame(width: frame.width, height: Self.headerHeight)
         .position(x: frame.midX, y: frame.minY + Self.headerHeight / 2)
