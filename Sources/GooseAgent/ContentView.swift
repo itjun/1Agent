@@ -236,9 +236,6 @@ struct RootView: View {
         .help(settingsHelp)
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .overlay(alignment: .top) {
-            Rectangle().fill(chrome.hairline).frame(height: 1)
-        }
     }
 
     private func tabRow(_ tab: TerminalTab, compact: Bool) -> some View {
