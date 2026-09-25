@@ -1,4 +1,0 @@
-framework module CLibSSH2 [system] {
-    umbrella header "CLibSSH2.h"
-    export *
-}
