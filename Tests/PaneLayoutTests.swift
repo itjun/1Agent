@@ -25,6 +25,13 @@ enum PaneLayoutTests {
 
         let removed = PaneLayout.remove(third, from: nested)
         expect(removed == splitRight, "removing the extra pane collapses back")
+        do {
+            let encoded = try JSONEncoder().encode(splitRight)
+            let decoded = try JSONDecoder().decode(PaneNode.self, from: encoded)
+            expect(decoded == splitRight, "split layout survives a relaunch")
+        } catch {
+            fail("split layout did not encode")
+        }
         expect(PaneLayout.splitRoot(PaneLayout.remove(second, from: splitRight)) == nil, "one remaining pane is no longer a split")
         expect(PaneLayout.split(.leaf(first), target: first, with: first, edge: .left) == .leaf(first), "a pane does not split with itself")
 

@@ -32,6 +32,8 @@ final class AppModel: ObservableObject {
     private var dropEpoch = 0
     private var lastExternalKey = ""
     private var lastExternalAt = Date.distantPast
+    /// Writes wait until the saved session has been read, so an empty launch cannot erase it.
+    private var acceptSessionWrites = false
 
     var selectedTab: TerminalTab? {
         guard let selectedTabID else { return nil }
@@ -66,6 +68,7 @@ final class AppModel: ObservableObject {
     func selectTab(_ id: UUID) {
         showingSettings = false
         selectedTabID = id
+        persistSession()
         guard let tab = tabs.first(where: { $0.id == id }), tab.alias != nil, !tab.exited else { return }
         SSHTerminalRegistry.focus(tab.sessionID)
     }
@@ -73,6 +76,7 @@ final class AppModel: ObservableObject {
     /// The terminal became first responder. Do not ask it to focus again.
     func notePaneFocused(_ id: UUID) {
         selectedTabID = id
+        persistSession()
     }
 
     func openHost(_ alias: String) {
@@ -117,7 +121,46 @@ final class AppModel: ObservableObject {
             }
             selectedTabID = lastID
             showingSettings = false
+            persistSession()
         }
+    }
+
+    /// Reopens the tabs that were on screen when the app last quit, including a split.
+    func restoreLastSession() {
+        guard let snapshot = SessionSnapshot.load(), !snapshot.tabs.isEmpty else {
+            acceptSessionWrites = true
+            return
+        }
+        Task {
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard !Task.isCancelled else {
+                acceptSessionWrites = true
+                return
+            }
+            if !tabs.isEmpty {
+                acceptSessionWrites = true
+                persistSession()
+                return
+            }
+            launchEnvironment = environment
+            tabs = snapshot.tabs.map {
+                TerminalTab(id: $0.id, alias: $0.alias, generation: 0, exited: false)
+            }
+            let known = Set(tabs.map(\.id))
+            layout = Self.layout(snapshot.layout, keeping: known)
+            if let selected = snapshot.selected, known.contains(selected) {
+                selectedTabID = selected
+            } else {
+                selectedTabID = tabs.last?.id
+            }
+            showingSettings = false
+            acceptSessionWrites = true
+            persistSession()
+        }
+    }
+
+    func persistSessionIfReady() {
+        persistSession()
     }
 
     func toggleSettings() {
@@ -152,6 +195,7 @@ final class AppModel: ObservableObject {
         if let next, let tab = tabs.first(where: { $0.id == next }), tab.alias != nil, !tab.exited {
             SSHTerminalRegistry.focus(tab.sessionID)
         }
+        persistSession()
     }
 
     func beginDrag(_ id: UUID) {
@@ -205,6 +249,7 @@ final class AppModel: ObservableObject {
         layout = PaneLayout.splitRoot(PaneLayout.split(root, target: target, with: dragged, edge: edge))
         selectedTabID = dragged
         endDrag()
+        persistSession()
     }
 
     func receiveSidebarDrop(_ dragged: UUID, before target: UUID?) {
@@ -217,11 +262,13 @@ final class AppModel: ObservableObject {
         }
         selectedTabID = dragged
         endDrag()
+        persistSession()
     }
 
     func setSplitRatio(_ id: UUID, to ratio: CGFloat) {
         guard let layout else { return }
         self.layout = PaneLayout.setRatio(id, to: ratio, in: layout)
+        persistSession()
     }
 
     private func moveTab(_ id: UUID, before other: UUID) {
@@ -234,5 +281,55 @@ final class AppModel: ObservableObject {
     func closeSelectedTab() {
         guard let selectedTabID else { return }
         closeTab(selectedTabID)
+    }
+
+    private func persistSession() {
+        guard acceptSessionWrites else { return }
+        let snapshot = SessionSnapshot(
+            tabs: tabs.compactMap { tab in
+                guard let alias = tab.alias, !alias.isEmpty else { return nil }
+                return SessionSnapshot.Tab(id: tab.id, alias: alias)
+            },
+            selected: selectedTabID,
+            layout: layout
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: SessionSnapshot.storageKey)
+    }
+
+    private static func layout(_ node: PaneNode?, keeping known: Set<UUID>) -> PaneNode? {
+        guard var node else { return nil }
+        for id in leafIDs(node) where !known.contains(id) {
+            guard let next = PaneLayout.remove(id, from: node) else { return nil }
+            node = next
+        }
+        return PaneLayout.splitRoot(node)
+    }
+
+    private static func leafIDs(_ node: PaneNode) -> [UUID] {
+        switch node {
+        case .leaf(let id):
+            return [id]
+        case .split(let split):
+            return leafIDs(split.leading) + leafIDs(split.trailing)
+        }
+    }
+}
+
+private struct SessionSnapshot: Codable {
+    struct Tab: Codable {
+        var id: UUID
+        var alias: String
+    }
+
+    static let storageKey = "session.openTabs"
+
+    var tabs: [Tab]
+    var selected: UUID?
+    var layout: PaneNode?
+
+    static func load() -> SessionSnapshot? {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return nil }
+        return try? JSONDecoder().decode(SessionSnapshot.self, from: data)
     }
 }

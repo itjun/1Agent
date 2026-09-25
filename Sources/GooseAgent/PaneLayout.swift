@@ -17,14 +17,14 @@ enum SplitEdge: Equatable {
     }
 }
 
-enum SplitAxis: Equatable {
+enum SplitAxis: Equatable, Codable {
     /// Left and right.
     case vertical
     /// Top and bottom.
     case horizontal
 }
 
-struct SplitNode: Equatable, Identifiable {
+struct SplitNode: Equatable, Identifiable, Codable {
     var id: UUID
     var axis: SplitAxis
     var ratio: CGFloat
@@ -32,7 +32,7 @@ struct SplitNode: Equatable, Identifiable {
     var trailing: PaneNode
 }
 
-indirect enum PaneNode: Equatable {
+indirect enum PaneNode: Equatable, Codable {
     case leaf(UUID)
     case split(SplitNode)
 }
