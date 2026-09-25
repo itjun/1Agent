@@ -2,23 +2,18 @@ import CoreGraphics
 import Foundation
 
 enum SplitEdge: Equatable {
-    case left, right, top, bottom
+    case left, right, top, bottom, center
 
-    /// The outer band of a pane starts a split. The middle does not.
+    /// The side the pointer is on. Left and right win when it is equally far from both midlines.
     static func at(_ point: CGPoint, in size: CGSize) -> SplitEdge? {
         guard size.width > 48, size.height > 48 else { return nil }
-        let bandX = min(96, size.width * 0.28)
-        let bandY = min(96, size.height * 0.28)
-        let hits: [(SplitEdge, CGFloat, CGFloat)] = [
-            (.left, point.x, bandX),
-            (.right, size.width - point.x, bandX),
-            (.top, point.y, bandY),
-            (.bottom, size.height - point.y, bandY),
-        ]
-        return hits
-            .filter { $0.1 >= 0 && $0.1 <= $0.2 }
-            .min { $0.1 < $1.1 }?
-            .0
+        guard point.x >= 0, point.y >= 0, point.x <= size.width, point.y <= size.height else { return nil }
+        let dx = point.x / size.width - 0.5
+        let dy = point.y / size.height - 0.5
+        if abs(dx) >= abs(dy) {
+            return dx < 0 ? .left : .right
+        }
+        return dy < 0 ? .top : .bottom
     }
 }
 
@@ -90,6 +85,9 @@ enum PaneLayout {
 
     static func split(_ node: PaneNode, target: UUID, with incoming: UUID, edge: SplitEdge) -> PaneNode {
         guard incoming != target else { return node }
+        if edge == .center {
+            return replace(node, target: target, with: incoming)
+        }
         switch node {
         case .leaf(let id):
             guard id == target else { return node }
@@ -97,6 +95,18 @@ enum PaneLayout {
         case .split(var split):
             split.leading = self.split(split.leading, target: target, with: incoming, edge: edge)
             split.trailing = self.split(split.trailing, target: target, with: incoming, edge: edge)
+            return .split(split)
+        }
+    }
+
+    /// The dragged tab takes the target pane. The previous tab leaves the split.
+    static func replace(_ node: PaneNode, target: UUID, with incoming: UUID) -> PaneNode {
+        switch node {
+        case .leaf(let id):
+            return id == target ? .leaf(incoming) : node
+        case .split(var split):
+            split.leading = replace(split.leading, target: target, with: incoming)
+            split.trailing = replace(split.trailing, target: target, with: incoming)
             return .split(split)
         }
     }
@@ -138,7 +148,18 @@ enum PaneLayout {
             return CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * 0.5)
         case .bottom:
             return CGRect(x: rect.minX, y: rect.midY, width: rect.width, height: rect.height * 0.5)
+        case .center:
+            return rect
         }
+    }
+
+    /// The rounded reminder sits inside the landing area, with a margin like Otty.
+    static func reminder(for edge: SplitEdge, in rect: CGRect) -> CGRect {
+        let raw = highlight(for: edge, in: rect)
+        let inset = min(10, min(raw.width, raw.height) / 4)
+        let padded = raw.insetBy(dx: inset, dy: inset)
+        guard padded.width >= 24, padded.height >= 24 else { return raw }
+        return padded
     }
 
     private static func makeSplit(target: UUID, incoming: UUID, edge: SplitEdge) -> PaneNode {
@@ -148,6 +169,8 @@ enum PaneLayout {
         let leading: PaneNode
         let trailing: PaneNode
         switch edge {
+        case .center:
+            return .leaf(incoming)
         case .left:
             axis = .vertical
             leading = incomingLeaf

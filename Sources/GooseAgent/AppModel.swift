@@ -182,6 +182,17 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The canvas missed the drop. A sidebar drop in the same mouse-up bumps the epoch first.
+    func finishDragIfIdle() {
+        let epoch = dropEpoch
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.draggingTabID != nil, self.dropEpoch == epoch else { return }
+                self.endDrag()
+            }
+        }
+    }
+
     func dropTab(_ dragged: UUID, onto target: UUID, edge: SplitEdge) {
         guard dragged != target else { endDrag(); return }
         guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
@@ -191,7 +202,7 @@ final class AppModel: ObservableObject {
             root = PaneLayout.remove(dragged, from: root) ?? .leaf(target)
         }
         guard PaneLayout.contains(target, in: root) else { endDrag(); return }
-        layout = PaneLayout.split(root, target: target, with: dragged, edge: edge)
+        layout = PaneLayout.splitRoot(PaneLayout.split(root, target: target, with: dragged, edge: edge))
         selectedTabID = dragged
         endDrag()
     }

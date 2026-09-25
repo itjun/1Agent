@@ -28,6 +28,8 @@ test:
 	/tmp/goose-ssh-config-test
 	swiftc -o /tmp/goose-external-open-test Sources/GooseAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift
 	/tmp/goose-external-open-test
+	swiftc -o /tmp/goose-pane-layout-test Sources/GooseAgent/PaneLayout.swift Tests/PaneLayoutTests.swift
+	/tmp/goose-pane-layout-test
 
 clean:
 	rm -rf build GooseAgent.xcodeproj

@@ -176,18 +176,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝链接地址" } }
       }
     },
-    "Drag onto an edge to split, or back to the sidebar to dock." : {
+    "Drag across a pane. The highlighted side is where it splits. Drag back to the sidebar to dock." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag onto an edge to split, or back to the sidebar to dock." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖到边缘分屏，拖回侧边栏收回。" } }
-      }
-    },
-    "Split" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Split" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分屏" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag across a pane. The highlighted side is where it splits. Drag back to the sidebar to dock." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在窗格上拖动，亮起的一边就是分屏位置。拖回侧栏则收回。" } }
       }
     },
     "Could not read SSH config." : {
