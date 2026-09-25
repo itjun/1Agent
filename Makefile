@@ -6,7 +6,7 @@ ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
 endif
 
 CODE_SIGN_IDENTITY ?= -
-APP_BUNDLE = Goose Agent.app
+APP_BUNDLE = 1Agent.app
 APP_BUILT = build/Build/Products/Debug/$(APP_BUNDLE)
 
 gen:
@@ -14,7 +14,7 @@ gen:
 
 # Compile, then install into /Applications (quit → replace → relaunch if needed).
 build: gen
-	set -o pipefail; xcodebuild -project GooseAgent.xcodeproj -scheme GooseAgent -configuration Debug -derivedDataPath build build CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" CODE_SIGN_STYLE=Manual -skipPackagePluginValidation | tee /tmp/goose-agent-build.log | tail -8
+	set -o pipefail; xcodebuild -project 1Agent.xcodeproj -scheme 1Agent -configuration Debug -derivedDataPath build build CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" CODE_SIGN_STYLE=Manual -skipPackagePluginValidation | tee /tmp/1agent-build.log | tail -8
 	./scripts/install-app.sh "$(CURDIR)/$(APP_BUILT)"
 
 install:
@@ -32,4 +32,4 @@ test:
 	/tmp/goose-pane-layout-test
 
 clean:
-	rm -rf build GooseAgent.xcodeproj
+	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

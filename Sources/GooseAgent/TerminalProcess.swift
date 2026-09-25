@@ -13,10 +13,10 @@ final class TerminalProcess: @unchecked Sendable {
     private var readSource: DispatchSourceRead?
     private var exitSource: DispatchSourceProcess?
     /// Reads, the exit watch, and EOF handling are serialized here.
-    private let ioQueue = DispatchQueue(label: "dev.eachann.gooseagent.terminal-process.io")
+    private let ioQueue = DispatchQueue(label: "com.itjun.1agent.terminal-process.io")
     /// Writes go through a dedicated queue so a blocked child can never stall a
     /// caller (keyboard bytes arrive on Ghostty's IO thread).
-    private let writeQueue = DispatchQueue(label: "dev.eachann.gooseagent.terminal-process.write")
+    private let writeQueue = DispatchQueue(label: "com.itjun.1agent.terminal-process.write")
     private let stateLock = NSLock()
     private var exitReported = false
 

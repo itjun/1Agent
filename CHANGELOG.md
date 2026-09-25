@@ -1,4 +1,4 @@
-# Goose Agent changelog
+# 1Agent changelog
 
 Private maintenance notes are kept with the project history.
 
@@ -19,7 +19,7 @@ Private maintenance notes are kept with the project history.
 🌈 本次更新重点：英文界面更完整，跨设备操作更顺手。
 
 ✨ 新功能
-• 可以复制 Goose Agent 空间位置，方便快速定位空间。
+• 可以复制 1Agent 空间位置，方便快速定位空间。
 
 🪐 优化
 • 优先会话列表切换和键盘操作更稳定。

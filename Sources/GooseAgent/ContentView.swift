@@ -76,7 +76,7 @@ struct RootView: View {
         .environment(\.windowChrome, chrome)
         .ignoresSafeArea(edges: .top)
         .preferredColorScheme(appearance.preferredColorScheme)
-        .gooseagentHideFocusRing()
+        .oneagentHideFocusRing()
         .task { model.reloadHosts() }
         .onOpenURL { model.openExternalURL($0) }
         .onAppear {
@@ -91,7 +91,7 @@ struct RootView: View {
             HostPicker(model: model)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
                 .environment(\.windowChrome, chrome)
-                .gooseagentHideFocusRing()
+                .oneagentHideFocusRing()
         }
     }
 
@@ -236,9 +236,6 @@ struct RootView: View {
         .help(settingsHelp)
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .overlay(alignment: .top) {
-            Rectangle().fill(chrome.hairline).frame(height: 1)
-        }
     }
 
     private func tabRow(_ tab: TerminalTab, compact: Bool) -> some View {

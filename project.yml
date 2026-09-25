@@ -1,6 +1,6 @@
-name: GooseAgent
+name: 1Agent
 options:
-  bundleIdPrefix: dev.eachann
+  bundleIdPrefix: com.itjun
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -16,7 +16,7 @@ packages:
     # version scheme is <major.minor>.<UTC yyyymmdd>, so `from:` would drift.
     exactVersion: "1.6.20260909"
 targets:
-  GooseAgent:
+  1Agent:
     type: application
     platform: macOS
     sources:
@@ -34,8 +34,8 @@ targets:
     info:
       path: Sources/GooseAgent/Info.plist
       properties:
-        CFBundleName: "Goose Agent"
-        CFBundleDisplayName: "Goose Agent"
+        CFBundleName: "1Agent"
+        CFBundleDisplayName: "1Agent"
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
@@ -48,13 +48,13 @@ targets:
           - en
           - zh-Hans
         CFBundleURLTypes:
-          - CFBundleURLName: dev.eachann.gooseagent
+          - CFBundleURLName: com.itjun.1agent
             CFBundleURLSchemes:
-              - gooseagent
+              - oneagent
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.eachann.gooseagent
-        PRODUCT_NAME: "Goose Agent"
+        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent
+        PRODUCT_NAME: "1Agent"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         SWIFT_VERSION: "5.10"
         MARKETING_VERSION: "0.1.0"

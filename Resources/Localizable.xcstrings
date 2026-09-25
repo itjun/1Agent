@@ -190,11 +190,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法读取 SSH 配置。" } }
       }
     },
-    "Goose Agent" : {
+    "1Agent" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Goose Agent" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Goose Agent" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "1Agent" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1Agent" } }
       }
     },
     "Choose a Host" : {

@@ -91,7 +91,7 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(chrome.background)
-        .gooseagentHideFocusRing()
+        .oneagentHideFocusRing()
     }
 
     private func appearanceCard(_ mode: TerminalAppearance) -> some View {
