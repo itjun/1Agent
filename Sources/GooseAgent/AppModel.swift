@@ -214,6 +214,8 @@ final class AppModel: ObservableObject {
 
     /// Opens one tab per SSH config alias. The same URL delivered twice in a short
     /// window (AppDelegate and SwiftUI) is ignored.
+    /// One host stays under Ungrouped. Two or three stack vertically.
+    /// Four or more open as a grid.
     func openExternalURL(_ url: URL) {
         let aliases = ExternalOpen.hostAliases(from: url)
         guard !aliases.isEmpty else { return }
@@ -242,19 +244,26 @@ final class AppModel: ObservableObject {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
             launchEnvironment = environment
-            var lastID: UUID?
+            var created: [UUID] = []
             for alias in aliases {
                 let tab = TerminalTab(id: UUID(), alias: alias, generation: 0, exited: false)
                 tabs.append(tab)
-                lastID = tab.id
+                created.append(tab.id)
             }
-            selectedTabID = lastID
-            if let lastID {
-                sidebarSelection = [lastID]
-            } else {
-                sidebarSelection = []
+            if created.count >= 2 {
+                workspaces = WorkspaceBoard.merge(created, in: workspaces)
+                let layout: WorkspaceLayout = created.count >= 4 ? .grid : .rows
+                if let index = WorkspaceBoard.index(containing: created[0], in: workspaces) {
+                    workspaces[index] = WorkspaceBoard.apply(layout, to: workspaces[index])
+                }
+                sidebarSelection = Set(created)
+                sidebarAnchor = created[0]
+                selectedTabID = created[0]
+            } else if let only = created.first {
+                selectedTabID = only
+                sidebarSelection = [only]
+                sidebarAnchor = only
             }
-            sidebarAnchor = lastID
             persistSession()
         }
     }
