@@ -11,7 +11,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     var defaultChord: KeyChord {
         switch self {
         case .newTab: return KeyChord(key: "t", modifiers: .command)
-        case .closeTab: return KeyChord(key: "w", modifiers: .command)
+        case .closeTab: return KeyChord(key: "d", modifiers: .command)
         case .settings: return KeyChord(key: ",", modifiers: .command)
         }
     }

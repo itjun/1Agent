@@ -316,6 +316,13 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭标签" } }
       }
     },
+    "Close Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭终端" } }
+      }
+    },
     "Close Tab (%@)" : {
       "extractionState" : "manual",
       "localizations" : {

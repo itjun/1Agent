@@ -396,18 +396,6 @@ struct RootView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .help(compact ? (host?.sessionBadge ?? "") : "")
-
-            Button {
-                model.closeTab(tab.id)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(chrome.secondary)
-                    .frame(width: 16, height: 16)
-            }
-            .buttonStyle(.borderless)
-            .help(closeTabHelp)
-            .accessibilityLabel(Text("Close Tab"))
         }
         .padding(.leading, 16 + indent)
         .padding(.trailing, 16)
@@ -420,7 +408,8 @@ struct RootView: View {
                 onClick: { model.selectTab(tab.id) },
                 onBegan: { dropRelay.dragBegan(tab.id) },
                 onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                onEnded: { dropRelay.dragEnded(windowPoint: $0) }
+                onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                onClose: { model.closeTab(tab.id) }
             )
         }
     }
@@ -923,6 +912,7 @@ private final class TabDragHandleView: NSView {
     var onBegan: () -> Void = {}
     var onMoved: (NSPoint) -> Void = { _ in }
     var onEnded: (NSPoint) -> Void = { _ in }
+    var onClose: (() -> Void)?
     var showsGripCursor = false {
         didSet {
             guard oldValue != showsGripCursor else { return }
@@ -1126,6 +1116,19 @@ private final class TabDragHandleView: NSView {
         }
     }
 
+    override func rightMouseUp(with event: NSEvent) {
+        guard onClose != nil else {
+            super.rightMouseUp(with: event)
+            return
+        }
+        let menu = NSMenu()
+        menu.addItem(TerminalCloseMenu.item(action: #selector(closeFromMenu(_:)), target: self))
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+
+    @objc private func closeFromMenu(_: Any?) {
+        onClose?()
+    }
 }
 
 private struct TabDragHandle: NSViewRepresentable {
@@ -1135,6 +1138,7 @@ private struct TabDragHandle: NSViewRepresentable {
     var onBegan: () -> Void
     var onMoved: (NSPoint) -> Void
     var onEnded: (NSPoint) -> Void
+    var onClose: (() -> Void)? = nil
     var showsGripCursor = false
 
     func makeNSView(context: Context) -> TabDragHandleView { TabDragHandleView() }
@@ -1146,6 +1150,7 @@ private struct TabDragHandle: NSViewRepresentable {
         view.onBegan = onBegan
         view.onMoved = onMoved
         view.onEnded = onEnded
+        view.onClose = onClose
         view.showsGripCursor = showsGripCursor
         view.window?.invalidateCursorRects(for: view)
     }
@@ -1225,7 +1230,15 @@ private struct TerminalCanvas: View {
                         environment: model.launchEnvironment,
                         dark: dark,
                         usesCatalogTheme: usesCatalogTheme,
-                        onExit: { model.markClosed(tab.id) },
+                        onExit: { code in
+                            // ssh uses 255 when the connection itself fails. A shell exit removes the tab.
+                            if let code, code != 255 {
+                                model.closeTab(tab.id)
+                            } else {
+                                model.markClosed(tab.id)
+                            }
+                        },
+                        onClose: { model.closeTab(tab.id) },
                         onFocus: { model.notePaneFocused(tab.id) }
                     )
                     .id(tab.sessionID)

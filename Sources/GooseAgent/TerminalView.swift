@@ -722,8 +722,25 @@ enum SSHTerminalRegistry {
     }
 }
 
+enum TerminalCloseMenu {
+    static func item(action: Selector, target: AnyObject) -> NSMenuItem {
+        let title = String(localized: "Close Terminal")
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = target
+        item.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .foregroundColor: NSColor.systemRed,
+                .font: NSFont.menuFont(ofSize: 0),
+            ]
+        )
+        return item
+    }
+}
+
 final class SSHTerminalNSView: AppTerminalView {
     var onFocus: (() -> Void)?
+    var onClose: (() -> Void)?
     var appliedDarkAppearance: Int?
     weak var attachedSurface: TerminalSurface?
     weak var processHost: TerminalProcessHost?
@@ -848,6 +865,8 @@ final class SSHTerminalNSView: AppTerminalView {
         }
         menu.addItem(makeItem(String(localized: "Paste"), #selector(performPaste(_:))))
         menu.addItem(makeItem(String(localized: "Select All"), #selector(selectAll(_:))))
+        menu.addItem(.separator())
+        menu.addItem(TerminalCloseMenu.item(action: #selector(closeTerminalFromMenu(_:)), target: self))
         return menu
     }
 
@@ -921,6 +940,10 @@ final class SSHTerminalNSView: AppTerminalView {
         pastePlainText()
     }
 
+    @objc private func closeTerminalFromMenu(_: Any?) {
+        onClose?()
+    }
+
     private func pastePlainText() {
         guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else { return }
         paste(text: text)
@@ -964,7 +987,8 @@ struct SSHTerminalView: NSViewRepresentable {
     var dark: Bool
     /// Catalog themes already include their own palette, so the light-color rewrite stays off.
     var usesCatalogTheme: Bool = false
-    var onExit: () -> Void
+    var onExit: (Int32?) -> Void
+    var onClose: () -> Void = {}
     var onFocus: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -977,12 +1001,16 @@ struct SSHTerminalView: NSViewRepresentable {
         context.coordinator.host = host
         context.coordinator.sessionID = sessionID
         context.coordinator.onExit = onExit
+        context.coordinator.onClose = onClose
         context.coordinator.onFocus = onFocus
         view.onFocus = { [weak coordinator = context.coordinator] in
             coordinator?.onFocus?()
         }
-        host.onExit = { [weak coordinator = context.coordinator] _ in
-            coordinator?.processDidExit()
+        view.onClose = { [weak coordinator = context.coordinator] in
+            coordinator?.onClose?()
+        }
+        host.onExit = { [weak coordinator = context.coordinator] code in
+            coordinator?.processDidExit(code)
         }
         view.delegate = context.coordinator
         view.controller = GhosttyRuntime.controller
@@ -1004,7 +1032,11 @@ struct SSHTerminalView: NSViewRepresentable {
 
     func updateNSView(_ nsView: SSHTerminalNSView, context: Context) {
         context.coordinator.onExit = onExit
+        context.coordinator.onClose = onClose
         context.coordinator.onFocus = onFocus
+        nsView.onClose = { [weak coordinator = context.coordinator] in
+            coordinator?.onClose?()
+        }
         applyAppearance(nsView, dark: dark, usesCatalogTheme: usesCatalogTheme)
     }
 
@@ -1028,7 +1060,8 @@ struct SSHTerminalView: NSViewRepresentable {
 
     final class Coordinator: NSObject, TerminalSurfaceLifecycleDelegate {
         var sessionID: String?
-        var onExit: (() -> Void)?
+        var onExit: ((Int32?) -> Void)?
+        var onClose: (() -> Void)?
         var onFocus: (() -> Void)?
         weak var view: SSHTerminalNSView?
         var host: TerminalProcessHost?
@@ -1041,10 +1074,10 @@ struct SSHTerminalView: NSViewRepresentable {
             view?.attachedSurface = nil
         }
 
-        func processDidExit() {
+        func processDidExit(_ code: Int32?) {
             let callback = onExit
             onExit = nil
-            callback?()
+            callback?(code)
         }
     }
 }

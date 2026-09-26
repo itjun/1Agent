@@ -25,15 +25,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Cmd+W closes the selected tab. Swallowing the event keeps the window open.
+    /// Cmd+D closes the selected terminal. Swallowing the event keeps the window open.
     private func handleShortcut(_ event: NSEvent) -> NSEvent? {
         if event.keyCode == 53, model.draggingTabID != nil {
             model.endDrag()
             return nil
         }
-        guard let chord = KeyChord.from(event: event),
-              chord == AppShortcuts.chord(for: .closeTab)
-        else { return event }
+        guard let chord = KeyChord.from(event: event) else { return event }
+        let closesTerminal = chord == AppShortcuts.chord(for: .closeTab)
+            || chord == KeyChord(key: "w", modifiers: .command)
+        guard closesTerminal else { return event }
         if model.hostPickerPresented {
             model.hostPickerPresented = false
             return nil
