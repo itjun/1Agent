@@ -513,6 +513,14 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
+    /// Drops the workspace. Members stay open and move to Ungrouped.
+    func dissolveWorkspace(_ workspaceID: UUID) {
+        let next = WorkspaceBoard.dissolve(workspaceID, in: workspaces)
+        guard next != workspaces else { return }
+        workspaces = next
+        persistSession()
+    }
+
     func applyWorkspaceLayout(_ workspaceID: UUID, _ layout: WorkspaceLayout) {
         guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
         workspaces[index] = WorkspaceBoard.apply(layout, to: workspaces[index])

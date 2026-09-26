@@ -232,6 +232,12 @@ enum WorkspaceBoard {
         return workspaces
     }
 
+    /// Removes the workspace. Its hosts stay open and show under Ungrouped.
+    static func dissolve(_ workspaceID: UUID, in workspaces: [Workspace]) -> [Workspace] {
+        guard workspaces.contains(where: { $0.id == workspaceID }) else { return workspaces }
+        return workspaces.filter { $0.id != workspaceID }
+    }
+
     /// Pulls a pane out of its workspace. The group disappears when one host is left.
     static func extract(_ id: UUID, from workspaces: [Workspace]) -> [Workspace] {
         guard let found = WorkspaceBoard.index(containing: id, in: workspaces) else { return workspaces }

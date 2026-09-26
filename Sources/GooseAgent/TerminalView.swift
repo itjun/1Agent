@@ -724,7 +724,15 @@ enum SSHTerminalRegistry {
 
 enum TerminalCloseMenu {
     static func item(action: Selector, target: AnyObject) -> NSMenuItem {
-        let title = String(localized: "Close Terminal")
+        TerminalCloseMenu.item(
+            title: String(localized: "Close Terminal"),
+            action: action,
+            target: target
+        )
+    }
+
+    /// Red menu title, same treatment as Close Terminal.
+    static func item(title: String, action: Selector, target: AnyObject) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = target
         item.attributedTitle = NSAttributedString(

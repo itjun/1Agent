@@ -176,6 +176,13 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "设置" } }
       }
     },
+    "Dissolve Workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dissolve Workspace" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "解散分组" } }
+      }
+    },
     "Ungrouped" : {
       "extractionState" : "manual",
       "localizations" : {

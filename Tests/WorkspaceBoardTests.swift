@@ -25,6 +25,12 @@ enum WorkspaceBoardTests {
         let emptied = WorkspaceBoard.extract(second, from: merged)
         expect(emptied.isEmpty, "extracting one host of a pair dissolves the workspace")
 
+        let dissolvedGroup = WorkspaceBoard.dissolve(secondGroup[0].id, in: secondGroup)
+        expect(dissolvedGroup.map(\.number) == [2], "dissolving workspace 1 leaves workspace 2")
+        expect(WorkspaceBoard.index(containing: first, in: dissolvedGroup) == nil, "a dissolved host is no longer grouped")
+        expect(WorkspaceBoard.index(containing: second, in: dissolvedGroup) == nil, "every host in the dissolved workspace is ungrouped")
+        expect(WorkspaceBoard.dissolve(UUID(), in: secondGroup).count == 2, "an unknown workspace is left alone")
+
         let moved = WorkspaceBoard.drop(dragged: fourth, onto: first, edge: .left, in: secondGroup)
         expect(moved.count == 1, "leaving a pair dissolves that workspace")
         let movedLeaves = WorkspaceBoard.leafIDs(moved[0].layout)

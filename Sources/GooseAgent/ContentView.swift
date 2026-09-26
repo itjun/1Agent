@@ -247,10 +247,6 @@ struct RootView: View {
         String(format: String(localized: "Workspace %lld"), number)
     }
 
-    private var workspaceLayoutHelp: String {
-        String(localized: "Right-click to choose how the panes are arranged.")
-    }
-
     private func workspaceLayoutTitle(_ layout: WorkspaceLayout) -> String {
         switch layout {
         case .columns:
@@ -266,27 +262,25 @@ struct RootView: View {
         }
     }
 
-    @ViewBuilder
-    private func workspaceLayoutMenu(_ workspace: Workspace) -> some View {
-        let count = WorkspaceBoard.leafIDs(workspace.layout).count
-        ForEach(WorkspaceBoard.availableLayouts(paneCount: count), id: \.self) { layout in
-            Button(workspaceLayoutTitle(layout)) {
-                model.applyWorkspaceLayout(workspace.id, layout)
-            }
-        }
-    }
-
     private func workspaceHeader(_ workspace: Workspace) -> some View {
-        Text(workspaceTitle(workspace.number))
+        let count = WorkspaceBoard.leafIDs(workspace.layout).count
+        let layouts = WorkspaceBoard.availableLayouts(paneCount: count)
+        return Text(workspaceTitle(workspace.number))
             .font(Theme.sidebarRowMeta)
             .foregroundStyle(chrome.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 2)
-            .contentShape(Rectangle())
-            .contextMenu { workspaceLayoutMenu(workspace) }
-            .help(workspaceLayoutHelp)
+            .overlay {
+                WorkspaceHeaderMenu(
+                    layouts: layouts,
+                    titles: layouts.map { workspaceLayoutTitle($0) },
+                    onLayout: { model.applyWorkspaceLayout(workspace.id, $0) },
+                    onDissolve: { model.dissolveWorkspace(workspace.id) }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
     }
 
     private func rowFill(selected: Bool, tabID: UUID) -> Color {
@@ -784,6 +778,72 @@ private final class DragChipView: NSView {
         ]
         let size = (title as NSString).size(withAttributes: attributes)
         return CGSize(width: max(size.width + 42, 72), height: max(size.height + 12, 26))
+    }
+}
+
+/// How close the pointer is to the pane drag bar.
+/// Right-click on a workspace title. Scroll events pass through to the sidebar.
+private struct WorkspaceHeaderMenu: NSViewRepresentable {
+    var layouts: [WorkspaceLayout]
+    var titles: [String]
+    var onLayout: (WorkspaceLayout) -> Void
+    var onDissolve: () -> Void
+
+    func makeNSView(context: Context) -> WorkspaceHeaderMenuView {
+        WorkspaceHeaderMenuView()
+    }
+
+    func updateNSView(_ view: WorkspaceHeaderMenuView, context: Context) {
+        view.layouts = layouts
+        view.titles = titles
+        view.onLayout = onLayout
+        view.onDissolve = onDissolve
+        view.toolTip = String(localized: "Right-click to choose how the panes are arranged.")
+    }
+}
+
+private final class WorkspaceHeaderMenuView: NSView {
+    var layouts: [WorkspaceLayout] = []
+    var titles: [String] = []
+    var onLayout: (WorkspaceLayout) -> Void = { _ in }
+    var onDissolve: () -> Void = {}
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = convert(point, from: superview)
+        return bounds.contains(local) ? self : nil
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        nextResponder?.scrollWheel(with: event)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        for index in layouts.indices {
+            let title = titles.indices.contains(index) ? titles[index] : ""
+            let item = NSMenuItem(title: title, action: #selector(chooseLayout(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            menu.addItem(item)
+        }
+        if !layouts.isEmpty {
+            menu.addItem(.separator())
+        }
+        menu.addItem(TerminalCloseMenu.item(
+            title: String(localized: "Dissolve Workspace"),
+            action: #selector(dissolveFromMenu(_:)),
+            target: self
+        ))
+        return menu
+    }
+
+    @objc private func chooseLayout(_ sender: NSMenuItem) {
+        guard layouts.indices.contains(sender.tag) else { return }
+        onLayout(layouts[sender.tag])
+    }
+
+    @objc private func dissolveFromMenu(_: Any?) {
+        onDissolve()
     }
 }
 
