@@ -21,14 +21,14 @@ enum Theme {
     static let sidebarRowTitle = Font.system(size: 13, weight: .medium)
     static let sidebarRowMeta = Font.system(size: 11)
 
-    /// One color per repeated host inside a workspace. Light and dark each stay readable on the window background.
+    /// TDesign primary steps, staggered red, blue, orange, green, purple, cyan.
     static let duplicateHostMarks: [Color] = [
-        dynamic(hex(0x0057B8), hex(0x7EB6FF)),
-        dynamic(hex(0x006E9A), hex(0x7DD3F0)),
-        dynamic(hex(0x6424C8), hex(0xC4B5FD)),
-        dynamic(hex(0x046B4C), hex(0x6EE7B7)),
-        dynamic(hex(0xA81452), hex(0xF9A8D4)),
-        dynamic(hex(0x7A4E00), hex(0xF5C56B)),
+        dynamic(hex(0xD54941), hex(0xF6685D)),
+        dynamic(hex(0x0052D9), hex(0x366EF4)),
+        dynamic(hex(0xE37318), hex(0xE37318)),
+        dynamic(hex(0x2BA471), hex(0x2BA471)),
+        dynamic(hex(0x8E56DD), hex(0xAD75FE)),
+        dynamic(hex(0x029CD4), hex(0x029CD4)),
     ]
 
     static func duplicateHostMark(_ index: Int) -> Color {
