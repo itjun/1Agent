@@ -208,17 +208,7 @@ struct RootView: View {
                     .font(Theme.sidebarRowTitle)
                     .foregroundStyle(hostTitleColor(tab))
                     .lineLimit(1)
-                if !compact, tab.isLocal {
-                    Text("Local Terminal")
-                        .font(Theme.sidebarRowMeta)
-                        .foregroundStyle(chrome.secondary)
-                        .lineLimit(1)
-                } else if !compact, let host, !host.subtitle.isEmpty {
-                    Text(host.subtitle)
-                        .font(Theme.sidebarRowMeta)
-                        .foregroundStyle(chrome.secondary)
-                        .lineLimit(1)
-                }
+                    .truncationMode(tab.isLocal ? .head : .tail)
                 if !compact, tab.exited {
                     Text("Connection closed")
                         .font(Theme.sidebarRowMeta)
@@ -226,7 +216,7 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .help(compact ? compactHelp : "")
+            .help(tab.isLocal || compact ? compactHelp : "")
         }
         .padding(.leading, 16 + indent)
         .padding(.trailing, 16)
