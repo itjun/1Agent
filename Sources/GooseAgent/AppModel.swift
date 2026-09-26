@@ -5,6 +5,7 @@ enum TabDropHighlight: Equatable {
     case edge(UUID, SplitEdge)
     case sidebarRow(UUID)
     case sidebar
+    case workspace(UUID)
 }
 
 struct TerminalTab: Identifiable, Equatable {
@@ -23,8 +24,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var tabs: [TerminalTab] = []
     @Published var selectedTabID: UUID?
     @Published private(set) var launchEnvironment: [String] = []
-    /// Nil when the visible area is a single tab. A split survives while another tab is selected.
-    @Published private(set) var layout: PaneNode?
+    /// Merged terminals. A single host is not stored here. Each workspace is one split tree.
+    @Published private(set) var workspaces: [Workspace] = []
     @Published var draggingTabID: UUID?
     @Published var dropHighlight: TabDropHighlight?
     @Published var hostPickerPresented = false
@@ -40,14 +41,39 @@ final class AppModel: ObservableObject {
         return tabs.first { $0.id == selectedTabID }
     }
 
-    /// What the terminal area shows. A selected tab outside the split is shown on its own.
+    /// What the terminal area shows. A selected host outside every workspace is shown on its own.
     func displayRoot() -> PaneNode? {
         guard let selectedTabID else { return nil }
         guard tabs.first(where: { $0.id == selectedTabID })?.alias != nil else { return nil }
-        if let layout, PaneLayout.contains(selectedTabID, in: layout) {
-            return layout
+        if let found = WorkspaceBoard.index(containing: selectedTabID, in: workspaces) {
+            return workspaces[found].layout
         }
         return .leaf(selectedTabID)
+    }
+
+    func tabs(in workspace: Workspace) -> [TerminalTab] {
+        var members: [TerminalTab] = []
+        for id in WorkspaceBoard.leafIDs(workspace.layout) {
+            if let tab = tabs.first(where: { $0.id == id }) {
+                members.append(tab)
+            }
+        }
+        return members
+    }
+
+    var standaloneTabs: [TerminalTab] {
+        tabs.filter { tab in
+            WorkspaceBoard.index(containing: tab.id, in: workspaces) == nil
+        }
+    }
+
+    var workspacesByNumber: [Workspace] {
+        workspaces.sorted { $0.number < $1.number }
+    }
+
+    func workspaceContains(_ tab: UUID, _ workspaceID: UUID) -> Bool {
+        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return false }
+        return WorkspaceBoard.index(containing: tab, in: workspaces) == index
     }
 
     func host(_ alias: String) -> SSHHost? {
@@ -61,6 +87,7 @@ final class AppModel: ObservableObject {
     }
 
     func newTab() {
+        showingSettings = false
         reloadHosts()
         hostPickerPresented = true
     }
@@ -147,7 +174,7 @@ final class AppModel: ObservableObject {
                 TerminalTab(id: $0.id, alias: $0.alias, generation: 0, exited: false)
             }
             let known = Set(tabs.map(\.id))
-            layout = Self.layout(snapshot.layout, keeping: known)
+            workspaces = Self.workspaces(snapshot.workspaces, keeping: known)
             if let selected = snapshot.selected, known.contains(selected) {
                 selectedTabID = selected
             } else {
@@ -164,7 +191,9 @@ final class AppModel: ObservableObject {
     }
 
     func toggleSettings() {
-        showingSettings.toggle()
+        let isShowing = !showingSettings
+        hostPickerPresented = false
+        showingSettings = isShowing
     }
 
     func reconnect(_ tabID: UUID) {
@@ -186,14 +215,13 @@ final class AppModel: ObservableObject {
     func closeTab(_ id: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         tabs.remove(at: index)
-        if let layout {
-            self.layout = PaneLayout.splitRoot(PaneLayout.remove(id, from: layout))
-        }
-        guard selectedTabID == id else { return }
-        let next = tabs.indices.contains(index) ? tabs[index].id : tabs.last?.id
-        selectedTabID = next
-        if let next, let tab = tabs.first(where: { $0.id == next }), tab.alias != nil, !tab.exited {
-            SSHTerminalRegistry.focus(tab.sessionID)
+        workspaces = WorkspaceBoard.extract(id, from: workspaces)
+        if selectedTabID == id {
+            let next = tabs.indices.contains(index) ? tabs[index].id : tabs.last?.id
+            selectedTabID = next
+            if let next, let tab = tabs.first(where: { $0.id == next }), tab.alias != nil, !tab.exited {
+                SSHTerminalRegistry.focus(tab.sessionID)
+            }
         }
         persistSession()
     }
@@ -241,12 +269,29 @@ final class AppModel: ObservableObject {
         guard dragged != target else { endDrag(); return }
         guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
         guard tabs.contains(where: { $0.id == target && $0.alias != nil }) else { endDrag(); return }
-        var root = layout ?? .leaf(target)
-        if PaneLayout.contains(dragged, in: root) {
-            root = PaneLayout.remove(dragged, from: root) ?? .leaf(target)
-        }
-        guard PaneLayout.contains(target, in: root) else { endDrag(); return }
-        layout = PaneLayout.splitRoot(PaneLayout.split(root, target: target, with: dragged, edge: edge))
+        workspaces = WorkspaceBoard.drop(dragged: dragged, onto: target, edge: edge, in: workspaces)
+        selectedTabID = dragged
+        endDrag()
+        persistSession()
+    }
+
+    /// Sidebar order and the content panes are the same leaf sequence.
+    func reorderWorkspaceMember(_ dragged: UUID, beside target: UUID, after: Bool) {
+        guard dragged != target else { endDrag(); return }
+        let next = WorkspaceBoard.moveLeaf(dragged, beside: target, after: after, in: workspaces)
+        guard next != workspaces else { endDrag(); return }
+        workspaces = next
+        selectedTabID = dragged
+        endDrag()
+        persistSession()
+    }
+
+    /// A standalone host, or a member of another group, joins this workspace at the end of its sidebar order.
+    func joinWorkspace(_ dragged: UUID, _ workspaceID: UUID) {
+        guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
+        let next = WorkspaceBoard.join(dragged, to: workspaceID, in: workspaces)
+        guard next != workspaces else { endDrag(); return }
+        workspaces = next
         selectedTabID = dragged
         endDrag()
         persistSession()
@@ -254,20 +299,33 @@ final class AppModel: ObservableObject {
 
     func receiveSidebarDrop(_ dragged: UUID, before target: UUID?) {
         guard tabs.contains(where: { $0.id == dragged }) else { endDrag(); return }
-        if let layout, PaneLayout.contains(dragged, in: layout) {
-            self.layout = PaneLayout.splitRoot(PaneLayout.remove(dragged, from: layout))
-        }
-        if let target, target != dragged {
-            moveTab(dragged, before: target)
+        let reorderBefore = sidebarReorderTarget(target, dragged: dragged)
+        workspaces = WorkspaceBoard.extract(dragged, from: workspaces)
+        if let reorderBefore {
+            moveTab(dragged, before: reorderBefore)
         }
         selectedTabID = dragged
         endDrag()
         persistSession()
     }
 
+    /// A drop on a standalone row inserts before that row.
+    private func sidebarReorderTarget(_ target: UUID?, dragged: UUID) -> UUID? {
+        guard let target, target != dragged else { return nil }
+        if WorkspaceBoard.index(containing: target, in: workspaces) != nil {
+            return nil
+        }
+        return target
+    }
+
+    func applyWorkspaceLayout(_ workspaceID: UUID, _ layout: WorkspaceLayout) {
+        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        workspaces[index] = WorkspaceBoard.apply(layout, to: workspaces[index])
+        persistSession()
+    }
+
     func setSplitRatio(_ id: UUID, to ratio: CGFloat) {
-        guard let layout else { return }
-        self.layout = PaneLayout.setRatio(id, to: ratio, in: layout)
+        workspaces = WorkspaceBoard.setRatio(id, to: ratio, in: workspaces)
         persistSession()
     }
 
@@ -291,28 +349,31 @@ final class AppModel: ObservableObject {
                 return SessionSnapshot.Tab(id: tab.id, alias: alias)
             },
             selected: selectedTabID,
-            layout: layout
+            layout: nil,
+            workspaces: workspaces
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: SessionSnapshot.storageKey)
     }
 
+    private static func workspaces(_ workspaces: [Workspace], keeping known: Set<UUID>) -> [Workspace] {
+        var kept: [Workspace] = []
+        for workspace in workspaces {
+            guard let layout = Self.layout(workspace.layout, keeping: known) else { continue }
+            var workspace = workspace
+            workspace.layout = layout
+            kept.append(workspace)
+        }
+        return kept
+    }
+
     private static func layout(_ node: PaneNode?, keeping known: Set<UUID>) -> PaneNode? {
         guard var node else { return nil }
-        for id in leafIDs(node) where !known.contains(id) {
+        for id in WorkspaceBoard.leafIDs(node) where !known.contains(id) {
             guard let next = PaneLayout.remove(id, from: node) else { return nil }
             node = next
         }
         return PaneLayout.splitRoot(node)
-    }
-
-    private static func leafIDs(_ node: PaneNode) -> [UUID] {
-        switch node {
-        case .leaf(let id):
-            return [id]
-        case .split(let split):
-            return leafIDs(split.leading) + leafIDs(split.trailing)
-        }
     }
 }
 
@@ -326,7 +387,46 @@ private struct SessionSnapshot: Codable {
 
     var tabs: [Tab]
     var selected: UUID?
+    /// Old snapshots stored one split here. New snapshots leave it nil and use `workspaces`.
     var layout: PaneNode?
+    var workspaces: [Workspace]
+
+    enum CodingKeys: String, CodingKey {
+        case tabs
+        case selected
+        case layout
+        case workspaces
+    }
+
+    init(tabs: [Tab], selected: UUID?, layout: PaneNode?, workspaces: [Workspace]) {
+        self.tabs = tabs
+        self.selected = selected
+        self.layout = layout
+        self.workspaces = workspaces
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tabs = try container.decode([Tab].self, forKey: .tabs)
+        selected = try container.decodeIfPresent(UUID.self, forKey: .selected)
+        layout = try container.decodeIfPresent(PaneNode.self, forKey: .layout)
+        let stored = try container.decodeIfPresent([Workspace].self, forKey: .workspaces) ?? []
+        if !stored.isEmpty {
+            workspaces = stored
+        } else if let layout, case .split = layout {
+            workspaces = [Workspace(id: UUID(), number: 1, layout: layout)]
+        } else {
+            workspaces = []
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(tabs, forKey: .tabs)
+        try container.encodeIfPresent(selected, forKey: .selected)
+        try container.encodeIfPresent(layout, forKey: .layout)
+        try container.encode(workspaces, forKey: .workspaces)
+    }
 
     static func load() -> SessionSnapshot? {
         guard let data = UserDefaults.standard.data(forKey: storageKey) else { return nil }

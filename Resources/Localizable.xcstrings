@@ -183,13 +183,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "展开侧栏" } }
       }
     },
-    "Settings (%@)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings (%@)" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "设置（%@）" } }
-      }
-    },
     "Settings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -209,6 +202,55 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Vertical Tabs" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "垂直标签栏" } }
+      }
+    },
+    "Workspace %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Workspace %lld" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "工作区 %lld" } }
+      }
+    },
+    "Right-click to choose how the panes are arranged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Right-click to choose how the panes are arranged." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "右键选择窗格的排列方式。" } }
+      }
+    },
+    "Equal Columns" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Equal Columns" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "横向均分" } }
+      }
+    },
+    "Equal Rows" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Equal Rows" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "纵向均分" } }
+      }
+    },
+    "Grid" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Grid" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网格分布" } }
+      }
+    },
+    "Leading Pane on the Left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Leading Pane on the Left" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "左侧为主" } }
+      }
+    },
+    "Leading Pane on the Top" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Leading Pane on the Top" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上方为主" } }
       }
     },
     "Cancel" : {
@@ -239,11 +281,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝链接地址" } }
       }
     },
-    "Drag across a pane. The highlighted side is where it splits. Drag back to the sidebar to dock." : {
+    "Drag to the top, bottom, left, or right of a pane to merge. Drag back to the sidebar to separate it." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag across a pane. The highlighted side is where it splits. Drag back to the sidebar to dock." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在窗格上拖动，亮起的一边就是分屏位置。拖回侧栏则收回。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag to the top, bottom, left, or right of a pane to merge. Drag back to the sidebar to separate it." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖到窗格的上、下、左、右合并；拖回侧栏拆出。" } }
       }
     },
     "Could not read SSH config." : {
@@ -342,13 +384,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Search hosts" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "搜索主机" } }
-      }
-    },
-    "Tabs" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tabs" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "标签" } }
       }
     },
     "Reconnect" : {

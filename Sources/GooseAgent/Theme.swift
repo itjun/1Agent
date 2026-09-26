@@ -20,7 +20,6 @@ enum Theme {
 
     static let sidebarRowTitle = Font.system(size: 13, weight: .medium)
     static let sidebarRowMeta = Font.system(size: 11)
-    static let sidebarGroupHeader = Font.system(size: 13, weight: .semibold)
 
     static let text = dynamic(hex(0x242424), hex(0xE2E2E2))
     static let textSecondary = dynamic(hex(0x666666), hex(0xA3A3A3))

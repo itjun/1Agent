@@ -30,6 +30,8 @@ test:
 	/tmp/goose-external-open-test
 	swiftc -o /tmp/goose-pane-layout-test Sources/GooseAgent/PaneLayout.swift Tests/PaneLayoutTests.swift
 	/tmp/goose-pane-layout-test
+	swiftc -o /tmp/goose-workspace-board-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
+	/tmp/goose-workspace-board-test
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

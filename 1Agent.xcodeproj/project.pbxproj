@@ -35,6 +35,7 @@
 		B59B42C83A80A64345CEE3CD /* goose-agent-icon-1024.png in Resources */ = {isa = PBXBuildFile; fileRef = B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */; };
 		BDE0F6784FE455B5144022E1 /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 0A4845DDBF4FBE86870CF14E /* GhosttyTheme */; };
 		CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D91EB1556003521E0650B7 /* AppModel.swift */; };
+		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
 		E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */; };
 /* End PBXBuildFile section */
 
@@ -56,6 +57,7 @@
 		5A7EE823807020FCAC7AB30D /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
 		64BF08A42C7BDF982C716507 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 1Agent.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBoard.swift; sourceTree = "<group>"; };
 		7DC2AB74FE4D721374A45471 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		8904A001DE23C1175D7692D4 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		892504A66F17F43AE42EC04A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -154,6 +156,7 @@
 				22680FE638056AFBBDA0F764 /* TerminalProcess.swift */,
 				7DC2AB74FE4D721374A45471 /* TerminalView.swift */,
 				FC199BA5503EE914D1E884FD /* Theme.swift */,
+				6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */,
 			);
 			name = GooseAgent;
 			path = Sources/GooseAgent;
@@ -262,6 +265,7 @@
 				292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */,
 				837075A95F60DAEF5F9564E0 /* TerminalView.swift in Sources */,
 				197C7C9B933208A046590B37 /* Theme.swift in Sources */,
+				CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

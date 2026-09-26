@@ -111,6 +111,25 @@ enum PaneLayout {
         }
     }
 
+    /// Keeps every split in place and writes `ids` into the leaves in sidebar order.
+    static func replacingLeaves(_ node: PaneNode, with ids: [UUID]) -> PaneNode {
+        var remaining = ids
+        return PaneLayout.replacingLeaves(node, remaining: &remaining)
+    }
+
+    private static func replacingLeaves(_ node: PaneNode, remaining: inout [UUID]) -> PaneNode {
+        switch node {
+        case .leaf:
+            guard let next = remaining.first else { return node }
+            remaining.removeFirst()
+            return .leaf(next)
+        case .split(var split):
+            split.leading = PaneLayout.replacingLeaves(split.leading, remaining: &remaining)
+            split.trailing = PaneLayout.replacingLeaves(split.trailing, remaining: &remaining)
+            return .split(split)
+        }
+    }
+
     static func setRatio(_ id: UUID, to ratio: CGFloat, in node: PaneNode) -> PaneNode {
         switch node {
         case .leaf:
