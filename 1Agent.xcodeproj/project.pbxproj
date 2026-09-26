@@ -15,6 +15,8 @@
 		33DCFCC9A4C67EC83537B7CB /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
+		454601CCC7894A948CE872FC /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */; };
+		4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */ = {isa = PBXBuildFile; fileRef = 02ED72874148F6B85ACA03C5 /* ghostty-source.svg */; };
 		54A69B737E8AA19ABE80CA7C /* TerminalLight.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = 15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */; };
 		5BCDA81B53DD02A4E6E3F810 /* TerminalColorFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D510F45D9B1BF3EE563416DE /* TerminalColorFilter.swift */; };
 		5C1EAA30E3A62A9AF2C99EAB /* ExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5093EE3F486041297EE0F59E /* ExternalOpen.swift */; };
@@ -38,6 +40,7 @@
 
 /* Begin PBXFileReference section */
 		01F8B90421D84B96A4DC2D00 /* FocusRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusRing.swift; sourceTree = "<group>"; };
+		02ED72874148F6B85ACA03C5 /* ghostty-source.svg */ = {isa = PBXFileReference; path = "ghostty-source.svg"; sourceTree = "<group>"; };
 		15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */ = {isa = PBXFileReference; path = TerminalLight.ghostty; sourceTree = "<group>"; };
 		199854A048ECCDE3D9559213 /* GooseAgentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooseAgentApp.swift; sourceTree = "<group>"; };
 		2077428E1F778214E2AA9D80 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -58,6 +61,7 @@
 		892504A66F17F43AE42EC04A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */ = {isa = PBXFileReference; path = "goose-agent-icon.svg"; sourceTree = "<group>"; };
 		97958BC6F31945F5729782D0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ghostty-source.png"; sourceTree = "<group>"; };
 		B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-1024.png"; sourceTree = "<group>"; };
 		BEAD42576853180D4E34F59B /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
 		CDE68855BD120DF7421F24EE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
@@ -90,6 +94,8 @@
 		2969C715702FF8733E0F65C9 /* AppIcon */ = {
 			isa = PBXGroup;
 			children = (
+				AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */,
+				02ED72874148F6B85ACA03C5 /* ghostty-source.svg */,
 				B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */,
 				4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */,
 				8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */,
@@ -226,6 +232,8 @@
 				8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
 				E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */,
 				54A69B737E8AA19ABE80CA7C /* TerminalLight.ghostty in Resources */,
+				454601CCC7894A948CE872FC /* ghostty-source.png in Resources */,
+				4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */,
 				B59B42C83A80A64345CEE3CD /* goose-agent-icon-1024.png in Resources */,
 				0DE73A8B2336FE70C87E605A /* goose-agent-icon-rounded.png in Resources */,
 				7860366F3F23C4E9EFA09527 /* goose-agent-icon.svg in Resources */,
