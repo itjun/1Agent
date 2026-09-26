@@ -5,6 +5,8 @@ struct Workspace: Identifiable, Equatable, Codable {
     var id: UUID
     var number: Int
     var layout: PaneNode
+    /// Sidebar title. Empty means the generated name, such as Workspace 1 or Local Group.
+    var name: String? = nil
 }
 
 /// How a workspace's panes are arranged. Order follows the sidebar, left to right then top to bottom.

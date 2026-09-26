@@ -11,6 +11,10 @@ struct RootView: View {
     @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
     @AppStorage("appearance.sidebarCollapsed") private var sidebarCollapsed = false
     @StateObject private var dropRelay = CanvasDropRelay()
+    @State private var renamingWorkspaceID: UUID?
+    @State private var workspaceNameDraft = ""
+    @State private var skipWorkspaceRenameCommit = false
+    @FocusState private var workspaceNameFocused: Bool
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -279,6 +283,9 @@ struct RootView: View {
     }
 
     private func workspaceTitle(_ workspace: Workspace) -> String {
+        if let name = workspace.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+            return name
+        }
         let members = model.tabs(in: workspace)
         if !members.isEmpty {
             if members.allSatisfy(\.isLocal) {
@@ -286,6 +293,19 @@ struct RootView: View {
             }
         }
         return String(format: String(localized: "Workspace %lld"), workspace.number)
+    }
+
+    private func beginWorkspaceRename(_ workspace: Workspace) {
+        workspaceNameDraft = workspaceTitle(workspace)
+        skipWorkspaceRenameCommit = false
+        workspaceNameFocused = false
+        renamingWorkspaceID = workspace.id
+    }
+
+    private func commitWorkspaceRename() {
+        guard let id = renamingWorkspaceID else { return }
+        model.renameWorkspace(id, to: workspaceNameDraft)
+        renamingWorkspaceID = nil
     }
 
     private func workspaceLayoutTitle(_ layout: WorkspaceLayout) -> String {
@@ -306,22 +326,58 @@ struct RootView: View {
     private func workspaceHeader(_ workspace: Workspace) -> some View {
         let count = WorkspaceBoard.leafIDs(workspace.layout).count
         let layouts = WorkspaceBoard.availableLayouts(paneCount: count)
-        return Text(workspaceTitle(workspace))
-            .font(Theme.sidebarRowMeta)
-            .foregroundStyle(chrome.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 2)
-            .overlay {
+        let renaming = renamingWorkspaceID == workspace.id
+        return Group {
+            if renaming {
+                TextField("Workspace name", text: $workspaceNameDraft)
+                    .textFieldStyle(.plain)
+                    .font(Theme.sidebarRowMeta)
+                    .foregroundStyle(chrome.text)
+                    .focused($workspaceNameFocused)
+                    .onAppear {
+                        workspaceNameFocused = true
+                    }
+                    .onSubmit { commitWorkspaceRename() }
+                    .onExitCommand {
+                        skipWorkspaceRenameCommit = true
+                        renamingWorkspaceID = nil
+                        workspaceNameFocused = false
+                    }
+                    .onChange(of: workspaceNameFocused) { _, focused in
+                        if focused {
+                            DispatchQueue.main.async {
+                                NSApp.keyWindow?.fieldEditor(false, for: nil)?.selectAll(nil)
+                            }
+                            return
+                        }
+                        if skipWorkspaceRenameCommit {
+                            skipWorkspaceRenameCommit = false
+                            return
+                        }
+                        commitWorkspaceRename()
+                    }
+            } else {
+                Text(workspaceTitle(workspace))
+                    .font(Theme.sidebarRowMeta)
+                    .foregroundStyle(chrome.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
+        .overlay {
+            if !renaming {
                 WorkspaceHeaderMenu(
                     layouts: layouts,
                     titles: layouts.map { workspaceLayoutTitle($0) },
                     onLayout: { model.applyWorkspaceLayout(workspace.id, $0) },
+                    onRename: { beginWorkspaceRename(workspace) },
                     onDissolve: { model.dissolveWorkspace(workspace.id) }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
     }
 
     private func rowFill(selected: Bool, tabID: UUID) -> Color {
@@ -826,12 +882,12 @@ private final class DragChipView: NSView {
     }
 }
 
-/// How close the pointer is to the pane drag bar.
 /// Right-click on a workspace title. Scroll events pass through to the sidebar.
 private struct WorkspaceHeaderMenu: NSViewRepresentable {
     var layouts: [WorkspaceLayout]
     var titles: [String]
     var onLayout: (WorkspaceLayout) -> Void
+    var onRename: () -> Void
     var onDissolve: () -> Void
 
     func makeNSView(context: Context) -> WorkspaceHeaderMenuView {
@@ -842,8 +898,9 @@ private struct WorkspaceHeaderMenu: NSViewRepresentable {
         view.layouts = layouts
         view.titles = titles
         view.onLayout = onLayout
+        view.onRename = onRename
         view.onDissolve = onDissolve
-        view.toolTip = String(localized: "Right-click to choose how the panes are arranged.")
+        view.toolTip = String(localized: "Right-click to rename the workspace or arrange its panes.")
     }
 }
 
@@ -851,6 +908,7 @@ private final class WorkspaceHeaderMenuView: NSView {
     var layouts: [WorkspaceLayout] = []
     var titles: [String] = []
     var onLayout: (WorkspaceLayout) -> Void = { _ in }
+    var onRename: () -> Void = {}
     var onDissolve: () -> Void = {}
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -874,6 +932,13 @@ private final class WorkspaceHeaderMenuView: NSView {
         if !layouts.isEmpty {
             menu.addItem(.separator())
         }
+        let rename = NSMenuItem(
+            title: String(localized: "Rename"),
+            action: #selector(renameFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        rename.target = self
+        menu.addItem(rename)
         menu.addItem(TerminalCloseMenu.item(
             title: String(localized: "Dissolve Workspace"),
             action: #selector(dissolveFromMenu(_:)),
@@ -885,6 +950,10 @@ private final class WorkspaceHeaderMenuView: NSView {
     @objc private func chooseLayout(_ sender: NSMenuItem) {
         guard layouts.indices.contains(sender.tag) else { return }
         onLayout(layouts[sender.tag])
+    }
+
+    @objc private func renameFromMenu(_: Any?) {
+        onRename()
     }
 
     @objc private func dissolveFromMenu(_: Any?) {

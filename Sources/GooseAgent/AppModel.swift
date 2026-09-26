@@ -573,6 +573,16 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
+    /// Stores a sidebar title. A blank name returns to the generated title.
+    func renameWorkspace(_ id: UUID, to name: String) {
+        guard let index = workspaces.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stored: String? = trimmed.isEmpty ? nil : trimmed
+        if workspaces[index].name == stored { return }
+        workspaces[index].name = stored
+        persistSession()
+    }
+
     /// Drops the workspace. Members stay open. Local shells show under Local Group; hosts show under Ungrouped.
     func dissolveWorkspace(_ workspaceID: UUID) {
         let next = WorkspaceBoard.dissolve(workspaceID, in: workspaces)

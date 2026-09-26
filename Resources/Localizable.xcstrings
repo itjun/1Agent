@@ -190,13 +190,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未分组" } }
       }
     },
-    "Local Group" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Local Group" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本地组" } }
-      }
-    },
     "Workspace %lld" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -204,11 +197,32 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "工作区 %lld" } }
       }
     },
-    "Right-click to choose how the panes are arranged." : {
+    "Right-click to rename the workspace or arrange its panes." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Right-click to choose how the panes are arranged." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "右键选择窗格的排列方式。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Right-click to rename the workspace or arrange its panes." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "右键可重命名工作区，或调整窗格排列。" } }
+      }
+    },
+    "Rename" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rename" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重命名" } }
+      }
+    },
+    "Workspace name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Workspace name" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "工作区名称" } }
+      }
+    },
+    "Local Group" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Local Group" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本地组" } }
       }
     },
     "Equal Columns" : {
