@@ -34,6 +34,48 @@ struct SSHHost: Identifiable, Equatable, Hashable {
         let login = accountText.map { "\($0)@\(target)" } ?? target
         return login + portSuffix
     }
+
+    /// HostName shown on the card. Hidden when it repeats the alias.
+    var infoAddress: String? {
+        let value = hostName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if value.isEmpty || value == alias {
+            return nil
+        }
+        return value
+    }
+
+    var infoUser: String? {
+        let value = user?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if value.isEmpty {
+            return nil
+        }
+        return value
+    }
+
+    /// Shown only when the config sets a port other than 22.
+    var infoPort: String? {
+        let value = port?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if value.isEmpty || value == "22" {
+            return nil
+        }
+        return value
+    }
+
+    /// Alias, address, then user. Empty lines are left out. Port is never included.
+    var connectionCopyText: String {
+        var lines: [String] = []
+        let name = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty {
+            lines.append(name)
+        }
+        if let infoAddress {
+            lines.append(infoAddress)
+        }
+        if let infoUser {
+            lines.append(infoUser)
+        }
+        return lines.joined(separator: "\n")
+    }
 }
 
 struct SSHConfigLoadResult: Equatable {
