@@ -114,7 +114,60 @@ enum WorkspaceBoard {
         if WorkspaceBoard.index(containing: dragged, in: workspaces) == index { return workspaces }
         let leaves = WorkspaceBoard.leafIDs(workspaces[index].layout)
         guard let target = leaves.last, target != dragged else { return workspaces }
-        return WorkspaceBoard.drop(dragged: dragged, onto: target, edge: .right, in: workspaces)
+        return WorkspaceBoard.join(dragged, beside: target, after: true, to: workspaceID, in: workspaces)
+    }
+
+    /// Inserts `dragged` beside `target` in that workspace's sidebar order.
+    static func join(
+        _ dragged: UUID,
+        beside target: UUID,
+        after: Bool,
+        to workspaceID: UUID,
+        in workspaces: [Workspace]
+    ) -> [Workspace] {
+        guard dragged != target else { return workspaces }
+        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return workspaces }
+        if WorkspaceBoard.index(containing: dragged, in: workspaces) == index {
+            return WorkspaceBoard.moveLeaf(dragged, beside: target, after: after, in: workspaces)
+        }
+        let members = WorkspaceBoard.leafIDs(workspaces[index].layout)
+        guard members.contains(target) else { return workspaces }
+        let edge: SplitEdge = after ? .right : .left
+        var workspaces = WorkspaceBoard.extract(dragged, from: workspaces)
+        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return workspaces }
+        workspaces[index].layout = PaneLayout.split(
+            workspaces[index].layout,
+            target: target,
+            with: dragged,
+            edge: edge
+        )
+        return WorkspaceBoard.withoutSingleLeaves(workspaces)
+    }
+
+    /// Selected hosts become one new equal-column workspace, in the given order.
+    /// Fewer than two hosts, or a set that is already exactly one workspace, stays as it is.
+    static func merge(_ ids: [UUID], in workspaces: [Workspace]) -> [Workspace] {
+        var ordered: [UUID] = []
+        var seen = Set<UUID>()
+        for id in ids where seen.insert(id).inserted {
+            ordered.append(id)
+        }
+        guard ordered.count >= 2 else { return workspaces }
+        let wanted = Set(ordered)
+        if workspaces.contains(where: { Set(WorkspaceBoard.leafIDs($0.layout)) == wanted }) {
+            return workspaces
+        }
+        var workspaces = workspaces
+        for id in ordered {
+            workspaces = WorkspaceBoard.extract(id, from: workspaces)
+        }
+        guard let layout = WorkspaceBoard.arrange(ordered, as: .columns) else { return workspaces }
+        workspaces.append(Workspace(
+            id: UUID(),
+            number: WorkspaceBoard.nextNumber(workspaces),
+            layout: layout
+        ))
+        return workspaces
     }
 
     /// `dragged` joins `target` on `edge`. A lone host becomes a new workspace.

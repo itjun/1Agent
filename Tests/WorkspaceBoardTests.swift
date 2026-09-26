@@ -133,6 +133,10 @@ enum WorkspaceBoardTests {
         expect(WorkspaceBoard.leafIDs(joined[0].layout) == [a, b, c, outsider], "the new host is last in the sidebar order")
         let stayed = WorkspaceBoard.join(a, to: applied.id, in: [applied])
         expect(stayed == [applied], "dropping a member on its own workspace leaves the tree alone")
+        let atFront = WorkspaceBoard.join(outsider, beside: a, after: false, to: applied.id, in: [applied])
+        expect(WorkspaceBoard.leafIDs(atFront[0].layout) == [outsider, a, b, c], "a host can join before the first member")
+        let afterFirst = WorkspaceBoard.join(outsider, beside: a, after: true, to: applied.id, in: [applied])
+        expect(WorkspaceBoard.leafIDs(afterFirst[0].layout) == [a, outsider, b, c], "a host can join after a chosen member")
 
         let quad = WorkspaceBoard.arrange([a, b, c, d], as: .grid)!
         let quadWorkspace = Workspace(id: UUID(), number: 1, layout: quad)
@@ -148,6 +152,25 @@ enum WorkspaceBoardTests {
         let untouchedOrder = WorkspaceBoard.moveLeaf(b, beside: a, after: true, in: [quadWorkspace])
         expect(untouchedOrder == [quadWorkspace], "dropping a pane where it already sits changes nothing")
         expect(WorkspaceBoard.moveLeaf(a, beside: outsider, after: false, in: [quadWorkspace]) == [quadWorkspace], "a host outside the workspace is not a reorder target")
+
+        expect(WorkspaceBoard.merge([a], in: [workspace]) == [workspace], "one host is not merged")
+        expect(WorkspaceBoard.merge([a, b, c], in: [workspace]) == [workspace], "selecting every member of a workspace changes nothing")
+        let four = Workspace(id: UUID(), number: 3, layout: WorkspaceBoard.arrange([a, b, c, d], as: .columns)!)
+        let partial = WorkspaceBoard.merge([b, d], in: [four])
+        expect(partial.count == 2, "unselected hosts stay when at least two remain")
+        let kept = partial.first { $0.id == four.id }!
+        let created = partial.first { $0.id != four.id }!
+        expect(kept.number == 3, "the old workspace keeps its number")
+        expect(WorkspaceBoard.leafIDs(kept.layout) == [a, c], "hosts that were not selected stay in order")
+        expect(created.number == 1, "the new workspace takes the smallest free number")
+        expect(WorkspaceBoard.leafIDs(created.layout) == [b, d], "the new workspace follows the given order")
+        let mergedFrames = PaneLayout.frames(of: created.layout, in: wide)
+        expect(mergedFrames[b]!.maxX <= mergedFrames[d]!.minX, "merged panes sit side by side")
+        expect(nearlyEqual(mergedFrames[b]!.width, mergedFrames[d]!.width), "merged panes share the width")
+        let picked = WorkspaceBoard.merge([c, a], in: [workspace])
+        expect(picked.count == 1 && picked[0].id != workspace.id, "extracting a pair dissolves the leftover host and opens a new workspace")
+        expect(WorkspaceBoard.leafIDs(picked[0].layout) == [c, a], "the extracted hosts keep the given order")
+        expect(!WorkspaceBoard.leafIDs(picked[0].layout).contains(b), "the host left behind is no longer in a workspace")
 
         print("ok")
     }
