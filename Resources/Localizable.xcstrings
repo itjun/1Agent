@@ -15,13 +15,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper / Claude Ink" } }
       }
     },
-    "Close Settings" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Settings" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭设置" } }
-      }
-    },
     "Raycast" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -148,25 +141,18 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1Agent 你好 abc 0123456789 -> =>" } }
       }
     },
-    "Appearance" : {
+    "Address" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Appearance" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "外观" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Address" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "地址" } }
       }
     },
-    "Bottom Tabs" : {
+    "Alias" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bottom Tabs" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "底部标签栏" } }
-      }
-    },
-    "Layout" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Layout" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "布局" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Alias" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "别名" } }
       }
     },
     "Hide Sidebar" : {
@@ -190,18 +176,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "设置" } }
       }
     },
-    "Top Tabs" : {
+    "Ungrouped" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Top Tabs" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "顶部标签栏" } }
-      }
-    },
-    "Vertical Tabs" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vertical Tabs" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "垂直标签栏" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ungrouped" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未分组" } }
       }
     },
     "Workspace %lld" : {
@@ -267,6 +246,27 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接已断开" } }
       }
     },
+    "Copy Host Info" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制" } }
+      }
+    },
+    "Port" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Port" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "端口" } }
+      }
+    },
+    "User" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "User" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用户" } }
+      }
+    },
     "Copy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -314,6 +314,34 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Tab" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭标签" } }
+      }
+    },
+    "Duplicate Right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Duplicate Right" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向右复制" } }
+      }
+    },
+    "Duplicate Down" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Duplicate Down" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向下复制" } }
+      }
+    },
+    "Split Terminals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Split Terminals" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拆分终端" } }
+      }
+    },
+    "Merge Terminals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Merge Terminals" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "合并终端" } }
       }
     },
     "Close Terminal" : {

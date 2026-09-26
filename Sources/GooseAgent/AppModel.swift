@@ -87,13 +87,11 @@ final class AppModel: ObservableObject {
     }
 
     func newTab() {
-        showingSettings = false
         reloadHosts()
         hostPickerPresented = true
     }
 
     func selectTab(_ id: UUID) {
-        showingSettings = false
         selectedTabID = id
         persistSession()
         guard let tab = tabs.first(where: { $0.id == id }), tab.alias != nil, !tab.exited else { return }
@@ -147,7 +145,6 @@ final class AppModel: ObservableObject {
                 lastID = tab.id
             }
             selectedTabID = lastID
-            showingSettings = false
             persistSession()
         }
     }
@@ -180,7 +177,6 @@ final class AppModel: ObservableObject {
             } else {
                 selectedTabID = tabs.last?.id
             }
-            showingSettings = false
             acceptSessionWrites = true
             persistSession()
         }
@@ -191,9 +187,7 @@ final class AppModel: ObservableObject {
     }
 
     func toggleSettings() {
-        let isShowing = !showingSettings
-        hostPickerPresented = false
-        showingSettings = isShowing
+        SettingsWindowController.shared.toggle(model: self)
     }
 
     func reconnect(_ tabID: UUID) {
@@ -286,6 +280,17 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
+    /// A standalone host, or a member of another group, joins this workspace beside the chosen member.
+    func joinWorkspace(_ dragged: UUID, _ workspaceID: UUID, beside target: UUID, after: Bool) {
+        guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
+        let next = WorkspaceBoard.join(dragged, beside: target, after: after, to: workspaceID, in: workspaces)
+        guard next != workspaces else { endDrag(); return }
+        workspaces = next
+        selectedTabID = dragged
+        endDrag()
+        persistSession()
+    }
+
     /// A standalone host, or a member of another group, joins this workspace at the end of its sidebar order.
     func joinWorkspace(_ dragged: UUID, _ workspaceID: UUID) {
         guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
@@ -297,25 +302,15 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
-    func receiveSidebarDrop(_ dragged: UUID, before target: UUID?) {
+    func receiveSidebarDrop(_ dragged: UUID, beside target: UUID?, after: Bool) {
         guard tabs.contains(where: { $0.id == dragged }) else { endDrag(); return }
-        let reorderBefore = sidebarReorderTarget(target, dragged: dragged)
         workspaces = WorkspaceBoard.extract(dragged, from: workspaces)
-        if let reorderBefore {
-            moveTab(dragged, before: reorderBefore)
+        if let target, target != dragged, WorkspaceBoard.index(containing: target, in: workspaces) == nil {
+            moveTab(dragged, beside: target, after: after)
         }
         selectedTabID = dragged
         endDrag()
         persistSession()
-    }
-
-    /// A drop on a standalone row inserts before that row.
-    private func sidebarReorderTarget(_ target: UUID?, dragged: UUID) -> UUID? {
-        guard let target, target != dragged else { return nil }
-        if WorkspaceBoard.index(containing: target, in: workspaces) != nil {
-            return nil
-        }
-        return target
     }
 
     func applyWorkspaceLayout(_ workspaceID: UUID, _ layout: WorkspaceLayout) {
@@ -329,10 +324,18 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
-    private func moveTab(_ id: UUID, before other: UUID) {
+    private func moveTab(_ id: UUID, beside other: UUID, after: Bool) {
         guard let from = tabs.firstIndex(where: { $0.id == id }) else { return }
+        guard let targetIndex = tabs.firstIndex(where: { $0.id == other }) else { return }
+        var destination = targetIndex
+        if after {
+            destination += 1
+        }
+        if from < destination {
+            destination -= 1
+        }
+        guard from != destination else { return }
         let tab = tabs.remove(at: from)
-        let destination = tabs.firstIndex(where: { $0.id == other }) ?? tabs.count
         tabs.insert(tab, at: destination)
     }
 

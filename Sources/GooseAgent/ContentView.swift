@@ -7,15 +7,10 @@ struct RootView: View {
     @ObservedObject var model: AppModel
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
-    @AppStorage(TabPlacement.storageKey) private var tabLayoutRaw = TabPlacement.vertical.rawValue
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
     @AppStorage("appearance.sidebarCollapsed") private var sidebarCollapsed = false
     @StateObject private var dropRelay = CanvasDropRelay()
-
-    private var tabLayout: TabPlacement {
-        TabPlacement(rawValue: tabLayoutRaw) ?? .vertical
-    }
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -29,42 +24,17 @@ struct RootView: View {
         TerminalThemeFamily.from(raw: themeFamilyRaw)
     }
 
-    private var modalPresented: Binding<Bool> {
-        Binding(
-            get: { model.hostPickerPresented || model.showingSettings },
-            set: { isPresented in
-                guard !isPresented else { return }
-                model.hostPickerPresented = false
-                model.showingSettings = false
-            }
-        )
-    }
-
     var body: some View {
         let _ = shortcutsRevision
         Group {
             if sidebarCollapsed {
                 detail
             } else {
-                switch tabLayout {
-                case .vertical:
-                    HStack(spacing: 0) {
-                        sidebar
-                            .frame(width: 248)
-                        Rectangle().fill(chrome.hairline).frame(width: 1)
-                        detail
-                    }
-                case .top:
-                    VStack(spacing: 0) {
-                        horizontalChrome(tabsAt: .top)
-                        detail
-                    }
-                case .bottom:
-                    VStack(spacing: 0) {
-                        horizontalChrome(tabsAt: .bottom)
-                        detail
-                        horizontalTabStrip
-                    }
+                HStack(spacing: 0) {
+                    sidebar
+                        .frame(width: 248)
+                    Rectangle().fill(chrome.hairline).frame(width: 1)
+                    detail
                 }
             }
         }
@@ -92,27 +62,16 @@ struct RootView: View {
             GhosttyRuntime.apply(family: themeFamily)
         }
         .background(WindowTitleSync(title: selectedSessionBadge.isEmpty ? String(localized: "1Agent") : selectedSessionBadge))
-        .sheet(isPresented: modalPresented) {
-            Group {
-                if model.showingSettings {
-                    SettingsView()
-                        .frame(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
-                } else {
-                    HostPicker(model: model)
-                        .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
-                }
-            }
-            .environment(\.windowChrome, chrome)
-            .oneagentHideFocusRing()
+        .sheet(isPresented: $model.hostPickerPresented) {
+            HostPicker(model: model)
+                .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
+                .environment(\.windowChrome, chrome)
+                .oneagentHideFocusRing()
         }
     }
 
     private var newTabHelp: String {
         String(format: String(localized: "New Tab (%@)"), AppShortcuts.display(for: .newTab))
-    }
-
-    private var closeTabHelp: String {
-        String(format: String(localized: "Close Tab (%@)"), AppShortcuts.display(for: .closeTab))
     }
 
     private var sidebarToggleHelp: String {
@@ -184,15 +143,19 @@ struct RootView: View {
                             }
                             .background(WorkspaceAnchor(id: workspace.id, relay: dropRelay))
                         }
-                        if !grouped.isEmpty && !standalone.isEmpty {
-                            Rectangle()
-                                .fill(chrome.hairline)
-                                .frame(height: 1)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
-                        }
-                        ForEach(standalone) { tab in
-                            tabRow(tab, compact: false)
+                        if !standalone.isEmpty {
+                            VStack(spacing: 2) {
+                                Text("Ungrouped")
+                                    .font(Theme.sidebarRowMeta)
+                                    .foregroundStyle(chrome.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, 8)
+                                    .padding(.bottom, 2)
+                                ForEach(standalone) { tab in
+                                    tabRow(tab, compact: false)
+                                }
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -211,167 +174,6 @@ struct RootView: View {
         return tab.alias ?? ""
     }
 
-    /// Title at the very top, then horizontal tabs. One continuous fill — no elevated strip / seam.
-    private func horizontalChrome(tabsAt: TabPlacement) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Color.clear.frame(width: 28, height: 22)
-                Spacer(minLength: 0)
-                if !selectedSessionBadge.isEmpty {
-                    Text(selectedSessionBadge)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(chrome.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.leading, 78)
-            .padding(.trailing, 10)
-            .padding(.top, 14)
-            .padding(.bottom, 2)
-
-            if tabsAt == .top {
-                horizontalTabStrip
-            }
-        }
-        .background(chrome.background)
-    }
-
-    /// Shared horizontal tab strip for top and bottom placement.
-    private var horizontalTabStrip: some View {
-        HStack(spacing: 6) {
-            ottyIconButton(
-                systemName: "plus",
-                help: newTabHelp,
-                accessibility: String(localized: "New Tab"),
-                selected: false,
-                action: model.newTab
-            )
-
-            if model.tabs.isEmpty {
-                Text("No open terminals")
-                    .font(.system(size: 12))
-                    .foregroundStyle(chrome.secondary)
-                    .padding(.leading, 4)
-                Spacer(minLength: 0)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
-                        let grouped = model.workspacesByNumber
-                        let standalone = model.standaloneTabs
-                        ForEach(grouped) { workspace in
-                            Text(workspaceTitle(workspace.number))
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(chrome.secondary)
-                                .padding(.leading, 6)
-                                .padding(.trailing, 2)
-                                .contentShape(Rectangle())
-                                .contextMenu { workspaceLayoutMenu(workspace) }
-                                .help(workspaceLayoutHelp)
-                            ForEach(model.tabs(in: workspace)) { tab in
-                                ottyTabChip(tab)
-                            }
-                        }
-                        if !grouped.isEmpty && !standalone.isEmpty {
-                            Rectangle()
-                                .fill(chrome.hairline)
-                                .frame(width: 1, height: 16)
-                                .padding(.horizontal, 6)
-                        }
-                        ForEach(standalone) { tab in
-                            ottyTabChip(tab)
-                        }
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(.leading, tabLayout == .bottom ? 12 : 12)
-        .padding(.trailing, 12)
-        .padding(.bottom, tabLayout == .bottom ? 8 : 4)
-        .frame(minHeight: 32)
-        .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
-    }
-
-    private func ottyIconButton(
-        systemName: String,
-        help: String,
-        accessibility: String,
-        selected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(chrome.text)
-                .frame(width: 28, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(selected ? chrome.text.opacity(0.12) : Color.clear)
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(Text(accessibility))
-    }
-
-    private func ottyTabChip(_ tab: TerminalTab) -> some View {
-        let selected = model.selectedTabID == tab.id
-        let title = tab.alias ?? String(localized: "New Tab")
-        return HStack(spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "terminal")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(selected ? chrome.text : chrome.secondary)
-                Text(title)
-                    .font(.system(size: 12, weight: selected ? .semibold : .medium))
-                    .foregroundStyle(selected ? chrome.text : chrome.secondary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .overlay {
-                TabDragHandle(
-                    onClick: { model.selectTab(tab.id) },
-                    onBegan: { dropRelay.dragBegan(tab.id) },
-                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                    onEnded: { dropRelay.dragEnded(windowPoint: $0) }
-                )
-            }
-
-            if selected || tab.exited {
-                Button {
-                    model.closeTab(tab.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(chrome.secondary)
-                        .frame(width: 14, height: 14)
-                }
-                .buttonStyle(.plain)
-                .help(closeTabHelp)
-                .accessibilityLabel(Text("Close Tab"))
-            }
-        }
-        .padding(.leading, 10)
-        .padding(.trailing, selected || tab.exited ? 6 : 10)
-        .padding(.vertical, 5)
-        .frame(minWidth: 88, maxWidth: 200, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(ottyChipFill(selected: selected, tabID: tab.id))
-        )
-        .background(RowAnchor(id: tab.id, relay: dropRelay))
-        .help(tab.alias.flatMap { model.host($0)?.sessionBadge } ?? "")
-    }
-
-    private func ottyChipFill(selected: Bool, tabID: UUID) -> Color {
-        if model.dropHighlight == .sidebarRow(tabID) || model.dropHighlight == .sidebar {
-            return chrome.accent.opacity(0.28)
-        }
-        return selected ? chrome.text.opacity(0.12) : Color.clear
-    }
 
     private func tabRow(_ tab: TerminalTab, compact: Bool, indent: CGFloat = 0) -> some View {
         let selected = model.selectedTabID == tab.id
@@ -405,7 +207,7 @@ struct RootView: View {
         .background(RowAnchor(id: tab.id, relay: dropRelay))
         .overlay {
             TabDragHandle(
-                onClick: { model.selectTab(tab.id) },
+                onClick: { _, _ in model.selectTab(tab.id) },
                 onBegan: { dropRelay.dragBegan(tab.id) },
                 onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                 onEnded: { dropRelay.dragEnded(windowPoint: $0) },
@@ -473,8 +275,7 @@ struct RootView: View {
                 model: model,
                 dropRelay: dropRelay,
                 dark: appearance.isDark(system: colorScheme),
-                usesCatalogTheme: true,
-                showsPaneHeader: tabLayout == .vertical
+                usesCatalogTheme: true
             )
             if model.selectedTab == nil {
                 VStack(spacing: 8) {
@@ -559,11 +360,14 @@ private final class CanvasDropRelay: ObservableObject {
                     }
                     return Self.sidebarLine(sidebar: sidebarAnchor, over: row.view, after: row.after)
                 }
+                if let slot = self.workspaceInsert(windowPoint: windowPoint, workspaceID: workspaceHit) {
+                    return slot.line
+                }
                 guard let group = workspaceAnchors[workspaceHit]?.view else { return nil }
                 return Self.sidebarLine(sidebar: sidebarAnchor, over: group, after: true)
             }
-            if let row = sidebarHit {
-                return Self.sidebarLine(sidebar: sidebarAnchor, over: row.view, after: false)
+            if let slot = self.standaloneInsert(windowPoint: windowPoint) {
+                return slot.line
             }
             guard onSidebar else { return nil }
             return Self.listEndLine(sidebar: sidebarAnchor, groups: workspaceAnchors)
@@ -573,6 +377,58 @@ private final class CanvasDropRelay: ObservableObject {
         } else {
             catcher.present(over: catcher, zone: nil, title: title)
         }
+    }
+
+    /// The insertion gap among standalone hosts closest to the pointer.
+    /// The line can sit above the first row or below the last row.
+    private func standaloneInsert(windowPoint: NSPoint) -> (id: UUID, after: Bool, line: (NSView, CGRect))? {
+        let ids = MainActor.assumeIsolated {
+            self.modelBox?.standaloneTabs.map(\.id) ?? []
+        }
+        return nearestRowEdge(windowPoint: windowPoint, ids: ids)
+    }
+
+    /// Where a host from outside this workspace would land among its members.
+    private func workspaceInsert(windowPoint: NSPoint, workspaceID: UUID) -> (id: UUID, after: Bool, line: (NSView, CGRect))? {
+        let ids = MainActor.assumeIsolated { () -> [UUID] in
+            guard let model = self.modelBox,
+                  let workspace = model.workspaces.first(where: { $0.id == workspaceID }) else {
+                return []
+            }
+            return model.tabs(in: workspace).map(\.id)
+        }
+        return nearestRowEdge(windowPoint: windowPoint, ids: ids)
+    }
+
+    private func nearestRowEdge(windowPoint: NSPoint, ids: [UUID]) -> (id: UUID, after: Bool, line: (NSView, CGRect))? {
+        guard let sidebar = sidebarAnchor, sidebar.window != nil else { return nil }
+        let local = sidebar.convert(windowPoint, from: nil)
+        guard sidebar.bounds.contains(local) else { return nil }
+        var rows: [(id: UUID, frame: CGRect)] = []
+        for id in ids {
+            guard let view = rowAnchors[id]?.view, view.window != nil else { continue }
+            let frame = sidebar.convert(view.bounds, from: view)
+            rows.append((id, frame))
+        }
+        rows.sort { $0.frame.minY < $1.frame.minY }
+        guard let last = rows.last else { return nil }
+        var edges: [(id: UUID, after: Bool, y: CGFloat)] = []
+        for row in rows {
+            edges.append((row.id, false, row.frame.minY))
+        }
+        edges.append((last.id, true, last.frame.maxY))
+        var best = edges[0]
+        var bestDistance = abs(local.y - best.y)
+        for edge in edges.dropFirst() {
+            let distance = abs(local.y - edge.y)
+            if distance < bestDistance {
+                best = edge
+                bestDistance = distance
+            }
+        }
+        let y = min(max(best.y - 1.5, 0), max(sidebar.bounds.height - 3, 0))
+        let line = CGRect(x: 0, y: y, width: sidebar.bounds.width, height: 3)
+        return (best.id, best.after, (sidebar, line))
     }
 
     /// A 3pt bar across the whole sidebar column, on the top or bottom edge of `view`.
@@ -631,13 +487,16 @@ private final class CanvasDropRelay: ObservableObject {
                     } else {
                         model.endDrag()
                     }
+                } else if let slot = self.workspaceInsert(windowPoint: windowPoint, workspaceID: workspaceHit) {
+                    model.joinWorkspace(dragged, workspaceHit, beside: slot.id, after: slot.after)
                 } else {
                     model.joinWorkspace(dragged, workspaceHit)
                 }
                 return
             }
             if onSidebar || sidebarHit != nil {
-                model.receiveSidebarDrop(dragged, before: sidebarHit?.id)
+                let slot = self.standaloneInsert(windowPoint: windowPoint)
+                model.receiveSidebarDrop(dragged, beside: slot?.id, after: slot?.after ?? false)
                 return
             }
             model.endDrag()
@@ -910,7 +769,7 @@ private enum GripLevel: Equatable {
 
 /// Follows the pointer until mouse-up. A system drag session does not report the landing point reliably.
 private final class TabDragHandleView: NSView {
-    var onClick: () -> Void = {}
+    var onClick: (Bool, Bool) -> Void = { _, _ in }
     var onHover: (Bool) -> Void = { _ in }
     var onGripLevel: (GripLevel?) -> Void = { _ in }
     var onBegan: () -> Void = {}
@@ -1079,6 +938,8 @@ private final class TabDragHandleView: NSView {
     override func mouseDown(with event: NSEvent) {
         guard let window else { return }
         let start = event.locationInWindow
+        let command = event.modifierFlags.contains(.command)
+        let shift = event.modifierFlags.contains(.shift)
         var dragging = false
         var pushedHand = false
         window.trackEvents(
@@ -1098,7 +959,7 @@ private final class TabDragHandleView: NSView {
                 if dragging {
                     self.onEnded(point)
                 } else {
-                    self.onClick()
+                    self.onClick(command, shift)
                 }
                 if pushedHand {
                     NSCursor.pop()
@@ -1136,7 +997,7 @@ private final class TabDragHandleView: NSView {
 }
 
 private struct TabDragHandle: NSViewRepresentable {
-    var onClick: () -> Void
+    var onClick: (Bool, Bool) -> Void
     var onHover: (Bool) -> Void = { _ in }
     var onGripLevel: (GripLevel?) -> Void = { _ in }
     var onBegan: () -> Void
@@ -1199,29 +1060,29 @@ private struct RowAnchor: NSViewRepresentable {
 
 private struct TerminalCanvas: View {
     /// Room above the terminal text for the host badge (sidebar layout only).
-    static let sidebarHeaderHeight: CGFloat = 44
+    static let sidebarHeaderHeight: CGFloat = 28
+    /// Room outside every pane so the focus stroke never covers the terminal.
+    static let focusLine: CGFloat = 2
 
     @Environment(\.windowChrome) private var chrome
     @ObservedObject var model: AppModel
     var dropRelay: CanvasDropRelay
     var dark: Bool
     var usesCatalogTheme: Bool
-    /// Horizontal Otty chrome already shows the session title — skip the per-pane badge.
-    var showsPaneHeader: Bool = true
     @State private var ratioDrag: (id: UUID, start: CGFloat)?
     @State private var gripTabID: UUID?
     @State private var gripLevel: GripLevel?
+    @State private var hostInfoTabID: UUID?
 
-    private var headerHeight: CGFloat {
-        showsPaneHeader ? Self.sidebarHeaderHeight : 0
-    }
+    private var headerHeight: CGFloat { Self.sidebarHeaderHeight }
 
     var body: some View {
         GeometryReader { geo in
             let root = model.displayRoot()
             let bounds = CGRect(origin: .zero, size: geo.size)
-            let frames = root.map { PaneLayout.frames(of: $0, in: bounds) } ?? [:]
-            let dividers = root.map { PaneLayout.dividers(of: $0, in: bounds) } ?? []
+            let layout = Self.layoutBounds(bounds)
+            let frames = root.map { PaneLayout.frames(of: $0, in: layout) } ?? [:]
+            let dividers = root.map { PaneLayout.dividers(of: $0, in: layout) } ?? []
             let headerH = headerHeight
             let _ = dropRelay.sync(frames: frames, model: model)
             ZStack(alignment: .topLeading) {
@@ -1267,6 +1128,32 @@ private struct TerminalCanvas: View {
                         paneChrome(tab, frame: frame, headerHeight: headerH)
                     }
                 }
+                if let selected = model.selectedTabID, let frame = frames[selected] {
+                    focusRing(around: frame)
+                        .allowsHitTesting(false)
+                        .zIndex(5)
+                }
+                if let hostInfoTabID, frames[hostInfoTabID] != nil {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { self.hostInfoTabID = nil }
+                        .zIndex(3)
+                }
+                if let hostInfoTabID,
+                   let tab = model.tabs.first(where: { $0.id == hostInfoTabID }),
+                   let frame = frames[tab.id] {
+                    hostInfoCard(tab, frame: frame, headerHeight: headerH)
+                }
+            }
+            .onChange(of: model.tabs.map(\.id)) { _, ids in
+                if let hostInfoTabID, !ids.contains(hostInfoTabID) {
+                    self.hostInfoTabID = nil
+                }
+            }
+            .onChange(of: model.selectedTabID) { _, id in
+                if let hostInfoTabID, hostInfoTabID != id {
+                    self.hostInfoTabID = nil
+                }
             }
             .overlay {
                 PaneDropCatcher(relay: dropRelay, accent: NSColor(chrome.accent))
@@ -1277,9 +1164,19 @@ private struct TerminalCanvas: View {
     }
 
     private func dividerControl(_ divider: PaneDivider) -> some View {
-        Rectangle()
-            .fill(chrome.hairline)
+        let vertical = divider.axis == .vertical
+        return Color.clear
             .frame(width: divider.frame.width, height: divider.frame.height)
+            .overlay {
+                Rectangle()
+                    .fill(chrome.hairline)
+                    .frame(
+                        width: vertical ? 1 : divider.frame.width,
+                        height: vertical ? divider.frame.height : 1
+                    )
+                    .allowsHitTesting(false)
+            }
+            .contentShape(Rectangle())
             .offset(x: divider.frame.minX, y: divider.frame.minY)
             .gesture(
                 DragGesture(minimumDistance: 1)
@@ -1320,41 +1217,60 @@ private struct TerminalCanvas: View {
         let focused = model.selectedTabID == tab.id
         if headerHeight > 0 {
             let level: GripLevel? = gripTabID == tab.id ? gripLevel : nil
-            ZStack {
+            ZStack(alignment: .bottom) {
                 chrome.background
-                VStack(spacing: 2) {
-                    Text(model.host(alias)?.sessionBadge ?? alias)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(chrome.text)
-                        .lineLimit(1)
-                        .onTapGesture { model.selectTab(tab.id) }
-                    ZStack {
-                        Capsule()
-                            .fill(chrome.text.opacity(TerminalCanvas.gripOpacity(level)))
-                            .frame(width: TerminalCanvas.gripWidth(level), height: 4)
-                            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: level)
-                        TabDragHandle(
-                            onClick: { model.selectTab(tab.id) },
-                            onGripLevel: { next in
-                                if let next {
+                Text(model.host(alias)?.sessionBadge ?? alias)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(chrome.text)
+                    .lineLimit(1)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        model.selectTab(tab.id)
+                        if hostInfoTabID == tab.id {
+                            hostInfoTabID = nil
+                        } else {
+                            hostInfoTabID = tab.id
+                        }
+                    }
+                ZStack {
+                    Capsule()
+                        .fill(chrome.text.opacity(TerminalCanvas.gripOpacity(level)))
+                        .frame(width: 36, height: 4)
+                        .scaleEffect(x: TerminalCanvas.gripWidth(level) / 36, y: 1)
+                        .animation(.easeInOut(duration: 0.2), value: level)
+                        .allowsHitTesting(false)
+                    TabDragHandle(
+                        onClick: { _, _ in model.selectTab(tab.id) },
+                        onGripLevel: { next in
+                            if let next {
+                                if gripTabID == tab.id, gripLevel == next {
+                                    return
+                                }
+                                withAnimation(.easeInOut(duration: 0.2)) {
                                     gripTabID = tab.id
                                     gripLevel = next
-                                } else if gripTabID == tab.id {
-                                    gripTabID = nil
-                                    gripLevel = nil
                                 }
-                            },
-                            onBegan: { dropRelay.dragBegan(tab.id) },
-                            onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                            onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                            showsGripCursor: true
-                        )
-                    }
-                    .frame(width: 168, height: 22)
-                    .help(String(localized: "Drag to the top, bottom, left, or right of a pane to merge. Drag back to the sidebar to separate it."))
+                                return
+                            }
+                            if gripTabID != tab.id {
+                                return
+                            }
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                gripTabID = nil
+                                gripLevel = nil
+                            }
+                        },
+                        onBegan: { dropRelay.dragBegan(tab.id) },
+                        onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                        onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                        showsGripCursor: true
+                    )
                 }
-                .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(width: 168, height: 10)
+                .help(String(localized: "Drag to the top, bottom, left, or right of a pane to merge. Drag back to the sidebar to separate it."))
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
@@ -1365,6 +1281,74 @@ private struct TerminalCanvas: View {
                 .position(x: frame.midX, y: frame.maxY - 28)
                 .zIndex(4)
         }
+    }
+
+    private func hostInfoCard(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
+        let alias = tab.alias ?? ""
+        let cardWidth = min(260, max(frame.width - 16, 160))
+        return HostInfoCard(alias: alias, host: model.host(alias), width: cardWidth)
+            .offset(
+                x: frame.minX + (frame.width - cardWidth) / 2,
+                y: frame.minY + headerHeight + 6
+            )
+            .zIndex(8)
+    }
+}
+
+private struct HostInfoCard: View {
+    @Environment(\.windowChrome) private var chrome
+    var alias: String
+    var host: SSHHost?
+    var width: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            infoRow("Alias", alias)
+            if let address = host?.infoAddress {
+                infoRow("Address", address)
+            }
+            if let user = host?.infoUser {
+                infoRow("User", user)
+            }
+            if let port = host?.infoPort {
+                infoRow("Port", port)
+            }
+            Button {
+                let text = host?.connectionCopyText ?? alias
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+            } label: {
+                Text("Copy Host Info")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(chrome.text)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(chrome.accent.opacity(0.16))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .frame(width: width, alignment: .leading)
+        .background(chrome.elevated)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(chrome.hairline, lineWidth: 1)
+        )
+    }
+
+    private func infoRow(_ title: LocalizedStringKey, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11))
+                .foregroundStyle(chrome.secondary)
+            Text(value)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(chrome.text)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -1384,6 +1368,23 @@ private extension TerminalCanvas {
             return 0.55
         }
         return 0
+    }
+
+    /// Panes sit inside a margin the same width as the focus stroke.
+    /// The stroke occupies that margin, so selecting a pane does not cover its content.
+    static func layoutBounds(_ bounds: CGRect) -> CGRect {
+        let margin = focusLine * 2
+        guard bounds.width > margin, bounds.height > margin else { return bounds }
+        return bounds.insetBy(dx: focusLine, dy: focusLine)
+    }
+
+    private func focusRing(around frame: CGRect) -> some View {
+        let line = Self.focusLine
+        let outer = frame.insetBy(dx: -line, dy: -line)
+        return Rectangle()
+            .strokeBorder(chrome.accent.opacity(0.45), lineWidth: line)
+            .frame(width: max(outer.width, 1), height: max(outer.height, 1))
+            .offset(x: outer.minX, y: outer.minY)
     }
 
     static func contentFrame(_ frame: CGRect, headerHeight: CGFloat) -> CGRect {

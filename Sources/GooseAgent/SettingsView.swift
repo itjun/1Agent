@@ -1,33 +1,13 @@
+import AppKit
 import GhosttyTheme
 import SwiftUI
-
-enum TabPlacement: String, CaseIterable, Identifiable {
-    case vertical
-    case top
-    case bottom
-
-    static let storageKey = "appearance.tabLayout"
-
-    var id: String { rawValue }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .vertical: "Vertical Tabs"
-        case .top: "Top Tabs"
-        case .bottom: "Bottom Tabs"
-        }
-    }
-}
 
 enum SettingsLayout {
     static let sidebarWidth: CGFloat = 180
     static let separatorWidth: CGFloat = 1
-    static let contentWidth: CGFloat = SheetLayout.settings - sidebarWidth - separatorWidth
-    static let popupHeight: CGFloat = SheetLayout.settingsBodyHeight
 }
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case layout
     case appearanceMode
     case terminalFont
     case terminalColors
@@ -36,36 +16,20 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 
     var title: LocalizedStringKey {
         switch self {
-        case .layout: "Layout"
         case .appearanceMode: "Appearance Mode"
         case .terminalFont: "Terminal Font"
         case .terminalColors: "Terminal Colors"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .layout: "rectangle.split.2x2"
-        case .appearanceMode: "circle.lefthalf.filled"
-        case .terminalFont: "textformat"
-        case .terminalColors: "paintpalette"
         }
     }
 }
 
 struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedSection: SettingsSection = .layout
-    @AppStorage(TabPlacement.storageKey) private var tabLayoutRaw = TabPlacement.vertical.rawValue
+    @State private var selectedSection: SettingsSection = .appearanceMode
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
-
-    private var tabLayout: TabPlacement {
-        TabPlacement(rawValue: tabLayoutRaw) ?? .vertical
-    }
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -93,15 +57,11 @@ struct SettingsView: View {
                 ScrollView {
                     settingsContent
                 }
-                .frame(width: SettingsLayout.contentWidth)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .overlay(alignment: .topTrailing) {
-            closeButton
-                .padding(12)
-        }
-        .background(chrome.background)
+        .background(chrome.background.ignoresSafeArea())
         .oneagentHideFocusRing()
         .onAppear {
             if !fontFamilies.contains(fontFamily) {
@@ -112,12 +72,13 @@ struct SettingsView: View {
     }
 
     private func settingsNavigation(onSelect: @escaping (SettingsSection) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Settings")
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(chrome.text)
-                .padding(.horizontal, 8)
-                .padding(.bottom, 12)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 16)
 
             ForEach(SettingsSection.allCases) { section in
                 let selected = selectedSection == section
@@ -125,68 +86,27 @@ struct SettingsView: View {
                     selectedSection = section
                     onSelect(section)
                 } label: {
-                    HStack(spacing: 9) {
-                        Image(systemName: section.symbol)
-                            .font(.system(size: 13, weight: .medium))
-                            .frame(width: 18)
-                        Text(section.title)
-                            .font(.system(size: 12, weight: selected ? .semibold : .regular))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .foregroundStyle(selected ? chrome.text : chrome.secondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(selected ? chrome.accent.opacity(0.16) : Color.clear)
-                    )
-                    .contentShape(Rectangle())
+                    Text(section.title)
+                        .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                        .foregroundStyle(chrome.text)
+                        .lineLimit(1)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Rectangle().fill(selected ? chrome.accent.opacity(0.16) : Color.clear))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
-        .frame(width: SettingsLayout.sidebarWidth, height: SettingsLayout.popupHeight, alignment: .topLeading)
-        .background(chrome.elevated.opacity(0.58))
-    }
-
-    private var closeButton: some View {
-        Button {
-            dismiss()
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(chrome.secondary)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(chrome.elevated))
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help(Text("Close Settings"))
-        .accessibilityLabel(Text("Close Settings"))
+        .frame(width: SettingsLayout.sidebarWidth, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(chrome.elevated.opacity(0.58).ignoresSafeArea())
     }
 
     private var settingsContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Appearance")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(chrome.secondary)
-            Text("Layout")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(chrome.text)
-                .id(SettingsSection.layout)
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(TabPlacement.allCases) { placement in
-                    layoutCard(placement)
-                }
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 14).fill(chrome.elevated))
-
             Text("Appearance Mode")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(chrome.text)
@@ -274,7 +194,6 @@ struct SettingsView: View {
             .background(RoundedRectangle(cornerRadius: 12).fill(chrome.elevated))
         }
         .padding(28)
-        .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -373,57 +292,74 @@ struct SettingsView: View {
                     .stroke(Theme.hairline, lineWidth: 1)
             )
     }
+}
 
-    private func layoutCard(_ placement: TabPlacement) -> some View {
-        let selected = tabLayout == placement
-        return Button {
-            tabLayoutRaw = placement.rawValue
-        } label: {
-            VStack(spacing: 8) {
-                layoutPreview(placement)
-                    .frame(width: 118, height: 76)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Color.black.opacity(0.06), lineWidth: 1)
-                    )
-                Text(placement.title)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.text)
-            }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(selected ? chrome.accent : Color.clear, lineWidth: 2)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+/// Settings is its own window, with the standard traffic lights, like WeChat.
+struct SettingsWindowRoot: View {
+    @ObservedObject var model: AppModel
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
+
+    private var appearance: TerminalAppearance {
+        TerminalAppearance(rawValue: appearanceRaw) ?? .system
     }
 
-    private func layoutPreview(_ placement: TabPlacement) -> some View {
-        let bar = Color(white: 0.78)
-        return ZStack {
-            Color(white: 0.97)
-            switch placement {
-            case .vertical:
-                HStack(spacing: 0) {
-                    bar.frame(width: 26)
-                    Spacer(minLength: 0)
-                }
-            case .top:
-                VStack(spacing: 0) {
-                    bar.frame(height: 16)
-                    Spacer(minLength: 0)
-                }
-            case .bottom:
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    bar.frame(height: 12)
-                }
-            }
+    private var chrome: WindowChrome {
+        WindowChrome.resolve(isDark: appearance.isDark(system: colorScheme))
+    }
+
+    var body: some View {
+        SettingsView()
+            .environment(\.windowChrome, chrome)
+            .preferredColorScheme(appearance.preferredColorScheme)
+            .oneagentHideFocusRing()
+            .frame(minWidth: SheetLayout.settings, minHeight: SheetLayout.settingsBodyHeight)
+    }
+}
+
+@MainActor
+final class SettingsWindowController: NSObject, NSWindowDelegate {
+    static let shared = SettingsWindowController()
+    static let windowID = NSUserInterfaceItemIdentifier("settings")
+
+    private var window: NSWindow?
+    private var model: AppModel?
+
+    func toggle(model: AppModel) {
+        self.model = model
+        if let window, window.isVisible {
+            window.close()
+            return
         }
+        model.hostPickerPresented = false
+        let window = self.window ?? makeWindow(model: model)
+        self.window = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+        model.showingSettings = true
+    }
+
+    private func makeWindow(model: AppModel) -> NSWindow {
+        let controller = NSHostingController(rootView: SettingsWindowRoot(model: model))
+        let window = NSWindow(contentViewController: controller)
+        window.identifier = Self.windowID
+        window.title = String(localized: "Settings")
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.titlebarSeparatorStyle = .none
+        window.isRestorable = false
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        let size = NSSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
+        window.setContentSize(size)
+        window.minSize = size
+        window.center()
+        return window
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        model?.showingSettings = false
     }
 }
 
