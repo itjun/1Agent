@@ -172,6 +172,12 @@ enum WorkspaceBoardTests {
         expect(WorkspaceBoard.leafIDs(picked[0].layout) == [c, a], "the extracted hosts keep the given order")
         expect(!WorkspaceBoard.leafIDs(picked[0].layout).contains(b), "the host left behind is no longer in a workspace")
 
+        expect(DuplicateHostColor.index(for: "nginx", among: ["raven", "main", "nginx", "nginx"]) == 0, "one repeated host takes the first color")
+        expect(DuplicateHostColor.index(for: "raven", among: ["raven", "main", "nginx", "nginx"]) == nil, "a host that appears once stays unmarked")
+        expect(DuplicateHostColor.index(for: "nginx", among: ["nginx", "raven", "nginx", "raven"]) == 0, "the first repeated host keeps the first color")
+        expect(DuplicateHostColor.index(for: "raven", among: ["nginx", "raven", "nginx", "raven"]) == 1, "the next repeated host takes the next color")
+        expect(DuplicateHostColor.index(for: "main", among: ["main"]) == nil, "a single host has no duplicate color")
+
         print("ok")
     }
 

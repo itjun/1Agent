@@ -164,6 +164,18 @@ final class AppModel: ObservableObject {
         selectOnly(id)
     }
 
+    /// Palette slot when this host appears more than once in its workspace.
+    func duplicateHostMark(for tabID: UUID) -> Int? {
+        guard let alias = tabs.first(where: { $0.id == tabID })?.alias, !alias.isEmpty else { return nil }
+        guard let workspaceIndex = WorkspaceBoard.index(containing: tabID, in: workspaces) else { return nil }
+        var aliases: [String] = []
+        for id in WorkspaceBoard.leafIDs(workspaces[workspaceIndex].layout) {
+            guard let name = tabs.first(where: { $0.id == id })?.alias, !name.isEmpty else { continue }
+            aliases.append(name)
+        }
+        return DuplicateHostColor.index(for: alias, among: aliases)
+    }
+
     /// Hosts that already share one workspace are split back out, not merged again.
     func sidebarSplits(_ ids: [UUID]) -> Bool {
         guard let first = ids.first else { return false }

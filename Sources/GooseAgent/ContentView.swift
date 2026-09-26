@@ -176,7 +176,10 @@ struct RootView: View {
 
 
     private func hostTitleColor(_ tab: TerminalTab) -> Color {
-        chrome.text
+        if let mark = model.duplicateHostMark(for: tab.id) {
+            return Theme.duplicateHostMark(mark)
+        }
+        return chrome.text
     }
 
     private func tabRow(_ tab: TerminalTab, compact: Bool, indent: CGFloat = 0) -> some View {
@@ -1308,7 +1311,10 @@ private struct TerminalCanvas: View {
     }
 
     private func hostTitleColor(_ tab: TerminalTab) -> Color {
-        chrome.text
+        if let mark = model.duplicateHostMark(for: tab.id) {
+            return Theme.duplicateHostMark(mark)
+        }
+        return chrome.text
     }
 
     @ViewBuilder

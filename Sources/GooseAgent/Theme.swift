@@ -21,6 +21,22 @@ enum Theme {
     static let sidebarRowTitle = Font.system(size: 13, weight: .medium)
     static let sidebarRowMeta = Font.system(size: 11)
 
+    /// One color per repeated host inside a workspace. Light and dark each stay readable on the window background.
+    static let duplicateHostMarks: [Color] = [
+        dynamic(hex(0x0057B8), hex(0x7EB6FF)),
+        dynamic(hex(0x006E9A), hex(0x7DD3F0)),
+        dynamic(hex(0x6424C8), hex(0xC4B5FD)),
+        dynamic(hex(0x046B4C), hex(0x6EE7B7)),
+        dynamic(hex(0xA81452), hex(0xF9A8D4)),
+        dynamic(hex(0x7A4E00), hex(0xF5C56B)),
+    ]
+
+    static func duplicateHostMark(_ index: Int) -> Color {
+        let palette = Theme.duplicateHostMarks
+        let wrapped = ((index % palette.count) + palette.count) % palette.count
+        return palette[wrapped]
+    }
+
     static let text = dynamic(hex(0x242424), hex(0xE2E2E2))
     static let textSecondary = dynamic(hex(0x666666), hex(0xA3A3A3))
     static let danger = dynamic(hex(0xC94F44), hex(0xE2726A))
