@@ -20,14 +20,48 @@ enum TabPlacement: String, CaseIterable, Identifiable {
 }
 
 enum SettingsLayout {
-    static let contentWidth: CGFloat = 720
+    static let sidebarWidth: CGFloat = 180
+    static let separatorWidth: CGFloat = 1
+    static let contentWidth: CGFloat = SheetLayout.settings - sidebarWidth - separatorWidth
+    static let popupHeight: CGFloat = SheetLayout.settingsBodyHeight
+}
+
+private enum SettingsSection: String, CaseIterable, Identifiable {
+    case layout
+    case appearanceMode
+    case terminalFont
+    case terminalColors
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .layout: "Layout"
+        case .appearanceMode: "Appearance Mode"
+        case .terminalFont: "Terminal Font"
+        case .terminalColors: "Terminal Colors"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .layout: "rectangle.split.2x2"
+        case .appearanceMode: "circle.lefthalf.filled"
+        case .terminalFont: "textformat"
+        case .terminalColors: "paintpalette"
+        }
+    }
 }
 
 struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedSection: SettingsSection = .layout
     @AppStorage(TabPlacement.storageKey) private var tabLayoutRaw = TabPlacement.vertical.rawValue
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.github.rawValue
+    @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
+    @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
+    @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
 
     private var tabLayout: TabPlacement {
         TabPlacement(rawValue: tabLayoutRaw) ?? .vertical
@@ -41,57 +75,207 @@ struct SettingsView: View {
         TerminalThemeFamily.from(raw: themeFamilyRaw)
     }
 
+    private var fontFamilies: [String] {
+        TerminalFontSettings.availableFamilies()
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Settings")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(chrome.text)
-                Text("Appearance")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(chrome.secondary)
-                Text("Layout")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(chrome.text)
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(TabPlacement.allCases) { placement in
-                        layoutCard(placement)
+        ScrollViewReader { scrollProxy in
+            HStack(spacing: 0) {
+                settingsNavigation { section in
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        scrollProxy.scrollTo(section, anchor: .top)
                     }
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 14).fill(chrome.elevated))
-
-                Text("Appearance Mode")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(chrome.text)
-                HStack(spacing: 8) {
-                    ForEach(TerminalAppearance.allCases) { mode in
-                        appearanceCard(mode)
-                    }
+                Rectangle()
+                    .fill(chrome.hairline)
+                    .frame(width: SettingsLayout.separatorWidth)
+                ScrollView {
+                    settingsContent
                 }
-
-                Text("Terminal Colors")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(chrome.text)
-                Text("Light and night variants follow the appearance mode.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(chrome.secondary)
-                VStack(spacing: 4) {
-                    ForEach(TerminalThemeFamily.allCases) { family in
-                        familyRow(family)
-                    }
-                }
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 12).fill(chrome.elevated))
+                .frame(width: SettingsLayout.contentWidth)
             }
-            .padding(28)
-            .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) {
+            closeButton
+                .padding(12)
+        }
         .background(chrome.background)
         .oneagentHideFocusRing()
+        .onAppear {
+            if !fontFamilies.contains(fontFamily) {
+                fontFamily = TerminalDefaults.defaultFontFamily
+            }
+            GhosttyRuntime.applyFontSettings()
+        }
+    }
+
+    private func settingsNavigation(onSelect: @escaping (SettingsSection) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Settings")
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundStyle(chrome.text)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 12)
+
+            ForEach(SettingsSection.allCases) { section in
+                let selected = selectedSection == section
+                Button {
+                    selectedSection = section
+                    onSelect(section)
+                } label: {
+                    HStack(spacing: 9) {
+                        Image(systemName: section.symbol)
+                            .font(.system(size: 13, weight: .medium))
+                            .frame(width: 18)
+                        Text(section.title)
+                            .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(selected ? chrome.text : chrome.secondary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(selected ? chrome.accent.opacity(0.16) : Color.clear)
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(width: SettingsLayout.sidebarWidth, height: SettingsLayout.popupHeight, alignment: .topLeading)
+        .background(chrome.elevated.opacity(0.58))
+    }
+
+    private var closeButton: some View {
+        Button {
+            dismiss()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(chrome.secondary)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(chrome.elevated))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(Text("Close Settings"))
+        .accessibilityLabel(Text("Close Settings"))
+    }
+
+    private var settingsContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Appearance")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(chrome.secondary)
+            Text("Layout")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(chrome.text)
+                .id(SettingsSection.layout)
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(TabPlacement.allCases) { placement in
+                    layoutCard(placement)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 14).fill(chrome.elevated))
+
+            Text("Appearance Mode")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(chrome.text)
+                .id(SettingsSection.appearanceMode)
+            HStack(spacing: 8) {
+                ForEach(TerminalAppearance.allCases) { mode in
+                    appearanceCard(mode)
+                }
+            }
+
+            Text("Terminal Font")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(chrome.text)
+                .id(SettingsSection.terminalFont)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Text("Font")
+                        .font(.system(size: 13))
+                        .foregroundStyle(chrome.text)
+                        .frame(width: 56, alignment: .leading)
+                    Picker("", selection: $fontFamily) {
+                        ForEach(fontFamilies, id: \.self) { name in
+                            Text(name).tag(name)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack(spacing: 12) {
+                    Text("Size")
+                        .font(.system(size: 13))
+                        .foregroundStyle(chrome.text)
+                        .frame(width: 56, alignment: .leading)
+                    Slider(
+                        value: $fontSize,
+                        in: TerminalDefaults.minFontSize...TerminalDefaults.maxFontSize,
+                        step: 1
+                    )
+                    Text(String(format: String(localized: "%lld px"), Int(fontSize.rounded())))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(chrome.secondary)
+                        .frame(width: 48, alignment: .trailing)
+                }
+
+                Text("1Agent 你好 abc 0123456789 -> =>")
+                    .font(.custom(fontFamily, size: CGFloat(fontSize)))
+                    .foregroundStyle(chrome.text)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(chrome.background)
+                    )
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(chrome.elevated))
+            .onChange(of: fontFamily) { _, _ in
+                GhosttyRuntime.applyFontSettings()
+            }
+            .onChange(of: fontSize) { _, newValue in
+                let clamped = min(max(newValue, TerminalDefaults.minFontSize), TerminalDefaults.maxFontSize)
+                if clamped != newValue {
+                    fontSize = clamped
+                }
+                GhosttyRuntime.applyFontSettings()
+            }
+
+            Text("Terminal Colors")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(chrome.text)
+                .id(SettingsSection.terminalColors)
+            Text("Light and night variants follow the appearance mode.")
+                .font(.system(size: 12))
+                .foregroundStyle(chrome.secondary)
+            VStack(spacing: 4) {
+                ForEach(TerminalThemeFamily.allCases) { family in
+                    familyRow(family)
+                }
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 12).fill(chrome.elevated))
+        }
+        .padding(28)
+        .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func appearanceCard(_ mode: TerminalAppearance) -> some View {
@@ -106,7 +290,7 @@ struct SettingsView: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(selected ? Color.accentColor : Theme.hairline, lineWidth: selected ? 2 : 1)
+                        .stroke(selected ? chrome.accent : Theme.hairline, lineWidth: selected ? 2 : 1)
                 )
         }
         .buttonStyle(.plain)
@@ -123,6 +307,12 @@ struct SettingsView: View {
                 if let light = family.lightPaint, let dark = family.darkPaint {
                     themeSwatch(surface: light.surface, ink: light.ink)
                     themeSwatch(surface: dark.surface, ink: dark.ink)
+                } else if family == .claude {
+                    themeSwatch(surface: ClaudeTerminalTheme.paper.surface, ink: ClaudeTerminalTheme.paper.ink)
+                    themeSwatch(surface: ClaudeTerminalTheme.dark.surface, ink: ClaudeTerminalTheme.dark.ink)
+                } else if family == .raycast {
+                    themeSwatch(surface: RaycastTerminalTheme.light.surface, ink: RaycastTerminalTheme.light.ink)
+                    themeSwatch(surface: RaycastTerminalTheme.dark.surface, ink: RaycastTerminalTheme.dark.ink)
                 } else {
                     themeSwatch(named: family.lightName ?? "")
                     themeSwatch(named: family.darkName ?? "")
@@ -131,7 +321,7 @@ struct SettingsView: View {
                     Text(family.title)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Theme.text)
-                    Text("Light / Night")
+                    Text(family.variantTitle)
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -139,7 +329,7 @@ struct SettingsView: View {
                 if selected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(chrome.accent)
                 }
             }
             .padding(.horizontal, 10)
@@ -147,7 +337,7 @@ struct SettingsView: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(selected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                    .stroke(selected ? chrome.accent : Color.clear, lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)
@@ -205,7 +395,7 @@ struct SettingsView: View {
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(selected ? Color.accentColor : Color.clear, lineWidth: 2)
+                    .stroke(selected ? chrome.accent : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)

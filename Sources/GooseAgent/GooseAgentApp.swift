@@ -38,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model.hostPickerPresented = false
             return nil
         }
+        if model.showingSettings {
+            model.showingSettings = false
+            return nil
+        }
         guard model.selectedTabID != nil else { return event }
         model.closeSelectedTab()
         return nil
@@ -66,7 +70,6 @@ struct GooseAgentApp: App {
         }
         .defaultSize(width: 1100, height: 720)
         .windowStyle(.hiddenTitleBar)
-        .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Tab") { appDelegate.model.newTab() }

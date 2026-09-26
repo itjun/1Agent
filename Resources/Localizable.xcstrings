@@ -8,6 +8,34 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "外观模式" } }
       }
     },
+    "Claude Paper / Claude Ink" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper / Claude Ink" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper / Claude Ink" } }
+      }
+    },
+    "Close Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Settings" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭设置" } }
+      }
+    },
+    "Raycast" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast" } }
+      }
+    },
+    "Raycast Light / Raycast Dark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast Light / Raycast Dark" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast 浅色 / Raycast 深色" } }
+      }
+    },
     "Dark Themes" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -83,6 +111,41 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Terminal Colors" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端颜色" } }
+      }
+    },
+    "Terminal Font" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Terminal Font" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端字体" } }
+      }
+    },
+    "Font" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Font" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "字体" } }
+      }
+    },
+    "Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Size" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "字号" } }
+      }
+    },
+    "%lld px" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld px" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld px" } }
+      }
+    },
+    "1Agent 你好 abc 0123456789 -> =>" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "1Agent 你好 abc 0123456789 -> =>" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1Agent 你好 abc 0123456789 -> =>" } }
       }
     },
     "Appearance" : {

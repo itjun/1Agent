@@ -5,9 +5,12 @@ import GhosttyTheme
 import SwiftUI
 
 enum TerminalDefaults {
-    static let defaultFontSize: Double = 13
+    static let defaultFontSize: Double = 14
+    static let defaultFontFamily = "SF Mono"
     static let defaultFontWeight: Double = 0
     static let defaultLineSpacing: Double = 1
+    static let minFontSize: Double = 10
+    static let maxFontSize: Double = 28
     static let darkBackgroundHex = "#101012"
     static let darkForegroundHex = "#D6D6D6"
     static let lightBackgroundHex = "#FFFFFF"
@@ -42,6 +45,93 @@ enum TerminalDefaults {
     }
 }
 
+/// Persisted terminal typeface / size. Ghostty reads these on every surface refresh.
+enum TerminalFontSettings {
+    static let familyKey = "appearance.terminalFontFamily"
+    static let sizeKey = "appearance.terminalFontSize"
+
+    /// Preferred families shown first when installed (Ghostty resolves SF Mono even if NSFont cannot).
+    private static let preferredFamilies = [
+        "SF Mono",
+        "Menlo",
+        "Monaco",
+        "Maple Mono NF CN",
+        "JetBrains Mono",
+        "Fira Code",
+        "Hack",
+        "Source Code Pro",
+        "IBM Plex Mono",
+        "Cascadia Code",
+        "Cascadia Mono",
+        "PT Mono",
+        "Andale Mono",
+        "Courier New",
+    ]
+
+    static var family: String {
+        let raw = UserDefaults.standard.string(forKey: familyKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return raw.isEmpty ? TerminalDefaults.defaultFontFamily : raw
+    }
+
+    static var size: Double {
+        let stored = UserDefaults.standard.object(forKey: sizeKey) as? Double
+        let value = stored ?? TerminalDefaults.defaultFontSize
+        return min(max(value, TerminalDefaults.minFontSize), TerminalDefaults.maxFontSize)
+    }
+
+    /// Monospace-ish families for the settings picker, preferred names first.
+    static func availableFamilies() -> [String] {
+        let installed = Set(NSFontManager.shared.availableFontFamilies)
+        var result: [String] = []
+        var seen = Set<String>()
+
+        func append(_ name: String) {
+            guard !seen.contains(name) else { return }
+            // Always keep the current / default choice, even if NSFont cannot resolve SF Mono.
+            let keepAlways = name == family
+                || name == TerminalDefaults.defaultFontFamily
+                || preferredFamilies.contains(name)
+            let present = installed.contains(name) || keepAlways
+            guard present else { return }
+            if name == TerminalDefaults.symbolFallbackFamily { return }
+            seen.insert(name)
+            result.append(name)
+        }
+
+        for name in preferredFamilies {
+            append(name)
+        }
+
+        for name in installed.sorted() where isLikelyMonospace(name) {
+            append(name)
+        }
+
+        append(family)
+        return result
+    }
+
+    private static func isLikelyMonospace(_ family: String) -> Bool {
+        if family == TerminalDefaults.symbolFallbackFamily { return false }
+        let lower = family.lowercased()
+        if lower.contains("mono") || lower.contains("code") || lower.contains("consolas") {
+            return true
+        }
+        if family == "Menlo" || family == "Monaco" || family == "Courier" || family == "Courier New" {
+            return true
+        }
+        if let font = NSFontManager.shared.font(
+            withFamily: family,
+            traits: .fixedPitchFontMask,
+            weight: 5,
+            size: 12
+        ), font.isFixedPitch {
+            return true
+        }
+        return false
+    }
+}
+
 @MainActor
 enum GhosttyRuntime {
     static let controller = TerminalController(
@@ -71,12 +161,14 @@ enum GhosttyRuntime {
     }
 
     private static func fontConfiguration() -> TerminalConfiguration {
-        TerminalConfiguration { builder in
-            builder.withFontSize(Float(TerminalDefaults.defaultFontSize))
+        let family = TerminalFontSettings.family
+        let size = TerminalFontSettings.size
+        return TerminalConfiguration { builder in
+            builder.withFontSize(Float(size))
             builder.withCursorStyle(.block)
             builder.withCursorStyleBlink(true)
             builder.withFontThicken(false)
-            builder.withFontFamily("SF Mono")
+            builder.withFontFamily(family)
             builder.withCustom("macos-option-as-alt", "true")
             builder.withCustom("keybind", "super+c=unbind")
             builder.withCustom("clipboard-write", "allow")
@@ -257,8 +349,144 @@ struct AbsolutelyTheme {
     }
 }
 
+/// Claude Paper and Claude Ink use a matched low-saturation ANSI palette.
+struct ClaudeTerminalTheme {
+    var name: String
+    var surface: String
+    var ink: String
+    var accent: String
+    var selection: String
+    var selectionInk: String
+    var palette: [String]
+
+    static let paper = ClaudeTerminalTheme(
+        name: "Claude Paper",
+        surface: "#F4F0E8",
+        ink: "#302E2B",
+        accent: "#C96F4A",
+        selection: "#DDD6CA",
+        selectionInk: "#302E2B",
+        palette: [
+            "#3A3835", "#B95747", "#607A5A", "#A67C3D",
+            "#4F718C", "#886A83", "#527D78", "#D8D2C7",
+            "#77716A", "#D06F57", "#78916E", "#BC9250",
+            "#6689A3", "#A17F9A", "#6B9891", "#FAF7F1",
+        ]
+    )
+
+    static let dark = ClaudeTerminalTheme(
+        name: "Claude Ink",
+        surface: "#242321",
+        ink: "#E8E3DA",
+        accent: "#D97757",
+        selection: "#48433D",
+        selectionInk: "#E8E3DA",
+        palette: [
+            "#302E2B", "#D06B5B", "#819B78", "#C59A55",
+            "#7195AE", "#A987A3", "#72A09A", "#D8D2C7",
+            "#77716A", "#E07B64", "#96AD8C", "#D4AA67",
+            "#88ABC2", "#BE9AB6", "#89B5AE", "#F6F1E9",
+        ]
+    )
+
+    func terminalConfiguration() -> TerminalConfiguration {
+        TerminalConfiguration { builder in
+            builder.withBackground(surface)
+            builder.withForeground(ink)
+            builder.withCursorColor(accent)
+            builder.withSelectionBackground(selection)
+            builder.withSelectionForeground(selectionInk)
+            for (index, color) in palette.enumerated() {
+                builder.withPalette(index, color: color)
+            }
+        }
+    }
+
+    func chrome() -> WindowChrome {
+        let definition = GhosttyThemeDefinition(
+            name: name,
+            background: surface,
+            foreground: ink,
+            cursorColor: accent,
+            selectionBackground: selection,
+            selectionForeground: selectionInk,
+            palette: Dictionary(uniqueKeysWithValues: palette.enumerated().map { ($0.offset, $0.element) })
+        )
+        return WindowChrome(theme: definition, preferredAccent: accent)
+    }
+}
+
+/// Raycast's paired terminal colors, with its brand red used for the cursor and selection accent.
+struct RaycastTerminalTheme {
+    var name: String
+    var surface: String
+    var ink: String
+    var accent: String
+    var selection: String
+    var selectionInk: String
+    var palette: [String]
+
+    static let light = RaycastTerminalTheme(
+        name: "Raycast Light",
+        surface: "#FFFFFF",
+        ink: "#000000",
+        accent: "#B12424",
+        selection: "#F5DDDD",
+        selectionInk: "#000000",
+        palette: [
+            "#000000", "#B12424", "#006B4F", "#F8A300",
+            "#138AF2", "#9A1B6E", "#3EB8BF", "#BFBFBF",
+            "#000000", "#B12424", "#006B4F", "#F8A300",
+            "#138AF2", "#9A1B6E", "#3EB8BF", "#FFFFFF",
+        ]
+    )
+
+    static let dark = RaycastTerminalTheme(
+        name: "Raycast Dark",
+        surface: "#151515",
+        ink: "#FFFFFF",
+        accent: "#FF6363",
+        selection: "#462626",
+        selectionInk: "#FFFFFF",
+        palette: [
+            "#000000", "#FF6363", "#59D499", "#FFC531",
+            "#56C2FF", "#CF2F98", "#52EEE5", "#FFFFFF",
+            "#4C4C4C", "#FF6363", "#59D499", "#FFC531",
+            "#56C2FF", "#CF2F98", "#52EEE5", "#FFFFFF",
+        ]
+    )
+
+    func terminalConfiguration() -> TerminalConfiguration {
+        TerminalConfiguration { builder in
+            builder.withBackground(surface)
+            builder.withForeground(ink)
+            builder.withCursorColor(accent)
+            builder.withSelectionBackground(selection)
+            builder.withSelectionForeground(selectionInk)
+            for (index, color) in palette.enumerated() {
+                builder.withPalette(index, color: color)
+            }
+        }
+    }
+
+    func chrome() -> WindowChrome {
+        let definition = GhosttyThemeDefinition(
+            name: name,
+            background: surface,
+            foreground: ink,
+            cursorColor: accent,
+            selectionBackground: selection,
+            selectionForeground: selectionInk,
+            palette: Dictionary(uniqueKeysWithValues: palette.enumerated().map { ($0.offset, $0.element) })
+        )
+        return WindowChrome(theme: definition, preferredAccent: accent)
+    }
+}
+
 /// A small set of light/night pairs. Appearance mode chooses which half is on screen.
 enum TerminalThemeFamily: String, CaseIterable, Identifiable {
+    case claude
+    case raycast
     case absolutely
     case github
     case ayu
@@ -270,6 +498,8 @@ enum TerminalThemeFamily: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .claude: "Claude"
+        case .raycast: "Raycast"
         case .absolutely: "Absolutely"
         case .github: "GitHub"
         case .ayu: "Ayu"
@@ -277,9 +507,17 @@ enum TerminalThemeFamily: String, CaseIterable, Identifiable {
         }
     }
 
+    var variantTitle: LocalizedStringKey {
+        switch self {
+        case .claude: "Claude Paper / Claude Ink"
+        case .raycast: "Raycast Light / Raycast Dark"
+        default: "Light / Night"
+        }
+    }
+
     var lightName: String? {
         switch self {
-        case .absolutely: nil
+        case .claude, .raycast, .absolutely: nil
         case .github: "GitHub Light Default"
         case .ayu: "Ayu Light"
         case .oneHalf: "One Half Light"
@@ -288,7 +526,7 @@ enum TerminalThemeFamily: String, CaseIterable, Identifiable {
 
     var darkName: String? {
         switch self {
-        case .absolutely: nil
+        case .claude, .raycast, .absolutely: nil
         case .github: "GitHub Dark Default"
         case .ayu: "Ayu"
         case .oneHalf: "One Half Dark"
@@ -303,13 +541,33 @@ enum TerminalThemeFamily: String, CaseIterable, Identifiable {
         self == .absolutely ? .dark : nil
     }
 
+    var lightClaudePaint: ClaudeTerminalTheme? {
+        self == .claude ? .paper : nil
+    }
+
+    var darkClaudePaint: ClaudeTerminalTheme? {
+        self == .claude ? .dark : nil
+    }
+
+    var lightRaycastPaint: RaycastTerminalTheme? {
+        self == .raycast ? .light : nil
+    }
+
+    var darkRaycastPaint: RaycastTerminalTheme? {
+        self == .raycast ? .dark : nil
+    }
+
     func lightConfiguration() -> TerminalConfiguration? {
         if let lightPaint { return lightPaint.terminalConfiguration() }
+        if let lightClaudePaint { return lightClaudePaint.terminalConfiguration() }
+        if let lightRaycastPaint { return lightRaycastPaint.terminalConfiguration() }
         return lightName.flatMap { GhosttyThemeCatalog.theme(named: $0)?.terminalConfiguration() }
     }
 
     func darkConfiguration() -> TerminalConfiguration? {
         if let darkPaint { return darkPaint.terminalConfiguration() }
+        if let darkClaudePaint { return darkClaudePaint.terminalConfiguration() }
+        if let darkRaycastPaint { return darkRaycastPaint.terminalConfiguration() }
         return darkName.flatMap { GhosttyThemeCatalog.theme(named: $0)?.terminalConfiguration() }
     }
 
@@ -329,9 +587,11 @@ enum TerminalThemeFamily: String, CaseIterable, Identifiable {
         ]
         .compactMap { $0 }
         .joined(separator: " ")
+        if hint.localizedCaseInsensitiveContains("claude") { return .claude }
         if hint.contains("Ayu") { return .ayu }
         if hint.contains("One Half") { return .oneHalf }
         if hint.contains("Atom One") || hint.localizedCaseInsensitiveContains("absolutely") { return .absolutely }
+        if hint.isEmpty { return .claude }
         return .github
     }
 

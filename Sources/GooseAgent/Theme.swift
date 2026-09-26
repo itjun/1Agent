@@ -71,7 +71,11 @@ struct WindowChrome: Equatable {
     static func resolve(isDark: Bool) -> WindowChrome {
         let family = TerminalThemeFamily.current()
         if isDark, let paint = family.darkPaint { return paint.chrome() }
+        if isDark, let paint = family.darkClaudePaint { return paint.chrome() }
+        if isDark, let paint = family.darkRaycastPaint { return paint.chrome() }
         if !isDark, let paint = family.lightPaint { return paint.chrome() }
+        if !isDark, let paint = family.lightClaudePaint { return paint.chrome() }
+        if !isDark, let paint = family.lightRaycastPaint { return paint.chrome() }
         let name = isDark ? family.darkName : family.lightName
         if let name, let theme = GhosttyThemeCatalog.theme(named: name) {
             return WindowChrome(theme: theme)
@@ -79,10 +83,10 @@ struct WindowChrome: Equatable {
         return isDark ? builtinDark : builtinLight
     }
 
-    init(theme: GhosttyThemeDefinition) {
+    init(theme: GhosttyThemeDefinition, preferredAccent: String? = nil) {
         let background = RGBColor(ghosttyHex: theme.background) ?? RGBColor(red: 0.06, green: 0.06, blue: 0.07)
         let foreground = RGBColor(ghosttyHex: theme.foreground) ?? RGBColor(red: 0.9, green: 0.9, blue: 0.9)
-        let accent = RGBColor(ghosttyHex: theme.palette[4] ?? theme.cursorColor ?? theme.foreground) ?? foreground
+        let accent = RGBColor(ghosttyHex: preferredAccent ?? theme.palette[4] ?? theme.cursorColor ?? theme.foreground) ?? foreground
         let danger = RGBColor(ghosttyHex: theme.palette[1] ?? "E2726A") ?? RGBColor(red: 0.86, green: 0.32, blue: 0.28)
         self.background = background.color
         self.elevated = background.mixed(with: foreground, amount: 0.08).color
