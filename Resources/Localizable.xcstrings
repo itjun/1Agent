@@ -309,11 +309,32 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1Agent" } }
       }
     },
-    "Choose a Host" : {
+    "Open a Terminal" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose a Host" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择主机" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open a Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开终端" } }
+      }
+    },
+    "Local Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Local Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本地终端" } }
+      }
+    },
+    "Directory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Directory" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "目录" } }
+      }
+    },
+    "Copy Path" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Path" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制路径" } }
       }
     },
     "Close Tab" : {
@@ -407,11 +428,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开链接" } }
       }
     },
-    "Press %@ to choose a host." : {
+    "Press %@ to open a terminal." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Press %@ to choose a host." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按 %@ 选择主机。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Press %@ to open a terminal." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按 %@ 打开终端。" } }
       }
     },
     "Paste" : {

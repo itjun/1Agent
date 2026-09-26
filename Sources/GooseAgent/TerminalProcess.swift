@@ -1,6 +1,46 @@
 import Darwin
 import Foundation
 
+/// A local login shell: which program to exec, and which directory it starts in.
+enum LocalTerminal {
+    static var homeDirectory: String {
+        FileManager.default.homeDirectoryForCurrentUser.path
+    }
+
+    /// The account's login shell. `/bin/zsh` when that path is missing or not executable.
+    static var shellExecutable: String {
+        let fallback = "/bin/zsh"
+        guard let shell = getpwuid(getuid())?.pointee.pw_shell else { return fallback }
+        let path = String(cString: shell)
+        if path.isEmpty || !FileManager.default.isExecutableFile(atPath: path) {
+            return fallback
+        }
+        return path
+    }
+
+    /// Uses `path` when it is an existing directory. Otherwise the user home directory.
+    static func launchDirectory(_ path: String) -> String {
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return path
+        }
+        return LocalTerminal.homeDirectory
+    }
+
+    /// Home is `~`. A path inside home is `~/…`. Anything else stays absolute.
+    static func displayPath(_ path: String) -> String {
+        let home = LocalTerminal.homeDirectory
+        if path == home {
+            return "~"
+        }
+        let prefix = home.hasSuffix("/") ? home : home + "/"
+        if path.hasPrefix(prefix) {
+            return "~/" + String(path.dropFirst(prefix.count))
+        }
+        return path
+    }
+}
+
 /// A local child process attached to a pseudo-terminal — the byte transport
 /// for a host-managed Ghostty surface.
 ///
@@ -31,11 +71,14 @@ final class TerminalProcess: @unchecked Sendable {
     var onExit: ((Int32?) -> Void)?
 
     /// Forks a PTY and execs `executable` with the given (complete) environment.
+    /// `directory` is `chdir`'d in the child before `execve`. The parent must
+    /// pass a path that already exists.
     @discardableResult
     func start(
         executable: String,
         args: [String],
         environment: [String],
+        directory: String? = nil,
         columns: UInt16 = 80,
         rows: UInt16 = 24
     ) -> Bool {
@@ -48,19 +91,26 @@ final class TerminalProcess: @unchecked Sendable {
         // touching the Swift runtime or the allocator.
         var argv = ([executable] + args).map { strdup($0) } + [nil]
         var envp = environment.map { strdup($0) } + [nil]
+        let directoryC: UnsafeMutablePointer<CChar>? = directory.flatMap { path in
+            path.isEmpty ? nil : strdup(path)
+        }
         var size = winsize(ws_row: rows, ws_col: columns, ws_xpixel: 0, ws_ypixel: 0)
         var master: Int32 = -1
         let pid = forkpty(&master, nil, nil, &size)
 
         if pid == 0 {
             // Child. forkpty made the slave the controlling terminal on stdin/
-            // stdout/stderr; only exec remains.
+            // stdout/stderr. chdir, then exec. Do not allocate here.
+            if let directoryC {
+                _ = chdir(directoryC)
+            }
             execve(executable, &argv, &envp)
             _exit(127)
         }
 
         for string in argv { free(string) }
         for string in envp { free(string) }
+        if let directoryC { free(directoryC) }
 
         guard pid > 0, master >= 0 else {
             if master >= 0 { close(master) }

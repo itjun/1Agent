@@ -120,7 +120,7 @@ struct RootView: View {
                     Text("No open terminals")
                         .font(Theme.sidebarRowTitle)
                         .foregroundStyle(chrome.text)
-                    Text(String(format: String(localized: "Press %@ to choose a host."), AppShortcuts.display(for: .newTab)))
+                    Text(String(format: String(localized: "Press %@ to open a terminal."), AppShortcuts.display(for: .newTab)))
                         .font(Theme.sidebarRowMeta)
                         .foregroundStyle(chrome.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -168,6 +168,9 @@ struct RootView: View {
 
     private var selectedSessionBadge: String {
         guard let tab = model.selectedTab else { return "" }
+        if tab.isLocal, let directory = tab.directory {
+            return LocalTerminal.displayPath(directory)
+        }
         if let host = tab.alias.flatMap({ model.host($0) }) {
             return host.sessionBadge
         }
@@ -185,13 +188,24 @@ struct RootView: View {
     private func tabRow(_ tab: TerminalTab, compact: Bool, indent: CGFloat = 0) -> some View {
         let selected = model.isSidebarSelected(tab.id)
         let host = tab.alias.flatMap { model.host($0) }
+        let compactHelp: String
+        if tab.isLocal, let directory = tab.directory {
+            compactHelp = LocalTerminal.displayPath(directory)
+        } else {
+            compactHelp = host?.sessionBadge ?? ""
+        }
         return HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(tab.alias ?? String(localized: "New Tab"))
+                Text(sidebarTitle(tab))
                     .font(Theme.sidebarRowTitle)
                     .foregroundStyle(hostTitleColor(tab))
                     .lineLimit(1)
-                if !compact, let host, !host.subtitle.isEmpty {
+                if !compact, tab.isLocal {
+                    Text("Local Terminal")
+                        .font(Theme.sidebarRowMeta)
+                        .foregroundStyle(chrome.secondary)
+                        .lineLimit(1)
+                } else if !compact, let host, !host.subtitle.isEmpty {
                     Text(host.subtitle)
                         .font(Theme.sidebarRowMeta)
                         .foregroundStyle(chrome.secondary)
@@ -204,7 +218,7 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .help(compact ? (host?.sessionBadge ?? "") : "")
+            .help(compact ? compactHelp : "")
         }
         .padding(.leading, 16 + indent)
         .padding(.trailing, 16)
@@ -241,6 +255,13 @@ struct RootView: View {
                 }
             )
         }
+    }
+
+    private func sidebarTitle(_ tab: TerminalTab) -> String {
+        if tab.isLocal, let directory = tab.directory {
+            return LocalTerminal.displayPath(directory)
+        }
+        return tab.alias ?? String(localized: "New Tab")
     }
 
     private func workspaceTitle(_ number: Int) -> String {
@@ -303,7 +324,7 @@ struct RootView: View {
                     Text("No open terminals")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(chrome.text)
-                    Text(String(format: String(localized: "Press %@ to choose a host."), AppShortcuts.display(for: .newTab)))
+                    Text(String(format: String(localized: "Press %@ to open a terminal."), AppShortcuts.display(for: .newTab)))
                         .font(.system(size: 13))
                         .foregroundStyle(chrome.secondary)
                 }
@@ -340,8 +361,12 @@ private final class CanvasDropRelay: ObservableObject {
     func dragBegan(_ id: UUID) {
         MainActor.assumeIsolated {
             guard let model = modelBox else { return }
-            let alias = model.tabs.first { $0.id == id }?.alias ?? ""
-            dragTitle = model.host(alias)?.sessionBadge ?? alias
+            if let tab = model.tabs.first(where: { $0.id == id }), tab.isLocal, let directory = tab.directory {
+                dragTitle = LocalTerminal.displayPath(directory)
+            } else {
+                let alias = model.tabs.first { $0.id == id }?.alias ?? ""
+                dragTitle = model.host(alias)?.sessionBadge ?? alias
+            }
             model.beginDrag(id)
         }
     }
@@ -1278,17 +1303,20 @@ private struct TerminalCanvas: View {
             let _ = dropRelay.sync(frames: frames, model: model)
             ZStack(alignment: .topLeading) {
                 chrome.background
-                ForEach(model.tabs.filter { $0.alias != nil }) { tab in
+                ForEach(model.tabs.filter(\.isSession)) { tab in
                     let content = frames[tab.id].map { Self.contentFrame($0, headerHeight: headerH) }
                     SSHTerminalView(
                         sessionID: tab.sessionID,
                         alias: tab.alias ?? "",
+                        directory: tab.isLocal ? tab.directory : nil,
                         environment: model.launchEnvironment,
                         dark: dark,
                         usesCatalogTheme: usesCatalogTheme,
                         onExit: { code in
-                            // ssh uses 255 when the connection itself fails. A shell exit removes the tab.
-                            if let code, code != 255 {
+                            // A local shell exit closes the tab. ssh uses 255 when the connection itself fails.
+                            if tab.isLocal {
+                                model.closeTab(tab.id)
+                            } else if let code, code != 255 {
                                 model.closeTab(tab.id)
                             } else {
                                 model.markClosed(tab.id)
@@ -1411,7 +1439,6 @@ private struct TerminalCanvas: View {
 
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
-        let alias = tab.alias ?? ""
         let focused = model.selectedTabID == tab.id
         if headerHeight > 0 {
             let level: GripLevel? = gripTabID == tab.id ? gripLevel : nil
@@ -1427,7 +1454,7 @@ private struct TerminalCanvas: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Text(model.host(alias)?.sessionBadge ?? alias)
+                Text(paneTitle(tab))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(hostTitleColor(tab))
                     .lineLimit(1)
@@ -1483,10 +1510,19 @@ private struct TerminalCanvas: View {
         }
     }
 
+    private func paneTitle(_ tab: TerminalTab) -> String {
+        if tab.isLocal, let directory = tab.directory {
+            return LocalTerminal.displayPath(directory)
+        }
+        let alias = tab.alias ?? ""
+        return model.host(alias)?.sessionBadge ?? alias
+    }
+
     private func hostInfoCard(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
         let alias = tab.alias ?? ""
         let cardWidth = min(260, max(frame.width - 16, 160))
-        return HostInfoCard(alias: alias, host: model.host(alias), width: cardWidth)
+        let directory = tab.isLocal ? tab.directory : nil
+        return HostInfoCard(alias: alias, host: model.host(alias), directory: directory, width: cardWidth)
             .offset(
                 x: frame.minX + (frame.width - cardWidth) / 2,
                 y: frame.minY + headerHeight + 6
@@ -1499,31 +1535,42 @@ private struct HostInfoCard: View {
     @Environment(\.windowChrome) private var chrome
     var alias: String
     var host: SSHHost?
+    var directory: String?
     var width: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            infoRow("Alias", alias)
-            if let address = host?.infoAddress {
-                infoRow("Address", address)
-            }
-            if let user = host?.infoUser {
-                infoRow("User", user)
-            }
-            if let port = host?.infoPort {
-                infoRow("Port", port)
+            if let directory {
+                infoRow("Directory", directory)
+            } else {
+                infoRow("Alias", alias)
+                if let address = host?.infoAddress {
+                    infoRow("Address", address)
+                }
+                if let user = host?.infoUser {
+                    infoRow("User", user)
+                }
+                if let port = host?.infoPort {
+                    infoRow("Port", port)
+                }
             }
             Button {
-                let text = host?.connectionCopyText ?? alias
+                let text = directory ?? host?.connectionCopyText ?? alias
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(text, forType: .string)
             } label: {
-                Text("Copy Host Info")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(chrome.text)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(chrome.accent.opacity(0.16))
+                Group {
+                    if directory == nil {
+                        Text("Copy Host Info")
+                    } else {
+                        Text("Copy Path")
+                    }
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(chrome.text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(chrome.accent.opacity(0.16))
             }
             .buttonStyle(.plain)
         }
@@ -1620,11 +1667,39 @@ private struct HostPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Choose a Host")
+            Text("Open a Terminal")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(chrome.text)
                 .padding(.horizontal, 28)
                 .padding(.top, 28)
+                .padding(.bottom, 12)
+
+            Button {
+                model.openLocalTerminal()
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Local Terminal")
+                        .font(Theme.sidebarRowTitle)
+                        .foregroundStyle(chrome.text)
+                    Text(LocalTerminal.homeDirectory)
+                        .font(Theme.sidebarRowMeta)
+                        .foregroundStyle(chrome.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+
+            Rectangle()
+                .fill(chrome.hairline)
+                .frame(height: 1)
+                .padding(.horizontal, 28)
                 .padding(.bottom, 12)
 
             TextField("Search hosts", text: $query)

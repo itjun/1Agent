@@ -11,10 +11,25 @@ enum TabDropHighlight: Equatable {
 struct TerminalTab: Identifiable, Equatable {
     let id: UUID
     var alias: String?
+    /// Local shell directory. Nil for an SSH host.
+    var directory: String? = nil
     var generation: Int
     var exited: Bool
 
     var sessionID: String { "\(id.uuidString)#\(generation)" }
+
+    /// A local login shell. An SSH alias wins when both are set.
+    var isLocal: Bool {
+        if let alias, !alias.isEmpty { return false }
+        if let directory, !directory.isEmpty { return true }
+        return false
+    }
+
+    /// SSH host or local shell. Empty placeholder tabs are neither.
+    var isSession: Bool {
+        if let alias, !alias.isEmpty { return true }
+        return isLocal
+    }
 }
 
 @MainActor
@@ -44,10 +59,10 @@ final class AppModel: ObservableObject {
         return tabs.first { $0.id == selectedTabID }
     }
 
-    /// What the terminal area shows. A selected host outside every workspace is shown on its own.
+    /// What the terminal area shows. A selected terminal outside every workspace is shown on its own.
     func displayRoot() -> PaneNode? {
         guard let selectedTabID else { return nil }
-        guard tabs.first(where: { $0.id == selectedTabID })?.alias != nil else { return nil }
+        guard tabs.first(where: { $0.id == selectedTabID })?.isSession == true else { return nil }
         if let found = WorkspaceBoard.index(containing: selectedTabID, in: workspaces) {
             return workspaces[found].layout
         }
@@ -100,7 +115,7 @@ final class AppModel: ObservableObject {
             sidebarAnchor = id
         }
         persistSession()
-        guard let tab = tabs.first(where: { $0.id == id }), tab.alias != nil, !tab.exited else { return }
+        guard let tab = tabs.first(where: { $0.id == id }), tab.isSession, !tab.exited else { return }
         SSHTerminalRegistry.focus(tab.sessionID)
     }
 
@@ -234,11 +249,7 @@ final class AppModel: ObservableObject {
             .filter { !$0.isEmpty }
         guard !aliases.isEmpty else { return }
         hostPickerPresented = false
-        NSApp.activate()
-        for window in NSApp.windows where window.canBecomeKey {
-            window.makeKeyAndOrderFront(nil)
-            break
-        }
+        activateMainWindow()
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
@@ -267,6 +278,24 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Opens a local login shell in the user home directory.
+    func openLocalTerminal() {
+        let directory = LocalTerminal.launchDirectory(LocalTerminal.homeDirectory)
+        hostPickerPresented = false
+        activateMainWindow()
+        Task {
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard !Task.isCancelled else { return }
+            launchEnvironment = environment
+            let tab = TerminalTab(id: UUID(), alias: nil, directory: directory, generation: 0, exited: false)
+            tabs.append(tab)
+            selectedTabID = tab.id
+            sidebarSelection = [tab.id]
+            sidebarAnchor = tab.id
+            persistSession()
+        }
+    }
+
     /// Reopens the tabs that were on screen when the app last quit, including a split.
     func restoreLastSession() {
         guard let snapshot = SessionSnapshot.load(), !snapshot.tabs.isEmpty else {
@@ -285,8 +314,24 @@ final class AppModel: ObservableObject {
                 return
             }
             launchEnvironment = environment
-            tabs = snapshot.tabs.map {
-                TerminalTab(id: $0.id, alias: $0.alias, generation: 0, exited: false)
+            tabs = snapshot.tabs.compactMap { item in
+                if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
+                    return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false)
+                }
+                if let directory = item.directory?.trimmingCharacters(in: .whitespacesAndNewlines), !directory.isEmpty {
+                    return TerminalTab(
+                        id: item.id,
+                        alias: nil,
+                        directory: LocalTerminal.launchDirectory(directory),
+                        generation: 0,
+                        exited: false
+                    )
+                }
+                return nil
+            }
+            if tabs.isEmpty {
+                acceptSessionWrites = true
+                return
             }
             let known = Set(tabs.map(\.id))
             workspaces = Self.workspaces(snapshot.workspaces, keeping: known)
@@ -340,7 +385,7 @@ final class AppModel: ObservableObject {
         }
         guard let selectedTabID,
               let tab = tabs.first(where: { $0.id == selectedTabID }),
-              tab.alias != nil,
+              tab.isSession,
               !tab.exited else { return }
         SSHTerminalRegistry.focus(tab.sessionID)
     }
@@ -352,7 +397,7 @@ final class AppModel: ObservableObject {
         if selectedTabID == id {
             let next = tabs.indices.contains(index) ? tabs[index].id : tabs.last?.id
             selectedTabID = next
-            if focusNext, let next, let tab = tabs.first(where: { $0.id == next }), tab.alias != nil, !tab.exited {
+            if focusNext, let next, let tab = tabs.first(where: { $0.id == next }), tab.isSession, !tab.exited {
                 SSHTerminalRegistry.focus(tab.sessionID)
             }
         }
@@ -366,17 +411,32 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
-    /// Opens another SSH session of the same alias and splits it to the right or downward.
+    /// Opens another session of the same host, or another local shell in the same directory, and splits it.
     func duplicate(_ id: UUID, edge: SplitEdge) {
         guard edge == .right || edge == .bottom else { return }
-        guard let alias = tabs.first(where: { $0.id == id })?.alias, !alias.isEmpty else { return }
+        guard let source = tabs.first(where: { $0.id == id }) else { return }
+        if source.isLocal {
+            let live = SSHTerminalRegistry.currentWorkingDirectory(for: source.sessionID) ?? source.directory
+            guard let live, !live.isEmpty else { return }
+            duplicateSession(id, alias: nil, directory: LocalTerminal.launchDirectory(live), edge: edge)
+            return
+        }
+        guard let alias = source.alias, !alias.isEmpty else { return }
+        duplicateSession(id, alias: alias, directory: nil, edge: edge)
+    }
+
+    private func duplicateSession(_ id: UUID, alias: String?, directory: String?, edge: SplitEdge) {
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
-            guard let sourceIndex = tabs.firstIndex(where: { $0.id == id }),
-                  tabs[sourceIndex].alias == alias else { return }
+            guard let sourceIndex = tabs.firstIndex(where: { $0.id == id }) else { return }
+            if let alias {
+                guard tabs[sourceIndex].alias == alias else { return }
+            } else {
+                guard tabs[sourceIndex].isLocal else { return }
+            }
             launchEnvironment = environment
-            let copy = TerminalTab(id: UUID(), alias: alias, generation: 0, exited: false)
+            let copy = TerminalTab(id: UUID(), alias: alias, directory: directory, generation: 0, exited: false)
             tabs.insert(copy, at: sourceIndex + 1)
             workspaces = WorkspaceBoard.drop(dragged: copy.id, onto: id, edge: edge, in: workspaces)
             sidebarSelection = [copy.id]
@@ -421,7 +481,7 @@ final class AppModel: ObservableObject {
     }
 
     func beginDrag(_ id: UUID) {
-        guard tabs.first(where: { $0.id == id })?.alias != nil else { return }
+        guard tabs.contains(where: { $0.id == id && $0.isSession }) else { return }
         draggingTabID = id
         dropEpoch += 1
     }
@@ -461,8 +521,8 @@ final class AppModel: ObservableObject {
 
     func dropTab(_ dragged: UUID, onto target: UUID, edge: SplitEdge) {
         guard dragged != target else { endDrag(); return }
-        guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
-        guard tabs.contains(where: { $0.id == target && $0.alias != nil }) else { endDrag(); return }
+        guard tabs.contains(where: { $0.id == dragged && $0.isSession }) else { endDrag(); return }
+        guard tabs.contains(where: { $0.id == target && $0.isSession }) else { endDrag(); return }
         workspaces = WorkspaceBoard.drop(dragged: dragged, onto: target, edge: edge, in: workspaces)
         selectedTabID = dragged
         endDrag()
@@ -482,7 +542,7 @@ final class AppModel: ObservableObject {
 
     /// A standalone host, or a member of another group, joins this workspace beside the chosen member.
     func joinWorkspace(_ dragged: UUID, _ workspaceID: UUID, beside target: UUID, after: Bool) {
-        guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
+        guard tabs.contains(where: { $0.id == dragged && $0.isSession }) else { endDrag(); return }
         let next = WorkspaceBoard.join(dragged, beside: target, after: after, to: workspaceID, in: workspaces)
         guard next != workspaces else { endDrag(); return }
         workspaces = next
@@ -493,7 +553,7 @@ final class AppModel: ObservableObject {
 
     /// A standalone host, or a member of another group, joins this workspace at the end of its sidebar order.
     func joinWorkspace(_ dragged: UUID, _ workspaceID: UUID) {
-        guard tabs.contains(where: { $0.id == dragged && $0.alias != nil }) else { endDrag(); return }
+        guard tabs.contains(where: { $0.id == dragged && $0.isSession }) else { endDrag(); return }
         let next = WorkspaceBoard.join(dragged, to: workspaceID, in: workspaces)
         guard next != workspaces else { endDrag(); return }
         workspaces = next
@@ -552,12 +612,29 @@ final class AppModel: ObservableObject {
         closeTab(selectedTabID)
     }
 
+    private func activateMainWindow() {
+        NSApp.activate()
+        for window in NSApp.windows where window.canBecomeKey {
+            window.makeKeyAndOrderFront(nil)
+            break
+        }
+    }
+
     private func persistSession() {
         guard acceptSessionWrites else { return }
+        for index in tabs.indices where tabs[index].isLocal {
+            guard let live = SSHTerminalRegistry.currentWorkingDirectory(for: tabs[index].sessionID) else { continue }
+            if tabs[index].directory != live {
+                tabs[index].directory = live
+            }
+        }
         let snapshot = SessionSnapshot(
             tabs: tabs.compactMap { tab in
-                guard let alias = tab.alias, !alias.isEmpty else { return nil }
-                return SessionSnapshot.Tab(id: tab.id, alias: alias)
+                if let alias = tab.alias, !alias.isEmpty {
+                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil)
+                }
+                guard let directory = tab.directory, !directory.isEmpty else { return nil }
+                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory)
             },
             selected: selectedTabID,
             layout: nil,
@@ -591,7 +668,8 @@ final class AppModel: ObservableObject {
 private struct SessionSnapshot: Codable {
     struct Tab: Codable {
         var id: UUID
-        var alias: String
+        var alias: String?
+        var directory: String? = nil
     }
 
     static let storageKey = "session.openTabs"

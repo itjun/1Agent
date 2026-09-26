@@ -657,12 +657,13 @@ final class TerminalProcessHost {
         }
     }
 
-    func start(executable: String, args: [String], environment: [String]) {
+    func start(executable: String, args: [String], environment: [String], directory: String? = nil) {
         startedAt = ProcessInfo.processInfo.systemUptime
         process.start(
             executable: executable,
             args: args,
-            environment: sshChildEnvironment(environment)
+            environment: sshChildEnvironment(environment),
+            directory: directory
         )
     }
 
@@ -719,6 +720,11 @@ enum SSHTerminalRegistry {
             guard let view = views[id]?.view, let window = view.window else { return }
             window.makeFirstResponder(view)
         }
+    }
+
+    /// The shell's own cwd. Nil until the process is running, or after it exits.
+    static func currentWorkingDirectory(for id: String) -> String? {
+        views[id]?.view?.processHost?.process.currentWorkingDirectory
     }
 }
 
@@ -1012,6 +1018,8 @@ private extension NSEvent {
 struct SSHTerminalView: NSViewRepresentable {
     var sessionID: String
     var alias: String
+    /// Set for a local shell. Empty alias plus this path starts the login shell here.
+    var directory: String? = nil
     var environment: [String]
     var dark: Bool
     /// Catalog themes already include their own palette, so the light-color rewrite stays off.
@@ -1046,11 +1054,21 @@ struct SSHTerminalView: NSViewRepresentable {
         view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
         applyAppearance(view, dark: dark, usesCatalogTheme: usesCatalogTheme)
         host.setLightColorsEnabled(!usesCatalogTheme && !dark)
-        host.start(
-            executable: "/usr/bin/ssh",
-            args: ["-tt", "--", alias],
-            environment: environment
-        )
+        if alias.isEmpty, let directory, !directory.isEmpty {
+            let launch = LocalTerminal.launchDirectory(directory)
+            host.start(
+                executable: LocalTerminal.shellExecutable,
+                args: ["-l"],
+                environment: environment,
+                directory: launch
+            )
+        } else {
+            host.start(
+                executable: "/usr/bin/ssh",
+                args: ["-tt", "--", alias],
+                environment: environment
+            )
+        }
         SSHTerminalRegistry.register(view, for: sessionID)
         DispatchQueue.main.async { [weak view] in
             guard let view, let window = view.window else { return }
