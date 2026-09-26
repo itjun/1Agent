@@ -573,7 +573,7 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
-    /// Drops the workspace. Members stay open and move to Ungrouped.
+    /// Drops the workspace. Members stay open. Local shells show under Local Group; hosts show under Ungrouped.
     func dissolveWorkspace(_ workspaceID: UUID) {
         let next = WorkspaceBoard.dissolve(workspaceID, in: workspaces)
         guard next != workspaces else { return }

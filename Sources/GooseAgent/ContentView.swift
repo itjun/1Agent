@@ -134,6 +134,8 @@ struct RootView: View {
                     VStack(spacing: 2) {
                         let grouped = model.workspacesByNumber
                         let standalone = model.standaloneTabs
+                        let localStandalone = standalone.filter(\.isLocal)
+                        let remoteStandalone = standalone.filter { !$0.isLocal }
                         ForEach(grouped) { workspace in
                             VStack(spacing: 2) {
                                 workspaceHeader(workspace)
@@ -143,16 +145,18 @@ struct RootView: View {
                             }
                             .background(WorkspaceAnchor(id: workspace.id, relay: dropRelay))
                         }
-                        if !standalone.isEmpty {
+                        if !localStandalone.isEmpty {
                             VStack(spacing: 2) {
-                                Text("Ungrouped")
-                                    .font(Theme.sidebarRowMeta)
-                                    .foregroundStyle(chrome.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16)
-                                    .padding(.top, 8)
-                                    .padding(.bottom, 2)
-                                ForEach(standalone) { tab in
+                                sidebarSectionTitle("Local Group")
+                                ForEach(localStandalone) { tab in
+                                    tabRow(tab, compact: false, indent: 12)
+                                }
+                            }
+                        }
+                        if !remoteStandalone.isEmpty {
+                            VStack(spacing: 2) {
+                                sidebarSectionTitle("Ungrouped")
+                                ForEach(remoteStandalone) { tab in
                                     tabRow(tab, compact: false)
                                 }
                             }
@@ -264,8 +268,24 @@ struct RootView: View {
         return tab.alias ?? String(localized: "New Tab")
     }
 
-    private func workspaceTitle(_ number: Int) -> String {
-        String(format: String(localized: "Workspace %lld"), number)
+    private func sidebarSectionTitle(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(Theme.sidebarRowMeta)
+            .foregroundStyle(chrome.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+    }
+
+    private func workspaceTitle(_ workspace: Workspace) -> String {
+        let members = model.tabs(in: workspace)
+        if !members.isEmpty {
+            if members.allSatisfy(\.isLocal) {
+                return String(localized: "Local Group")
+            }
+        }
+        return String(format: String(localized: "Workspace %lld"), workspace.number)
     }
 
     private func workspaceLayoutTitle(_ layout: WorkspaceLayout) -> String {
@@ -286,7 +306,7 @@ struct RootView: View {
     private func workspaceHeader(_ workspace: Workspace) -> some View {
         let count = WorkspaceBoard.leafIDs(workspace.layout).count
         let layouts = WorkspaceBoard.availableLayouts(paneCount: count)
-        return Text(workspaceTitle(workspace.number))
+        return Text(workspaceTitle(workspace))
             .font(Theme.sidebarRowMeta)
             .foregroundStyle(chrome.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
