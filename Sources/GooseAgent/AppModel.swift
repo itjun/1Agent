@@ -164,12 +164,11 @@ final class AppModel: ObservableObject {
         selectOnly(id)
     }
 
-    /// Palette slot when this host appears more than once in its workspace.
+    /// Palette slot when this host alias appears more than once, in a workspace or under Ungrouped.
     func duplicateHostMark(for tabID: UUID) -> Int? {
         guard let alias = tabs.first(where: { $0.id == tabID })?.alias, !alias.isEmpty else { return nil }
-        guard let workspaceIndex = WorkspaceBoard.index(containing: tabID, in: workspaces) else { return nil }
         var aliases: [String] = []
-        for id in WorkspaceBoard.leafIDs(workspaces[workspaceIndex].layout) {
+        for id in sidebarOrder() {
             guard let name = tabs.first(where: { $0.id == id })?.alias, !name.isEmpty else { continue }
             aliases.append(name)
         }

@@ -328,7 +328,7 @@ enum WorkspaceBoard {
     }
 }
 
-/// Color slot for a host that appears more than once in one workspace.
+/// Color slot for a host that appears more than once.
 /// Each repeated alias keeps one slot, in the order that alias first appears.
 enum DuplicateHostColor {
     static func index(for alias: String, among aliases: [String]) -> Int? {
