@@ -23,6 +23,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var configFailed = false
     @Published private(set) var tabs: [TerminalTab] = []
     @Published var selectedTabID: UUID?
+    /// Sidebar multi-select. Not written into the session snapshot.
+    @Published private(set) var sidebarSelection: Set<UUID> = []
+    private var sidebarAnchor: UUID?
     @Published private(set) var launchEnvironment: [String] = []
     /// Merged terminals. A single host is not stored here. Each workspace is one split tree.
     @Published private(set) var workspaces: [Workspace] = []
@@ -93,14 +96,103 @@ final class AppModel: ObservableObject {
 
     func selectTab(_ id: UUID) {
         selectedTabID = id
+        if sidebarAnchor == nil {
+            sidebarAnchor = id
+        }
         persistSession()
         guard let tab = tabs.first(where: { $0.id == id }), tab.alias != nil, !tab.exited else { return }
         SSHTerminalRegistry.focus(tab.sessionID)
     }
 
+    /// A plain click, including a pane header. The sidebar selection becomes this one host.
+    func selectOnly(_ id: UUID) {
+        sidebarSelection = [id]
+        sidebarAnchor = id
+        selectTab(id)
+    }
+
+    func isSidebarSelected(_ id: UUID) -> Bool {
+        if sidebarSelection.isEmpty {
+            return selectedTabID == id
+        }
+        return sidebarSelection.contains(id)
+    }
+
+    /// Sidebar order: workspaces by number, members in pane order, then ungrouped hosts.
+    func sidebarOrder() -> [UUID] {
+        var ids: [UUID] = []
+        for workspace in workspacesByNumber {
+            ids.append(contentsOf: WorkspaceBoard.leafIDs(workspace.layout))
+        }
+        for tab in standaloneTabs {
+            ids.append(tab.id)
+        }
+        return ids
+    }
+
+    /// Command toggles one host. Shift selects the contiguous sidebar range from the anchor.
+    func clickSidebar(_ id: UUID, command: Bool, shift: Bool) {
+        if sidebarAnchor == nil {
+            sidebarAnchor = selectedTabID
+        }
+        let order = sidebarOrder()
+        if shift, let anchor = sidebarAnchor, let start = order.firstIndex(of: anchor), let end = order.firstIndex(of: id) {
+            let lower = min(start, end)
+            let upper = max(start, end)
+            sidebarSelection = Set(order[lower...upper])
+            selectTab(id)
+            return
+        }
+        if command {
+            var next = sidebarSelection
+            if next.isEmpty, let selectedTabID {
+                next.insert(selectedTabID)
+            }
+            if next.contains(id) {
+                next.remove(id)
+                if next.isEmpty {
+                    next.insert(id)
+                }
+            } else {
+                next.insert(id)
+            }
+            sidebarSelection = next
+            sidebarAnchor = id
+            selectTab(id)
+            return
+        }
+        selectOnly(id)
+    }
+
+    /// Hosts that already share one workspace are split back out, not merged again.
+    func sidebarSplits(_ ids: [UUID]) -> Bool {
+        guard let first = ids.first else { return false }
+        guard let workspace = WorkspaceBoard.index(containing: first, in: workspaces) else { return false }
+        for id in ids {
+            if WorkspaceBoard.index(containing: id, in: workspaces) != workspace {
+                return false
+            }
+        }
+        return true
+    }
+
+    /// Right-click on a selected row applies to the whole set. Any other row applies to itself.
+    func sidebarTargets(clicking id: UUID) -> [UUID] {
+        if sidebarSelection.contains(id) {
+            let chosen = sidebarSelection
+            return sidebarOrder().filter { chosen.contains($0) }
+        }
+        return [id]
+    }
+
     /// The terminal became first responder. Do not ask it to focus again.
+    /// A multi-select stays put so focusing a pane does not drop the set.
     func notePaneFocused(_ id: UUID) {
         selectedTabID = id
+        if sidebarSelection.count <= 1 {
+            sidebarSelection = [id]
+            sidebarAnchor = id
+        }
         persistSession()
     }
 
@@ -145,6 +237,12 @@ final class AppModel: ObservableObject {
                 lastID = tab.id
             }
             selectedTabID = lastID
+            if let lastID {
+                sidebarSelection = [lastID]
+            } else {
+                sidebarSelection = []
+            }
+            sidebarAnchor = lastID
             persistSession()
         }
     }
@@ -177,6 +275,12 @@ final class AppModel: ObservableObject {
             } else {
                 selectedTabID = tabs.last?.id
             }
+            if let selectedTabID {
+                sidebarSelection = [selectedTabID]
+            } else {
+                sidebarSelection = []
+            }
+            sidebarAnchor = selectedTabID
             acceptSessionWrites = true
             persistSession()
         }
@@ -207,17 +311,93 @@ final class AppModel: ObservableObject {
     }
 
     func closeTab(_ id: UUID) {
+        closeTab(id, focusNext: true)
+    }
+
+    func closeTabs(_ ids: [UUID]) {
+        for id in ids {
+            closeTab(id, focusNext: false)
+        }
+        guard let selectedTabID,
+              let tab = tabs.first(where: { $0.id == selectedTabID }),
+              tab.alias != nil,
+              !tab.exited else { return }
+        SSHTerminalRegistry.focus(tab.sessionID)
+    }
+
+    private func closeTab(_ id: UUID, focusNext: Bool) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         tabs.remove(at: index)
         workspaces = WorkspaceBoard.extract(id, from: workspaces)
         if selectedTabID == id {
             let next = tabs.indices.contains(index) ? tabs[index].id : tabs.last?.id
             selectedTabID = next
-            if let next, let tab = tabs.first(where: { $0.id == next }), tab.alias != nil, !tab.exited {
+            if focusNext, let next, let tab = tabs.first(where: { $0.id == next }), tab.alias != nil, !tab.exited {
                 SSHTerminalRegistry.focus(tab.sessionID)
             }
         }
+        sidebarSelection.remove(id)
+        if sidebarAnchor == id {
+            sidebarAnchor = selectedTabID
+        }
+        if sidebarSelection.isEmpty, let selectedTabID {
+            sidebarSelection = [selectedTabID]
+        }
         persistSession()
+    }
+
+    /// Opens another SSH session of the same alias and splits it to the right or downward.
+    func duplicate(_ id: UUID, edge: SplitEdge) {
+        guard edge == .right || edge == .bottom else { return }
+        guard let alias = tabs.first(where: { $0.id == id })?.alias, !alias.isEmpty else { return }
+        Task {
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard !Task.isCancelled else { return }
+            guard let sourceIndex = tabs.firstIndex(where: { $0.id == id }),
+                  tabs[sourceIndex].alias == alias else { return }
+            launchEnvironment = environment
+            let copy = TerminalTab(id: UUID(), alias: alias, generation: 0, exited: false)
+            tabs.insert(copy, at: sourceIndex + 1)
+            workspaces = WorkspaceBoard.drop(dragged: copy.id, onto: id, edge: edge, in: workspaces)
+            sidebarSelection = [copy.id]
+            sidebarAnchor = copy.id
+            selectTab(copy.id)
+        }
+    }
+
+    func duplicateFocused(downward: Bool) {
+        guard let selectedTabID else { return }
+        duplicate(selectedTabID, edge: downward ? .bottom : .right)
+    }
+
+    func mergeSidebar(_ ids: [UUID]) {
+        let ordered = sidebarOrder().filter { ids.contains($0) }
+        guard ordered.count >= 2 else { return }
+        let next = WorkspaceBoard.merge(ordered, in: workspaces)
+        guard next != workspaces else { return }
+        workspaces = next
+        sidebarSelection = Set(ordered)
+        if let first = ordered.first {
+            sidebarAnchor = first
+            selectTab(first)
+        }
+    }
+
+    /// Pulls these hosts out of their workspace. A workspace with one host left dissolves.
+    func splitSidebar(_ ids: [UUID]) {
+        let ordered = sidebarOrder().filter { ids.contains($0) }
+        guard sidebarSplits(ordered) else { return }
+        var next = workspaces
+        for id in ordered {
+            next = WorkspaceBoard.extract(id, from: next)
+        }
+        guard next != workspaces else { return }
+        workspaces = next
+        sidebarSelection = Set(ordered)
+        if let first = ordered.first {
+            sidebarAnchor = first
+            selectTab(first)
+        }
     }
 
     func beginDrag(_ id: UUID) {

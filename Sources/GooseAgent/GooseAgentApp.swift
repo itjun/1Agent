@@ -25,16 +25,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Cmd+D closes the selected terminal. Cmd+W does the same so the window stays open.
+    /// Cmd+D duplicates to the right and Cmd+Shift+D duplicates downward.
+    /// Cmd+W closes the selected terminal so the window stays open. Ctrl+D is left for the shell.
     private func handleShortcut(_ event: NSEvent) -> NSEvent? {
         if event.keyCode == 53, model.draggingTabID != nil {
             model.endDrag()
             return nil
         }
         guard let chord = KeyChord.from(event: event) else { return event }
+        let duplicatesRight = chord == AppShortcuts.chord(for: .duplicateRight)
+        let duplicatesDown = chord == AppShortcuts.chord(for: .duplicateDown)
         let closesTerminal = chord == AppShortcuts.chord(for: .closeTab)
             || chord == KeyChord(key: "w", modifiers: .command)
-        guard closesTerminal else { return event }
+        guard duplicatesRight || duplicatesDown || closesTerminal else { return event }
         if NSApp.keyWindow?.identifier == SettingsWindowController.windowID {
             if chord == KeyChord(key: "w", modifiers: .command) {
                 NSApp.keyWindow?.close()
@@ -42,7 +45,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return nil
         }
         if model.hostPickerPresented {
-            model.hostPickerPresented = false
+            if closesTerminal {
+                model.hostPickerPresented = false
+            }
+            return nil
+        }
+        if duplicatesRight || duplicatesDown {
+            guard model.selectedTabID != nil else { return event }
+            model.duplicateFocused(downward: duplicatesDown)
             return nil
         }
         guard model.selectedTabID != nil else { return event }

@@ -175,14 +175,18 @@ struct RootView: View {
     }
 
 
+    private func hostTitleColor(_ tab: TerminalTab) -> Color {
+        chrome.text
+    }
+
     private func tabRow(_ tab: TerminalTab, compact: Bool, indent: CGFloat = 0) -> some View {
-        let selected = model.selectedTabID == tab.id
+        let selected = model.isSidebarSelected(tab.id)
         let host = tab.alias.flatMap { model.host($0) }
         return HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(tab.alias ?? String(localized: "New Tab"))
                     .font(Theme.sidebarRowTitle)
-                    .foregroundStyle(chrome.text)
+                    .foregroundStyle(hostTitleColor(tab))
                     .lineLimit(1)
                 if !compact, let host, !host.subtitle.isEmpty {
                     Text(host.subtitle)
@@ -207,11 +211,31 @@ struct RootView: View {
         .background(RowAnchor(id: tab.id, relay: dropRelay))
         .overlay {
             TabDragHandle(
-                onClick: { _, _ in model.selectTab(tab.id) },
+                onClick: { command, shift in
+                    model.clickSidebar(tab.id, command: command, shift: shift)
+                },
                 onBegan: { dropRelay.dragBegan(tab.id) },
                 onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                 onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                onClose: { model.closeTab(tab.id) }
+                prepareContextMenu: {
+                    let targets = model.sidebarTargets(clicking: tab.id)
+                    let splits = model.sidebarSplits(targets)
+                    return TabContextMenu(
+                        showsDuplicate: targets.count == 1,
+                        splits: splits,
+                        canMerge: targets.count >= 2,
+                        duplicateRight: { model.duplicate(targets[0], edge: .right) },
+                        duplicateDown: { model.duplicate(targets[0], edge: .bottom) },
+                        merge: {
+                            if splits {
+                                model.splitSidebar(targets)
+                            } else {
+                                model.mergeSidebar(targets)
+                            }
+                        },
+                        close: { model.closeTabs(targets) }
+                    )
+                }
             )
         }
     }
@@ -768,6 +792,16 @@ private enum GripLevel: Equatable {
 }
 
 /// Follows the pointer until mouse-up. A system drag session does not report the landing point reliably.
+private struct TabContextMenu {
+    var showsDuplicate: Bool
+    var splits: Bool
+    var canMerge: Bool
+    var duplicateRight: () -> Void
+    var duplicateDown: () -> Void
+    var merge: () -> Void
+    var close: () -> Void
+}
+
 private final class TabDragHandleView: NSView {
     var onClick: (Bool, Bool) -> Void = { _, _ in }
     var onHover: (Bool) -> Void = { _ in }
@@ -776,6 +810,8 @@ private final class TabDragHandleView: NSView {
     var onMoved: (NSPoint) -> Void = { _ in }
     var onEnded: (NSPoint) -> Void = { _ in }
     var onClose: (() -> Void)?
+    var prepareContextMenu: (() -> TabContextMenu)?
+    private var contextMenuActions: TabContextMenu?
     var showsGripCursor = false {
         didSet {
             guard oldValue != showsGripCursor else { return }
@@ -982,6 +1018,12 @@ private final class TabDragHandleView: NSView {
     }
 
     override func rightMouseUp(with event: NSEvent) {
+        if let prepareContextMenu {
+            let actions = prepareContextMenu()
+            contextMenuActions = actions
+            NSMenu.popUpContextMenu(sidebarMenu(for: actions), with: event, for: self)
+            return
+        }
         guard onClose != nil else {
             super.rightMouseUp(with: event)
             return
@@ -991,7 +1033,59 @@ private final class TabDragHandleView: NSView {
         NSMenu.popUpContextMenu(menu, with: event, for: self)
     }
 
+    private func sidebarMenu(for actions: TabContextMenu) -> NSMenu {
+        let menu = NSMenu()
+        if actions.showsDuplicate {
+            menu.addItem(shortcutItem(
+                title: String(localized: "Duplicate Right"),
+                chord: AppShortcuts.chord(for: .duplicateRight),
+                action: #selector(duplicateRightFromMenu(_:))
+            ))
+            menu.addItem(shortcutItem(
+                title: String(localized: "Duplicate Down"),
+                chord: AppShortcuts.chord(for: .duplicateDown),
+                action: #selector(duplicateDownFromMenu(_:))
+            ))
+        }
+        let mergeTitle = actions.splits
+            ? String(localized: "Split Terminals")
+            : String(localized: "Merge Terminals")
+        let merge = NSMenuItem(
+            title: mergeTitle,
+            action: #selector(mergeFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        merge.target = self
+        merge.isEnabled = actions.splits || actions.canMerge
+        menu.addItem(merge)
+        menu.addItem(TerminalCloseMenu.item(action: #selector(closeFromMenu(_:)), target: self))
+        return menu
+    }
+
+    private func shortcutItem(title: String, chord: KeyChord, action: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: chord.key)
+        item.keyEquivalentModifierMask = chord.menuModifierMask
+        item.target = self
+        return item
+    }
+
+    @objc private func duplicateRightFromMenu(_: Any?) {
+        contextMenuActions?.duplicateRight()
+    }
+
+    @objc private func duplicateDownFromMenu(_: Any?) {
+        contextMenuActions?.duplicateDown()
+    }
+
+    @objc private func mergeFromMenu(_: Any?) {
+        contextMenuActions?.merge()
+    }
+
     @objc private func closeFromMenu(_: Any?) {
+        if let contextMenuActions {
+            contextMenuActions.close()
+            return
+        }
         onClose?()
     }
 }
@@ -1004,6 +1098,7 @@ private struct TabDragHandle: NSViewRepresentable {
     var onMoved: (NSPoint) -> Void
     var onEnded: (NSPoint) -> Void
     var onClose: (() -> Void)? = nil
+    var prepareContextMenu: (() -> TabContextMenu)? = nil
     var showsGripCursor = false
 
     func makeNSView(context: Context) -> TabDragHandleView { TabDragHandleView() }
@@ -1016,6 +1111,7 @@ private struct TabDragHandle: NSViewRepresentable {
         view.onMoved = onMoved
         view.onEnded = onEnded
         view.onClose = onClose
+        view.prepareContextMenu = prepareContextMenu
         view.showsGripCursor = showsGripCursor
         view.window?.invalidateCursorRects(for: view)
     }
@@ -1211,6 +1307,10 @@ private struct TerminalCanvas: View {
         return 0.5
     }
 
+    private func hostTitleColor(_ tab: TerminalTab) -> Color {
+        chrome.text
+    }
+
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
         let alias = tab.alias ?? ""
@@ -1221,7 +1321,7 @@ private struct TerminalCanvas: View {
                 chrome.background
                 Text(model.host(alias)?.sessionBadge ?? alias)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(chrome.text)
+                    .foregroundStyle(hostTitleColor(tab))
                     .lineLimit(1)
                     .padding(.horizontal, 12)
                     .padding(.bottom, 8)
@@ -1243,7 +1343,7 @@ private struct TerminalCanvas: View {
                         .animation(.easeInOut(duration: 0.2), value: level)
                         .allowsHitTesting(false)
                     TabDragHandle(
-                        onClick: { _, _ in model.selectTab(tab.id) },
+                        onClick: { _, _ in model.selectOnly(tab.id) },
                         onGripLevel: { next in
                             if let next {
                                 if gripTabID == tab.id, gripLevel == next {

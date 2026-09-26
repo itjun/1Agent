@@ -3,6 +3,8 @@ import SwiftUI
 
 enum AppShortcutID: String, CaseIterable, Identifiable {
     case newTab
+    case duplicateRight
+    case duplicateDown
     case closeTab
     case settings
 
@@ -11,7 +13,9 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     var defaultChord: KeyChord {
         switch self {
         case .newTab: return KeyChord(key: "t", modifiers: .command)
-        case .closeTab: return KeyChord(key: "d", modifiers: .command)
+        case .duplicateRight: return KeyChord(key: "d", modifiers: .command)
+        case .duplicateDown: return KeyChord(key: "d", modifiers: [.command, .shift])
+        case .closeTab: return KeyChord(key: "w", modifiers: .command)
         case .settings: return KeyChord(key: ",", modifiers: .command)
         }
     }
@@ -27,6 +31,15 @@ struct KeyChord: Codable, Equatable, Hashable {
     }
 
     var modifiers: EventModifiers { Self.unpack(modifierRaw) }
+
+    var menuModifierMask: NSEvent.ModifierFlags {
+        var flags: NSEvent.ModifierFlags = []
+        if modifiers.contains(.command) { flags.insert(.command) }
+        if modifiers.contains(.option) { flags.insert(.option) }
+        if modifiers.contains(.shift) { flags.insert(.shift) }
+        if modifiers.contains(.control) { flags.insert(.control) }
+        return flags
+    }
 
     var keyEquivalent: KeyEquivalent {
         KeyEquivalent(Character(key))
