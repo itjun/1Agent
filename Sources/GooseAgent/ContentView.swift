@@ -678,6 +678,7 @@ private final class DropSessionOverlay: NSView {
     let chip = DragChipView()
     var preview: CGRect?
     var drawsInsertionLine = false
+    var accent: NSColor = .controlAccentColor
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -695,7 +696,7 @@ private final class DropSessionOverlay: NSView {
         guard let preview else { return }
         if drawsInsertionLine {
             let path = NSBezierPath(roundedRect: preview, xRadius: 1.5, yRadius: 1.5)
-            NSColor.controlAccentColor.setFill()
+            accent.setFill()
             path.fill()
             return
         }
@@ -704,9 +705,9 @@ private final class DropSessionOverlay: NSView {
         let path = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
         NSColor.black.withAlphaComponent(0.28).setFill()
         path.fill()
-        NSColor(srgbRed: 0.55, green: 0.78, blue: 0.38, alpha: 0.62).setFill()
+        accent.withAlphaComponent(0.62).setFill()
         path.fill()
-        NSColor(srgbRed: 0.35, green: 0.58, blue: 0.22, alpha: 1).setStroke()
+        accent.setStroke()
         path.lineWidth = 2
         path.stroke()
     }
@@ -794,16 +795,19 @@ private final class PaneDropCatcherView: NSView {
 
 private struct PaneDropCatcher: NSViewRepresentable {
     var relay: CanvasDropRelay
+    var accent: NSColor
 
     func makeNSView(context: Context) -> PaneDropCatcherView {
         let view = PaneDropCatcherView()
         view.relay = relay
+        view.overlay.accent = accent
         relay.catcher = view
         return view
     }
 
     func updateNSView(_ view: PaneDropCatcherView, context: Context) {
         view.relay = relay
+        view.overlay.accent = accent
         relay.catcher = view
     }
 }
@@ -1265,7 +1269,7 @@ private struct TerminalCanvas: View {
                 }
             }
             .overlay {
-                PaneDropCatcher(relay: dropRelay)
+                PaneDropCatcher(relay: dropRelay, accent: NSColor(chrome.accent))
                     .frame(width: geo.size.width, height: geo.size.height)
                     .allowsHitTesting(false)
             }
