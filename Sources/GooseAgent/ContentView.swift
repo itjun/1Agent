@@ -720,6 +720,7 @@ private struct WindowTitleSync: NSViewRepresentable {
         }
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
         if !window.styleMask.contains(.fullSizeContentView) {
             window.styleMask.insert(.fullSizeContentView)
         }
@@ -1093,6 +1094,37 @@ private final class TabDragHandleView: NSView {
     }
 }
 
+/// A click opens host info. A drag moves the window. `performDrag` has to run on the mouse-down event itself.
+private final class WindowDragView: NSView {
+    var onClick: () -> Void = {}
+
+    override var mouseDownCanMoveWindow: Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(convert(point, from: superview)) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let origin = window.frame.origin
+        window.performDrag(with: event)
+        let moved = window.frame.origin
+        if hypot(moved.x - origin.x, moved.y - origin.y) < 1 {
+            onClick()
+        }
+    }
+}
+
+private struct WindowDragHandle: NSViewRepresentable {
+    var onClick: () -> Void
+
+    func makeNSView(context: Context) -> WindowDragView { WindowDragView() }
+
+    func updateNSView(_ view: WindowDragView, context: Context) {
+        view.onClick = onClick
+    }
+}
+
 private struct TabDragHandle: NSViewRepresentable {
     var onClick: (Bool, Bool) -> Void
     var onHover: (Bool) -> Void = { _ in }
@@ -1325,6 +1357,16 @@ private struct TerminalCanvas: View {
             let level: GripLevel? = gripTabID == tab.id ? gripLevel : nil
             ZStack(alignment: .bottom) {
                 chrome.background
+                    .allowsHitTesting(false)
+                WindowDragHandle {
+                    model.selectTab(tab.id)
+                    if hostInfoTabID == tab.id {
+                        hostInfoTabID = nil
+                    } else {
+                        hostInfoTabID = tab.id
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Text(model.host(alias)?.sessionBadge ?? alias)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(hostTitleColor(tab))
@@ -1332,15 +1374,7 @@ private struct TerminalCanvas: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        model.selectTab(tab.id)
-                        if hostInfoTabID == tab.id {
-                            hostInfoTabID = nil
-                        } else {
-                            hostInfoTabID = tab.id
-                        }
-                    }
+                    .allowsHitTesting(false)
                 ZStack {
                     Capsule()
                         .fill(chrome.text.opacity(TerminalCanvas.gripOpacity(level)))

@@ -820,9 +820,30 @@ final class SSHTerminalNSView: AppTerminalView {
         return gestureIsLocal ? event.addingShiftModifier() : event.removingShiftModifier()
     }
 
+    /// First line under the pane title. A shell drag here moves the window; a captured mouse still reaches the remote app.
+    private static let windowDragBand: CGFloat = 32
+
     override func mouseDown(with event: NSEvent) {
+        if dragWindow(fromTopOf: event) {
+            return
+        }
         gestureIsLocal = isSelectionGesture(event) || !isMouseCaptured
         super.mouseDown(with: routedMouseEvent(event))
+    }
+
+    private func dragWindow(fromTopOf event: NSEvent) -> Bool {
+        guard !isMouseCaptured, let window else { return false }
+        let local = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(local) else { return false }
+        let fromTop = bounds.height - local.y
+        guard fromTop >= 0, fromTop <= Self.windowDragBand else { return false }
+        let origin = window.frame.origin
+        window.performDrag(with: event)
+        let moved = window.frame.origin
+        if hypot(moved.x - origin.x, moved.y - origin.y) < 1 {
+            window.makeFirstResponder(self)
+        }
+        return true
     }
 
     override func mouseDragged(with event: NSEvent) {
