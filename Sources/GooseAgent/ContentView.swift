@@ -499,14 +499,12 @@ private final class CanvasDropRelay: ObservableObject {
             }
 
             if let workspaceHit {
-                if model.workspaceContains(dragged, workspaceHit) {
-                    guard let row = sidebarHit, row.id != dragged, model.workspaceContains(row.id, workspaceHit) else {
-                        return nil
-                    }
-                    return Self.sidebarLine(sidebar: sidebarAnchor, over: row.view, after: row.after)
-                }
+                // Same nearest-edge insert for in-group reorder and join-from-outside.
                 if let slot = self.workspaceInsert(windowPoint: windowPoint, workspaceID: workspaceHit) {
                     return slot.line
+                }
+                if model.workspaceContains(dragged, workspaceHit) {
+                    return nil
                 }
                 guard let group = workspaceAnchors[workspaceHit]?.view else { return nil }
                 return Self.sidebarLine(sidebar: sidebarAnchor, over: group, after: true)
@@ -651,14 +649,14 @@ private final class CanvasDropRelay: ObservableObject {
             }
 
             if let workspaceHit {
-                if model.workspaceContains(dragged, workspaceHit) {
-                    if let sidebarHit, sidebarHit.id != dragged, model.workspaceContains(sidebarHit.id, workspaceHit) {
-                        model.reorderWorkspaceMember(dragged, beside: sidebarHit.id, after: sidebarHit.after)
+                if let slot = self.workspaceInsert(windowPoint: windowPoint, workspaceID: workspaceHit) {
+                    if model.workspaceContains(dragged, workspaceHit) {
+                        model.reorderWorkspaceMember(dragged, beside: slot.id, after: slot.after)
                     } else {
-                        model.endDrag()
+                        model.joinWorkspace(dragged, workspaceHit, beside: slot.id, after: slot.after)
                     }
-                } else if let slot = self.workspaceInsert(windowPoint: windowPoint, workspaceID: workspaceHit) {
-                    model.joinWorkspace(dragged, workspaceHit, beside: slot.id, after: slot.after)
+                } else if model.workspaceContains(dragged, workspaceHit) {
+                    model.endDrag()
                 } else {
                     model.joinWorkspace(dragged, workspaceHit)
                 }
