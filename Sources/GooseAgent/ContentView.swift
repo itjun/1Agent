@@ -5,7 +5,7 @@ import SwiftUI
 
 struct RootView: View {
     @ObservedObject var model: AppModel
-    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
@@ -16,12 +16,8 @@ struct RootView: View {
     @State private var skipWorkspaceRenameCommit = false
     @FocusState private var workspaceNameFocused: Bool
 
-    private var appearance: TerminalAppearance {
-        TerminalAppearance(rawValue: appearanceRaw) ?? .system
-    }
-
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearance.isDark(system: colorScheme))
+        WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
     private var themeFamily: TerminalThemeFamily {
@@ -53,7 +49,10 @@ struct RootView: View {
         .background(chrome.background)
         .environment(\.windowChrome, chrome)
         .ignoresSafeArea(edges: .top)
-        .preferredColorScheme(appearance.preferredColorScheme)
+        .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+        .onChange(of: appearanceRaw) { _, _ in
+            appearanceDriver.reapply()
+        }
         .oneagentHideFocusRing()
         .task { model.reloadHosts() }
         .onOpenURL { model.openExternalURL($0) }
@@ -61,6 +60,7 @@ struct RootView: View {
             TerminalAppearance.migrateLegacyThemeIfNeeded()
             TerminalThemeFamily.migrateIfNeeded()
             GhosttyRuntime.apply(family: themeFamily)
+            appearanceDriver.reapply()
         }
         .onChange(of: themeFamilyRaw) { _, _ in
             GhosttyRuntime.apply(family: themeFamily)
@@ -70,6 +70,7 @@ struct RootView: View {
             HostPicker(model: model)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
                 .environment(\.windowChrome, chrome)
+                .preferredColorScheme(appearanceDriver.interfaceColorScheme)
                 .oneagentHideFocusRing()
         }
     }
@@ -382,7 +383,7 @@ struct RootView: View {
             TerminalCanvas(
                 model: model,
                 dropRelay: dropRelay,
-                dark: appearance.isDark(system: colorScheme),
+                dark: appearanceDriver.isDark,
                 usesCatalogTheme: true
             )
             if model.selectedTab == nil {

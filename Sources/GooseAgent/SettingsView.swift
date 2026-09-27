@@ -201,6 +201,7 @@ struct SettingsView: View {
         let selected = appearance == mode
         return Button {
             appearanceRaw = mode.rawValue
+            AppearanceDriver.shared.reapply()
         } label: {
             Text(mode.title)
                 .font(.system(size: 13, weight: .medium))
@@ -297,23 +298,23 @@ struct SettingsView: View {
 /// Settings is its own window, with the standard traffic lights, like WeChat.
 struct SettingsWindowRoot: View {
     @ObservedObject var model: AppModel
-    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
 
-    private var appearance: TerminalAppearance {
-        TerminalAppearance(rawValue: appearanceRaw) ?? .system
-    }
-
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearance.isDark(system: colorScheme))
+        WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
     var body: some View {
         SettingsView()
             .environment(\.windowChrome, chrome)
-            .preferredColorScheme(appearance.preferredColorScheme)
+            .preferredColorScheme(appearanceDriver.interfaceColorScheme)
             .oneagentHideFocusRing()
             .frame(minWidth: SheetLayout.settings, minHeight: SheetLayout.settingsBodyHeight)
+            .onAppear { appearanceDriver.reapply() }
+            .onChange(of: appearanceRaw) { _, _ in
+                appearanceDriver.reapply()
+            }
     }
 }
 
@@ -351,6 +352,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.isRestorable = false
         window.isReleasedWhenClosed = false
         window.delegate = self
+        window.appearance = TerminalAppearance.appKitAppearance(isDark: TerminalAppearance.stored().resolvesDark())
         let size = NSSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
         window.setContentSize(size)
         window.minSize = size

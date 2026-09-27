@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppearanceDriver.shared.reapply()
         GooseAgentFocusRing.install()
         TerminalDefaults.registerBundledFonts()
         model.restoreLastSession()

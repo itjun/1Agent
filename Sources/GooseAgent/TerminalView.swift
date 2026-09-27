@@ -268,19 +268,48 @@ enum TerminalAppearance: String, CaseIterable, Identifiable {
         }
     }
 
-    var preferredColorScheme: ColorScheme? {
+    /// Follow System must not pass `nil` to `preferredColorScheme`. Inside a
+    /// `NavigationSplitView`, clearing the preference leaves the last light or
+    /// dark override in place, so the window stays dark while the system is light.
+    func resolvesDark() -> Bool {
         switch self {
-        case .system: nil
-        case .light: .light
-        case .dark: .dark
+        case .system: TerminalAppearance.systemIsDark
+        case .light: false
+        case .dark: true
         }
     }
 
-    func isDark(system: ColorScheme) -> Bool {
-        switch self {
-        case .system: system == .dark
-        case .light: false
-        case .dark: true
+    static func stored(defaults: UserDefaults = .standard) -> TerminalAppearance {
+        let raw = defaults.string(forKey: TerminalAppearance.storageKey) ?? TerminalAppearance.system.rawValue
+        return TerminalAppearance(rawValue: raw) ?? .system
+    }
+
+    /// Global interface style. Missing key means light. The app's own override
+    /// must not be consulted here, or Follow System would read itself.
+    static var systemIsDark: Bool {
+        let domain = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)
+        let style = domain?["AppleInterfaceStyle"] as? String
+        return style == "Dark"
+    }
+
+    static func appKitAppearance(isDark: Bool) -> NSAppearance? {
+        if isDark {
+            return NSAppearance(named: .darkAqua)
+        }
+        return NSAppearance(named: .aqua)
+    }
+
+    static func applyAppKit(_ mode: TerminalAppearance) {
+        let desired = TerminalAppearance.appKitAppearance(isDark: mode.resolvesDark())
+        // Compare identity. Reading NSAppearance.name traps on macOS 27 when the
+        // current appearance has no public name.
+        if NSApp.appearance !== desired {
+            NSApp.appearance = desired
+        }
+        for window in NSApp.windows {
+            if window.appearance !== desired {
+                window.appearance = desired
+            }
         }
     }
 
@@ -293,6 +322,64 @@ enum TerminalAppearance: String, CaseIterable, Identifiable {
             defaults.set(legacy, forKey: key)
         }
         defaults.removeObject(forKey: legacyThemeKey)
+    }
+}
+
+/// Publishes the appearance the windows should use, including Follow System.
+@MainActor
+final class AppearanceDriver: ObservableObject {
+    static let shared = AppearanceDriver()
+
+    @Published private(set) var isDark: Bool
+    private let themeWatcher = SystemThemeWatcher()
+
+    private init() {
+        let mode = TerminalAppearance.stored()
+        isDark = mode.resolvesDark()
+        themeWatcher.start()
+    }
+
+    var interfaceColorScheme: ColorScheme {
+        if isDark {
+            return .dark
+        }
+        return .light
+    }
+
+    func reapply() {
+        let mode = TerminalAppearance.stored()
+        TerminalAppearance.applyAppKit(mode)
+        let dark = mode.resolvesDark()
+        if dark != isDark {
+            isDark = dark
+        }
+    }
+}
+
+/// System Settings posts this on the distributed center when light/dark changes.
+private final class SystemThemeWatcher: NSObject {
+    func start() {
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(systemThemeChanged(_:)),
+            name: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(systemThemeChanged(_:)),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+    }
+
+    @objc private func systemThemeChanged(_ notification: Notification) {
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                AppearanceDriver.shared.reapply()
+            }
+        }
     }
 }
 
