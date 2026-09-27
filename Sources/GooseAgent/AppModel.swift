@@ -8,6 +8,13 @@ enum TabDropHighlight: Equatable {
     case workspace(UUID)
 }
 
+/// Top-level sidebar blocks. Workspaces, Local Group, and Ungrouped can be reordered.
+enum SidebarBlock: Equatable, Hashable, Codable {
+    case workspace(UUID)
+    case localGroup
+    case ungrouped
+}
+
 struct TerminalTab: Identifiable, Equatable {
     let id: UUID
     var alias: String?
@@ -53,7 +60,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var launchEnvironment: [String] = []
     /// Merged terminals. A single host is not stored here. Each workspace is one split tree.
     @Published private(set) var workspaces: [Workspace] = []
+    /// Sidebar block order: workspaces, Local Group, Ungrouped. Persisted with the session.
+    @Published private(set) var sidebarBlocks: [SidebarBlock] = [.localGroup, .ungrouped]
     @Published var draggingTabID: UUID?
+    @Published var draggingBlock: SidebarBlock?
     @Published var dropHighlight: TabDropHighlight?
     @Published var hostPickerPresented = false
     @Published var showingSettings = false
@@ -106,9 +116,91 @@ final class AppModel: ObservableObject {
         workspaces.sorted { $0.number < $1.number }
     }
 
+    func workspace(for id: UUID) -> Workspace? {
+        workspaces.first { $0.id == id }
+    }
+
     func workspaceContains(_ tab: UUID, _ workspaceID: UUID) -> Bool {
         guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return false }
         return WorkspaceBoard.index(containing: tab, in: workspaces) == index
+    }
+
+    /// Keeps every live workspace in `sidebarBlocks`, and always retains Local Group / Ungrouped slots.
+    func syncSidebarBlocks() {
+        let known = Set(workspaces.map(\.id))
+        var next: [SidebarBlock] = []
+        var seenWorkspace = Set<UUID>()
+        var hasLocal = false
+        var hasRemote = false
+        for block in sidebarBlocks {
+            switch block {
+            case .workspace(let id):
+                guard known.contains(id), seenWorkspace.insert(id).inserted else { continue }
+                next.append(block)
+            case .localGroup:
+                guard !hasLocal else { continue }
+                hasLocal = true
+                next.append(block)
+            case .ungrouped:
+                guard !hasRemote else { continue }
+                hasRemote = true
+                next.append(block)
+            }
+        }
+        for workspace in workspacesByNumber where seenWorkspace.insert(workspace.id).inserted {
+            if let localIndex = next.firstIndex(of: .localGroup) {
+                next.insert(.workspace(workspace.id), at: localIndex)
+            } else if let remoteIndex = next.firstIndex(of: .ungrouped) {
+                next.insert(.workspace(workspace.id), at: remoteIndex)
+            } else {
+                next.append(.workspace(workspace.id))
+            }
+        }
+        if !hasLocal {
+            next.append(.localGroup)
+        }
+        if !hasRemote {
+            next.append(.ungrouped)
+        }
+        if next != sidebarBlocks {
+            sidebarBlocks = next
+        }
+    }
+
+    func reorderSidebarBlock(_ dragged: SidebarBlock, beside target: SidebarBlock, after: Bool) {
+        guard dragged != target else {
+            draggingBlock = nil
+            return
+        }
+        guard let from = sidebarBlocks.firstIndex(of: dragged) else {
+            draggingBlock = nil
+            return
+        }
+        var blocks = sidebarBlocks
+        blocks.remove(at: from)
+        guard let targetIndex = blocks.firstIndex(of: target) else {
+            draggingBlock = nil
+            return
+        }
+        var destination = targetIndex
+        if after {
+            destination += 1
+        }
+        blocks.insert(dragged, at: destination)
+        sidebarBlocks = blocks
+        draggingBlock = nil
+        persistSession()
+    }
+
+    func beginBlockDrag(_ block: SidebarBlock) {
+        draggingTabID = nil
+        draggingBlock = block
+        dropHighlight = nil
+    }
+
+    func endBlockDrag() {
+        draggingBlock = nil
+        dropHighlight = nil
     }
 
     func host(_ alias: String) -> SSHHost? {
@@ -150,14 +242,20 @@ final class AppModel: ObservableObject {
         return sidebarSelection.contains(id)
     }
 
-    /// Sidebar order: workspaces by number, members in pane order, then ungrouped hosts.
+    /// Sidebar order: follows `sidebarBlocks`, members in pane order inside each workspace.
     func sidebarOrder() -> [UUID] {
         var ids: [UUID] = []
-        for workspace in workspacesByNumber {
-            ids.append(contentsOf: WorkspaceBoard.leafIDs(workspace.layout))
-        }
-        for tab in standaloneTabs {
-            ids.append(tab.id)
+        let standalone = standaloneTabs
+        for block in sidebarBlocks {
+            switch block {
+            case .workspace(let id):
+                guard let workspace = workspace(for: id) else { continue }
+                ids.append(contentsOf: WorkspaceBoard.leafIDs(workspace.layout))
+            case .localGroup:
+                ids.append(contentsOf: standalone.filter(\.isLocal).map(\.id))
+            case .ungrouped:
+                ids.append(contentsOf: standalone.filter { !$0.isLocal }.map(\.id))
+            }
         }
         return ids
     }
@@ -217,6 +315,22 @@ final class AppModel: ObservableObject {
             }
         }
         return true
+    }
+
+    /// A proper subset of one workspace (two or more) can leave that group as a new workspace.
+    func sidebarCanCreateArea(_ ids: [UUID]) -> Bool {
+        guard ids.count >= 2 else { return false }
+        guard let first = ids.first,
+              let index = WorkspaceBoard.index(containing: first, in: workspaces) else {
+            return false
+        }
+        for id in ids {
+            if WorkspaceBoard.index(containing: id, in: workspaces) != index {
+                return false
+            }
+        }
+        let members = Set(WorkspaceBoard.leafIDs(workspaces[index].layout))
+        return Set(ids).isStrictSubset(of: members)
     }
 
     /// Right-click on a selected row applies to the whole set. Any other row applies to itself.
@@ -352,6 +466,8 @@ final class AppModel: ObservableObject {
             }
             let known = Set(tabs.map(\.id))
             workspaces = Self.workspaces(snapshot.workspaces, keeping: known)
+            sidebarBlocks = snapshot.sidebarBlocks ?? []
+            syncSidebarBlocks()
             if let selected = snapshot.selected, known.contains(selected) {
                 selectedTabID = selected
             } else {
@@ -508,6 +624,12 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Moves a proper subset of a workspace into a newly numbered workspace.
+    func createAreaFromSidebar(_ ids: [UUID]) {
+        guard sidebarCanCreateArea(ids) else { return }
+        mergeSidebar(ids)
+    }
+
     /// Pulls these hosts out of their workspace. A workspace with one host left dissolves.
     func splitSidebar(_ ids: [UUID]) {
         let ordered = sidebarOrder().filter { ids.contains($0) }
@@ -527,12 +649,14 @@ final class AppModel: ObservableObject {
 
     func beginDrag(_ id: UUID) {
         guard tabs.contains(where: { $0.id == id && $0.isSession }) else { return }
+        draggingBlock = nil
         draggingTabID = id
         dropEpoch += 1
     }
 
     func endDrag() {
         draggingTabID = nil
+        draggingBlock = nil
         dropHighlight = nil
         dropEpoch += 1
     }
@@ -755,6 +879,7 @@ final class AppModel: ObservableObject {
                 tabs[index].directory = live
             }
         }
+        syncSidebarBlocks()
         let snapshot = SessionSnapshot(
             tabs: tabs.compactMap { tab in
                 if let alias = tab.alias, !alias.isEmpty {
@@ -765,7 +890,8 @@ final class AppModel: ObservableObject {
             },
             selected: selectedTabID,
             layout: nil,
-            workspaces: workspaces
+            workspaces: workspaces,
+            sidebarBlocks: sidebarBlocks
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: SessionSnapshot.storageKey)
@@ -806,19 +932,28 @@ private struct SessionSnapshot: Codable {
     /// Old snapshots stored one split here. New snapshots leave it nil and use `workspaces`.
     var layout: PaneNode?
     var workspaces: [Workspace]
+    var sidebarBlocks: [SidebarBlock]?
 
     enum CodingKeys: String, CodingKey {
         case tabs
         case selected
         case layout
         case workspaces
+        case sidebarBlocks
     }
 
-    init(tabs: [Tab], selected: UUID?, layout: PaneNode?, workspaces: [Workspace]) {
+    init(
+        tabs: [Tab],
+        selected: UUID?,
+        layout: PaneNode?,
+        workspaces: [Workspace],
+        sidebarBlocks: [SidebarBlock]? = nil
+    ) {
         self.tabs = tabs
         self.selected = selected
         self.layout = layout
         self.workspaces = workspaces
+        self.sidebarBlocks = sidebarBlocks
     }
 
     init(from decoder: Decoder) throws {
@@ -834,6 +969,7 @@ private struct SessionSnapshot: Codable {
         } else {
             workspaces = []
         }
+        sidebarBlocks = try container.decodeIfPresent([SidebarBlock].self, forKey: .sidebarBlocks)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -842,6 +978,7 @@ private struct SessionSnapshot: Codable {
         try container.encodeIfPresent(selected, forKey: .selected)
         try container.encodeIfPresent(layout, forKey: .layout)
         try container.encode(workspaces, forKey: .workspaces)
+        try container.encodeIfPresent(sidebarBlocks, forKey: .sidebarBlocks)
     }
 
     static func load() -> SessionSnapshot? {

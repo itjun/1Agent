@@ -190,6 +190,20 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "右键可重新连接已断开的终端、重命名工作区，或调整窗格排列。" } }
       }
     },
+    "Drag to reorder. Right-click to reconnect closed terminals, rename the workspace, or arrange its panes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag to reorder. Right-click to reconnect closed terminals, rename the workspace, or arrange its panes." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖动可调整次序。右键可重新连接已断开的终端、重命名工作区，或调整窗格排列。" } }
+      }
+    },
+    "Workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Workspace" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "工作区" } }
+      }
+    },
     "Rename" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -384,6 +398,13 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Split Terminals" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拆分终端" } }
+      }
+    },
+    "New Workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Workspace" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "创建新区" } }
       }
     },
     "Merge Terminals" : {

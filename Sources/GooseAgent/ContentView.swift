@@ -107,51 +107,64 @@ struct RootView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 2) {
-                        let grouped = model.workspacesByNumber
                         let standalone = model.standaloneTabs
                         let localStandalone = standalone.filter(\.isLocal)
                         let remoteStandalone = standalone.filter { !$0.isLocal }
                         let dragging = model.draggingTabID.flatMap { id in model.tabs.first { $0.id == id } }
-                        // Keep a drop target while dragging out of a workspace into an empty section.
-                        let showLocalSection = !localStandalone.isEmpty || dragging?.isLocal == true
+                        let draggingBlock = model.draggingBlock
+                        // Keep a drop target while dragging a host out of a workspace into an empty section.
+                        let showLocalSection = !localStandalone.isEmpty
+                            || dragging?.isLocal == true
+                            || draggingBlock == .localGroup
                         let showRemoteSection = !remoteStandalone.isEmpty
                             || (dragging != nil && dragging?.isLocal == false)
-                        ForEach(grouped) { workspace in
-                            VStack(spacing: 2) {
-                                workspaceHeader(workspace)
-                                ForEach(model.tabs(in: workspace)) { tab in
-                                    tabRow(tab, compact: false, indent: 12)
+                            || draggingBlock == .ungrouped
+                        ForEach(model.sidebarBlocks, id: \.self) { block in
+                            switch block {
+                            case .workspace(let id):
+                                if let workspace = model.workspace(for: id) {
+                                    VStack(spacing: 2) {
+                                        workspaceHeader(workspace)
+                                        ForEach(model.tabs(in: workspace)) { tab in
+                                            tabRow(tab, compact: false, indent: 12)
+                                        }
+                                    }
+                                    .background(WorkspaceAnchor(id: workspace.id, relay: dropRelay))
+                                    .background(SidebarBlockAnchor(block: .workspace(workspace.id), relay: dropRelay))
+                                }
+                            case .localGroup:
+                                if showLocalSection {
+                                    VStack(spacing: 2) {
+                                        sidebarSectionHeader("Local Group", block: .localGroup)
+                                        ForEach(localStandalone) { tab in
+                                            tabRow(tab, compact: false, indent: 12)
+                                        }
+                                        if localStandalone.isEmpty {
+                                            Color.clear
+                                                .frame(maxWidth: .infinity)
+                                                .frame(height: 28)
+                                        }
+                                    }
+                                    .background(StandaloneSectionAnchor(section: .local, relay: dropRelay))
+                                    .background(SidebarBlockAnchor(block: .localGroup, relay: dropRelay))
+                                }
+                            case .ungrouped:
+                                if showRemoteSection {
+                                    VStack(spacing: 2) {
+                                        sidebarSectionHeader("Ungrouped", block: .ungrouped)
+                                        ForEach(remoteStandalone) { tab in
+                                            tabRow(tab, compact: false)
+                                        }
+                                        if remoteStandalone.isEmpty {
+                                            Color.clear
+                                                .frame(maxWidth: .infinity)
+                                                .frame(height: 28)
+                                        }
+                                    }
+                                    .background(StandaloneSectionAnchor(section: .remote, relay: dropRelay))
+                                    .background(SidebarBlockAnchor(block: .ungrouped, relay: dropRelay))
                                 }
                             }
-                            .background(WorkspaceAnchor(id: workspace.id, relay: dropRelay))
-                        }
-                        if showLocalSection {
-                            VStack(spacing: 2) {
-                                sidebarSectionTitle("Local Group")
-                                ForEach(localStandalone) { tab in
-                                    tabRow(tab, compact: false, indent: 12)
-                                }
-                                if localStandalone.isEmpty {
-                                    Color.clear
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 28)
-                                }
-                            }
-                            .background(StandaloneSectionAnchor(section: .local, relay: dropRelay))
-                        }
-                        if showRemoteSection {
-                            VStack(spacing: 2) {
-                                sidebarSectionTitle("Ungrouped")
-                                ForEach(remoteStandalone) { tab in
-                                    tabRow(tab, compact: false)
-                                }
-                                if remoteStandalone.isEmpty {
-                                    Color.clear
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 28)
-                                }
-                            }
-                            .background(StandaloneSectionAnchor(section: .remote, relay: dropRelay))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -239,10 +252,12 @@ struct RootView: View {
                 prepareContextMenu: {
                     let targets = model.sidebarTargets(clicking: tab.id)
                     let splits = model.sidebarSplits(targets)
+                    let canCreateArea = model.sidebarCanCreateArea(targets)
                     return TabContextMenu(
                         showsDuplicate: targets.count == 1,
                         splits: splits,
                         canMerge: targets.count >= 2,
+                        canCreateArea: canCreateArea,
                         duplicateRight: { model.duplicate(targets[0], edge: .right) },
                         duplicateDown: { model.duplicate(targets[0], edge: .bottom) },
                         merge: {
@@ -252,6 +267,7 @@ struct RootView: View {
                                 model.mergeSidebar(targets)
                             }
                         },
+                        createArea: { model.createAreaFromSidebar(targets) },
                         close: { model.closeTabs(targets) },
                         copyInfo: { copySessionInfo(tab, model: model) }
                     )
@@ -267,7 +283,7 @@ struct RootView: View {
         return tab.alias ?? String(localized: "New Tab")
     }
 
-    private func sidebarSectionTitle(_ title: LocalizedStringKey) -> some View {
+    private func sidebarSectionHeader(_ title: LocalizedStringKey, block: SidebarBlock) -> some View {
         Text(title)
             .font(Theme.sidebarRowMeta)
             .foregroundStyle(chrome.secondary)
@@ -275,6 +291,14 @@ struct RootView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 2)
+            .contentShape(Rectangle())
+            .overlay {
+                BlockDragHandle(
+                    onBegan: { dropRelay.blockDragBegan(block) },
+                    onMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
+                    onEnded: { dropRelay.blockDragEnded(windowPoint: $0) }
+                )
+            }
     }
 
     private func workspaceTitle(_ workspace: Workspace) -> String {
@@ -361,6 +385,7 @@ struct RootView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 2)
+        .contentShape(Rectangle())
         .overlay {
             if !renaming {
                 WorkspaceHeaderMenu(
@@ -370,7 +395,10 @@ struct RootView: View {
                     onLayout: { model.applyWorkspaceLayout(workspace.id, $0) },
                     onReconnect: { model.reconnectWorkspace(workspace.id) },
                     onRename: { beginWorkspaceRename(workspace) },
-                    onDissolve: { model.dissolveWorkspace(workspace.id) }
+                    onDissolve: { model.dissolveWorkspace(workspace.id) },
+                    onDragBegan: { dropRelay.blockDragBegan(.workspace(workspace.id)) },
+                    onDragMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
+                    onDragEnded: { dropRelay.blockDragEnded(windowPoint: $0) }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -443,6 +471,7 @@ private final class CanvasDropRelay: ObservableObject {
     var rowAnchors: [UUID: AnchorBox] = [:]
     var workspaceAnchors: [UUID: AnchorBox] = [:]
     var sectionAnchors: [StandaloneSection: AnchorBox] = [:]
+    var blockAnchors: [SidebarBlock: AnchorBox] = [:]
     var dragTitle = ""
 
     func dragBegan(_ id: UUID) {
@@ -458,7 +487,91 @@ private final class CanvasDropRelay: ObservableObject {
         }
     }
 
+    func blockDragBegan(_ block: SidebarBlock) {
+        MainActor.assumeIsolated {
+            guard let model = modelBox else { return }
+            switch block {
+            case .workspace(let id):
+                dragTitle = model.workspace(for: id).map { workspace in
+                    if let name = workspace.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                        return name
+                    }
+                    return String(format: String(localized: "Workspace %lld"), workspace.number)
+                } ?? String(localized: "Workspace")
+            case .localGroup:
+                dragTitle = String(localized: "Local Group")
+            case .ungrouped:
+                dragTitle = String(localized: "Ungrouped")
+            }
+            model.beginBlockDrag(block)
+        }
+    }
+
+    func blockDragMoved(windowPoint: NSPoint) {
+        guard let catcher else { return }
+        catcher.layoutSubtreeIfNeeded()
+        let preview = blockInsert(windowPoint: windowPoint)?.line
+        if let preview {
+            catcher.present(over: preview.0, zone: preview.1, title: dragTitle, insertionLine: true)
+        } else {
+            catcher.present(over: catcher, zone: nil, title: dragTitle)
+        }
+    }
+
+    func blockDragEnded(windowPoint: NSPoint) {
+        catcher?.hide()
+        MainActor.assumeIsolated {
+            guard let model = modelBox, let dragged = model.draggingBlock else { return }
+            if let slot = self.blockInsert(windowPoint: windowPoint) {
+                model.reorderSidebarBlock(dragged, beside: slot.block, after: slot.after)
+            } else {
+                model.endBlockDrag()
+            }
+        }
+    }
+
+    private func blockInsert(windowPoint: NSPoint) -> (block: SidebarBlock, after: Bool, line: (NSView, CGRect))? {
+        guard let sidebar = sidebarAnchor, sidebar.window != nil else { return nil }
+        let local = sidebar.convert(windowPoint, from: nil)
+        guard sidebar.bounds.contains(local) else { return nil }
+        let dragged = MainActor.assumeIsolated { self.modelBox?.draggingBlock }
+        var rows: [(block: SidebarBlock, frame: CGRect)] = []
+        for (block, box) in blockAnchors {
+            guard let view = box.view, view.window != nil else { continue }
+            let frame = sidebar.convert(view.bounds, from: view)
+            rows.append((block, frame))
+        }
+        rows.sort { $0.frame.minY < $1.frame.minY }
+        guard !rows.isEmpty else { return nil }
+        var edges: [(block: SidebarBlock, after: Bool, y: CGFloat)] = []
+        for row in rows where row.block != dragged {
+            edges.append((row.block, false, row.frame.minY))
+            edges.append((row.block, true, row.frame.maxY))
+        }
+        if edges.isEmpty, let only = rows.first {
+            edges.append((only.block, false, only.frame.minY))
+            edges.append((only.block, true, only.frame.maxY))
+        }
+        guard var best = edges.first else { return nil }
+        var bestDistance = abs(local.y - best.y)
+        for edge in edges.dropFirst() {
+            let distance = abs(local.y - edge.y)
+            if distance < bestDistance {
+                best = edge
+                bestDistance = distance
+            }
+        }
+        let y = min(max(best.y - 1.5, 0), max(sidebar.bounds.height - 3, 0))
+        let line = CGRect(x: 0, y: y, width: sidebar.bounds.width, height: 3)
+        return (best.block, best.after, (sidebar, line))
+    }
+
     func dragMoved(windowPoint: NSPoint) {
+        let blockDragging = MainActor.assumeIsolated { self.modelBox?.draggingBlock != nil }
+        if blockDragging {
+            blockDragMoved(windowPoint: windowPoint)
+            return
+        }
         let frames = frames
         let title = dragTitle
         guard let catcher else { return }
@@ -622,6 +735,11 @@ private final class CanvasDropRelay: ObservableObject {
     }
 
     func dragEnded(windowPoint: NSPoint) {
+        let blockDragging = MainActor.assumeIsolated { self.modelBox?.draggingBlock != nil }
+        if blockDragging {
+            blockDragEnded(windowPoint: windowPoint)
+            return
+        }
         let frames = frames
         let swiftPoint = catcher?.swiftPoint(windowPoint) ?? .zero
         let overCanvas = catcher.map { $0.contains(windowPoint) && $0.bounds.width > 2 } ?? false
@@ -995,6 +1113,9 @@ private struct WorkspaceHeaderMenu: NSViewRepresentable {
     var onReconnect: () -> Void
     var onRename: () -> Void
     var onDissolve: () -> Void
+    var onDragBegan: () -> Void
+    var onDragMoved: (NSPoint) -> Void
+    var onDragEnded: (NSPoint) -> Void
 
     func makeNSView(context: Context) -> WorkspaceHeaderMenuView {
         WorkspaceHeaderMenuView()
@@ -1008,7 +1129,10 @@ private struct WorkspaceHeaderMenu: NSViewRepresentable {
         view.onReconnect = onReconnect
         view.onRename = onRename
         view.onDissolve = onDissolve
-        view.toolTip = String(localized: "Right-click to reconnect closed terminals, rename the workspace, or arrange its panes.")
+        view.onDragBegan = onDragBegan
+        view.onDragMoved = onDragMoved
+        view.onDragEnded = onDragEnded
+        view.toolTip = String(localized: "Drag to reorder. Right-click to reconnect closed terminals, rename the workspace, or arrange its panes.")
     }
 }
 
@@ -1020,14 +1144,50 @@ private final class WorkspaceHeaderMenuView: NSView {
     var onReconnect: () -> Void = {}
     var onRename: () -> Void = {}
     var onDissolve: () -> Void = {}
+    var onDragBegan: () -> Void = {}
+    var onDragMoved: (NSPoint) -> Void = { _ in }
+    var onDragEnded: (NSPoint) -> Void = { _ in }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
         return bounds.contains(local) ? self : nil
     }
 
+    override var mouseDownCanMoveWindow: Bool { false }
+
     override func scrollWheel(with event: NSEvent) {
         nextResponder?.scrollWheel(with: event)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let start = event.locationInWindow
+        var dragging = false
+        window.trackEvents(
+            matching: [.leftMouseDragged, .leftMouseUp],
+            timeout: 3600,
+            mode: .eventTracking
+        ) { event, stop in
+            guard let event else {
+                stop.pointee = true
+                return
+            }
+            if event.type == .leftMouseUp {
+                if dragging {
+                    self.onDragEnded(event.locationInWindow)
+                }
+                stop.pointee = true
+                return
+            }
+            let delta = hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y)
+            if !dragging, delta >= 4 {
+                dragging = true
+                self.onDragBegan()
+            }
+            if dragging {
+                self.onDragMoved(event.locationInWindow)
+            }
+        }
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -1095,9 +1255,11 @@ private struct TabContextMenu {
     var showsDuplicate: Bool
     var splits: Bool
     var canMerge: Bool
+    var canCreateArea: Bool
     var duplicateRight: () -> Void
     var duplicateDown: () -> Void
     var merge: () -> Void
+    var createArea: () -> Void
     var close: () -> Void
     var copyInfo: () -> Void
 }
@@ -1333,6 +1495,15 @@ private final class TabDragHandleView: NSView {
                 action: #selector(duplicateDownFromMenu(_:))
             ))
         }
+        if actions.canCreateArea {
+            let createArea = NSMenuItem(
+                title: String(localized: "New Workspace"),
+                action: #selector(createAreaFromMenu(_:)),
+                keyEquivalent: ""
+            )
+            createArea.target = self
+            menu.addItem(createArea)
+        }
         let mergeTitle = actions.splits
             ? String(localized: "Split Terminals")
             : String(localized: "Merge Terminals")
@@ -1369,6 +1540,10 @@ private final class TabDragHandleView: NSView {
 
     @objc private func mergeFromMenu(_: Any?) {
         contextMenuActions?.merge()
+    }
+
+    @objc private func createAreaFromMenu(_: Any?) {
+        contextMenuActions?.createArea()
     }
 
     @objc private func closeFromMenu(_: Any?) {
@@ -1441,6 +1616,76 @@ private struct StandaloneSectionAnchor: NSViewRepresentable {
 
     func updateNSView(_ view: BoundsAnchorView, context: Context) {
         relay.sectionAnchors[section] = AnchorBox(view)
+    }
+}
+
+private struct SidebarBlockAnchor: NSViewRepresentable {
+    var block: SidebarBlock
+    var relay: CanvasDropRelay
+
+    func makeNSView(context: Context) -> BoundsAnchorView { BoundsAnchorView() }
+
+    func updateNSView(_ view: BoundsAnchorView, context: Context) {
+        relay.blockAnchors[block] = AnchorBox(view)
+    }
+}
+
+private struct BlockDragHandle: NSViewRepresentable {
+    var onBegan: () -> Void
+    var onMoved: (NSPoint) -> Void
+    var onEnded: (NSPoint) -> Void
+
+    func makeNSView(context: Context) -> BlockDragHandleView {
+        BlockDragHandleView()
+    }
+
+    func updateNSView(_ view: BlockDragHandleView, context: Context) {
+        view.onBegan = onBegan
+        view.onMoved = onMoved
+        view.onEnded = onEnded
+    }
+}
+
+private final class BlockDragHandleView: NSView {
+    var onBegan: () -> Void = {}
+    var onMoved: (NSPoint) -> Void = { _ in }
+    var onEnded: (NSPoint) -> Void = { _ in }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(convert(point, from: superview)) ? self : nil
+    }
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let start = event.locationInWindow
+        var dragging = false
+        window.trackEvents(
+            matching: [.leftMouseDragged, .leftMouseUp],
+            timeout: 3600,
+            mode: .eventTracking
+        ) { event, stop in
+            guard let event else {
+                stop.pointee = true
+                return
+            }
+            if event.type == .leftMouseUp {
+                if dragging {
+                    self.onEnded(event.locationInWindow)
+                }
+                stop.pointee = true
+                return
+            }
+            let delta = hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y)
+            if !dragging, delta >= 4 {
+                dragging = true
+                self.onBegan()
+            }
+            if dragging {
+                self.onMoved(event.locationInWindow)
+            }
+        }
     }
 }
 
