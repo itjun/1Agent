@@ -197,11 +197,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "工作区 %lld" } }
       }
     },
-    "Right-click to rename the workspace or arrange its panes." : {
+    "Right-click to reconnect closed terminals, rename the workspace, or arrange its panes." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Right-click to rename the workspace or arrange its panes." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "右键可重命名工作区，或调整窗格排列。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Right-click to reconnect closed terminals, rename the workspace, or arrange its panes." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "右键可重新连接已断开的终端、重命名工作区，或调整窗格排列。" } }
       }
     },
     "Rename" : {

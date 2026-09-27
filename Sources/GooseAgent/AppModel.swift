@@ -370,6 +370,25 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Starts a new session for every closed terminal in the workspace.
+    /// Terminals that are still connected keep their current session.
+    func reconnectWorkspace(_ workspaceID: UUID) {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
+        let closed = tabs(in: workspace).filter { $0.isSession && $0.exited }.map(\.id)
+        guard !closed.isEmpty else { return }
+        Task {
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard !Task.isCancelled else { return }
+            launchEnvironment = environment
+            for id in closed {
+                guard let index = tabs.firstIndex(where: { $0.id == id }) else { continue }
+                guard tabs[index].exited else { continue }
+                tabs[index].generation += 1
+                tabs[index].exited = false
+            }
+        }
+    }
+
     func markClosed(_ tabID: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         tabs[index].exited = true

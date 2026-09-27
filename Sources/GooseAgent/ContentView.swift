@@ -371,7 +371,9 @@ struct RootView: View {
                 WorkspaceHeaderMenu(
                     layouts: layouts,
                     titles: layouts.map { workspaceLayoutTitle($0) },
+                    canReconnect: model.tabs(in: workspace).contains { $0.isSession && $0.exited },
                     onLayout: { model.applyWorkspaceLayout(workspace.id, $0) },
+                    onReconnect: { model.reconnectWorkspace(workspace.id) },
                     onRename: { beginWorkspaceRename(workspace) },
                     onDissolve: { model.dissolveWorkspace(workspace.id) }
                 )
@@ -960,7 +962,9 @@ private final class DragChipView: NSView {
 private struct WorkspaceHeaderMenu: NSViewRepresentable {
     var layouts: [WorkspaceLayout]
     var titles: [String]
+    var canReconnect: Bool
     var onLayout: (WorkspaceLayout) -> Void
+    var onReconnect: () -> Void
     var onRename: () -> Void
     var onDissolve: () -> Void
 
@@ -971,17 +975,21 @@ private struct WorkspaceHeaderMenu: NSViewRepresentable {
     func updateNSView(_ view: WorkspaceHeaderMenuView, context: Context) {
         view.layouts = layouts
         view.titles = titles
+        view.canReconnect = canReconnect
         view.onLayout = onLayout
+        view.onReconnect = onReconnect
         view.onRename = onRename
         view.onDissolve = onDissolve
-        view.toolTip = String(localized: "Right-click to rename the workspace or arrange its panes.")
+        view.toolTip = String(localized: "Right-click to reconnect closed terminals, rename the workspace, or arrange its panes.")
     }
 }
 
 private final class WorkspaceHeaderMenuView: NSView {
     var layouts: [WorkspaceLayout] = []
     var titles: [String] = []
+    var canReconnect = false
     var onLayout: (WorkspaceLayout) -> Void = { _ in }
+    var onReconnect: () -> Void = {}
     var onRename: () -> Void = {}
     var onDissolve: () -> Void = {}
 
@@ -996,6 +1004,16 @@ private final class WorkspaceHeaderMenuView: NSView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
+        let reconnect = NSMenuItem(
+            title: String(localized: "Reconnect"),
+            action: #selector(reconnectFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        reconnect.target = self
+        menu.addItem(reconnect)
+        if !layouts.isEmpty {
+            menu.addItem(.separator())
+        }
         for index in layouts.indices {
             let title = titles.indices.contains(index) ? titles[index] : ""
             let item = NSMenuItem(title: title, action: #selector(chooseLayout(_:)), keyEquivalent: "")
@@ -1003,9 +1021,7 @@ private final class WorkspaceHeaderMenuView: NSView {
             item.tag = index
             menu.addItem(item)
         }
-        if !layouts.isEmpty {
-            menu.addItem(.separator())
-        }
+        menu.addItem(.separator())
         let rename = NSMenuItem(
             title: String(localized: "Rename"),
             action: #selector(renameFromMenu(_:)),
@@ -1021,9 +1037,20 @@ private final class WorkspaceHeaderMenuView: NSView {
         return menu
     }
 
+    @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(reconnectFromMenu(_:)) {
+            return canReconnect
+        }
+        return true
+    }
+
     @objc private func chooseLayout(_ sender: NSMenuItem) {
         guard layouts.indices.contains(sender.tag) else { return }
         onLayout(layouts[sender.tag])
+    }
+
+    @objc private func reconnectFromMenu(_: Any?) {
+        onReconnect()
     }
 
     @objc private func renameFromMenu(_: Any?) {
