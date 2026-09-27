@@ -111,6 +111,11 @@ struct RootView: View {
                         let standalone = model.standaloneTabs
                         let localStandalone = standalone.filter(\.isLocal)
                         let remoteStandalone = standalone.filter { !$0.isLocal }
+                        let dragging = model.draggingTabID.flatMap { id in model.tabs.first { $0.id == id } }
+                        // Keep a drop target while dragging out of a workspace into an empty section.
+                        let showLocalSection = !localStandalone.isEmpty || dragging?.isLocal == true
+                        let showRemoteSection = !remoteStandalone.isEmpty
+                            || (dragging != nil && dragging?.isLocal == false)
                         ForEach(grouped) { workspace in
                             VStack(spacing: 2) {
                                 workspaceHeader(workspace)
@@ -120,21 +125,33 @@ struct RootView: View {
                             }
                             .background(WorkspaceAnchor(id: workspace.id, relay: dropRelay))
                         }
-                        if !localStandalone.isEmpty {
+                        if showLocalSection {
                             VStack(spacing: 2) {
                                 sidebarSectionTitle("Local Group")
                                 ForEach(localStandalone) { tab in
                                     tabRow(tab, compact: false, indent: 12)
                                 }
+                                if localStandalone.isEmpty {
+                                    Color.clear
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 28)
+                                }
                             }
+                            .background(StandaloneSectionAnchor(section: .local, relay: dropRelay))
                         }
-                        if !remoteStandalone.isEmpty {
+                        if showRemoteSection {
                             VStack(spacing: 2) {
                                 sidebarSectionTitle("Ungrouped")
                                 ForEach(remoteStandalone) { tab in
                                     tabRow(tab, compact: false)
                                 }
+                                if remoteStandalone.isEmpty {
+                                    Color.clear
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 28)
+                                }
                             }
+                            .background(StandaloneSectionAnchor(section: .remote, relay: dropRelay))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -405,6 +422,19 @@ private final class AnchorBox {
     init(_ view: NSView) { self.view = view }
 }
 
+/// Local Group vs Ungrouped. Membership follows `TerminalTab.isLocal`, not user grouping.
+private enum StandaloneSection: Hashable {
+    case local
+    case remote
+
+    var isLocal: Bool {
+        switch self {
+        case .local: return true
+        case .remote: return false
+        }
+    }
+}
+
 private final class CanvasDropRelay: ObservableObject {
     var frames: [UUID: CGRect] = [:]
     weak var modelBox: AppModel?
@@ -412,6 +442,7 @@ private final class CanvasDropRelay: ObservableObject {
     weak var sidebarAnchor: NSView?
     var rowAnchors: [UUID: AnchorBox] = [:]
     var workspaceAnchors: [UUID: AnchorBox] = [:]
+    var sectionAnchors: [StandaloneSection: AnchorBox] = [:]
     var dragTitle = ""
 
     func dragBegan(_ id: UUID) {
@@ -449,12 +480,24 @@ private final class CanvasDropRelay: ObservableObject {
             catcher.present(over: catcher, zone: zone, title: title)
             return
         }
+        let sectionHit = sectionTarget(windowPoint)
         let workspaceHit = workspaceTarget(windowPoint)
         let sidebarHit = sidebarRowHit(windowPoint)
         let onSidebar = sidebarAnchorContains(windowPoint)
         let preview = MainActor.assumeIsolated { () -> (NSView, CGRect)? in
             guard let model = modelBox, let dragged = model.draggingTabID else { return nil }
             model.dropHighlight = nil
+            guard let draggedTab = model.tabs.first(where: { $0.id == dragged }) else { return nil }
+            let wanted: StandaloneSection = draggedTab.isLocal ? .local : .remote
+
+            // Standalone section first so a host can leave its workspace.
+            if self.hitsStandaloneSection(sectionHit, sidebarHit: sidebarHit, wanted: wanted, model: model) {
+                if let slot = self.standaloneInsert(windowPoint: windowPoint) {
+                    return slot.line
+                }
+                return self.sectionEndLine(section: wanted)
+            }
+
             if let workspaceHit {
                 if model.workspaceContains(dragged, workspaceHit) {
                     guard let row = sidebarHit, row.id != dragged, model.workspaceContains(row.id, workspaceHit) else {
@@ -468,11 +511,12 @@ private final class CanvasDropRelay: ObservableObject {
                 guard let group = workspaceAnchors[workspaceHit]?.view else { return nil }
                 return Self.sidebarLine(sidebar: sidebarAnchor, over: group, after: true)
             }
+
+            guard onSidebar else { return nil }
             if let slot = self.standaloneInsert(windowPoint: windowPoint) {
                 return slot.line
             }
-            guard onSidebar else { return nil }
-            return Self.listEndLine(sidebar: sidebarAnchor, groups: workspaceAnchors)
+            return self.sectionEndLine(section: wanted)
         }
         if let preview {
             catcher.present(over: preview.0, zone: preview.1, title: title, insertionLine: true)
@@ -482,10 +526,16 @@ private final class CanvasDropRelay: ObservableObject {
     }
 
     /// The insertion gap among standalone hosts closest to the pointer.
-    /// The line can sit above the first row or below the last row.
+    /// Local Group and Ungrouped stay separate so the line does not jump across sections.
     private func standaloneInsert(windowPoint: NSPoint) -> (id: UUID, after: Bool, line: (NSView, CGRect))? {
-        let ids = MainActor.assumeIsolated {
-            self.modelBox?.standaloneTabs.map(\.id) ?? []
+        let ids = MainActor.assumeIsolated { () -> [UUID] in
+            guard let model = self.modelBox else { return [] }
+            let standalone = model.standaloneTabs
+            guard let dragged = model.draggingTabID,
+                  let draggedTab = model.tabs.first(where: { $0.id == dragged }) else {
+                return standalone.map(\.id)
+            }
+            return standalone.filter { $0.isLocal == draggedTab.isLocal }.map(\.id)
         }
         return nearestRowEdge(windowPoint: windowPoint, ids: ids)
     }
@@ -506,6 +556,7 @@ private final class CanvasDropRelay: ObservableObject {
         guard let sidebar = sidebarAnchor, sidebar.window != nil else { return nil }
         let local = sidebar.convert(windowPoint, from: nil)
         guard sidebar.bounds.contains(local) else { return nil }
+        let dragged = MainActor.assumeIsolated { self.modelBox?.draggingTabID }
         var rows: [(id: UUID, frame: CGRect)] = []
         for id in ids {
             guard let view = rowAnchors[id]?.view, view.window != nil else { continue }
@@ -513,13 +564,20 @@ private final class CanvasDropRelay: ObservableObject {
             rows.append((id, frame))
         }
         rows.sort { $0.frame.minY < $1.frame.minY }
-        guard let last = rows.last else { return nil }
+        guard !rows.isEmpty else { return nil }
+
+        // Top and bottom of every other row. Skipping the dragged row avoids a line
+        // glued to the moving host; adjacent tops/bottoms still cover every gap.
         var edges: [(id: UUID, after: Bool, y: CGFloat)] = []
-        for row in rows {
+        for row in rows where row.id != dragged {
             edges.append((row.id, false, row.frame.minY))
+            edges.append((row.id, true, row.frame.maxY))
         }
-        edges.append((last.id, true, last.frame.maxY))
-        var best = edges[0]
+        if edges.isEmpty, let only = rows.first {
+            edges.append((only.id, false, only.frame.minY))
+            edges.append((only.id, true, only.frame.maxY))
+        }
+        guard var best = edges.first else { return nil }
         var bestDistance = abs(local.y - best.y)
         for edge in edges.dropFirst() {
             let distance = abs(local.y - edge.y)
@@ -544,16 +602,12 @@ private final class CanvasDropRelay: ObservableObject {
         return (sidebar, line)
     }
 
-    /// Line under the last workspace, where a host lands when it leaves every group.
-    private static func listEndLine(sidebar: NSView?, groups: [UUID: AnchorBox]) -> (NSView, CGRect)? {
-        guard let sidebar, sidebar.window != nil else { return nil }
-        var bottom: CGFloat = 46
-        for box in groups.values {
-            guard let view = box.view, view.window != nil else { continue }
-            let frame = sidebar.convert(view.bounds, from: view)
-            bottom = max(bottom, frame.maxY)
-        }
-        let y = min(bottom + 4, max(sidebar.bounds.height - 3, 0))
+    /// Line at the bottom of a Local Group / Ungrouped section (including an empty drop zone).
+    private func sectionEndLine(section: StandaloneSection) -> (NSView, CGRect)? {
+        guard let sidebar = sidebarAnchor, sidebar.window != nil else { return nil }
+        guard let view = sectionAnchors[section]?.view, view.window != nil else { return nil }
+        let frame = sidebar.convert(view.bounds, from: view)
+        let y = min(max(frame.maxY - 1.5, 0), max(sidebar.bounds.height - 3, 0))
         let line = CGRect(x: 0, y: y, width: sidebar.bounds.width, height: 3)
         return (sidebar, line)
     }
@@ -573,6 +627,8 @@ private final class CanvasDropRelay: ObservableObject {
         let frames = frames
         let swiftPoint = catcher?.swiftPoint(windowPoint) ?? .zero
         let overCanvas = catcher.map { $0.contains(windowPoint) && $0.bounds.width > 2 } ?? false
+        let sectionHit = sectionTarget(windowPoint)
+        let workspaceHit = workspaceTarget(windowPoint)
         let sidebarHit = sidebarRowHit(windowPoint)
         let onSidebar = sidebarAnchorContains(windowPoint)
         catcher?.hide()
@@ -582,9 +638,21 @@ private final class CanvasDropRelay: ObservableObject {
                 model.dropTab(dragged, onto: hit.0, edge: hit.1)
                 return
             }
-            if let workspaceHit = self.workspaceTarget(windowPoint) {
+            guard let draggedTab = model.tabs.first(where: { $0.id == dragged }) else {
+                model.endDrag()
+                return
+            }
+            let wanted: StandaloneSection = draggedTab.isLocal ? .local : .remote
+
+            if self.hitsStandaloneSection(sectionHit, sidebarHit: sidebarHit, wanted: wanted, model: model) {
+                let slot = self.standaloneInsert(windowPoint: windowPoint)
+                model.receiveSidebarDrop(dragged, beside: slot?.id, after: slot?.after ?? false)
+                return
+            }
+
+            if let workspaceHit {
                 if model.workspaceContains(dragged, workspaceHit) {
-                    if let sidebarHit, sidebarHit.id != dragged {
+                    if let sidebarHit, sidebarHit.id != dragged, model.workspaceContains(sidebarHit.id, workspaceHit) {
                         model.reorderWorkspaceMember(dragged, beside: sidebarHit.id, after: sidebarHit.after)
                     } else {
                         model.endDrag()
@@ -596,7 +664,8 @@ private final class CanvasDropRelay: ObservableObject {
                 }
                 return
             }
-            if onSidebar || sidebarHit != nil {
+
+            if onSidebar {
                 let slot = self.standaloneInsert(windowPoint: windowPoint)
                 model.receiveSidebarDrop(dragged, beside: slot?.id, after: slot?.after ?? false)
                 return
@@ -605,10 +674,35 @@ private final class CanvasDropRelay: ObservableObject {
         }
     }
 
+    @MainActor
+    private func hitsStandaloneSection(
+        _ sectionHit: StandaloneSection?,
+        sidebarHit: (id: UUID, after: Bool, view: NSView)?,
+        wanted: StandaloneSection,
+        model: AppModel
+    ) -> Bool {
+        if let sectionHit, sectionHit == wanted {
+            return true
+        }
+        guard let sidebarHit else { return false }
+        guard WorkspaceBoard.index(containing: sidebarHit.id, in: model.workspaces) == nil else { return false }
+        guard let tab = model.tabs.first(where: { $0.id == sidebarHit.id }) else { return false }
+        return tab.isLocal == wanted.isLocal
+    }
+
     private func sidebarAnchorContains(_ windowPoint: NSPoint) -> Bool {
         guard let sidebarAnchor, sidebarAnchor.window != nil else { return false }
         let local = sidebarAnchor.convert(windowPoint, from: nil)
         return sidebarAnchor.bounds.contains(local)
+    }
+
+    private func sectionTarget(_ windowPoint: NSPoint) -> StandaloneSection? {
+        for (section, box) in sectionAnchors {
+            guard let view = box.view, view.window != nil else { continue }
+            let local = view.convert(windowPoint, from: nil)
+            if view.bounds.contains(local) { return section }
+        }
+        return nil
     }
 
     private func workspaceTarget(_ windowPoint: NSPoint) -> UUID? {
@@ -688,6 +782,18 @@ private final class DropSessionOverlay: NSView {
             width: zone.width,
             height: zone.height
         )
+        showDirect(preview: preview, title: title, insertionLine: insertionLine)
+    }
+
+    /// `preview` is already in this view's AppKit coordinates (origin at the bottom).
+    func showDirect(preview: CGRect?, title: String, insertionLine: Bool) {
+        drawsInsertionLine = insertionLine
+        guard let preview else {
+            self.preview = nil
+            chip.isHidden = true
+            needsDisplay = true
+            return
+        }
         self.preview = preview
         needsDisplay = true
         if insertionLine {
@@ -731,16 +837,34 @@ private final class PaneDropCatcherView: NSView {
         return CGPoint(x: local.x, y: bounds.height - local.y)
     }
 
-    /// `zone` is inside `anchor`, origin at the top, y downward.
+    /// `zone` is inside `anchor`. Insertion lines come from the flipped sidebar and must
+    /// be converted through AppKit; canvas previews stay in top-down layout space.
     func present(over anchor: NSView, zone: CGRect?, title: String, insertionLine: Bool = false) {
         guard anchor.bounds.width > 2, let window else { return }
         let host = window.contentView?.superview ?? window.contentView
         guard let host else { return }
-        overlay.frame = anchor.convert(anchor.bounds, to: host)
+        let frameInHost = anchor.convert(anchor.bounds, to: host)
+        overlay.frame = frameInHost
         let aboveContent = host === window.contentView ? nil : window.contentView
         host.addSubview(overlay, positioned: .above, relativeTo: aboveContent)
         overlay.layer?.zPosition = 20_000
-        overlay.show(zone: zone, canvasHeight: anchor.bounds.height, title: title, insertionLine: insertionLine)
+        if insertionLine {
+            let preview: CGRect?
+            if let zone {
+                let inHost = anchor.convert(zone, to: host)
+                preview = CGRect(
+                    x: inHost.origin.x - frameInHost.origin.x,
+                    y: inHost.origin.y - frameInHost.origin.y,
+                    width: inHost.width,
+                    height: inHost.height
+                )
+            } else {
+                preview = nil
+            }
+            overlay.showDirect(preview: preview, title: title, insertionLine: true)
+        } else {
+            overlay.show(zone: zone, canvasHeight: anchor.bounds.height, title: title, insertionLine: false)
+        }
         // Mouse tracking does not refresh the screen by itself, and the terminal
         // metal layer covers a preview left inside the SwiftUI view.
         overlay.display()
@@ -1308,6 +1432,17 @@ private struct WorkspaceAnchor: NSViewRepresentable {
 
     func updateNSView(_ view: BoundsAnchorView, context: Context) {
         relay.workspaceAnchors[id] = AnchorBox(view)
+    }
+}
+
+private struct StandaloneSectionAnchor: NSViewRepresentable {
+    var section: StandaloneSection
+    var relay: CanvasDropRelay
+
+    func makeNSView(context: Context) -> BoundsAnchorView { BoundsAnchorView() }
+
+    func updateNSView(_ view: BoundsAnchorView, context: Context) {
+        relay.sectionAnchors[section] = AnchorBox(view)
     }
 }
 
