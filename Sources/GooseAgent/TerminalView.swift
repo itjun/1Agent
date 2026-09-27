@@ -165,6 +165,8 @@ enum GhosttyRuntime {
         let size = TerminalFontSettings.size
         return TerminalConfiguration { builder in
             builder.withFontSize(Float(size))
+            builder.withWindowPaddingX(0)
+            builder.withWindowPaddingY(0)
             builder.withCursorStyle(.block)
             builder.withCursorStyleBlink(true)
             builder.withFontThicken(false)
