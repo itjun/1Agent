@@ -35,7 +35,7 @@ struct SSHHost: Identifiable, Equatable, Hashable {
         return login + portSuffix
     }
 
-    /// HostName shown on the card. Hidden when it repeats the alias.
+    /// HostName. Hidden when it repeats the alias.
     var infoAddress: String? {
         let value = hostName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if value.isEmpty || value == alias {
@@ -47,15 +47,6 @@ struct SSHHost: Identifiable, Equatable, Hashable {
     var infoUser: String? {
         let value = user?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if value.isEmpty {
-            return nil
-        }
-        return value
-    }
-
-    /// Shown only when the config sets a port other than 22.
-    var infoPort: String? {
-        let value = port?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if value.isEmpty || value == "22" {
             return nil
         }
         return value

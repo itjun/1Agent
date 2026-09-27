@@ -63,15 +63,12 @@ enum SSHConfigTests {
         expect(byAlias["alpha"]?.sessionBadge == "me@alpha · alpha.example", "alpha badge \(byAlias["alpha"]?.sessionBadge ?? "")")
         expect(byAlias["beta"]?.infoAddress == "beta.internal", "beta address")
         expect(byAlias["beta"]?.infoUser == "ops", "beta user")
-        expect(byAlias["beta"]?.infoPort == "2222", "beta port")
         expect(
             byAlias["beta"]?.connectionCopyText == "beta\nbeta.internal\nops",
             "beta copy \(byAlias["beta"]?.connectionCopyText ?? "")"
         )
-        expect(byAlias["alpha"]?.infoPort == nil, "default port is not shown")
         let same = SSHHost(alias: "box", hostName: "box", user: "root", port: "22")
         expect(same.infoAddress == nil, "address that repeats the alias is hidden")
-        expect(same.infoPort == nil, "port 22 is hidden")
         expect(same.connectionCopyText == "box\nroot", "copy \(same.connectionCopyText)")
         let bare = SSHHost(alias: "only", hostName: "  ", user: nil, port: nil)
         expect(bare.connectionCopyText == "only", "copy without address or user")

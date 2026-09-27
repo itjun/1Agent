@@ -257,7 +257,8 @@ struct RootView: View {
                                 model.mergeSidebar(targets)
                             }
                         },
-                        close: { model.closeTabs(targets) }
+                        close: { model.closeTabs(targets) },
+                        copyInfo: { copySessionInfo(tab, model: model) }
                     )
                 }
             )
@@ -1034,14 +1035,6 @@ private final class WorkspaceHeaderMenuView: NSView {
     }
 }
 
-/// How close the pointer is to the pane drag bar.
-private enum GripLevel: Equatable {
-    /// Inside the approach zone, not yet on the bar.
-    case near
-    /// On the bar itself.
-    case on
-}
-
 /// Follows the pointer until mouse-up. A system drag session does not report the landing point reliably.
 private struct TabContextMenu {
     var showsDuplicate: Bool
@@ -1051,51 +1044,33 @@ private struct TabContextMenu {
     var duplicateDown: () -> Void
     var merge: () -> Void
     var close: () -> Void
+    var copyInfo: () -> Void
 }
 
 private final class TabDragHandleView: NSView {
     var onClick: (Bool, Bool) -> Void = { _, _ in }
     var onHover: (Bool) -> Void = { _ in }
-    var onGripLevel: (GripLevel?) -> Void = { _ in }
     var onBegan: () -> Void = {}
     var onMoved: (NSPoint) -> Void = { _ in }
     var onEnded: (NSPoint) -> Void = { _ in }
     var onClose: (() -> Void)?
+    var onSecondaryClick: (() -> Void)?
     var prepareContextMenu: (() -> TabContextMenu)?
     private var contextMenuActions: TabContextMenu?
-    var showsGripCursor = false {
+    /// The pane title sits in the transparent titlebar. Freeze window movement
+    /// while the pointer is already over the title, or the window moves with the pane drag.
+    var freezesWindow = false {
         didSet {
-            guard oldValue != showsGripCursor else { return }
+            guard oldValue != freezesWindow else { return }
             window?.invalidateCursorRects(for: self)
             installTrackingIfNeeded(force: true)
         }
     }
 
-    /// Otty's hover hit is 60×8, a little wider than the 36pt bar.
-    private var gripCursorRect: NSRect {
-        let width: CGFloat = 60
-        let height: CGFloat = 10
-        return NSRect(
-            x: (bounds.width - width) / 2,
-            y: (bounds.height - height) / 2,
-            width: width,
-            height: height
-        )
-    }
-
-    private func gripLevel(at windowPoint: NSPoint) -> GripLevel? {
-        let local = convert(windowPoint, from: nil)
-        guard bounds.contains(local) else { return nil }
-        if gripCursorRect.contains(local) {
-            return .on
-        }
-        return .near
-    }
-
     override func resetCursorRects() {
         super.resetCursorRects()
-        guard showsGripCursor, gripCursorRect.width > 1 else { return }
-        addCursorRect(gripCursorRect, cursor: .openHand)
+        guard freezesWindow, bounds.width > 1, bounds.height > 1 else { return }
+        addCursorRect(bounds, cursor: .openHand)
     }
 
     private var trackedBounds: NSRect = .zero
@@ -1118,105 +1093,81 @@ private final class TabDragHandleView: NSView {
         installTrackingAreas()
     }
 
-    /// Rebuilding tracking areas on every SwiftUI update sends a false mouse-exit and hides the bar.
+    /// Rebuilding tracking areas on every SwiftUI update sends a false mouse-exit.
     private func installTrackingAreas() {
         for area in trackingAreas {
             removeTrackingArea(area)
         }
-        let hover: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInKeyWindow]
-        if showsGripCursor {
-            addTrackingArea(NSTrackingArea(
-                rect: bounds,
-                options: hover.union([.mouseMoved, .cursorUpdate]),
-                owner: self,
-                userInfo: ["role": "approach"]
-            ))
-            addTrackingArea(NSTrackingArea(
-                rect: gripCursorRect,
-                options: hover.union([.cursorUpdate]),
-                owner: self,
-                userInfo: ["role": "grip"]
-            ))
-            return
+        var options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect]
+        if freezesWindow {
+            options.formUnion([.mouseMoved, .cursorUpdate])
         }
-        addTrackingArea(NSTrackingArea(
-            rect: bounds,
-            options: hover.union([.inVisibleRect]),
-            owner: self,
-            userInfo: nil
-        ))
-    }
-
-    private var pointerOnGrip = false
-
-    /// SwiftUI's hosting view sets the arrow after this event. Set the hand again on the next turn.
-    private func applyGripCursor(_ onGrip: Bool) {
-        pointerOnGrip = onGrip
-        let cursor: NSCursor = onGrip ? .openHand : .arrow
-        cursor.set()
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.pointerOnGrip == onGrip else { return }
-            cursor.set()
-        }
-    }
-
-    private func reportPointer(_ event: NSEvent) {
-        guard showsGripCursor else {
-            onHover(true)
-            return
-        }
-        let level = gripLevel(at: event.locationInWindow)
-        onGripLevel(level)
-        applyGripCursor(level == .on)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil))
     }
 
     override func cursorUpdate(with event: NSEvent) {
-        if showsGripCursor {
-            applyGripCursor(gripLevel(at: event.locationInWindow) == .on)
+        if freezesWindow {
+            NSCursor.openHand.set()
         } else {
             super.cursorUpdate(with: event)
         }
     }
 
+    /// Titlebar dragging is decided when the button goes down. The header has to
+    /// freeze the window while the pointer is already over it, not after mouseDown.
+    private var pressLocksWindow = false
+
+    private func freezeWindowMovement() {
+        window?.isMovable = false
+    }
+
+    private func restoreWindowMovementIfPointerLeft() {
+        guard !pressLocksWindow, let window else { return }
+        let local = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        if !bounds.contains(local) {
+            window.isMovable = true
+        }
+    }
+
     override func mouseMoved(with event: NSEvent) {
-        guard showsGripCursor else { return }
-        reportPointer(event)
+        guard freezesWindow, !pressLocksWindow else { return }
+        freezeWindowMovement()
     }
 
     override func mouseEntered(with event: NSEvent) {
-        let role = event.trackingArea?.userInfo?["role"] as? String
-        if showsGripCursor, role == "grip" {
-            onGripLevel(.on)
-            applyGripCursor(true)
+        if freezesWindow {
+            if !pressLocksWindow {
+                freezeWindowMovement()
+            }
+            NSCursor.openHand.set()
             return
         }
-        reportPointer(event)
+        onHover(true)
     }
 
     override func mouseExited(with event: NSEvent) {
-        guard showsGripCursor else {
+        if !freezesWindow {
             onHover(false)
+            restoreWindowMovementIfPointerLeft()
             return
         }
-        let role = event.trackingArea?.userInfo?["role"] as? String
-        if role == "grip" {
-            let local = convert(event.locationInWindow, from: nil)
-            if bounds.contains(local), !gripCursorRect.contains(local) {
-                onGripLevel(.near)
-                applyGripCursor(false)
-                return
-            }
-        }
-        onGripLevel(nil)
-        applyGripCursor(false)
-        // The inner area can exit after the outer one and report a point still inside the header.
+        NSCursor.arrow.set()
+        restoreWindowMovementIfPointerLeft()
         DispatchQueue.main.async { [weak self] in
             guard let self, let window = self.window else { return }
-            let level = self.gripLevel(at: window.mouseLocationOutsideOfEventStream)
-            self.onGripLevel(level)
-            self.applyGripCursor(level == .on)
+            let local = self.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            if self.bounds.contains(local) {
+                if !self.pressLocksWindow {
+                    self.freezeWindowMovement()
+                }
+                NSCursor.openHand.set()
+            } else {
+                self.restoreWindowMovementIfPointerLeft()
+            }
         }
     }
+
+    override var mouseDownCanMoveWindow: Bool { false }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         bounds.contains(convert(point, from: superview)) ? self : nil
@@ -1224,6 +1175,15 @@ private final class TabDragHandleView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         guard let window else { return }
+        // The pane title sits in the transparent titlebar. Keep the window still
+        // for the whole press so this drag merges panes instead of moving the window.
+        pressLocksWindow = true
+        window.isMovable = false
+        defer {
+            pressLocksWindow = false
+            let local = self.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            window.isMovable = !self.bounds.contains(local)
+        }
         let start = event.locationInWindow
         let command = event.modifierFlags.contains(.command)
         let shift = event.modifierFlags.contains(.shift)
@@ -1241,6 +1201,7 @@ private final class TabDragHandleView: NSView {
                 stop.pointee = true
                 return
             }
+            window.isMovable = false
             let point = event.locationInWindow
             if event.type == .leftMouseUp {
                 if dragging {
@@ -1256,7 +1217,7 @@ private final class TabDragHandleView: NSView {
             }
             if !dragging, hypot(point.x - start.x, point.y - start.y) >= 6 {
                 dragging = true
-                if self.showsGripCursor {
+                if self.freezesWindow {
                     NSCursor.closedHand.push()
                     pushedHand = true
                 }
@@ -1268,7 +1229,18 @@ private final class TabDragHandleView: NSView {
         }
     }
 
+    override func rightMouseDown(with event: NSEvent) {
+        if freezesWindow {
+            window?.isMovable = false
+        }
+    }
+
     override func rightMouseUp(with event: NSEvent) {
+        if let onSecondaryClick {
+            onSecondaryClick()
+            restoreWindowMovementIfPointerLeft()
+            return
+        }
         if let prepareContextMenu {
             let actions = prepareContextMenu()
             contextMenuActions = actions
@@ -1286,6 +1258,14 @@ private final class TabDragHandleView: NSView {
 
     private func sidebarMenu(for actions: TabContextMenu) -> NSMenu {
         let menu = NSMenu()
+        let copyInfo = NSMenuItem(
+            title: String(localized: "Copy Info"),
+            action: #selector(copyInfoFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        copyInfo.target = self
+        menu.addItem(copyInfo)
+        menu.addItem(.separator())
         if actions.showsDuplicate {
             menu.addItem(shortcutItem(
                 title: String(localized: "Duplicate Right"),
@@ -1320,6 +1300,10 @@ private final class TabDragHandleView: NSView {
         return item
     }
 
+    @objc private func copyInfoFromMenu(_: Any?) {
+        contextMenuActions?.copyInfo()
+    }
+
     @objc private func duplicateRightFromMenu(_: Any?) {
         contextMenuActions?.duplicateRight()
     }
@@ -1341,60 +1325,29 @@ private final class TabDragHandleView: NSView {
     }
 }
 
-/// A click opens host info. A drag moves the window. `performDrag` has to run on the mouse-down event itself.
-private final class WindowDragView: NSView {
-    var onClick: () -> Void = {}
-
-    override var mouseDownCanMoveWindow: Bool { true }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        bounds.contains(convert(point, from: superview)) ? self : nil
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        guard let window else { return }
-        let origin = window.frame.origin
-        window.performDrag(with: event)
-        let moved = window.frame.origin
-        if hypot(moved.x - origin.x, moved.y - origin.y) < 1 {
-            onClick()
-        }
-    }
-}
-
-private struct WindowDragHandle: NSViewRepresentable {
-    var onClick: () -> Void
-
-    func makeNSView(context: Context) -> WindowDragView { WindowDragView() }
-
-    func updateNSView(_ view: WindowDragView, context: Context) {
-        view.onClick = onClick
-    }
-}
-
 private struct TabDragHandle: NSViewRepresentable {
     var onClick: (Bool, Bool) -> Void
     var onHover: (Bool) -> Void = { _ in }
-    var onGripLevel: (GripLevel?) -> Void = { _ in }
     var onBegan: () -> Void
     var onMoved: (NSPoint) -> Void
     var onEnded: (NSPoint) -> Void
     var onClose: (() -> Void)? = nil
+    var onSecondaryClick: (() -> Void)? = nil
     var prepareContextMenu: (() -> TabContextMenu)? = nil
-    var showsGripCursor = false
+    var freezesWindow = false
 
     func makeNSView(context: Context) -> TabDragHandleView { TabDragHandleView() }
 
     func updateNSView(_ view: TabDragHandleView, context: Context) {
         view.onClick = onClick
         view.onHover = onHover
-        view.onGripLevel = onGripLevel
         view.onBegan = onBegan
         view.onMoved = onMoved
         view.onEnded = onEnded
         view.onClose = onClose
+        view.onSecondaryClick = onSecondaryClick
         view.prepareContextMenu = prepareContextMenu
-        view.showsGripCursor = showsGripCursor
+        view.freezesWindow = freezesWindow
         view.window?.invalidateCursorRects(for: view)
     }
 }
@@ -1437,8 +1390,8 @@ private struct RowAnchor: NSViewRepresentable {
 }
 
 private struct TerminalCanvas: View {
-    /// Room above the terminal text for the host badge (sidebar layout only).
-    static let sidebarHeaderHeight: CGFloat = 28
+    /// One title line. Dragging this line merges panes.
+    static let sidebarHeaderHeight: CGFloat = 18
     /// Room outside every pane so the focus stroke never covers the terminal.
     static let focusLine: CGFloat = 2
 
@@ -1448,9 +1401,6 @@ private struct TerminalCanvas: View {
     var dark: Bool
     var usesCatalogTheme: Bool
     @State private var ratioDrag: (id: UUID, start: CGFloat)?
-    @State private var gripTabID: UUID?
-    @State private var gripLevel: GripLevel?
-    @State private var hostInfoTabID: UUID?
 
     private var headerHeight: CGFloat { Self.sidebarHeaderHeight }
 
@@ -1513,27 +1463,6 @@ private struct TerminalCanvas: View {
                     focusRing(around: frame)
                         .allowsHitTesting(false)
                         .zIndex(5)
-                }
-                if let hostInfoTabID, frames[hostInfoTabID] != nil {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture { self.hostInfoTabID = nil }
-                        .zIndex(3)
-                }
-                if let hostInfoTabID,
-                   let tab = model.tabs.first(where: { $0.id == hostInfoTabID }),
-                   let frame = frames[tab.id] {
-                    hostInfoCard(tab, frame: frame, headerHeight: headerH)
-                }
-            }
-            .onChange(of: model.tabs.map(\.id)) { _, ids in
-                if let hostInfoTabID, !ids.contains(hostInfoTabID) {
-                    self.hostInfoTabID = nil
-                }
-            }
-            .onChange(of: model.selectedTabID) { _, id in
-                if let hostInfoTabID, hostInfoTabID != id {
-                    self.hostInfoTabID = nil
                 }
             }
             .overlay {
@@ -1603,63 +1532,26 @@ private struct TerminalCanvas: View {
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
         let focused = model.selectedTabID == tab.id
         if headerHeight > 0 {
-            let level: GripLevel? = gripTabID == tab.id ? gripLevel : nil
-            ZStack(alignment: .bottom) {
+            ZStack {
                 chrome.background
                     .allowsHitTesting(false)
-                WindowDragHandle {
-                    model.selectTab(tab.id)
-                    if hostInfoTabID == tab.id {
-                        hostInfoTabID = nil
-                    } else {
-                        hostInfoTabID = tab.id
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Text(paneTitle(tab))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(hostTitleColor(tab))
                     .lineLimit(1)
                     .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .allowsHitTesting(false)
-                ZStack {
-                    Capsule()
-                        .fill(chrome.text.opacity(TerminalCanvas.gripOpacity(level)))
-                        .frame(width: 36, height: 4)
-                        .scaleEffect(x: TerminalCanvas.gripWidth(level) / 36, y: 1)
-                        .animation(.easeInOut(duration: 0.2), value: level)
-                        .allowsHitTesting(false)
-                    TabDragHandle(
-                        onClick: { _, _ in model.selectOnly(tab.id) },
-                        onGripLevel: { next in
-                            if let next {
-                                if gripTabID == tab.id, gripLevel == next {
-                                    return
-                                }
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    gripTabID = tab.id
-                                    gripLevel = next
-                                }
-                                return
-                            }
-                            if gripTabID != tab.id {
-                                return
-                            }
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                gripTabID = nil
-                                gripLevel = nil
-                            }
-                        },
-                        onBegan: { dropRelay.dragBegan(tab.id) },
-                        onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                        onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                        showsGripCursor: true
-                    )
-                }
-                .frame(width: 168, height: 10)
-                .help(String(localized: "Drag to the top, bottom, left, or right of a pane to merge. Drag back to the sidebar to separate it."))
+                TabDragHandle(
+                    onClick: { _, _ in model.selectOnly(tab.id) },
+                    onBegan: { dropRelay.dragBegan(tab.id) },
+                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                    onSecondaryClick: { copySessionInfo(tab, model: model) },
+                    freezesWindow: true
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .help(String(localized: "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info."))
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
@@ -1680,105 +1572,30 @@ private struct TerminalCanvas: View {
         return model.host(alias)?.sessionBadge ?? alias
     }
 
-    private func hostInfoCard(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
-        let alias = tab.alias ?? ""
-        let cardWidth = min(260, max(frame.width - 16, 160))
-        let directory = tab.isLocal ? tab.directory : nil
-        return HostInfoCard(alias: alias, host: model.host(alias), directory: directory, width: cardWidth)
-            .offset(
-                x: frame.minX + (frame.width - cardWidth) / 2,
-                y: frame.minY + headerHeight + 6
-            )
-            .zIndex(8)
-    }
 }
 
-private struct HostInfoCard: View {
-    @Environment(\.windowChrome) private var chrome
-    var alias: String
-    var host: SSHHost?
-    var directory: String?
-    var width: CGFloat
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let directory {
-                infoRow("Directory", directory)
-            } else {
-                infoRow("Alias", alias)
-                if let address = host?.infoAddress {
-                    infoRow("Address", address)
-                }
-                if let user = host?.infoUser {
-                    infoRow("User", user)
-                }
-                if let port = host?.infoPort {
-                    infoRow("Port", port)
-                }
-            }
-            Button {
-                let text = directory ?? host?.connectionCopyText ?? alias
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-            } label: {
-                Group {
-                    if directory == nil {
-                        Text("Copy Host Info")
-                    } else {
-                        Text("Copy Path")
-                    }
-                }
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(chrome.text)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(chrome.accent.opacity(0.16))
-            }
-            .buttonStyle(.plain)
+/// Alias, address, and user for a remote host. The directory path for a local terminal.
+@MainActor
+private func copySessionInfo(_ tab: TerminalTab, model: AppModel) {
+    let text: String
+    if tab.isLocal {
+        text = tab.directory?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    } else if let alias = tab.alias {
+        let copied = model.host(alias)?.connectionCopyText ?? ""
+        if copied.isEmpty {
+            text = alias
+        } else {
+            text = copied
         }
-        .padding(12)
-        .frame(width: width, alignment: .leading)
-        .background(chrome.elevated)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
-        )
+    } else {
+        text = ""
     }
-
-    private func infoRow(_ title: LocalizedStringKey, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 11))
-                .foregroundStyle(chrome.secondary)
-            Text(value)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(chrome.text)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    guard !text.isEmpty else { return }
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(text, forType: .string)
 }
 
 private extension TerminalCanvas {
-    static func gripWidth(_ level: GripLevel?) -> CGFloat {
-        if level == .on {
-            return 36
-        }
-        return 16
-    }
-
-    static func gripOpacity(_ level: GripLevel?) -> Double {
-        if level == .on {
-            return 0.9
-        }
-        if level == .near {
-            return 0.55
-        }
-        return 0
-    }
-
     /// Panes sit inside a margin the same width as the focus stroke.
     /// The stroke occupies that margin, so selecting a pane does not cover its content.
     static func layoutBounds(_ bounds: CGRect) -> CGRect {

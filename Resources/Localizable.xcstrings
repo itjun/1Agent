@@ -309,11 +309,18 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝链接地址" } }
       }
     },
-    "Drag to the top, bottom, left, or right of a pane to merge. Drag back to the sidebar to separate it." : {
+    "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag to the top, bottom, left, or right of a pane to merge. Drag back to the sidebar to separate it." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖到窗格的上、下、左、右合并；拖回侧栏拆出。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖动标题到窗格的上、下、左、右合并；拖回侧栏拆出。右键标题复制主机信息。" } }
+      }
+    },
+    "Copy Info" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Info" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制信息" } }
       }
     },
     "Could not read SSH config." : {
