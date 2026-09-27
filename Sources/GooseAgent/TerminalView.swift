@@ -849,7 +849,7 @@ final class SSHTerminalNSView: AppTerminalView {
         guard !isMouseCaptured, let window else { return false }
         let local = convert(event.locationInWindow, from: nil)
         guard bounds.contains(local) else { return false }
-        let fromTop = bounds.height - local.y
+        let fromTop = isFlipped ? local.y : bounds.height - local.y
         guard fromTop >= 0, fromTop <= Self.windowDragBand else { return false }
         let origin = window.frame.origin
         window.performDrag(with: event)
