@@ -202,28 +202,31 @@ struct RootView: View {
     private func tabRow(_ tab: TerminalTab, compact: Bool, indent: CGFloat = 0) -> some View {
         let selected = model.isSidebarSelected(tab.id)
         let host = tab.alias.flatMap { model.host($0) }
+        let showsClosed = !compact && tab.exited
         let compactHelp: String
-        if tab.isLocal, let directory = tab.directory {
+        if showsClosed {
+            compactHelp = String(localized: "Connection closed")
+        } else if tab.isLocal, let directory = tab.directory {
             compactHelp = LocalTerminal.displayPath(directory)
         } else {
             compactHelp = host?.sessionBadge ?? ""
         }
         return HStack(spacing: 6) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(sidebarTitle(tab))
-                    .font(Theme.sidebarRowTitle)
-                    .foregroundStyle(hostTitleColor(tab))
-                    .lineLimit(1)
-                    .truncationMode(tab.isLocal ? .head : .tail)
-                if !compact, tab.exited {
-                    Text("Connection closed")
-                        .font(Theme.sidebarRowMeta)
-                        .foregroundStyle(chrome.danger)
-                }
+            Text(sidebarTitle(tab))
+                .font(Theme.sidebarRowTitle)
+                .foregroundStyle(hostTitleColor(tab))
+                .lineLimit(1)
+                .truncationMode(tab.isLocal ? .head : .tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if showsClosed {
+                Image(systemName: "link.slash")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(chrome.danger)
+                    .frame(width: 14, height: 14)
+                    .accessibilityLabel(Text("Connection closed"))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .help(tab.isLocal || compact ? compactHelp : "")
         }
+        .help(tab.isLocal || compact || showsClosed ? compactHelp : "")
         .padding(.leading, 16 + indent)
         .padding(.trailing, 16)
         .padding(.vertical, 6)
