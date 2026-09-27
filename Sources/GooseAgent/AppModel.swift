@@ -15,6 +15,10 @@ struct TerminalTab: Identifiable, Equatable {
     var directory: String? = nil
     var generation: Int
     var exited: Bool
+    /// Auto-reconnects already started after the latest disconnect streak.
+    var reconnectAttempts: Int = 0
+    /// Waiting for or starting an automatic reconnect.
+    var reconnecting: Bool = false
 
     var sessionID: String { "\(id.uuidString)#\(generation)" }
 
@@ -29,6 +33,11 @@ struct TerminalTab: Identifiable, Equatable {
     var isSession: Bool {
         if let alias, !alias.isEmpty { return true }
         return isLocal
+    }
+
+    /// Unexpected disconnect that still needs a clear closed mark.
+    var showsDisconnected: Bool {
+        exited && !reconnecting
     }
 }
 
@@ -53,6 +62,14 @@ final class AppModel: ObservableObject {
     private var lastExternalAt = Date.distantPast
     /// Writes wait until the saved session has been read, so an empty launch cannot erase it.
     private var acceptSessionWrites = false
+    /// Delayed auto-reconnect work keyed by tab.
+    private var autoReconnectTasks: [UUID: Task<Void, Never>] = [:]
+    /// Clears the reconnect counter once a session has stayed up briefly.
+    private var stableConnectionTasks: [UUID: Task<Void, Never>] = [:]
+
+    private static let maxAutoReconnectAttempts = 3
+    private static let autoReconnectDelayNanoseconds: UInt64 = 1_000_000_000
+    private static let stableConnectionNanoseconds: UInt64 = 5_000_000_000
 
     var selectedTab: TerminalTab? {
         guard let selectedTabID else { return nil }
@@ -362,10 +379,8 @@ final class AppModel: ObservableObject {
     func reconnect(_ tabID: UUID) {
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
-            guard !Task.isCancelled, let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
-            launchEnvironment = environment
-            tabs[index].generation += 1
-            tabs[index].exited = false
+            guard !Task.isCancelled else { return }
+            beginReconnect(tabID, environment: environment, automatic: false)
             selectedTabID = tabID
         }
     }
@@ -379,19 +394,28 @@ final class AppModel: ObservableObject {
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
-            launchEnvironment = environment
             for id in closed {
-                guard let index = tabs.firstIndex(where: { $0.id == id }) else { continue }
-                guard tabs[index].exited else { continue }
-                tabs[index].generation += 1
-                tabs[index].exited = false
+                beginReconnect(id, environment: environment, automatic: false)
             }
         }
     }
 
+    /// SSH transport ended. Auto-reconnects up to three times, then stays marked closed.
     func markClosed(_ tabID: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        cancelStableConnection(tabID)
         tabs[index].exited = true
+        if tabs[index].isLocal {
+            tabs[index].reconnecting = false
+            cancelAutoReconnect(tabID)
+            return
+        }
+        if tabs[index].reconnectAttempts < Self.maxAutoReconnectAttempts {
+            scheduleAutoReconnect(tabID)
+        } else {
+            tabs[index].reconnecting = false
+            cancelAutoReconnect(tabID)
+        }
     }
 
     func closeTab(_ id: UUID) {
@@ -411,6 +435,8 @@ final class AppModel: ObservableObject {
 
     private func closeTab(_ id: UUID, focusNext: Bool) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        cancelAutoReconnect(id)
+        cancelStableConnection(id)
         tabs.remove(at: index)
         workspaces = WorkspaceBoard.extract(id, from: workspaces)
         if selectedTabID == id {
@@ -647,6 +673,78 @@ final class AppModel: ObservableObject {
             window.makeKeyAndOrderFront(nil)
             break
         }
+    }
+
+    private func beginReconnect(_ tabID: UUID, environment: [String], automatic: Bool) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        guard tabs[index].isSession, !tabs[index].isLocal else { return }
+        if automatic {
+            guard tabs[index].exited else { return }
+            guard tabs[index].reconnectAttempts < Self.maxAutoReconnectAttempts else {
+                tabs[index].reconnecting = false
+                return
+            }
+            tabs[index].reconnectAttempts += 1
+        } else {
+            cancelAutoReconnect(tabID)
+            tabs[index].reconnectAttempts = 0
+        }
+        // The new surface is starting; keep the closed mark only while waiting to retry.
+        tabs[index].reconnecting = false
+        launchEnvironment = environment
+        tabs[index].generation += 1
+        tabs[index].exited = false
+        scheduleStableConnection(tabID)
+    }
+
+    private func scheduleAutoReconnect(_ tabID: UUID) {
+        cancelAutoReconnect(tabID)
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        guard tabs[index].exited, !tabs[index].isLocal else { return }
+        guard tabs[index].reconnectAttempts < Self.maxAutoReconnectAttempts else {
+            tabs[index].reconnecting = false
+            return
+        }
+        tabs[index].reconnecting = true
+        autoReconnectTasks[tabID] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.autoReconnectDelayNanoseconds)
+            guard !Task.isCancelled else { return }
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.autoReconnectTasks[tabID] = nil
+                self.beginReconnect(tabID, environment: environment, automatic: true)
+            }
+        }
+    }
+
+    private func cancelAutoReconnect(_ tabID: UUID) {
+        autoReconnectTasks[tabID]?.cancel()
+        autoReconnectTasks[tabID] = nil
+    }
+
+    private func scheduleStableConnection(_ tabID: UUID) {
+        cancelStableConnection(tabID)
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        let generation = tabs[index].generation
+        stableConnectionTasks[tabID] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.stableConnectionNanoseconds)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.stableConnectionTasks[tabID] = nil
+                guard let index = self.tabs.firstIndex(where: { $0.id == tabID }) else { return }
+                guard self.tabs[index].generation == generation, !self.tabs[index].exited else { return }
+                self.tabs[index].reconnectAttempts = 0
+                self.tabs[index].reconnecting = false
+            }
+        }
+    }
+
+    private func cancelStableConnection(_ tabID: UUID) {
+        stableConnectionTasks[tabID]?.cancel()
+        stableConnectionTasks[tabID] = nil
     }
 
     private func persistSession() {
