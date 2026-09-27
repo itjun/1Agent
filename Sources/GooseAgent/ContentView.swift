@@ -9,7 +9,6 @@ struct RootView: View {
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
-    @AppStorage("appearance.sidebarCollapsed") private var sidebarCollapsed = false
     @StateObject private var dropRelay = CanvasDropRelay()
     @State private var renamingWorkspaceID: UUID?
     @State private var workspaceNameDraft = ""
@@ -26,24 +25,11 @@ struct RootView: View {
 
     var body: some View {
         let _ = shortcutsRevision
-        Group {
-            if sidebarCollapsed {
-                detail
-            } else {
-                HStack(spacing: 0) {
-                    sidebar
-                        .frame(width: 248)
-                    Rectangle().fill(chrome.hairline).frame(width: 1)
-                    detail
-                }
-            }
-        }
-        .overlay(alignment: .topLeading) {
-            if sidebarCollapsed {
-                windowControls
-                    .padding(.leading, 78)
-                    .padding(.top, 10)
-            }
+        HStack(spacing: 0) {
+            sidebar
+                .frame(width: 248)
+            Rectangle().fill(chrome.hairline).frame(width: 1)
+            detail
         }
         .frame(minWidth: 880, minHeight: 520)
         .background(chrome.background)
@@ -79,34 +65,14 @@ struct RootView: View {
         String(format: String(localized: "New Tab (%@)"), AppShortcuts.display(for: .newTab))
     }
 
-    private var sidebarToggleHelp: String {
-        if sidebarCollapsed {
-            String(localized: "Show Sidebar")
-        } else {
-            String(localized: "Hide Sidebar")
-        }
-    }
-
     private var windowControls: some View {
-        HStack(spacing: 8) {
-            Button(action: model.newTab) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .buttonStyle(.borderless)
-            .help(newTabHelp)
-            .accessibilityLabel(Text("New Tab"))
-
-            Button {
-                sidebarCollapsed.toggle()
-            } label: {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .buttonStyle(.borderless)
-            .help(sidebarToggleHelp)
-            .accessibilityLabel(Text(sidebarToggleHelp))
+        Button(action: model.newTab) {
+            Image(systemName: "plus")
+                .font(.system(size: 14, weight: .medium))
         }
+        .buttonStyle(.borderless)
+        .help(newTabHelp)
+        .accessibilityLabel(Text("New Tab"))
     }
 
     private var sidebar: some View {

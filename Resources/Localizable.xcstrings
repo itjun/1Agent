@@ -155,20 +155,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "别名" } }
       }
     },
-    "Hide Sidebar" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide Sidebar" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "收起侧栏" } }
-      }
-    },
-    "Show Sidebar" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show Sidebar" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "展开侧栏" } }
-      }
-    },
     "Settings" : {
       "extractionState" : "manual",
       "localizations" : {
