@@ -66,11 +66,15 @@ struct RootView: View {
     }
 
     private var windowControls: some View {
-        Button(action: model.newTab) {
+        Button(action: { model.newTab() }) {
             Image(systemName: "plus")
                 .font(.system(size: 14, weight: .medium))
+                .frame(width: 28, height: 28)
+                // Opaque fill so AppKit does not treat the hit as window-drag.
+                .background(chrome.background)
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
         .help(newTabHelp)
         .accessibilityLabel(Text("New Tab"))
     }
@@ -791,7 +795,9 @@ private struct WindowTitleSync: NSViewRepresentable {
         }
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
+        // Keep false so SwiftUI controls in the titlebar band (e.g. New Tab) receive clicks.
+        // Pane titles still move the window through their own drag handles.
+        window.isMovableByWindowBackground = false
         if !window.styleMask.contains(.fullSizeContentView) {
             window.styleMask.insert(.fullSizeContentView)
         }
