@@ -30,16 +30,12 @@ struct RootView: View {
             if sidebarCollapsed {
                 detail
             } else {
-                NavigationSplitView {
+                HStack(spacing: 0) {
                     sidebar
-                        .ignoresSafeArea(edges: .top)
-                        .navigationSplitViewColumnWidth(min: 248, ideal: 248, max: 248)
-                } detail: {
+                        .frame(width: 248)
+                    Rectangle().fill(chrome.hairline).frame(width: 1)
                     detail
-                        .ignoresSafeArea(edges: .top)
                 }
-                .navigationSplitViewStyle(.balanced)
-                .toolbar(Visibility.hidden, for: .windowToolbar)
             }
         }
         .overlay(alignment: .topLeading) {
@@ -50,7 +46,7 @@ struct RootView: View {
             }
         }
         .frame(minWidth: 880, minHeight: 520)
-        .modifier(ClearWindowBackdrop())
+        .background(chrome.background)
         .environment(\.windowChrome, chrome)
         .ignoresSafeArea(edges: .top)
         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
@@ -177,7 +173,7 @@ struct RootView: View {
             }
         }
         .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
-        .modifier(SidebarMaterial(fallback: chrome.background))
+        .background(chrome.background)
     }
 
     private var selectedSessionBadge: String {
@@ -795,74 +791,6 @@ private struct PaneDropCatcher: NSViewRepresentable {
     }
 }
 
-/// The split-view sidebar uses the same Liquid Glass frost as System Settings.
-/// Reduce Transparency and systems before macOS 26 keep the solid window color.
-private struct SidebarMaterial: ViewModifier {
-    var fallback: Color
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    func body(content: Content) -> some View {
-        if reduceTransparency || !Self.usesSystemSidebar {
-            content.background(fallback)
-        } else {
-            content.background(RevealSidebarGlass())
-        }
-    }
-
-    private static var usesSystemSidebar: Bool {
-        if #available(macOS 26.0, *) {
-            return true
-        }
-        return false
-    }
-}
-
-/// The system sidebar glass sits behind this column. Clear the opaque fills SwiftUI
-/// puts on top of it so the frost stays visible.
-private struct RevealSidebarGlass: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        view.wantsLayer = true
-        return view
-    }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async { Self.reveal(from: view) }
-    }
-
-    private static func reveal(from view: NSView) {
-        var current: NSView? = view
-        while let node = current {
-            let name = String(describing: type(of: node))
-            if name.contains("NSGlassEffectView") {
-                return
-            }
-            node.wantsLayer = true
-            node.layer?.backgroundColor = NSColor.clear.cgColor
-            node.layer?.isOpaque = false
-            if let scroll = node as? NSScrollView {
-                scroll.drawsBackground = false
-                scroll.backgroundColor = .clear
-            }
-            if let clip = node as? NSClipView {
-                clip.drawsBackground = false
-            }
-            current = node.superview
-        }
-    }
-}
-
-/// The sidebar glass needs a clear window behind it. The terminal pane stays opaque.
-private struct ClearWindowBackdrop: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content.containerBackground(.clear, for: .window)
-        } else {
-            content
-        }
-    }
-}
-
 /// Keeps Mission Control title in sync while forcing a transparent, title-less
 /// titlebar so SwiftUI can draw one custom title without system duplication.
 private struct WindowTitleSync: NSViewRepresentable {
@@ -892,12 +820,6 @@ private struct WindowTitleSync: NSViewRepresentable {
         window.toolbar = nil
         if #available(macOS 11.0, *) {
             window.titlebarSeparatorStyle = .none
-        }
-        if #available(macOS 26.0, *) {
-            window.isOpaque = false
-            window.backgroundColor = .clear
-            window.contentView?.wantsLayer = true
-            window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
         }
         // Hide any leftover separator view the system still inserts under the traffic lights.
         Self.hideSeparatorViews(in: window.contentView?.superview)
