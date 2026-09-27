@@ -274,6 +274,13 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接已断开" } }
       }
     },
+    "Reconnecting…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在重连…" } }
+      }
+    },
     "Copy Host Info" : {
       "extractionState" : "manual",
       "localizations" : {

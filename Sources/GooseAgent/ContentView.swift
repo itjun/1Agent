@@ -189,6 +189,9 @@ struct RootView: View {
 
 
     private func hostTitleColor(_ tab: TerminalTab) -> Color {
+        if tab.showsDisconnected || tab.reconnecting {
+            return chrome.danger
+        }
         if let mark = model.duplicateHostMark(for: tab.id) {
             return Theme.duplicateHostMark(mark)
         }
@@ -198,9 +201,12 @@ struct RootView: View {
     private func tabRow(_ tab: TerminalTab, compact: Bool, indent: CGFloat = 0) -> some View {
         let selected = model.isSidebarSelected(tab.id)
         let host = tab.alias.flatMap { model.host($0) }
-        let showsClosed = !compact && tab.exited
+        let showsClosed = !compact && tab.showsDisconnected
+        let showsReconnecting = !compact && tab.reconnecting
         let compactHelp: String
-        if showsClosed {
+        if showsReconnecting {
+            compactHelp = String(localized: "Reconnecting…")
+        } else if showsClosed {
             compactHelp = String(localized: "Connection closed")
         } else if tab.isLocal, let directory = tab.directory {
             compactHelp = LocalTerminal.displayPath(directory)
@@ -214,7 +220,13 @@ struct RootView: View {
                 .lineLimit(1)
                 .truncationMode(tab.isLocal ? .head : .tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if showsClosed {
+            if showsReconnecting {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(chrome.danger)
+                    .frame(width: 14, height: 14)
+                    .accessibilityLabel(Text("Reconnecting…"))
+            } else if showsClosed {
                 Image(systemName: "link.slash")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(chrome.danger)
@@ -222,7 +234,7 @@ struct RootView: View {
                     .accessibilityLabel(Text("Connection closed"))
             }
         }
-        .help(tab.isLocal || compact || showsClosed ? compactHelp : "")
+        .help(tab.isLocal || compact || showsClosed || showsReconnecting ? compactHelp : "")
         .padding(.leading, 16 + indent)
         .padding(.trailing, 16)
         .padding(.vertical, 6)
@@ -1471,6 +1483,9 @@ private struct TerminalCanvas: View {
     }
 
     private func hostTitleColor(_ tab: TerminalTab) -> Color {
+        if tab.showsDisconnected || tab.reconnecting {
+            return chrome.danger
+        }
         if let mark = model.duplicateHostMark(for: tab.id) {
             return Theme.duplicateHostMark(mark)
         }
@@ -1484,13 +1499,26 @@ private struct TerminalCanvas: View {
             ZStack {
                 chrome.background
                     .allowsHitTesting(false)
-                Text(paneTitle(tab))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(hostTitleColor(tab))
-                    .lineLimit(1)
-                    .padding(.horizontal, 12)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .allowsHitTesting(false)
+                HStack(spacing: 6) {
+                    Text(paneTitle(tab))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(hostTitleColor(tab))
+                        .lineLimit(1)
+                    if tab.reconnecting {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(chrome.danger)
+                            .accessibilityLabel(Text("Reconnecting…"))
+                    } else if tab.showsDisconnected {
+                        Image(systemName: "link.slash")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(chrome.danger)
+                            .accessibilityLabel(Text("Connection closed"))
+                    }
+                }
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
                 TabDragHandle(
                     onClick: { _, _ in model.selectOnly(tab.id) },
                     onBegan: { dropRelay.dragBegan(tab.id) },
@@ -1506,7 +1534,13 @@ private struct TerminalCanvas: View {
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
             .zIndex(4)
         }
-        if focused, tab.exited {
+        if focused, tab.reconnecting {
+            Text("Reconnecting…")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(chrome.secondary)
+                .position(x: frame.midX, y: frame.maxY - 28)
+                .zIndex(4)
+        } else if focused, tab.showsDisconnected {
             Button("Reconnect") { model.reconnect(tab.id) }
                 .position(x: frame.midX, y: frame.maxY - 28)
                 .zIndex(4)
