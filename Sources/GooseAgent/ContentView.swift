@@ -1712,6 +1712,9 @@ private struct TerminalCanvas: View {
     var dark: Bool
     var usesCatalogTheme: Bool
     @State private var ratioDrag: (id: UUID, start: CGFloat)?
+    /// Last on-screen content rect per tab. Hidden tabs keep this size/position so Ghostty
+    /// does not resize the PTY to 1×1 (which reflows scrollback and jumps the cursor).
+    @State private var lastContentFrame: [UUID: CGRect] = [:]
 
     private var headerHeight: CGFloat { Self.sidebarHeaderHeight }
 
@@ -1723,11 +1726,15 @@ private struct TerminalCanvas: View {
             let frames = root.map { PaneLayout.frames(of: $0, in: layout) } ?? [:]
             let dividers = root.map { PaneLayout.dividers(of: $0, in: layout) } ?? []
             let headerH = headerHeight
+            let fallbackContent = Self.contentFrame(layout, headerHeight: headerH)
+            let liveIDs = Set(model.tabs.filter(\.isSession).map(\.id))
             let _ = dropRelay.sync(frames: frames, model: model)
             ZStack(alignment: .topLeading) {
                 chrome.background
                 ForEach(model.tabs.filter(\.isSession)) { tab in
                     let content = frames[tab.id].map { Self.contentFrame($0, headerHeight: headerH) }
+                    let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
+                    let visible = content != nil
                     SSHTerminalView(
                         sessionID: tab.sessionID,
                         alias: tab.alias ?? "",
@@ -1750,17 +1757,26 @@ private struct TerminalCanvas: View {
                     )
                     .id(tab.sessionID)
                     .frame(
-                        width: max(content?.width ?? 1, 1),
-                        height: max(content?.height ?? 1, 1)
+                        width: max(drawn.width, 1),
+                        height: max(drawn.height, 1)
                     )
                     .position(
-                        x: content?.midX ?? -1000,
-                        y: content?.midY ?? -1000
+                        x: drawn.midX,
+                        y: drawn.midY
                     )
-                    .opacity(content == nil ? 0 : 1)
-                    .allowsHitTesting(content != nil)
-                    .accessibilityHidden(content == nil)
-                    .zIndex(content == nil ? 0 : 1)
+                    .opacity(visible ? 1 : 0)
+                    .allowsHitTesting(visible)
+                    .accessibilityHidden(!visible)
+                    .zIndex(visible ? 1 : 0)
+                    .onChange(of: content) { _, newContent in
+                        guard let newContent else { return }
+                        lastContentFrame[tab.id] = newContent
+                    }
+                    .onAppear {
+                        if let content {
+                            lastContentFrame[tab.id] = content
+                        }
+                    }
                 }
                 ForEach(dividers) { divider in
                     dividerControl(divider)
@@ -1780,6 +1796,9 @@ private struct TerminalCanvas: View {
                 PaneDropCatcher(relay: dropRelay, accent: NSColor(chrome.accent))
                     .frame(width: geo.size.width, height: geo.size.height)
                     .allowsHitTesting(false)
+            }
+            .onChange(of: liveIDs) { _, ids in
+                lastContentFrame = lastContentFrame.filter { ids.contains($0.key) }
             }
         }
     }

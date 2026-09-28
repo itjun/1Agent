@@ -721,6 +721,8 @@ final class TerminalProcessHost {
         session = InMemoryTerminalSession(
             write: { data in process.write(data) },
             resize: { viewport in
+                // Ignore park/collapse sizes so a hidden tab never reflows the PTY to 1×1.
+                guard viewport.columns >= 2, viewport.rows >= 2 else { return }
                 process.resize(
                     columns: viewport.columns,
                     rows: viewport.rows,
