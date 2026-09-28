@@ -8,25 +8,88 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "外观模式" } }
       }
     },
-    "Claude Paper / Claude Ink" : {
+    "Claude Paper" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper / Claude Ink" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper / Claude Ink" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper" } }
       }
     },
-    "Raycast" : {
+    "Claude Ink" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Claude Ink" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Claude Ink" } }
       }
     },
-    "Raycast Light / Raycast Dark" : {
+    "Raycast Light" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast Light / Raycast Dark" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast 浅色 / Raycast 深色" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast Light" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast 浅色" } }
+      }
+    },
+    "Raycast Dark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast Dark" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast 深色" } }
+      }
+    },
+    "Absolutely Light" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely Light" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely 浅色" } }
+      }
+    },
+    "Absolutely Dark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely Dark" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely 深色" } }
+      }
+    },
+    "GitHub Light Default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Light Default" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Light Default" } }
+      }
+    },
+    "GitHub Dark Default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Dark Default" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Dark Default" } }
+      }
+    },
+    "Ayu Light" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ayu Light" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Ayu Light" } }
+      }
+    },
+    "Ayu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ayu" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Ayu" } }
+      }
+    },
+    "One Half Light" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "One Half Light" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "One Half Light" } }
+      }
+    },
+    "One Half Dark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "One Half Dark" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "One Half Dark" } }
       }
     },
     "Dark Themes" : {
@@ -69,20 +132,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Follow System" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "跟随系统" } }
-      }
-    },
-    "Light / Night" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light / Night" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色 / 夜间" } }
-      }
-    },
-    "Light and night variants follow the appearance mode." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light and night variants follow the appearance mode." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色和夜间会跟着外观模式自动切换。" } }
       }
     },
     "Light" : {
