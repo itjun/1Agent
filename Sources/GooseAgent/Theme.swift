@@ -84,17 +84,8 @@ struct WindowChrome: Equatable {
     }
 
     static func resolve(isDark: Bool) -> WindowChrome {
-        let family = TerminalThemeFamily.current()
-        if isDark, let paint = family.darkPaint { return paint.chrome() }
-        if isDark, let paint = family.darkClaudePaint { return paint.chrome() }
-        if isDark, let paint = family.darkRaycastPaint { return paint.chrome() }
-        if !isDark, let paint = family.lightPaint { return paint.chrome() }
-        if !isDark, let paint = family.lightClaudePaint { return paint.chrome() }
-        if !isDark, let paint = family.lightRaycastPaint { return paint.chrome() }
-        let name = isDark ? family.darkName : family.lightName
-        if let name, let theme = GhosttyThemeCatalog.theme(named: name) {
-            return WindowChrome(theme: theme)
-        }
+        let option = isDark ? TerminalThemeOption.storedDark() : TerminalThemeOption.storedLight()
+        if let chrome = option.chrome() { return chrome }
         return isDark ? builtinDark : builtinLight
     }
 

@@ -76,6 +76,8 @@ struct GooseAgentApp: App {
 
     init() {
         AppLanguage.synchronize()
+        TerminalAppearance.migrateLegacyThemeIfNeeded()
+        TerminalThemeOption.migrateIfNeeded()
     }
 
     var body: some Scene {

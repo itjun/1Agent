@@ -1,5 +1,4 @@
 import AppKit
-import GhosttyTheme
 import QuartzCore
 import SwiftUI
 
@@ -8,7 +7,8 @@ struct RootView: View {
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
+    @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeOption.defaultLight.rawValue
+    @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeOption.defaultDark.rawValue
     @StateObject private var dropRelay = CanvasDropRelay()
     @State private var renamingWorkspaceID: UUID?
     @State private var workspaceNameDraft = ""
@@ -17,10 +17,6 @@ struct RootView: View {
 
     private var chrome: WindowChrome {
         WindowChrome.resolve(isDark: appearanceDriver.isDark)
-    }
-
-    private var themeFamily: TerminalThemeFamily {
-        TerminalThemeFamily.from(raw: themeFamilyRaw)
     }
 
     var body: some View {
@@ -44,12 +40,14 @@ struct RootView: View {
         .onOpenURL { model.openExternalURL($0) }
         .onAppear {
             TerminalAppearance.migrateLegacyThemeIfNeeded()
-            TerminalThemeFamily.migrateIfNeeded()
-            GhosttyRuntime.apply(family: themeFamily)
+            GhosttyRuntime.applySelectedThemes()
             appearanceDriver.reapply()
         }
-        .onChange(of: themeFamilyRaw) { _, _ in
-            GhosttyRuntime.apply(family: themeFamily)
+        .onChange(of: lightThemeRaw) { _, _ in
+            GhosttyRuntime.applySelectedThemes()
+        }
+        .onChange(of: darkThemeRaw) { _, _ in
+            GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: selectedSessionBadge.isEmpty ? String(localized: "1Agent") : selectedSessionBadge))
         .sheet(isPresented: $model.hostPickerPresented) {

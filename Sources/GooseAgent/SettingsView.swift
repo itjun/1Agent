@@ -1,5 +1,3 @@
-import AppKit
-import GhosttyTheme
 import SwiftUI
 
 enum SettingsLayout {
@@ -27,7 +25,8 @@ struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
     @State private var selectedSection: SettingsSection = .appearanceMode
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(TerminalThemeFamily.storageKey) private var themeFamilyRaw = TerminalThemeFamily.claude.rawValue
+    @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeOption.defaultLight.rawValue
+    @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeOption.defaultDark.rawValue
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
 
@@ -35,13 +34,23 @@ struct SettingsView: View {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
     }
 
-    private var themeFamily: TerminalThemeFamily {
-        TerminalThemeFamily.from(raw: themeFamilyRaw)
+    private var lightTheme: TerminalThemeOption {
+        TerminalThemeOption.from(raw: lightThemeRaw) ?? .defaultLight
+    }
+
+    private var darkTheme: TerminalThemeOption {
+        TerminalThemeOption.from(raw: darkThemeRaw) ?? .defaultDark
     }
 
     private var fontFamilies: [String] {
         TerminalFontSettings.availableFamilies()
     }
+
+    private let themeColumns = [
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10),
+    ]
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -64,6 +73,9 @@ struct SettingsView: View {
         .background(chrome.background.ignoresSafeArea())
         .oneagentHideFocusRing()
         .onAppear {
+            TerminalThemeOption.migrateIfNeeded()
+            lightThemeRaw = TerminalThemeOption.storedLight().rawValue
+            darkThemeRaw = TerminalThemeOption.storedDark().rawValue
             if !fontFamilies.contains(fontFamily) {
                 fontFamily = TerminalDefaults.defaultFontFamily
             }
@@ -182,16 +194,31 @@ struct SettingsView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(chrome.text)
                 .id(SettingsSection.terminalColors)
-            Text("Light and night variants follow the appearance mode.")
-                .font(.system(size: 12))
+
+            Text("Light Themes")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(chrome.secondary)
-            VStack(spacing: 4) {
-                ForEach(TerminalThemeFamily.allCases) { family in
-                    familyRow(family)
+            LazyVGrid(columns: themeColumns, spacing: 10) {
+                ForEach(TerminalThemeOption.allowedLight) { option in
+                    themeCard(option, selected: lightTheme == option) {
+                        lightThemeRaw = option.rawValue
+                        GhosttyRuntime.applySelectedThemes()
+                    }
                 }
             }
-            .padding(8)
-            .background(RoundedRectangle(cornerRadius: 12).fill(chrome.elevated))
+
+            Text("Dark Themes")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(chrome.secondary)
+                .padding(.top, 4)
+            LazyVGrid(columns: themeColumns, spacing: 10) {
+                ForEach(TerminalThemeOption.allowedDark) { option in
+                    themeCard(option, selected: darkTheme == option) {
+                        darkThemeRaw = option.rawValue
+                        GhosttyRuntime.applySelectedThemes()
+                    }
+                }
+            }
         }
         .padding(28)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -217,81 +244,69 @@ struct SettingsView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private func familyRow(_ family: TerminalThemeFamily) -> some View {
-        let selected = themeFamily == family
-        return Button {
-            themeFamilyRaw = family.rawValue
-            GhosttyRuntime.apply(family: family)
-        } label: {
-            HStack(spacing: 10) {
-                if let light = family.lightPaint, let dark = family.darkPaint {
-                    themeSwatch(surface: light.surface, ink: light.ink)
-                    themeSwatch(surface: dark.surface, ink: dark.ink)
-                } else if family == .claude {
-                    themeSwatch(surface: ClaudeTerminalTheme.paper.surface, ink: ClaudeTerminalTheme.paper.ink)
-                    themeSwatch(surface: ClaudeTerminalTheme.dark.surface, ink: ClaudeTerminalTheme.dark.ink)
-                } else if family == .raycast {
-                    themeSwatch(surface: RaycastTerminalTheme.light.surface, ink: RaycastTerminalTheme.light.ink)
-                    themeSwatch(surface: RaycastTerminalTheme.dark.surface, ink: RaycastTerminalTheme.dark.ink)
-                } else {
-                    themeSwatch(named: family.lightName ?? "")
-                    themeSwatch(named: family.darkName ?? "")
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(family.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Theme.text)
-                    Text(family.variantTitle)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                Spacer()
-                if selected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(chrome.accent)
-                }
+    private func themeCard(
+        _ option: TerminalThemeOption,
+        selected: Bool,
+        onSelect: @escaping () -> Void
+    ) -> some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 8) {
+                themePreview(option)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Theme.hairline, lineWidth: 1)
+                    )
+                Text(option.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(chrome.text)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            .padding(8)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(selected ? chrome.accent : Color.clear, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(chrome.elevated)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(selected ? chrome.accent : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private func themeSwatch(surface: String, ink: String) -> some View {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(Color(ghosttyHex: surface) ?? .black)
-            .frame(width: 36, height: 24)
-            .overlay(
-                Text("Aa")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color(ghosttyHex: ink) ?? .white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(Theme.hairline, lineWidth: 1)
-            )
-    }
-
-    private func themeSwatch(named name: String) -> some View {
-        let theme = GhosttyThemeCatalog.theme(named: name)
-        return RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(Color(ghosttyHex: theme?.background ?? "000000") ?? .black)
-            .frame(width: 36, height: 24)
-            .overlay(
-                Text("Aa")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color(ghosttyHex: theme?.foreground ?? "FFFFFF") ?? .white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(Theme.hairline, lineWidth: 1)
-            )
+    private func themePreview(_ option: TerminalThemeOption) -> some View {
+        let surface = Color(ghosttyHex: option.previewSurface) ?? .black
+        let ink = Color(ghosttyHex: option.previewInk) ?? .white
+        return ZStack(alignment: .topLeading) {
+            surface
+            HStack(alignment: .top, spacing: 0) {
+                Rectangle()
+                    .fill(ink.opacity(0.12))
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 5) {
+                    Capsule()
+                        .fill(ink.opacity(0.55))
+                        .frame(width: 42, height: 4)
+                    Capsule()
+                        .fill(ink.opacity(0.35))
+                        .frame(width: 58, height: 4)
+                    Capsule()
+                        .fill(ink.opacity(0.22))
+                        .frame(width: 34, height: 4)
+                    Capsule()
+                        .fill(ink.opacity(0.45))
+                        .frame(width: 50, height: 4)
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 10)
+                Spacer(minLength: 0)
+            }
+        }
     }
 }
 
@@ -300,9 +315,13 @@ struct SettingsWindowRoot: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
+    @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeOption.defaultLight.rawValue
+    @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeOption.defaultDark.rawValue
 
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearanceDriver.isDark)
+        let _ = lightThemeRaw
+        let _ = darkThemeRaw
+        return WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
     var body: some View {

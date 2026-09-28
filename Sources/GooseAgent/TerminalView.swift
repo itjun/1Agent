@@ -152,11 +152,12 @@ enum GhosttyRuntime {
         controller.setTerminalConfiguration(fontConfiguration())
     }
 
-    /// Each family supplies a light and a night palette. Ghostty switches with the appearance.
-    static func apply(family: TerminalThemeFamily) {
+    /// Light and night slots are chosen independently; Ghostty switches with the appearance.
+    static func applySelectedThemes() {
+        TerminalThemeOption.migrateIfNeeded()
         let builtin = builtinTheme()
-        let light = family.lightConfiguration() ?? builtin.light
-        let dark = family.darkConfiguration() ?? builtin.dark
+        let light = TerminalThemeOption.storedLight().terminalConfiguration() ?? builtin.light
+        let dark = TerminalThemeOption.storedDark().terminalConfiguration() ?? builtin.dark
         controller.setTheme(TerminalTheme(light: light, dark: dark))
     }
 
@@ -572,8 +573,156 @@ struct RaycastTerminalTheme {
     }
 }
 
-/// A small set of light/night pairs. Appearance mode chooses which half is on screen.
-enum TerminalThemeFamily: String, CaseIterable, Identifiable {
+/// One selectable terminal palette for either the light or dark appearance slot.
+enum TerminalThemeOption: String, CaseIterable, Identifiable {
+    case claudePaper = "Claude Paper"
+    case raycastLight = "Raycast Light"
+    case absolutelyLight = "Absolutely Light"
+    case githubLight = "GitHub Light Default"
+    case ayuLight = "Ayu Light"
+    case oneHalfLight = "One Half Light"
+
+    case claudeInk = "Claude Ink"
+    case raycastDark = "Raycast Dark"
+    case absolutelyDark = "Absolutely Dark"
+    case githubDark = "GitHub Dark Default"
+    case ayu = "Ayu"
+    case oneHalfDark = "One Half Dark"
+
+    static let defaultLight = TerminalThemeOption.claudePaper
+    static let defaultDark = TerminalThemeOption.claudeInk
+    static let slotsMigratedKey = "appearance.themeSlotsMigrated"
+
+    static let allowedLight: [TerminalThemeOption] = [
+        .claudePaper, .raycastLight, .absolutelyLight, .githubLight, .ayuLight, .oneHalfLight,
+    ]
+
+    static let allowedDark: [TerminalThemeOption] = [
+        .claudeInk, .raycastDark, .absolutelyDark, .githubDark, .ayu, .oneHalfDark,
+    ]
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey { LocalizedStringKey(rawValue) }
+
+    var isLight: Bool {
+        switch self {
+        case .claudePaper, .raycastLight, .absolutelyLight, .githubLight, .ayuLight, .oneHalfLight:
+            true
+        case .claudeInk, .raycastDark, .absolutelyDark, .githubDark, .ayu, .oneHalfDark:
+            false
+        }
+    }
+
+    var previewSurface: String {
+        switch self {
+        case .claudePaper: ClaudeTerminalTheme.paper.surface
+        case .claudeInk: ClaudeTerminalTheme.dark.surface
+        case .raycastLight: RaycastTerminalTheme.light.surface
+        case .raycastDark: RaycastTerminalTheme.dark.surface
+        case .absolutelyLight: AbsolutelyTheme.light.surface
+        case .absolutelyDark: AbsolutelyTheme.dark.surface
+        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
+            GhosttyThemeCatalog.theme(named: rawValue)?.background ?? (isLight ? "#FFFFFF" : "#101012")
+        }
+    }
+
+    var previewInk: String {
+        switch self {
+        case .claudePaper: ClaudeTerminalTheme.paper.ink
+        case .claudeInk: ClaudeTerminalTheme.dark.ink
+        case .raycastLight: RaycastTerminalTheme.light.ink
+        case .raycastDark: RaycastTerminalTheme.dark.ink
+        case .absolutelyLight: AbsolutelyTheme.light.ink
+        case .absolutelyDark: AbsolutelyTheme.dark.ink
+        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
+            GhosttyThemeCatalog.theme(named: rawValue)?.foreground ?? (isLight ? "#3A3A3A" : "#D6D6D6")
+        }
+    }
+
+    func terminalConfiguration() -> TerminalConfiguration? {
+        switch self {
+        case .claudePaper: return ClaudeTerminalTheme.paper.terminalConfiguration()
+        case .claudeInk: return ClaudeTerminalTheme.dark.terminalConfiguration()
+        case .raycastLight: return RaycastTerminalTheme.light.terminalConfiguration()
+        case .raycastDark: return RaycastTerminalTheme.dark.terminalConfiguration()
+        case .absolutelyLight: return AbsolutelyTheme.light.terminalConfiguration()
+        case .absolutelyDark: return AbsolutelyTheme.dark.terminalConfiguration()
+        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
+            return GhosttyThemeCatalog.theme(named: rawValue)?.terminalConfiguration()
+        }
+    }
+
+    func chrome() -> WindowChrome? {
+        switch self {
+        case .claudePaper: return ClaudeTerminalTheme.paper.chrome()
+        case .claudeInk: return ClaudeTerminalTheme.dark.chrome()
+        case .raycastLight: return RaycastTerminalTheme.light.chrome()
+        case .raycastDark: return RaycastTerminalTheme.dark.chrome()
+        case .absolutelyLight: return AbsolutelyTheme.light.chrome()
+        case .absolutelyDark: return AbsolutelyTheme.dark.chrome()
+        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
+            if let theme = GhosttyThemeCatalog.theme(named: rawValue) {
+                return WindowChrome(theme: theme)
+            }
+            return nil
+        }
+    }
+
+    static func from(raw: String?) -> TerminalThemeOption? {
+        guard let raw, !raw.isEmpty else { return nil }
+        if let option = TerminalThemeOption(rawValue: raw) { return option }
+        // Older Absolutely chrome used a shared name without Light/Dark suffix.
+        if raw == "Absolutely" { return .absolutelyLight }
+        return nil
+    }
+
+    static func storedLight(defaults: UserDefaults = .standard) -> TerminalThemeOption {
+        migrateIfNeeded(defaults: defaults)
+        let raw = defaults.string(forKey: TerminalAppearance.lightThemeKey)
+        if let option = from(raw: raw), option.isLight { return option }
+        return .defaultLight
+    }
+
+    static func storedDark(defaults: UserDefaults = .standard) -> TerminalThemeOption {
+        migrateIfNeeded(defaults: defaults)
+        let raw = defaults.string(forKey: TerminalAppearance.darkThemeKey)
+        if let option = from(raw: raw), !option.isLight { return option }
+        return .defaultDark
+    }
+
+    static func migrateIfNeeded(defaults: UserDefaults = .standard) {
+        if defaults.bool(forKey: slotsMigratedKey) {
+            TerminalThemeOption.repairInvalidSlots(defaults: defaults)
+            return
+        }
+
+        if let familyRaw = defaults.string(forKey: TerminalThemeFamily.storageKey), !familyRaw.isEmpty {
+            let family = TerminalThemeFamily.from(raw: familyRaw)
+            defaults.set(family.lightOption.rawValue, forKey: TerminalAppearance.lightThemeKey)
+            defaults.set(family.darkOption.rawValue, forKey: TerminalAppearance.darkThemeKey)
+        } else {
+            TerminalThemeOption.repairInvalidSlots(defaults: defaults)
+        }
+        defaults.set(true, forKey: slotsMigratedKey)
+    }
+
+    private static func repairInvalidSlots(defaults: UserDefaults) {
+        let lightRaw = defaults.string(forKey: TerminalAppearance.lightThemeKey) ?? ""
+        if from(raw: lightRaw)?.isLight != true {
+            defaults.set(defaultLight.rawValue, forKey: TerminalAppearance.lightThemeKey)
+        }
+        let darkRaw = defaults.string(forKey: TerminalAppearance.darkThemeKey) ?? ""
+        if let option = from(raw: darkRaw), !option.isLight {
+            // Dark slot already has a valid night theme.
+        } else {
+            defaults.set(defaultDark.rawValue, forKey: TerminalAppearance.darkThemeKey)
+        }
+    }
+}
+
+/// Legacy paired families. Kept so existing `appearance.themeFamily` values migrate into slots.
+enum TerminalThemeFamily: String, CaseIterable {
     case claude
     case raycast
     case absolutely
@@ -583,111 +732,31 @@ enum TerminalThemeFamily: String, CaseIterable, Identifiable {
 
     static let storageKey = "appearance.themeFamily"
 
-    var id: String { rawValue }
-
-    var title: String {
+    var lightOption: TerminalThemeOption {
         switch self {
-        case .claude: "Claude"
-        case .raycast: "Raycast"
-        case .absolutely: "Absolutely"
-        case .github: "GitHub"
-        case .ayu: "Ayu"
-        case .oneHalf: "One Half"
+        case .claude: .claudePaper
+        case .raycast: .raycastLight
+        case .absolutely: .absolutelyLight
+        case .github: .githubLight
+        case .ayu: .ayuLight
+        case .oneHalf: .oneHalfLight
         }
     }
 
-    var variantTitle: LocalizedStringKey {
+    var darkOption: TerminalThemeOption {
         switch self {
-        case .claude: "Claude Paper / Claude Ink"
-        case .raycast: "Raycast Light / Raycast Dark"
-        default: "Light / Night"
+        case .claude: .claudeInk
+        case .raycast: .raycastDark
+        case .absolutely: .absolutelyDark
+        case .github: .githubDark
+        case .ayu: .ayu
+        case .oneHalf: .oneHalfDark
         }
-    }
-
-    var lightName: String? {
-        switch self {
-        case .claude, .raycast, .absolutely: nil
-        case .github: "GitHub Light Default"
-        case .ayu: "Ayu Light"
-        case .oneHalf: "One Half Light"
-        }
-    }
-
-    var darkName: String? {
-        switch self {
-        case .claude, .raycast, .absolutely: nil
-        case .github: "GitHub Dark Default"
-        case .ayu: "Ayu"
-        case .oneHalf: "One Half Dark"
-        }
-    }
-
-    var lightPaint: AbsolutelyTheme? {
-        self == .absolutely ? .light : nil
-    }
-
-    var darkPaint: AbsolutelyTheme? {
-        self == .absolutely ? .dark : nil
-    }
-
-    var lightClaudePaint: ClaudeTerminalTheme? {
-        self == .claude ? .paper : nil
-    }
-
-    var darkClaudePaint: ClaudeTerminalTheme? {
-        self == .claude ? .dark : nil
-    }
-
-    var lightRaycastPaint: RaycastTerminalTheme? {
-        self == .raycast ? .light : nil
-    }
-
-    var darkRaycastPaint: RaycastTerminalTheme? {
-        self == .raycast ? .dark : nil
-    }
-
-    func lightConfiguration() -> TerminalConfiguration? {
-        if let lightPaint { return lightPaint.terminalConfiguration() }
-        if let lightClaudePaint { return lightClaudePaint.terminalConfiguration() }
-        if let lightRaycastPaint { return lightRaycastPaint.terminalConfiguration() }
-        return lightName.flatMap { GhosttyThemeCatalog.theme(named: $0)?.terminalConfiguration() }
-    }
-
-    func darkConfiguration() -> TerminalConfiguration? {
-        if let darkPaint { return darkPaint.terminalConfiguration() }
-        if let darkClaudePaint { return darkClaudePaint.terminalConfiguration() }
-        if let darkRaycastPaint { return darkRaycastPaint.terminalConfiguration() }
-        return darkName.flatMap { GhosttyThemeCatalog.theme(named: $0)?.terminalConfiguration() }
     }
 
     static func from(raw: String) -> TerminalThemeFamily {
         if raw == "atomOne" || raw == "absolutely" { return .absolutely }
-        return TerminalThemeFamily(rawValue: raw) ?? .github
-    }
-
-    static func current(defaults: UserDefaults = .standard) -> TerminalThemeFamily {
-        if let raw = defaults.string(forKey: storageKey) {
-            return from(raw: raw)
-        }
-        let hint = [
-            defaults.string(forKey: TerminalAppearance.lightThemeKey),
-            defaults.string(forKey: TerminalAppearance.darkThemeKey),
-            defaults.string(forKey: TerminalAppearance.legacyThemeKey),
-        ]
-        .compactMap { $0 }
-        .joined(separator: " ")
-        if hint.localizedCaseInsensitiveContains("claude") { return .claude }
-        if hint.contains("Ayu") { return .ayu }
-        if hint.contains("One Half") { return .oneHalf }
-        if hint.contains("Atom One") || hint.localizedCaseInsensitiveContains("absolutely") { return .absolutely }
-        if hint.isEmpty { return .claude }
-        return .github
-    }
-
-    static func migrateIfNeeded() {
-        let defaults = UserDefaults.standard
-        guard defaults.string(forKey: storageKey) == nil else { return }
-        defaults.set(current(defaults: defaults).rawValue, forKey: storageKey)
+        return TerminalThemeFamily(rawValue: raw) ?? .claude
     }
 }
 
