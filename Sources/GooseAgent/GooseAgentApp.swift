@@ -34,6 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return nil
         }
         guard let chord = KeyChord.from(event: event) else { return event }
+        if let handled = switchPane(chord) {
+            return handled ? nil : event
+        }
         let duplicatesRight = chord == AppShortcuts.chord(for: .duplicateRight)
         let duplicatesDown = chord == AppShortcuts.chord(for: .duplicateDown)
         let closesTerminal = chord == AppShortcuts.chord(for: .closeTab)
@@ -59,6 +62,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard model.selectedTabID != nil else { return event }
         model.closeSelectedTab()
         return nil
+    }
+
+    /// Nil when the chord is not a pane-switching shortcut. False lets the key through.
+    private func switchPane(_ chord: KeyChord) -> Bool? {
+        let paneShortcuts: [AppShortcutID] = [.nextPane, .previousPane, .paneLeft, .paneRight, .paneUp, .paneDown]
+        guard paneShortcuts.contains(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
+        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || model.hostPickerPresented {
+            return false
+        }
+        if chord == AppShortcuts.chord(for: .nextPane) {
+            return model.focusAdjacentPane(forward: true)
+        }
+        if chord == AppShortcuts.chord(for: .previousPane) {
+            return model.focusAdjacentPane(forward: false)
+        }
+        if chord == AppShortcuts.chord(for: .paneLeft) {
+            return model.focusPane(toward: .left)
+        }
+        if chord == AppShortcuts.chord(for: .paneRight) {
+            return model.focusPane(toward: .right)
+        }
+        if chord == AppShortcuts.chord(for: .paneUp) {
+            return model.focusPane(toward: .up)
+        }
+        return model.focusPane(toward: .down)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

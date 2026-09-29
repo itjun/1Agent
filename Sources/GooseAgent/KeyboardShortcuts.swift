@@ -7,9 +7,16 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case duplicateDown
     case closeTab
     case settings
+    case nextPane
+    case previousPane
+    case paneLeft
+    case paneRight
+    case paneUp
+    case paneDown
 
     var id: String { rawValue }
 
+    /// Pane switching follows Ghostty's macOS defaults.
     var defaultChord: KeyChord {
         switch self {
         case .newTab: return KeyChord(key: "t", modifiers: .command)
@@ -17,11 +24,23 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .duplicateDown: return KeyChord(key: "d", modifiers: [.command, .shift])
         case .closeTab: return KeyChord(key: "w", modifiers: .command)
         case .settings: return KeyChord(key: ",", modifiers: .command)
+        case .nextPane: return KeyChord(key: "]", modifiers: .command)
+        case .previousPane: return KeyChord(key: "[", modifiers: .command)
+        case .paneLeft: return KeyChord(key: KeyChord.leftArrow, modifiers: [.command, .option])
+        case .paneRight: return KeyChord(key: KeyChord.rightArrow, modifiers: [.command, .option])
+        case .paneUp: return KeyChord(key: KeyChord.upArrow, modifiers: [.command, .option])
+        case .paneDown: return KeyChord(key: KeyChord.downArrow, modifiers: [.command, .option])
         }
     }
 }
 
 struct KeyChord: Codable, Equatable, Hashable {
+    /// AppKit reports arrow keys as these private-use characters in `charactersIgnoringModifiers`.
+    static let upArrow = String(UnicodeScalar(NSUpArrowFunctionKey)!)
+    static let downArrow = String(UnicodeScalar(NSDownArrowFunctionKey)!)
+    static let leftArrow = String(UnicodeScalar(NSLeftArrowFunctionKey)!)
+    static let rightArrow = String(UnicodeScalar(NSRightArrowFunctionKey)!)
+
     var key: String
     var modifierRaw: Int
 
@@ -52,7 +71,13 @@ struct KeyChord: Codable, Equatable, Hashable {
         if modifiers.contains(.option) { parts.append("⌥") }
         if modifiers.contains(.shift) { parts.append("⇧") }
         if modifiers.contains(.command) { parts.append("⌘") }
-        parts.append(key.uppercased())
+        switch key {
+        case KeyChord.upArrow: parts.append("↑")
+        case KeyChord.downArrow: parts.append("↓")
+        case KeyChord.leftArrow: parts.append("←")
+        case KeyChord.rightArrow: parts.append("→")
+        default: parts.append(key.uppercased())
+        }
         return parts.joined()
     }
 

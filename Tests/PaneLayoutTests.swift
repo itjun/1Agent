@@ -76,6 +76,27 @@ enum PaneLayoutTests {
         let taken = PaneLayout.split(splitRight, target: first, with: third, edge: .center)
         guard case .split(let takenNode) = taken else { fail("center drop inside a split keeps the split"); return }
         expect(takenNode.leading == .leaf(third) && takenNode.trailing == .leaf(second), "center drop replaces that pane")
+
+        let topLeft = UUID()
+        let topMiddle = UUID()
+        let topRight = UUID()
+        let bottomLeft = UUID()
+        let bottomRight = UUID()
+        let grid: [UUID: CGRect] = [
+            topLeft: CGRect(x: 0, y: 0, width: 100, height: 100),
+            topMiddle: CGRect(x: 101, y: 0, width: 99, height: 100),
+            topRight: CGRect(x: 201, y: 0, width: 99, height: 100),
+            bottomLeft: CGRect(x: 0, y: 101, width: 150, height: 99),
+            bottomRight: CGRect(x: 151, y: 101, width: 149, height: 99),
+        ]
+        expect(PaneLayout.neighbor(of: topLeft, toward: .right, frames: grid) == topMiddle, "right goes to the next pane in the row")
+        expect(PaneLayout.neighbor(of: topRight, toward: .right, frames: grid) == nil, "right stops at the edge")
+        expect(PaneLayout.neighbor(of: bottomLeft, toward: .up, frames: grid) == topLeft, "up picks the pane with the most overlap")
+        expect(PaneLayout.neighbor(of: bottomRight, toward: .up, frames: grid) == topRight, "up from the right half lands on the right column")
+        expect(PaneLayout.neighbor(of: topMiddle, toward: .down, frames: grid) == bottomLeft, "an even overlap goes to the pane further left")
+        expect(PaneLayout.neighbor(of: topRight, toward: .down, frames: grid) == bottomRight, "down follows the column")
+        expect(PaneLayout.neighbor(of: bottomRight, toward: .left, frames: grid) == bottomLeft, "left stays in the row")
+        expect(PaneLayout.neighbor(of: topLeft, toward: .up, frames: grid) == nil, "up stops at the top edge")
         print("ok")
     }
 

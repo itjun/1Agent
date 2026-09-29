@@ -607,6 +607,34 @@ final class AppModel: ObservableObject {
         duplicate(selectedTabID, edge: downward ? .bottom : .right)
     }
 
+    /// Next or previous pane of the visible workspace in sidebar order, wrapping at the ends.
+    /// Returns false when there is nothing to switch to, so the key can reach the terminal.
+    func focusAdjacentPane(forward: Bool) -> Bool {
+        guard let selectedTabID, let root = displayRoot() else { return false }
+        let ids = WorkspaceBoard.leafIDs(root)
+        guard ids.count >= 2, let index = ids.firstIndex(of: selectedTabID) else { return false }
+        var next = index + (forward ? 1 : -1)
+        if next < 0 {
+            next = ids.count - 1
+        } else if next >= ids.count {
+            next = 0
+        }
+        selectTab(ids[next])
+        return true
+    }
+
+    /// The pane on that side of the current one, by on-screen position. At the edge of a split the key is still consumed.
+    func focusPane(toward direction: PaneDirection) -> Bool {
+        guard let selectedTabID, let root = displayRoot() else { return false }
+        let frames = PaneLayout.frames(of: root, in: CGRect(x: 0, y: 0, width: 1600, height: 1000))
+        guard frames.count >= 2 else { return false }
+        guard let target = PaneLayout.neighbor(of: selectedTabID, toward: direction, frames: frames) else {
+            return true
+        }
+        selectTab(target)
+        return true
+    }
+
     func mergeSidebar(_ ids: [UUID]) {
         let ordered = sidebarOrder().filter { ids.contains($0) }
         guard ordered.count >= 2 else { return }

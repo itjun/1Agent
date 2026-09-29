@@ -17,6 +17,10 @@ enum SplitEdge: Equatable {
     }
 }
 
+enum PaneDirection: Equatable {
+    case left, right, up, down
+}
+
 enum SplitAxis: Equatable, Codable {
     /// Left and right.
     case vertical
@@ -154,6 +158,61 @@ enum PaneLayout {
             }
         }
         return nil
+    }
+
+    /// The closest pane on that side that shares some of the current pane's height (left/right) or width (up/down).
+    /// Ties go to the pane that overlaps the most, then to the one further left or further up.
+    /// Nil at the edge of the layout; there is no wrap-around.
+    static func neighbor(of id: UUID, toward direction: PaneDirection, frames: [UUID: CGRect]) -> UUID? {
+        guard let current = frames[id] else { return nil }
+        let tolerance: CGFloat = 2
+        var best: (id: UUID, distance: CGFloat, overlap: CGFloat, leading: CGFloat)?
+        for (candidateID, frame) in frames where candidateID != id {
+            let distance: CGFloat
+            let overlap: CGFloat
+            let leading: CGFloat
+            switch direction {
+            case .left:
+                distance = current.minX - frame.maxX
+                overlap = min(current.maxY, frame.maxY) - max(current.minY, frame.minY)
+                leading = frame.minY
+            case .right:
+                distance = frame.minX - current.maxX
+                overlap = min(current.maxY, frame.maxY) - max(current.minY, frame.minY)
+                leading = frame.minY
+            case .up:
+                distance = current.minY - frame.maxY
+                overlap = min(current.maxX, frame.maxX) - max(current.minX, frame.minX)
+                leading = frame.minX
+            case .down:
+                distance = frame.minY - current.maxY
+                overlap = min(current.maxX, frame.maxX) - max(current.minX, frame.minX)
+                leading = frame.minX
+            }
+            guard distance >= -tolerance, overlap > tolerance else { continue }
+            guard let chosen = best else {
+                best = (candidateID, distance, overlap, leading)
+                continue
+            }
+            if distance < chosen.distance - tolerance {
+                best = (candidateID, distance, overlap, leading)
+                continue
+            }
+            if distance > chosen.distance + tolerance {
+                continue
+            }
+            if overlap > chosen.overlap + tolerance {
+                best = (candidateID, distance, overlap, leading)
+                continue
+            }
+            if overlap < chosen.overlap - tolerance {
+                continue
+            }
+            if leading < chosen.leading {
+                best = (candidateID, distance, overlap, leading)
+            }
+        }
+        return best?.id
     }
 
     static func frames(of node: PaneNode, in rect: CGRect) -> [UUID: CGRect] {
