@@ -393,10 +393,6 @@ final class AppModel: ObservableObject {
             }
             if created.count >= 2 {
                 workspaces = WorkspaceBoard.merge(created, in: workspaces)
-                let layout: WorkspaceLayout = created.count >= 4 ? .grid : .rows
-                if let index = WorkspaceBoard.index(containing: created[0], in: workspaces) {
-                    workspaces[index] = WorkspaceBoard.apply(layout, to: workspaces[index])
-                }
                 sidebarSelection = Set(created)
                 sidebarAnchor = created[0]
                 selectedTabID = created[0]

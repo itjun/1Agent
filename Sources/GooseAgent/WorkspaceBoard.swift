@@ -54,6 +54,14 @@ enum WorkspaceBoard {
         return layouts
     }
 
+    /// Layout for a freshly merged or opened group: two or three stack vertically, four or more form a grid.
+    static func defaultLayout(paneCount: Int) -> WorkspaceLayout {
+        if paneCount >= 4 {
+            return .grid
+        }
+        return .rows
+    }
+
     /// Rebuilds the split tree. Fewer than two panes cannot be a workspace.
     static func arrange(_ ids: [UUID], as layout: WorkspaceLayout) -> PaneNode? {
         guard ids.count >= 2 else { return nil }
@@ -146,7 +154,7 @@ enum WorkspaceBoard {
         return WorkspaceBoard.withoutSingleLeaves(workspaces)
     }
 
-    /// Selected hosts become one new equal-column workspace, in the given order.
+    /// Selected hosts become one new workspace in `defaultLayout`, in the given order.
     /// Fewer than two hosts, or a set that is already exactly one workspace, stays as it is.
     static func merge(_ ids: [UUID], in workspaces: [Workspace]) -> [Workspace] {
         var ordered: [UUID] = []
@@ -163,7 +171,8 @@ enum WorkspaceBoard {
         for id in ordered {
             workspaces = WorkspaceBoard.extract(id, from: workspaces)
         }
-        guard let layout = WorkspaceBoard.arrange(ordered, as: .columns) else { return workspaces }
+        let preferred = WorkspaceBoard.defaultLayout(paneCount: ordered.count)
+        guard let layout = WorkspaceBoard.arrange(ordered, as: preferred) else { return workspaces }
         workspaces.append(Workspace(
             id: UUID(),
             number: WorkspaceBoard.nextNumber(workspaces),
