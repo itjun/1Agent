@@ -26,12 +26,14 @@ run: build
 test:
 	swiftc -o /tmp/goose-ssh-config-test Sources/GooseAgent/SSHConfig.swift Tests/SSHConfigTests.swift
 	/tmp/goose-ssh-config-test
-	swiftc -o /tmp/goose-external-open-test Sources/GooseAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift
+	swiftc -o /tmp/goose-external-open-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Sources/GooseAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift
 	/tmp/goose-external-open-test
 	swiftc -o /tmp/goose-pane-layout-test Sources/GooseAgent/PaneLayout.swift Tests/PaneLayoutTests.swift
 	/tmp/goose-pane-layout-test
 	swiftc -o /tmp/goose-workspace-board-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
 	/tmp/goose-workspace-board-test
+	swiftc -o /tmp/goose-settings-window-frame-test Sources/GooseAgent/SettingsWindowFrame.swift Tests/SettingsWindowFrameTests.swift
+	/tmp/goose-settings-window-frame-test
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

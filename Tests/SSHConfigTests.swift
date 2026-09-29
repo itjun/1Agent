@@ -94,6 +94,17 @@ enum SSHConfigTests {
 
         let missing = SSHConfig.load(from: root.appendingPathComponent("missing"))
         expect(missing.failed && missing.hosts.isEmpty, "missing file fails closed")
+
+        expect(byAlias["beta"]?.source == "extra", "included hosts remember their file name")
+        expect(byAlias["alpha"]?.source == nil, "hosts in the main config have no source group")
+
+        let searched = HostSearch.filter(result.hosts, query: "ga")
+        expect(searched.first?.alias == "gamma", "alias prefix ranks first: \(searched.map(\.alias))")
+        expect(HostSearch.filter(result.hosts, query: "ops").map(\.alias) == ["beta", "gamma"], "user field matches")
+        expect(HostSearch.filter(result.hosts, query: "extra").map(\.alias) == ["beta", "gamma"], "source group matches")
+        expect(HostSearch.filter(result.hosts, query: "qtd").map(\.alias) == ["quoted"], "subsequence matches")
+        expect(HostSearch.filter(result.hosts, query: "zzz").isEmpty, "no match")
+        expect(HostSearch.filter(result.hosts, query: "  ").map(\.alias) == result.hosts.map(\.alias), "blank keeps order")
         print("ok")
     }
 

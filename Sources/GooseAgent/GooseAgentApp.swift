@@ -17,6 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppearanceDriver.shared.reapply()
         GooseAgentFocusRing.install()
         TerminalDefaults.registerBundledFonts()
+        GhosttyRuntime.applyFontSettings()
+        MainWindowManager.shared.attach(model: model)
+        // Reading PATH from a login shell takes a moment; do it now so the first ⌘T does not wait.
+        Task.detached(priority: .utility) { _ = await SSHLaunchEnvironment.shared.get() }
+        model.watchSSHConfig()
         model.restoreLastSession()
         shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
@@ -26,15 +31,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Clicking the Dock icon with every window closed opens a fresh one.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag, model.windows.isEmpty {
+            model.newWindow()
+        }
+        return true
+    }
+
     /// Cmd+D duplicates to the right and Cmd+Shift+D duplicates downward.
     /// Cmd+W closes the selected terminal so the window stays open. Ctrl+D is left for the shell.
+    /// Everything acts on the key window.
     private func handleShortcut(_ event: NSEvent) -> NSEvent? {
-        if event.keyCode == 53, model.draggingTabID != nil {
-            model.endDrag()
+        let window = model.keyWindow
+        if event.keyCode == 53, let window, window.draggingTabID != nil || window.draggingBlock != nil {
+            model.endDrag(in: window)
             return nil
         }
         guard let chord = KeyChord.from(event: event) else { return event }
-        if let handled = switchPane(chord) {
+        if let handled = switchPane(chord, in: window) {
             return handled ? nil : event
         }
         let duplicatesRight = chord == AppShortcuts.chord(for: .duplicateRight)
@@ -48,49 +63,78 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return nil
         }
-        if model.hostPickerPresented {
+        guard let window else { return event }
+        if window.hostPickerPresented {
             if closesTerminal {
-                model.hostPickerPresented = false
+                window.hostPickerPresented = false
             }
             return nil
         }
         if duplicatesRight || duplicatesDown {
-            guard model.selectedTabID != nil else { return event }
-            model.duplicateFocused(downward: duplicatesDown)
+            guard window.selectedTabID != nil else { return event }
+            model.duplicateFocused(downward: duplicatesDown, in: window)
             return nil
         }
-        guard model.selectedTabID != nil else { return event }
-        model.closeSelectedTab()
+        // ⌘W with nothing selected closes the window itself, like any other Mac app.
+        guard window.selectedTabID != nil else {
+            MainWindowManager.shared.close(window)
+            return nil
+        }
+        model.closeSelectedTab(in: window)
         return nil
     }
 
     /// Nil when the chord is not a pane-switching shortcut. False lets the key through.
-    private func switchPane(_ chord: KeyChord) -> Bool? {
-        let paneShortcuts: [AppShortcutID] = [.nextPane, .previousPane, .paneLeft, .paneRight, .paneUp, .paneDown]
+    private func switchPane(_ chord: KeyChord, in window: WindowState?) -> Bool? {
+        let paneShortcuts: [AppShortcutID] = [
+            .nextPane, .previousPane, .paneLeft, .paneRight, .paneUp, .paneDown,
+            .movePaneLeft, .movePaneRight, .movePaneUp, .movePaneDown,
+        ]
         guard paneShortcuts.contains(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
-        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || model.hostPickerPresented {
+        guard let window else { return false }
+        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || window.hostPickerPresented {
             return false
         }
+        // Moving comes first: it shares the arrow keys with focusing and adds Shift.
+        if chord == AppShortcuts.chord(for: .movePaneLeft) {
+            return model.movePane(toward: .left, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .movePaneRight) {
+            return model.movePane(toward: .right, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .movePaneUp) {
+            return model.movePane(toward: .up, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .movePaneDown) {
+            return model.movePane(toward: .down, in: window)
+        }
         if chord == AppShortcuts.chord(for: .nextPane) {
-            return model.focusAdjacentPane(forward: true)
+            return model.focusAdjacentPane(forward: true, in: window)
         }
         if chord == AppShortcuts.chord(for: .previousPane) {
-            return model.focusAdjacentPane(forward: false)
+            return model.focusAdjacentPane(forward: false, in: window)
         }
         if chord == AppShortcuts.chord(for: .paneLeft) {
-            return model.focusPane(toward: .left)
+            return model.focusPane(toward: .left, in: window)
         }
         if chord == AppShortcuts.chord(for: .paneRight) {
-            return model.focusPane(toward: .right)
+            return model.focusPane(toward: .right, in: window)
         }
         if chord == AppShortcuts.chord(for: .paneUp) {
-            return model.focusPane(toward: .up)
+            return model.focusPane(toward: .up, in: window)
         }
-        return model.focusPane(toward: .down)
+        return model.focusPane(toward: .down, in: window)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    /// Quitting closes every window; mark it first so those closes keep the terminals in the snapshot.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        model.isQuitting = true
+        model.persistSessionIfReady()
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -104,22 +148,26 @@ struct GooseAgentApp: App {
 
     init() {
         AppLanguage.synchronize()
-        TerminalAppearance.migrateLegacyThemeIfNeeded()
-        TerminalThemeOption.migrateIfNeeded()
+        TerminalThemeChoice.migrateIfNeeded()
     }
 
+    /// Main windows are AppKit windows run by `MainWindowManager`, so several can share one model.
+    /// The Settings scene only exists to give the app a scene; ⌘, is replaced below.
     var body: some Scene {
-        Window(String(localized: "1Agent"), id: "main") {
-            RootView(model: appDelegate.model)
+        Settings {
+            EmptyView()
         }
-        .defaultSize(width: 1100, height: 720)
-        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Tab") { appDelegate.model.newTab() }
                     .keyboardShortcut(
                         AppShortcuts.chord(for: .newTab).keyEquivalent,
                         modifiers: AppShortcuts.chord(for: .newTab).modifiers
+                    )
+                Button("New Window") { appDelegate.model.newWindow() }
+                    .keyboardShortcut(
+                        AppShortcuts.chord(for: .newWindow).keyEquivalent,
+                        modifiers: AppShortcuts.chord(for: .newWindow).modifiers
                     )
             }
             CommandGroup(replacing: .appSettings) {

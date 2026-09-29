@@ -42,7 +42,7 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
         NSPrincipalClass: NSApplication
-        NSHumanReadableCopyright: "© 2026 MOE AI LLC"
+        NSHumanReadableCopyright: "© 2026 eachann1024"
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - en

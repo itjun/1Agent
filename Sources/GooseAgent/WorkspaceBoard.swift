@@ -54,6 +54,17 @@ enum WorkspaceBoard {
         return layouts
     }
 
+    /// Edge for the second and later terminals of a multi-drop, so they line up after the first
+    /// one on the same axis instead of nesting inside it.
+    static func continuation(of edge: SplitEdge) -> SplitEdge {
+        switch edge {
+        case .left, .right, .center:
+            return .right
+        case .top, .bottom:
+            return .bottom
+        }
+    }
+
     /// Layout for a freshly merged or opened group: two or three stack vertically, four or more form a grid.
     static func defaultLayout(paneCount: Int) -> WorkspaceLayout {
         if paneCount >= 4 {

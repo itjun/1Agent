@@ -3,6 +3,7 @@ import SwiftUI
 
 enum AppShortcutID: String, CaseIterable, Identifiable {
     case newTab
+    case newWindow
     case duplicateRight
     case duplicateDown
     case closeTab
@@ -13,6 +14,10 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case paneRight
     case paneUp
     case paneDown
+    case movePaneLeft
+    case movePaneRight
+    case movePaneUp
+    case movePaneDown
 
     var id: String { rawValue }
 
@@ -20,6 +25,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     var defaultChord: KeyChord {
         switch self {
         case .newTab: return KeyChord(key: "t", modifiers: .command)
+        case .newWindow: return KeyChord(key: "n", modifiers: [.command, .shift])
         case .duplicateRight: return KeyChord(key: "d", modifiers: .command)
         case .duplicateDown: return KeyChord(key: "d", modifiers: [.command, .shift])
         case .closeTab: return KeyChord(key: "w", modifiers: .command)
@@ -30,6 +36,10 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .paneRight: return KeyChord(key: KeyChord.rightArrow, modifiers: [.command, .option])
         case .paneUp: return KeyChord(key: KeyChord.upArrow, modifiers: [.command, .option])
         case .paneDown: return KeyChord(key: KeyChord.downArrow, modifiers: [.command, .option])
+        case .movePaneLeft: return KeyChord(key: KeyChord.leftArrow, modifiers: [.command, .option, .shift])
+        case .movePaneRight: return KeyChord(key: KeyChord.rightArrow, modifiers: [.command, .option, .shift])
+        case .movePaneUp: return KeyChord(key: KeyChord.upArrow, modifiers: [.command, .option, .shift])
+        case .movePaneDown: return KeyChord(key: KeyChord.downArrow, modifiers: [.command, .option, .shift])
         }
     }
 }

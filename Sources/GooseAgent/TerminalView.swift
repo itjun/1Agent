@@ -11,33 +11,7 @@ enum TerminalDefaults {
     static let defaultLineSpacing: Double = 1
     static let minFontSize: Double = 10
     static let maxFontSize: Double = 28
-    static let darkBackgroundHex = "#101012"
-    static let darkForegroundHex = "#D6D6D6"
-    static let lightBackgroundHex = "#FFFFFF"
-    static let lightForegroundHex = "#3A3A3A"
     static let symbolFallbackFamily = "Symbols Nerd Font Mono"
-
-    static let darkPalette: [(red: Int, green: Int, blue: Int)] = [
-        (0, 0, 0), (194, 54, 33), (37, 188, 36), (173, 173, 39),
-        (73, 46, 225), (211, 56, 211), (51, 187, 200), (203, 204, 205),
-        (129, 131, 131), (252, 57, 31), (49, 231, 34), (234, 236, 35),
-        (88, 51, 255), (249, 53, 248), (20, 240, 240), (233, 235, 235),
-    ]
-
-    static let lightPalette: [(red: Int, green: Int, blue: Int)] = darkPalette.map { color in
-        let flipped = LightTerminalANSIAdapter.lightRGB(
-            red: color.red,
-            green: color.green,
-            blue: color.blue
-        )
-        let originalContrast = LightTerminalANSIAdapter.contrastOnWhite(
-            red: color.red, green: color.green, blue: color.blue
-        )
-        let flippedContrast = LightTerminalANSIAdapter.contrastOnWhite(
-            red: flipped.red, green: flipped.green, blue: flipped.blue
-        )
-        return originalContrast >= flippedContrast ? color : flipped
-    }
 
     static func registerBundledFonts() {
         guard let url = Bundle.main.url(forResource: "SymbolsNerdFontMono-Regular", withExtension: "ttf") else { return }
@@ -136,9 +110,11 @@ enum TerminalFontSettings {
 enum GhosttyRuntime {
     static let controller = TerminalController(
         configSource: appearanceConfigSource,
-        theme: builtinTheme()
+        theme: selectedThemes()
     )
 
+    /// The two marker files make Ghostty treat light and dark as distinct themes, so the
+    /// appearance switch reloads colors. The colors themselves come from `TerminalTheme`.
     static var appearanceConfigSource: TerminalController.ConfigSource {
         guard let light = Bundle.main.url(forResource: "TerminalLight", withExtension: "ghostty"),
               let dark = Bundle.main.url(forResource: "TerminalDark", withExtension: "ghostty") else {
@@ -148,17 +124,22 @@ enum GhosttyRuntime {
             + "\ntheme = light:\(light.path),dark:\(dark.path)\n")
     }
 
+    /// Called once at launch and again whenever the font settings change. Not per view update.
     static func applyFontSettings() {
         controller.setTerminalConfiguration(fontConfiguration())
     }
 
     /// Light and night slots are chosen independently; Ghostty switches with the appearance.
     static func applySelectedThemes() {
-        TerminalThemeOption.migrateIfNeeded()
-        let builtin = builtinTheme()
-        let light = TerminalThemeOption.storedLight().terminalConfiguration() ?? builtin.light
-        let dark = TerminalThemeOption.storedDark().terminalConfiguration() ?? builtin.dark
-        controller.setTheme(TerminalTheme(light: light, dark: dark))
+        controller.setTheme(selectedThemes())
+    }
+
+    private static func selectedThemes() -> TerminalTheme {
+        TerminalThemeChoice.migrateIfNeeded()
+        return TerminalTheme(
+            light: ThemePreview.shared.effectiveLight().terminalConfiguration(),
+            dark: ThemePreview.shared.effectiveDark().terminalConfiguration()
+        )
     }
 
     private static func fontConfiguration() -> TerminalConfiguration {
@@ -182,582 +163,6 @@ enum GhosttyRuntime {
         }
     }
 
-    private static func builtinTheme() -> TerminalTheme {
-        let dark = TerminalConfiguration { builder in
-            builder.withBackground(TerminalDefaults.darkBackgroundHex)
-            builder.withForeground(TerminalDefaults.darkForegroundHex)
-            builder.withSelectionBackground(Theme.accentHex(dark: true))
-            builder.withSelectionForeground(TerminalDefaults.darkBackgroundHex)
-            for (index, color) in TerminalDefaults.darkPalette.enumerated() {
-                builder.withPalette(index, color: hex(color))
-            }
-        }
-        let light = TerminalConfiguration { builder in
-            builder.withBackground(TerminalDefaults.lightBackgroundHex)
-            builder.withForeground(TerminalDefaults.lightForegroundHex)
-            builder.withSelectionBackground(Theme.accentHex(dark: false))
-            builder.withSelectionForeground(TerminalDefaults.lightBackgroundHex)
-            for (index, color) in TerminalDefaults.lightPalette.enumerated() {
-                builder.withPalette(index, color: hex(color))
-            }
-        }
-        return TerminalTheme(light: light, dark: dark)
-    }
-
-    private static func hex(_ color: (red: Int, green: Int, blue: Int)) -> String {
-        String(format: "#%02X%02X%02X", color.red, color.green, color.blue)
-    }
-}
-
-extension GhosttyThemeDefinition {
-    func terminalConfiguration() -> TerminalConfiguration {
-        TerminalConfiguration { builder in
-            builder.withBackground(Self.ghosttyHex(background))
-            builder.withForeground(Self.ghosttyHex(foreground))
-            if let cursorColor { builder.withCursorColor(Self.ghosttyHex(cursorColor)) }
-            if let cursorText { builder.withCursorText(Self.ghosttyHex(cursorText)) }
-            if let selectionBackground { builder.withSelectionBackground(Self.ghosttyHex(selectionBackground)) }
-            if let selectionForeground { builder.withSelectionForeground(Self.ghosttyHex(selectionForeground)) }
-            for (index, color) in palette.sorted(by: { $0.key < $1.key }) {
-                builder.withPalette(index, color: Self.ghosttyHex(color))
-            }
-        }
-    }
-
-    static func ghosttyHex(_ raw: String) -> String {
-        raw.hasPrefix("#") ? raw : "#\(raw)"
-    }
-
-    /// Light backgrounds belong in the white-theme list. Night themes stay in the other list.
-    var isLightBackground: Bool {
-        Self.relativeLuminance(of: background) >= 0.45
-    }
-
-    private static func relativeLuminance(of raw: String) -> Double {
-        var hex = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if hex.hasPrefix("#") { hex.removeFirst() }
-        guard hex.count == 6, let value = Int(hex, radix: 16) else { return 0 }
-        func channel(_ component: Int) -> Double {
-            let s = Double(component) / 255
-            return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
-        }
-        let red = channel((value >> 16) & 0xFF)
-        let green = channel((value >> 8) & 0xFF)
-        let blue = channel(value & 0xFF)
-        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
-    }
-}
-
-enum TerminalAppearance: String, CaseIterable, Identifiable {
-    case system
-    case light
-    case dark
-
-    static let storageKey = "appearance.colorScheme"
-    static let lightThemeKey = "appearance.terminalTheme.light"
-    static let darkThemeKey = "appearance.terminalTheme.dark"
-    /// Previous single-theme choice, copied into the matching light or dark slot once.
-    static let legacyThemeKey = "appearance.terminalTheme"
-
-    var id: String { rawValue }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .system: "Follow System"
-        case .light: "Light"
-        case .dark: "Dark"
-        }
-    }
-
-    /// Follow System must not pass `nil` to `preferredColorScheme`. Inside a
-    /// `NavigationSplitView`, clearing the preference leaves the last light or
-    /// dark override in place, so the window stays dark while the system is light.
-    func resolvesDark() -> Bool {
-        switch self {
-        case .system: TerminalAppearance.systemIsDark
-        case .light: false
-        case .dark: true
-        }
-    }
-
-    static func stored(defaults: UserDefaults = .standard) -> TerminalAppearance {
-        let raw = defaults.string(forKey: TerminalAppearance.storageKey) ?? TerminalAppearance.system.rawValue
-        return TerminalAppearance(rawValue: raw) ?? .system
-    }
-
-    /// Global interface style. Missing key means light. The app's own override
-    /// must not be consulted here, or Follow System would read itself.
-    static var systemIsDark: Bool {
-        let domain = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)
-        let style = domain?["AppleInterfaceStyle"] as? String
-        return style == "Dark"
-    }
-
-    static func appKitAppearance(isDark: Bool) -> NSAppearance? {
-        if isDark {
-            return NSAppearance(named: .darkAqua)
-        }
-        return NSAppearance(named: .aqua)
-    }
-
-    static func applyAppKit(_ mode: TerminalAppearance) {
-        let desired = TerminalAppearance.appKitAppearance(isDark: mode.resolvesDark())
-        // Compare identity. Reading NSAppearance.name traps on macOS 27 when the
-        // current appearance has no public name.
-        if NSApp.appearance !== desired {
-            NSApp.appearance = desired
-        }
-        for window in NSApp.windows {
-            if window.appearance !== desired {
-                window.appearance = desired
-            }
-        }
-    }
-
-    static func migrateLegacyThemeIfNeeded() {
-        let defaults = UserDefaults.standard
-        let legacy = defaults.string(forKey: legacyThemeKey) ?? ""
-        guard !legacy.isEmpty, let theme = GhosttyThemeCatalog.theme(named: legacy) else { return }
-        let key = theme.isLightBackground ? lightThemeKey : darkThemeKey
-        if (defaults.string(forKey: key) ?? "").isEmpty {
-            defaults.set(legacy, forKey: key)
-        }
-        defaults.removeObject(forKey: legacyThemeKey)
-    }
-}
-
-/// Publishes the appearance the windows should use, including Follow System.
-@MainActor
-final class AppearanceDriver: ObservableObject {
-    static let shared = AppearanceDriver()
-
-    @Published private(set) var isDark: Bool
-    private let themeWatcher = SystemThemeWatcher()
-
-    private init() {
-        let mode = TerminalAppearance.stored()
-        isDark = mode.resolvesDark()
-        themeWatcher.start()
-    }
-
-    var interfaceColorScheme: ColorScheme {
-        if isDark {
-            return .dark
-        }
-        return .light
-    }
-
-    func reapply() {
-        let mode = TerminalAppearance.stored()
-        TerminalAppearance.applyAppKit(mode)
-        let dark = mode.resolvesDark()
-        if dark != isDark {
-            isDark = dark
-        }
-    }
-}
-
-/// System Settings posts this on the distributed center when light/dark changes.
-private final class SystemThemeWatcher: NSObject {
-    func start() {
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(systemThemeChanged(_:)),
-            name: Notification.Name("AppleInterfaceThemeChangedNotification"),
-            object: nil,
-            suspensionBehavior: .deliverImmediately
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(systemThemeChanged(_:)),
-            name: NSApplication.didBecomeActiveNotification,
-            object: nil
-        )
-    }
-
-    @objc private func systemThemeChanged(_ notification: Notification) {
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated {
-                AppearanceDriver.shared.reapply()
-            }
-        }
-    }
-}
-
-/// Codex Absolutely colors. `surface` is the window, `ink` is the text, `accent` is the highlight.
-struct AbsolutelyTheme {
-    var surface: String
-    var ink: String
-    var accent: String
-    var added: String
-    var removed: String
-
-    static let light = AbsolutelyTheme(
-        surface: "#f9f9f7",
-        ink: "#2d2d2b",
-        accent: "#cc7d5e",
-        added: "#00c853",
-        removed: "#ff5f38"
-    )
-
-    static let dark = AbsolutelyTheme(
-        surface: "#2d2d2b",
-        ink: "#f9f9f7",
-        accent: "#cc7d5e",
-        added: "#00c853",
-        removed: "#ff5f38"
-    )
-
-    func terminalConfiguration() -> TerminalConfiguration {
-        let warm = "#8a7064"
-        let brightWarm = "#d49278"
-        return TerminalConfiguration { builder in
-            builder.withBackground(surface)
-            builder.withForeground(ink)
-            builder.withCursorColor(accent)
-            builder.withCursorText("#2d2d2b")
-            builder.withSelectionBackground(accent)
-            builder.withSelectionForeground(surface)
-            let colors = [
-                ink, removed, added, accent, warm, removed, added, ink,
-                warm, removed, added, brightWarm, warm, removed, added, surface,
-            ]
-            for (index, color) in colors.enumerated() {
-                builder.withPalette(index, color: color)
-            }
-        }
-    }
-
-    func chrome() -> WindowChrome {
-        WindowChrome(theme: GhosttyThemeDefinition(
-            name: "Absolutely",
-            background: surface,
-            foreground: ink,
-            cursorColor: accent,
-            palette: [1: removed, 2: added, 4: accent]
-        ))
-    }
-}
-
-/// Claude Paper and Claude Ink use a matched low-saturation ANSI palette.
-struct ClaudeTerminalTheme {
-    var name: String
-    var surface: String
-    var ink: String
-    var accent: String
-    var selection: String
-    var selectionInk: String
-    var palette: [String]
-
-    static let paper = ClaudeTerminalTheme(
-        name: "Claude Paper",
-        surface: "#F4F0E8",
-        ink: "#302E2B",
-        accent: "#C96F4A",
-        selection: "#DDD6CA",
-        selectionInk: "#302E2B",
-        palette: [
-            "#3A3835", "#B95747", "#607A5A", "#A67C3D",
-            "#4F718C", "#886A83", "#527D78", "#D8D2C7",
-            "#77716A", "#D06F57", "#78916E", "#BC9250",
-            "#6689A3", "#A17F9A", "#6B9891", "#FAF7F1",
-        ]
-    )
-
-    static let dark = ClaudeTerminalTheme(
-        name: "Claude Ink",
-        surface: "#242321",
-        ink: "#E8E3DA",
-        accent: "#D97757",
-        selection: "#48433D",
-        selectionInk: "#E8E3DA",
-        palette: [
-            "#302E2B", "#D06B5B", "#819B78", "#C59A55",
-            "#7195AE", "#A987A3", "#72A09A", "#D8D2C7",
-            "#77716A", "#E07B64", "#96AD8C", "#D4AA67",
-            "#88ABC2", "#BE9AB6", "#89B5AE", "#F6F1E9",
-        ]
-    )
-
-    func terminalConfiguration() -> TerminalConfiguration {
-        TerminalConfiguration { builder in
-            builder.withBackground(surface)
-            builder.withForeground(ink)
-            builder.withCursorColor(accent)
-            builder.withSelectionBackground(selection)
-            builder.withSelectionForeground(selectionInk)
-            for (index, color) in palette.enumerated() {
-                builder.withPalette(index, color: color)
-            }
-        }
-    }
-
-    func chrome() -> WindowChrome {
-        let definition = GhosttyThemeDefinition(
-            name: name,
-            background: surface,
-            foreground: ink,
-            cursorColor: accent,
-            selectionBackground: selection,
-            selectionForeground: selectionInk,
-            palette: Dictionary(uniqueKeysWithValues: palette.enumerated().map { ($0.offset, $0.element) })
-        )
-        return WindowChrome(theme: definition, preferredAccent: accent)
-    }
-}
-
-/// Raycast's paired terminal colors, with its brand red used for the cursor and selection accent.
-struct RaycastTerminalTheme {
-    var name: String
-    var surface: String
-    var ink: String
-    var accent: String
-    var selection: String
-    var selectionInk: String
-    var palette: [String]
-
-    static let light = RaycastTerminalTheme(
-        name: "Raycast Light",
-        surface: "#FFFFFF",
-        ink: "#000000",
-        accent: "#B12424",
-        selection: "#F5DDDD",
-        selectionInk: "#000000",
-        palette: [
-            "#000000", "#B12424", "#006B4F", "#F8A300",
-            "#138AF2", "#9A1B6E", "#3EB8BF", "#BFBFBF",
-            "#000000", "#B12424", "#006B4F", "#F8A300",
-            "#138AF2", "#9A1B6E", "#3EB8BF", "#FFFFFF",
-        ]
-    )
-
-    static let dark = RaycastTerminalTheme(
-        name: "Raycast Dark",
-        surface: "#151515",
-        ink: "#FFFFFF",
-        accent: "#FF6363",
-        selection: "#462626",
-        selectionInk: "#FFFFFF",
-        palette: [
-            "#000000", "#FF6363", "#59D499", "#FFC531",
-            "#56C2FF", "#CF2F98", "#52EEE5", "#FFFFFF",
-            "#4C4C4C", "#FF6363", "#59D499", "#FFC531",
-            "#56C2FF", "#CF2F98", "#52EEE5", "#FFFFFF",
-        ]
-    )
-
-    func terminalConfiguration() -> TerminalConfiguration {
-        TerminalConfiguration { builder in
-            builder.withBackground(surface)
-            builder.withForeground(ink)
-            builder.withCursorColor(accent)
-            builder.withSelectionBackground(selection)
-            builder.withSelectionForeground(selectionInk)
-            for (index, color) in palette.enumerated() {
-                builder.withPalette(index, color: color)
-            }
-        }
-    }
-
-    func chrome() -> WindowChrome {
-        let definition = GhosttyThemeDefinition(
-            name: name,
-            background: surface,
-            foreground: ink,
-            cursorColor: accent,
-            selectionBackground: selection,
-            selectionForeground: selectionInk,
-            palette: Dictionary(uniqueKeysWithValues: palette.enumerated().map { ($0.offset, $0.element) })
-        )
-        return WindowChrome(theme: definition, preferredAccent: accent)
-    }
-}
-
-/// One selectable terminal palette for either the light or dark appearance slot.
-enum TerminalThemeOption: String, CaseIterable, Identifiable {
-    case claudePaper = "Claude Paper"
-    case raycastLight = "Raycast Light"
-    case absolutelyLight = "Absolutely Light"
-    case githubLight = "GitHub Light Default"
-    case ayuLight = "Ayu Light"
-    case oneHalfLight = "One Half Light"
-
-    case claudeInk = "Claude Ink"
-    case raycastDark = "Raycast Dark"
-    case absolutelyDark = "Absolutely Dark"
-    case githubDark = "GitHub Dark Default"
-    case ayu = "Ayu"
-    case oneHalfDark = "One Half Dark"
-
-    static let defaultLight = TerminalThemeOption.claudePaper
-    static let defaultDark = TerminalThemeOption.claudeInk
-    static let slotsMigratedKey = "appearance.themeSlotsMigrated"
-
-    static let allowedLight: [TerminalThemeOption] = [
-        .claudePaper, .raycastLight, .absolutelyLight, .githubLight, .ayuLight, .oneHalfLight,
-    ]
-
-    static let allowedDark: [TerminalThemeOption] = [
-        .claudeInk, .raycastDark, .absolutelyDark, .githubDark, .ayu, .oneHalfDark,
-    ]
-
-    var id: String { rawValue }
-
-    var title: LocalizedStringKey { LocalizedStringKey(rawValue) }
-
-    var isLight: Bool {
-        switch self {
-        case .claudePaper, .raycastLight, .absolutelyLight, .githubLight, .ayuLight, .oneHalfLight:
-            true
-        case .claudeInk, .raycastDark, .absolutelyDark, .githubDark, .ayu, .oneHalfDark:
-            false
-        }
-    }
-
-    var previewSurface: String {
-        switch self {
-        case .claudePaper: ClaudeTerminalTheme.paper.surface
-        case .claudeInk: ClaudeTerminalTheme.dark.surface
-        case .raycastLight: RaycastTerminalTheme.light.surface
-        case .raycastDark: RaycastTerminalTheme.dark.surface
-        case .absolutelyLight: AbsolutelyTheme.light.surface
-        case .absolutelyDark: AbsolutelyTheme.dark.surface
-        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
-            GhosttyThemeCatalog.theme(named: rawValue)?.background ?? (isLight ? "#FFFFFF" : "#101012")
-        }
-    }
-
-    var previewInk: String {
-        switch self {
-        case .claudePaper: ClaudeTerminalTheme.paper.ink
-        case .claudeInk: ClaudeTerminalTheme.dark.ink
-        case .raycastLight: RaycastTerminalTheme.light.ink
-        case .raycastDark: RaycastTerminalTheme.dark.ink
-        case .absolutelyLight: AbsolutelyTheme.light.ink
-        case .absolutelyDark: AbsolutelyTheme.dark.ink
-        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
-            GhosttyThemeCatalog.theme(named: rawValue)?.foreground ?? (isLight ? "#3A3A3A" : "#D6D6D6")
-        }
-    }
-
-    func terminalConfiguration() -> TerminalConfiguration? {
-        switch self {
-        case .claudePaper: return ClaudeTerminalTheme.paper.terminalConfiguration()
-        case .claudeInk: return ClaudeTerminalTheme.dark.terminalConfiguration()
-        case .raycastLight: return RaycastTerminalTheme.light.terminalConfiguration()
-        case .raycastDark: return RaycastTerminalTheme.dark.terminalConfiguration()
-        case .absolutelyLight: return AbsolutelyTheme.light.terminalConfiguration()
-        case .absolutelyDark: return AbsolutelyTheme.dark.terminalConfiguration()
-        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
-            return GhosttyThemeCatalog.theme(named: rawValue)?.terminalConfiguration()
-        }
-    }
-
-    func chrome() -> WindowChrome? {
-        switch self {
-        case .claudePaper: return ClaudeTerminalTheme.paper.chrome()
-        case .claudeInk: return ClaudeTerminalTheme.dark.chrome()
-        case .raycastLight: return RaycastTerminalTheme.light.chrome()
-        case .raycastDark: return RaycastTerminalTheme.dark.chrome()
-        case .absolutelyLight: return AbsolutelyTheme.light.chrome()
-        case .absolutelyDark: return AbsolutelyTheme.dark.chrome()
-        case .githubLight, .ayuLight, .oneHalfLight, .githubDark, .ayu, .oneHalfDark:
-            if let theme = GhosttyThemeCatalog.theme(named: rawValue) {
-                return WindowChrome(theme: theme)
-            }
-            return nil
-        }
-    }
-
-    static func from(raw: String?) -> TerminalThemeOption? {
-        guard let raw, !raw.isEmpty else { return nil }
-        if let option = TerminalThemeOption(rawValue: raw) { return option }
-        // Older Absolutely chrome used a shared name without Light/Dark suffix.
-        if raw == "Absolutely" { return .absolutelyLight }
-        return nil
-    }
-
-    static func storedLight(defaults: UserDefaults = .standard) -> TerminalThemeOption {
-        migrateIfNeeded(defaults: defaults)
-        let raw = defaults.string(forKey: TerminalAppearance.lightThemeKey)
-        if let option = from(raw: raw), option.isLight { return option }
-        return .defaultLight
-    }
-
-    static func storedDark(defaults: UserDefaults = .standard) -> TerminalThemeOption {
-        migrateIfNeeded(defaults: defaults)
-        let raw = defaults.string(forKey: TerminalAppearance.darkThemeKey)
-        if let option = from(raw: raw), !option.isLight { return option }
-        return .defaultDark
-    }
-
-    static func migrateIfNeeded(defaults: UserDefaults = .standard) {
-        if defaults.bool(forKey: slotsMigratedKey) {
-            TerminalThemeOption.repairInvalidSlots(defaults: defaults)
-            return
-        }
-
-        if let familyRaw = defaults.string(forKey: TerminalThemeFamily.storageKey), !familyRaw.isEmpty {
-            let family = TerminalThemeFamily.from(raw: familyRaw)
-            defaults.set(family.lightOption.rawValue, forKey: TerminalAppearance.lightThemeKey)
-            defaults.set(family.darkOption.rawValue, forKey: TerminalAppearance.darkThemeKey)
-        } else {
-            TerminalThemeOption.repairInvalidSlots(defaults: defaults)
-        }
-        defaults.set(true, forKey: slotsMigratedKey)
-    }
-
-    private static func repairInvalidSlots(defaults: UserDefaults) {
-        let lightRaw = defaults.string(forKey: TerminalAppearance.lightThemeKey) ?? ""
-        if from(raw: lightRaw)?.isLight != true {
-            defaults.set(defaultLight.rawValue, forKey: TerminalAppearance.lightThemeKey)
-        }
-        let darkRaw = defaults.string(forKey: TerminalAppearance.darkThemeKey) ?? ""
-        if let option = from(raw: darkRaw), !option.isLight {
-            // Dark slot already has a valid night theme.
-        } else {
-            defaults.set(defaultDark.rawValue, forKey: TerminalAppearance.darkThemeKey)
-        }
-    }
-}
-
-/// Legacy paired families. Kept so existing `appearance.themeFamily` values migrate into slots.
-enum TerminalThemeFamily: String, CaseIterable {
-    case claude
-    case raycast
-    case absolutely
-    case github
-    case ayu
-    case oneHalf
-
-    static let storageKey = "appearance.themeFamily"
-
-    var lightOption: TerminalThemeOption {
-        switch self {
-        case .claude: .claudePaper
-        case .raycast: .raycastLight
-        case .absolutely: .absolutelyLight
-        case .github: .githubLight
-        case .ayu: .ayuLight
-        case .oneHalf: .oneHalfLight
-        }
-    }
-
-    var darkOption: TerminalThemeOption {
-        switch self {
-        case .claude: .claudeInk
-        case .raycast: .raycastDark
-        case .absolutely: .absolutelyDark
-        case .github: .githubDark
-        case .ayu: .ayu
-        case .oneHalf: .oneHalfDark
-        }
-    }
-
-    static func from(raw: String) -> TerminalThemeFamily {
-        if raw == "atomOne" || raw == "absolutely" { return .absolutely }
-        return TerminalThemeFamily(rawValue: raw) ?? .claude
-    }
 }
 
 /// `ssh` copies `TERM` from its own environment onto the remote pty.
@@ -772,27 +177,40 @@ private func sshChildEnvironment(_ commandEnvironment: [String]) -> [String] {
     return environment
 }
 
+/// The command a terminal runs, kept so the same session can start it again after a disconnect.
+struct TerminalLaunch: Equatable {
+    var executable: String
+    var args: [String]
+    var environment: [String]
+    var directory: String?
+}
+
+/// Owns one Ghostty session and the child process behind it. The process can be replaced
+/// (reconnect) while the session, and with it the scrollback on screen, stays the same.
 final class TerminalProcessHost {
+    /// Holds the current process so the session's `@Sendable` closures can follow a replacement.
+    private final class ProcessBox: @unchecked Sendable {
+        var process = TerminalProcess()
+    }
+
     let session: InMemoryTerminalSession
-    let process = TerminalProcess()
-    private let adapterLock = NSLock()
-    private var lightAdapter: LightTerminalANSIAdapter?
-    private var processEnded = false
-    private var outputDrained = false
-    private var ghosttyNotified = false
-    private var processExitCode: Int32?
+    private let box = ProcessBox()
+    private var launch: TerminalLaunch?
     private var startedAt: TimeInterval = 0
 
-    var onExit: ((Int32?) -> Void)?
+    var process: TerminalProcess { box.process }
+
+    /// Exit code and how long the process lived, in seconds.
+    var onExit: ((Int32?, TimeInterval) -> Void)?
 
     init() {
-        let process = self.process
+        let box = self.box
         session = InMemoryTerminalSession(
-            write: { data in process.write(data) },
+            write: { data in box.process.write(data) },
             resize: { viewport in
                 // Ignore park/collapse sizes so a hidden tab never reflows the PTY to 1×1.
                 guard viewport.columns >= 2, viewport.rows >= 2 else { return }
-                process.resize(
+                box.process.resize(
                     columns: viewport.columns,
                     rows: viewport.rows,
                     widthPixels: viewport.widthPixels,
@@ -801,90 +219,90 @@ final class TerminalProcessHost {
             },
             suppressesPixelOnlyResizes: true
         )
-        process.onOutput = { [weak self] data in self?.receiveOutput(data) }
-        process.onOutputEnd = { [weak self] in
-            DispatchQueue.main.async { [weak self] in
-                self?.outputDrained = true
-                self?.finishGhosttyIfReady()
-            }
-        }
-        process.onExit = { [weak self] code in
-            guard let self else { return }
-            self.processExitCode = code
-            self.processEnded = true
-            self.finishGhosttyIfReady()
-            self.onExit?(code)
-        }
     }
 
-    func start(executable: String, args: [String], environment: [String], directory: String? = nil) {
-        startedAt = ProcessInfo.processInfo.systemUptime
-        process.start(
-            executable: executable,
-            args: args,
-            environment: sshChildEnvironment(environment),
-            directory: directory
-        )
+    func start(_ launch: TerminalLaunch) {
+        self.launch = launch
+        startProcess(launch)
     }
+
+    /// Prints a dim divider into the same terminal and starts the command again.
+    /// Nothing on screen is lost; the new connection continues below the old output.
+    func restart(notice: String) {
+        guard let launch else { return }
+        process.terminate()
+        session.receive("\r\n\u{1b}[2m— \(notice) —\u{1b}[0m\r\n")
+        startProcess(launch)
+    }
+
+    var lastLaunch: TerminalLaunch? { launch }
 
     func terminate() {
-        ghosttyNotified = true
         process.terminate()
     }
 
-    private func finishGhosttyIfReady() {
-        guard processEnded, outputDrained, !ghosttyNotified else { return }
-        ghosttyNotified = true
-        let elapsed = ProcessInfo.processInfo.systemUptime - startedAt
-        session.finish(
-            exitCode: UInt32(processExitCode ?? 1),
-            runtimeMilliseconds: UInt64(max(0, elapsed * 1_000))
-        )
-    }
-
-    func setLightColorsEnabled(_ enabled: Bool) {
-        adapterLock.lock()
-        lightAdapter = enabled ? LightTerminalANSIAdapter() : nil
-        adapterLock.unlock()
-    }
-
-    private func receiveOutput(_ data: Data) {
-        adapterLock.lock()
-        if var adapter = lightAdapter {
-            let transformed = adapter.transform([UInt8](data)[...])
-            lightAdapter = adapter
-            adapterLock.unlock()
-            if !transformed.isEmpty { session.receive(Data(transformed)) }
-        } else {
-            adapterLock.unlock()
-            session.receive(data)
+    private func startProcess(_ launch: TerminalLaunch) {
+        let process = TerminalProcess()
+        // PTY bytes go straight to Ghostty. No rewriting in between.
+        process.onOutput = { [session] data in session.receive(data) }
+        process.onExit = { [weak self, weak process] code in
+            guard let self, let process, process === self.box.process else { return }
+            let lived = ProcessInfo.processInfo.systemUptime - self.startedAt
+            self.onExit?(code, lived)
         }
+        box.process = process
+        startedAt = ProcessInfo.processInfo.systemUptime
+        process.start(
+            executable: launch.executable,
+            args: launch.args,
+            environment: sshChildEnvironment(launch.environment),
+            directory: launch.directory
+        )
     }
 }
 
+/// Owns every live terminal view. A view is created the first time a window shows its session and
+/// stays alive until the tab closes, so it can move between panes and windows without the ssh
+/// process dying with a SwiftUI teardown.
 @MainActor
 enum SSHTerminalRegistry {
-    private struct WeakView { weak var view: SSHTerminalNSView? }
-    private static var views: [String: WeakView] = [:]
+    private static var views: [String: SSHTerminalNSView] = [:]
 
-    static func register(_ view: SSHTerminalNSView, for id: String) {
-        views[id] = WeakView(view: view)
+    /// The terminal for this session, made on first use.
+    static func view(for id: String, make: () -> SSHTerminalNSView) -> SSHTerminalNSView {
+        if let existing = views[id] {
+            return existing
+        }
+        let created = make()
+        views[id] = created
+        return created
     }
 
-    static func unregister(_ id: String) {
-        views[id] = nil
+    /// The tab closed. Ends the process and drops the view.
+    static func destroy(_ id: String) {
+        guard let view = views.removeValue(forKey: id) else { return }
+        view.processHost?.terminate()
+        view.removeFromSuperview()
     }
 
     static func focus(_ id: String) {
         DispatchQueue.main.async {
-            guard let view = views[id]?.view, let window = view.window else { return }
+            guard let view = views[id], let window = view.window else { return }
             window.makeFirstResponder(view)
         }
     }
 
     /// The shell's own cwd. Nil until the process is running, or after it exits.
     static func currentWorkingDirectory(for id: String) -> String? {
-        views[id]?.view?.processHost?.process.currentWorkingDirectory
+        views[id]?.processHost?.process.currentWorkingDirectory
+    }
+
+    /// Starts the same command again inside the same terminal. False when the view is gone.
+    @discardableResult
+    static func restart(_ id: String, notice: String) -> Bool {
+        guard let host = views[id]?.processHost else { return false }
+        host.restart(notice: notice)
+        return true
     }
 }
 
@@ -917,7 +335,9 @@ final class SSHTerminalNSView: AppTerminalView {
     var onClose: (() -> Void)?
     var appliedDarkAppearance: Int?
     weak var attachedSurface: TerminalSurface?
-    weak var processHost: TerminalProcessHost?
+    /// Strong: the view is the only owner. The session keeps the process alive on its own, so a weak
+    /// reference here drops the host silently and exits, restarts, and cwd lookups stop working.
+    var processHost: TerminalProcessHost?
     private var gestureIsLocal = false
     private var locallyConsumedKeyCode: UInt16?
 
@@ -1175,6 +595,26 @@ private extension NSEvent {
     }
 }
 
+/// Plain container that hosts the registry's terminal view for one session. SwiftUI may create and
+/// destroy containers freely; the terminal inside is only detached, never terminated here.
+final class TerminalHostView: NSView {
+    var sessionID: String?
+
+    func attach(_ terminal: SSHTerminalNSView) {
+        if terminal.superview === self { return }
+        terminal.removeFromSuperview()
+        terminal.frame = bounds
+        terminal.autoresizingMask = [.width, .height]
+        addSubview(terminal)
+    }
+
+    func detach(_ terminal: SSHTerminalNSView) {
+        if terminal.superview === self {
+            terminal.removeFromSuperview()
+        }
+    }
+}
+
 struct SSHTerminalView: NSViewRepresentable {
     var sessionID: String
     var alias: String
@@ -1182,109 +622,111 @@ struct SSHTerminalView: NSViewRepresentable {
     var directory: String? = nil
     var environment: [String]
     var dark: Bool
-    /// Catalog themes already include their own palette, so the light-color rewrite stays off.
-    var usesCatalogTheme: Bool = false
-    var onExit: (Int32?) -> Void
+    /// Only the window's selected pane grabs the keyboard when its view is first made. Restoring
+    /// several terminals at once must not hand focus to whichever finished last.
+    var focusesOnCreate: Bool = true
+    /// Exit code and seconds the process lived. Fires again after every in-place reconnect.
+    var onExit: (Int32?, TimeInterval) -> Void
     var onClose: () -> Void = {}
     var onFocus: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeNSView(context: Context) -> SSHTerminalNSView {
-        let host = TerminalProcessHost()
-        let view = SSHTerminalNSView(frame: .zero)
-        view.processHost = host
-        context.coordinator.view = view
-        context.coordinator.host = host
-        context.coordinator.sessionID = sessionID
-        context.coordinator.onExit = onExit
-        context.coordinator.onClose = onClose
-        context.coordinator.onFocus = onFocus
-        view.onFocus = { [weak coordinator = context.coordinator] in
-            coordinator?.onFocus?()
-        }
-        view.onClose = { [weak coordinator = context.coordinator] in
-            coordinator?.onClose?()
-        }
-        host.onExit = { [weak coordinator = context.coordinator] code in
-            coordinator?.processDidExit(code)
-        }
-        view.delegate = context.coordinator
-        view.controller = GhosttyRuntime.controller
-        view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
-        applyAppearance(view, dark: dark, usesCatalogTheme: usesCatalogTheme)
-        host.setLightColorsEnabled(!usesCatalogTheme && !dark)
+    /// The ssh command for a host, or the login shell for a local directory.
+    static func launch(alias: String, directory: String?, environment: [String]) -> TerminalLaunch {
         if alias.isEmpty, let directory, !directory.isEmpty {
-            let launch = LocalTerminal.launchDirectory(directory)
-            host.start(
+            return TerminalLaunch(
                 executable: LocalTerminal.shellExecutable,
                 args: ["-l"],
                 environment: environment,
-                directory: launch
-            )
-        } else {
-            host.start(
-                executable: "/usr/bin/ssh",
-                args: ["-tt", "--", alias],
-                environment: environment
+                directory: LocalTerminal.launchDirectory(directory)
             )
         }
-        SSHTerminalRegistry.register(view, for: sessionID)
-        DispatchQueue.main.async { [weak view] in
-            guard let view, let window = view.window else { return }
-            window.makeFirstResponder(view)
+        return TerminalLaunch(
+            executable: "/usr/bin/ssh",
+            args: SSHCommand.arguments(alias: alias),
+            environment: environment,
+            directory: nil
+        )
+    }
+
+    func makeNSView(context: Context) -> TerminalHostView {
+        let container = TerminalHostView(frame: .zero)
+        container.sessionID = sessionID
+        let terminal = SSHTerminalRegistry.view(for: sessionID) { makeTerminal() }
+        context.coordinator.terminal = terminal
+        wire(terminal, coordinator: context.coordinator)
+        container.attach(terminal)
+        applyAppearance(terminal, dark: dark)
+        if focusesOnCreate {
+            DispatchQueue.main.async { [weak terminal] in
+                guard let terminal, let window = terminal.window else { return }
+                window.makeFirstResponder(terminal)
+            }
         }
+        return container
+    }
+
+    func updateNSView(_ container: TerminalHostView, context: Context) {
+        let terminal = SSHTerminalRegistry.view(for: sessionID) { makeTerminal() }
+        context.coordinator.terminal = terminal
+        wire(terminal, coordinator: context.coordinator)
+        container.attach(terminal)
+        applyAppearance(terminal, dark: dark)
+    }
+
+    static func dismantleNSView(_ container: TerminalHostView, coordinator: Coordinator) {
+        guard let terminal = coordinator.terminal else { return }
+        container.detach(terminal)
+    }
+
+    /// A brand-new terminal with its own process. Only called once per session.
+    private func makeTerminal() -> SSHTerminalNSView {
+        let host = TerminalProcessHost()
+        let view = SSHTerminalNSView(frame: .zero)
+        view.processHost = host
+        view.controller = GhosttyRuntime.controller
+        view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
+        host.start(Self.launch(alias: alias, directory: directory, environment: environment))
         return view
     }
 
-    func updateNSView(_ nsView: SSHTerminalNSView, context: Context) {
-        context.coordinator.onExit = onExit
-        context.coordinator.onClose = onClose
-        context.coordinator.onFocus = onFocus
-        nsView.onClose = { [weak coordinator = context.coordinator] in
-            coordinator?.onClose?()
+    /// Callbacks point at the coordinator of whichever container currently shows the terminal.
+    /// Exit is the exception: it must reach the model even when no window shows the terminal,
+    /// or a dropped connection in a hidden tab would never reconnect.
+    private func wire(_ terminal: SSHTerminalNSView, coordinator: Coordinator) {
+        coordinator.onClose = onClose
+        coordinator.onFocus = onFocus
+        terminal.delegate = coordinator
+        terminal.onFocus = { [weak coordinator] in coordinator?.onFocus?() }
+        terminal.onClose = { [weak coordinator] in coordinator?.onClose?() }
+        let onExit = self.onExit
+        terminal.processHost?.onExit = { code, lived in
+            onExit(code, lived)
         }
-        applyAppearance(nsView, dark: dark, usesCatalogTheme: usesCatalogTheme)
     }
 
-    static func dismantleNSView(_ nsView: SSHTerminalNSView, coordinator: Coordinator) {
-        coordinator.onExit = nil
-        if let sessionID = coordinator.sessionID {
-            SSHTerminalRegistry.unregister(sessionID)
-        }
-        coordinator.host?.terminate()
-    }
-
-    private func applyAppearance(_ view: SSHTerminalNSView, dark: Bool, usesCatalogTheme: Bool) {
-        GhosttyRuntime.applyFontSettings()
-        view.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        GhosttyRuntime.controller.setColorScheme(dark ? .dark : .light)
-        let signature = usesCatalogTheme ? (dark ? 2 : 3) : (dark ? 1 : 0)
+    /// Only touches Ghostty when this view's appearance actually flips. SwiftUI calls
+    /// `updateNSView` for every model change, and the controller's config is global.
+    private func applyAppearance(_ view: SSHTerminalNSView, dark: Bool) {
+        let signature = dark ? 1 : 0
         guard view.appliedDarkAppearance != signature else { return }
         view.appliedDarkAppearance = signature
-        view.processHost?.setLightColorsEnabled(!usesCatalogTheme && !dark)
+        view.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        GhosttyRuntime.controller.setColorScheme(dark ? .dark : .light)
     }
 
     final class Coordinator: NSObject, TerminalSurfaceLifecycleDelegate {
-        var sessionID: String?
-        var onExit: ((Int32?) -> Void)?
         var onClose: (() -> Void)?
         var onFocus: (() -> Void)?
-        weak var view: SSHTerminalNSView?
-        var host: TerminalProcessHost?
+        weak var terminal: SSHTerminalNSView?
 
         func terminalDidAttachSurface(_ surface: TerminalSurface) {
-            view?.attachedSurface = surface
+            terminal?.attachedSurface = surface
         }
 
         func terminalDidDetachSurface() {
-            view?.attachedSurface = nil
-        }
-
-        func processDidExit(_ code: Int32?) {
-            let callback = onExit
-            onExit = nil
-            callback?(code)
+            terminal?.attachedSurface = nil
         }
     }
 }

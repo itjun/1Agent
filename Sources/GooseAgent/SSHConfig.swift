@@ -7,6 +7,9 @@ struct SSHHost: Identifiable, Equatable, Hashable {
     var hostName: String?
     var user: String?
     var port: String?
+    /// Name of the `Include`d file that declared this alias (without extension), such as
+    /// `02-demo-main`. Nil for hosts declared in `~/.ssh/config` itself.
+    var source: String? = nil
 
     var id: String { alias }
 
@@ -94,16 +97,28 @@ enum SSHConfig {
         var order: [String] = []
         var seen = Set<String>()
         var stack = Set<String>()
+        var sources: [String: String] = [:]
         parse(
             url: url,
             sections: &sections,
             order: &order,
             seen: &seen,
             stack: &stack,
-            current: nil
+            sources: &sources,
+            current: nil,
+            sourceLabel: nil
         )
-        let hosts = order.map { resolve($0, sections: sections) }
+        let hosts = order.map { alias in
+            var host = resolve(alias, sections: sections)
+            host.source = sources[alias]
+            return host
+        }
         return SSHConfigLoadResult(hosts: hosts, failed: false)
+    }
+
+    /// `~/.ssh/config.d/02-demo-main.conf` shows as `02-demo-main`.
+    static func sourceLabel(for url: URL) -> String {
+        url.deletingPathExtension().lastPathComponent
     }
 
     // MARK: - Parse
@@ -136,7 +151,9 @@ enum SSHConfig {
         order: inout [String],
         seen: inout Set<String>,
         stack: inout Set<String>,
-        current: ParseCursor?
+        sources: inout [String: String],
+        current: ParseCursor?,
+        sourceLabel: String?
     ) {
         let path = url.resolvingSymlinksInPath().path
         guard stack.insert(path).inserted else { return }
@@ -159,6 +176,9 @@ enum SSHConfig {
                 for alias in args where isConcreteAlias(alias) {
                     if seen.insert(alias).inserted {
                         order.append(alias)
+                        if let sourceLabel {
+                            sources[alias] = sourceLabel
+                        }
                     }
                 }
             case "match":
@@ -173,7 +193,9 @@ enum SSHConfig {
                             order: &order,
                             seen: &seen,
                             stack: &stack,
-                            current: cursor
+                            sources: &sources,
+                            current: cursor,
+                            sourceLabel: SSHConfig.sourceLabel(for: file)
                         )
                     }
                 }
@@ -292,5 +314,49 @@ private func fnmatch(_ pattern: String, _ value: String) -> Bool {
         value.withCString { value in
             Darwin.fnmatch(pattern, value, FNM_NOESCAPE) == 0
         }
+    }
+}
+
+/// Matching for the host picker. Case-insensitive; a query matches when its characters appear
+/// in order inside the alias, the address, the user, or the source group name.
+enum HostSearch {
+    /// Hosts that match `query`, best matches first. An empty query keeps the config order.
+    static func filter(_ hosts: [SSHHost], query: String) -> [SSHHost] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !needle.isEmpty else { return hosts }
+        var scored: [(host: SSHHost, score: Int, index: Int)] = []
+        for (index, host) in hosts.enumerated() {
+            guard let score = HostSearch.score(host, needle: needle) else { continue }
+            scored.append((host, score, index))
+        }
+        scored.sort { lhs, rhs in
+            if lhs.score != rhs.score { return lhs.score > rhs.score }
+            return lhs.index < rhs.index
+        }
+        return scored.map(\.host)
+    }
+
+    /// Higher is better. Nil when nothing matches.
+    /// Alias prefix 400, alias substring 300, other-field substring 200, alias subsequence 100, other subsequence 50.
+    static func score(_ host: SSHHost, needle: String) -> Int? {
+        let alias = host.alias.lowercased()
+        if alias.hasPrefix(needle) { return 400 }
+        if alias.contains(needle) { return 300 }
+        let others = [host.hostName, host.user, host.source].compactMap { $0?.lowercased() }
+        if others.contains(where: { $0.contains(needle) }) { return 200 }
+        if HostSearch.isSubsequence(needle, of: alias) { return 100 }
+        if others.contains(where: { HostSearch.isSubsequence(needle, of: $0) }) { return 50 }
+        return nil
+    }
+
+    static func isSubsequence(_ needle: String, of text: String) -> Bool {
+        var cursor = needle.startIndex
+        for character in text {
+            guard cursor < needle.endIndex else { break }
+            if character == needle[cursor] {
+                cursor = needle.index(after: cursor)
+            }
+        }
+        return cursor == needle.endIndex
     }
 }

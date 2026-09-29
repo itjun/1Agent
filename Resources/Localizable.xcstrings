@@ -1,109 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Appearance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Appearance" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "外观" } }
+      }
+    },
     "Appearance Mode" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Appearance Mode" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "外观模式" } }
-      }
-    },
-    "Claude Paper" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Claude Paper" } }
-      }
-    },
-    "Claude Ink" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Claude Ink" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Claude Ink" } }
-      }
-    },
-    "Raycast Light" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast Light" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast 浅色" } }
-      }
-    },
-    "Raycast Dark" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Raycast Dark" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Raycast 深色" } }
-      }
-    },
-    "Absolutely Light" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely Light" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely 浅色" } }
-      }
-    },
-    "Absolutely Dark" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely Dark" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Absolutely 深色" } }
-      }
-    },
-    "GitHub Light Default" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Light Default" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Light Default" } }
-      }
-    },
-    "GitHub Dark Default" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Dark Default" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GitHub Dark Default" } }
-      }
-    },
-    "Ayu Light" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ayu Light" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Ayu Light" } }
-      }
-    },
-    "Ayu" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ayu" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Ayu" } }
-      }
-    },
-    "One Half Light" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "One Half Light" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "One Half Light" } }
-      }
-    },
-    "One Half Dark" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "One Half Dark" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "One Half Dark" } }
-      }
-    },
-    "Dark Themes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark Themes" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "夜间主题" } }
-      }
-    },
-    "Light Themes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light Themes" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "白色主题" } }
       }
     },
     "No matching themes" : {
@@ -117,7 +26,7 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "黑色" } }
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "深色" } }
       }
     },
     "Default" : {
@@ -138,7 +47,35 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Light" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "白色" } }
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色" } }
+      }
+    },
+    "Clear search" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Clear search" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "清空搜索" } }
+      }
+    },
+    "Show all light themes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show all light themes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示全部浅色主题" } }
+      }
+    },
+    "Show all dark themes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show all dark themes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示全部深色主题" } }
+      }
+    },
+    "Restore Default Themes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore Default Themes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复默认主题" } }
       }
     },
     "Search themes" : {
@@ -580,6 +517,237 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Select a host from the list to open an SSH session." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从左侧列表选择一台主机，打开 SSH 会话。" } }
+      }
+    },
+    "Opened more than once" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Opened more than once" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已打开多个会话" } }
+      }
+    },
+    "%lld terminals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld terminals" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个终端" } }
+      }
+    },
+    "Open %lld as Workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open %lld as Workspace" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "以工作区打开 %lld 台" } }
+      }
+    },
+    "⏎ opens the ticked hosts together. ⌘-click to tick more." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "⏎ opens the ticked hosts together. ⌘-click to tick more." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "⏎ 一起打开已勾选主机，⌘-点击可继续勾选。" } }
+      }
+    },
+    "↑↓ to move, ⏎ to open, ⌘-click to tick several." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "↑↓ to move, ⏎ to open, ⌘-click to tick several." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "↑↓ 移动，⏎ 打开，⌘-点击可多选。" } }
+      }
+    },
+    "Tick host" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tick host" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "勾选主机" } }
+      }
+    },
+    "Open" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已打开" } }
+      }
+    },
+    "Open ×%lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open ×%lld" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已打开 ×%lld" } }
+      }
+    },
+    "Connection lost, reconnecting (%lld/%lld)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection lost, reconnecting (%lld/%lld)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接已断开，正在重连（%lld/%lld）" } }
+      }
+    },
+    "Reconnecting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在重新连接" } }
+      }
+    },
+    "New Window" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Window" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建窗口" } }
+      }
+    },
+    "Window %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Window %lld" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "窗口 %lld" } }
+      }
+    },
+    "Window name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Window name" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "窗口名称" } }
+      }
+    },
+    "Double-click to rename this window." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Double-click to rename this window." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "双击可重命名此窗口。" } }
+      }
+    },
+    "Open in New Window" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open in New Window" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在新窗口打开" } }
+      }
+    },
+    "Close this window and its %lld terminals?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close this window and its %lld terminals?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭此窗口及其中的 %lld 个终端？" } }
+      }
+    },
+    "Drag terminals to another window first if you want to keep them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag terminals to another window first if you want to keep them." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "想保留这些终端，请先把它们拖到其他窗口。" } }
+      }
+    },
+    "Close Window" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Window" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭窗口" } }
+      }
+    },
+    "Some hosts are not in your SSH config" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Some hosts are not in your SSH config" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "部分主机不在 SSH 配置里" } }
+      }
+    },
+    "Not opened: %@. Add them to ~/.ssh/config (or config.d) first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not opened: %@. Add them to ~/.ssh/config (or config.d) first." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未打开：%@。请先把它们加进 ~/.ssh/config（或 config.d）。" } }
+      }
+    },
+    "OK" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "好" } }
+      }
+    },
+    "SSH sends a keepalive probe every 30 seconds; after 3 missed replies the connection counts as lost and reconnects automatically. This cannot be turned off." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "SSH sends a keepalive probe every 30 seconds; after 3 missed replies the connection counts as lost and reconnects automatically. This cannot be turned off." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "SSH 连接每 30 秒发送一次探活，连续 3 次无响应视为断线并自动重连；不可关闭。" } }
+      }
+    },
+    "Filter: All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Filter: All" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部" } }
+      }
+    },
+    "Filter: Dark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Filter: Dark" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "深色" } }
+      }
+    },
+    "Filter: Light" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Filter: Light" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色" } }
+      }
+    },
+    "Light theme" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light theme" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色" } }
+      }
+    },
+    "Dark theme" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark theme" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "深色" } }
+      }
+    },
+    "Showing %lld themes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Showing %lld themes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示 %lld 个" } }
+      }
+    },
+    "Type to search %lld themes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Type to search %lld themes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "输入名称搜索 %lld 个主题" } }
+      }
+    },
+    "Previewing: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Previewing: %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "预览中：%@" } }
+      }
+    },
+    "Save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存" } }
+      }
+    },
+    "Current light theme" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current light theme" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前浅色主题" } }
+      }
+    },
+    "Current dark theme" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current dark theme" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前深色主题" } }
       }
     }
   },

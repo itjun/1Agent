@@ -80,3 +80,69 @@ actor SSHLaunchEnvironment {
         return values
     }
 }
+
+enum SSHCommand {
+    /// `ssh -tt -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -- <alias>`.
+    /// The keepalive is fixed on purpose: a dead link is noticed within 90 seconds and then reconnected.
+    /// Command-line `-o` wins over `~/.ssh/config`, so these two values always apply.
+    static func arguments(alias: String) -> [String] {
+        ["-tt", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "--", alias]
+    }
+}
+
+/// Reloads the host list when `~/.ssh/config` or anything under `~/.ssh/config.d` changes,
+/// so a host 1Panel just wrote shows its address and user right away.
+final class SSHConfigWatcher {
+    private var sources: [DispatchSourceFileSystemObject] = []
+    private var pending: DispatchWorkItem?
+    private let onChange: () -> Void
+
+    init(onChange: @escaping () -> Void) {
+        self.onChange = onChange
+    }
+
+    func start() {
+        stop()
+        let ssh = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh")
+        for path in [ssh.path, ssh.appendingPathComponent("config").path, ssh.appendingPathComponent("config.d").path] {
+            watch(path)
+        }
+    }
+
+    func stop() {
+        for source in sources {
+            source.cancel()
+        }
+        sources = []
+    }
+
+    private func watch(_ path: String) {
+        let fd = open(path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .rename, .delete, .extend, .attrib],
+            queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            self?.scheduleReload()
+            // An editor that replaces the file leaves us watching a stale inode. Re-arm on the path.
+            if source.data.contains(.rename) || source.data.contains(.delete) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    self?.start()
+                }
+            }
+        }
+        source.setCancelHandler { close(fd) }
+        source.activate()
+        sources.append(source)
+    }
+
+    /// Several files often change in one burst; one reload a third of a second later covers them all.
+    private func scheduleReload() {
+        pending?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.onChange() }
+        pending = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+}

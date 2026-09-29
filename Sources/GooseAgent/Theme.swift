@@ -21,14 +21,14 @@ enum Theme {
     static let sidebarRowTitle = Font.system(size: 13, weight: .medium)
     static let sidebarRowMeta = Font.system(size: 11)
 
-    /// TDesign primary steps, staggered red, blue, orange, green, purple, cyan.
+    /// Dot colors for a host alias that is open more than once. No red: red means a broken connection.
     static let duplicateHostMarks: [Color] = [
-        dynamic(hex(0xD54941), hex(0xF6685D)),
         dynamic(hex(0x0052D9), hex(0x366EF4)),
         dynamic(hex(0xE37318), hex(0xE37318)),
         dynamic(hex(0x2BA471), hex(0x2BA471)),
         dynamic(hex(0x8E56DD), hex(0xAD75FE)),
         dynamic(hex(0x029CD4), hex(0x029CD4)),
+        dynamic(hex(0xC9489B), hex(0xE06CB8)),
     ]
 
     static func duplicateHostMark(_ index: Int) -> Color {
@@ -36,26 +36,10 @@ enum Theme {
         let wrapped = ((index % palette.count) + palette.count) % palette.count
         return palette[wrapped]
     }
-
-    static let text = dynamic(hex(0x242424), hex(0xE2E2E2))
-    static let textSecondary = dynamic(hex(0x666666), hex(0xA3A3A3))
-    static let danger = dynamic(hex(0xC94F44), hex(0xE2726A))
-
-    private static let accentLightValue: UInt32 = 0xC85F44
-    private static let accentDarkValue: UInt32 = 0xE2795B
-    static let accent = dynamic(hex(accentLightValue), hex(accentDarkValue))
-
-    static func accentHex(dark: Bool) -> String {
-        String(format: "#%06X", dark ? accentDarkValue : accentLightValue)
-    }
-
-    static let terminalBackground = dynamic(hex(0xFFFFFF), hex(0x101012))
-    static let statusBarBackground = dynamic(hex(0xF1F1F2), hex(0x141416))
-    static let hairline = dynamic(hex(0x000000, alpha: 0.08), hex(0xFFFFFF, alpha: 0.06))
 }
 
-/// Colors for the whole terminal window. A selected Ghostty theme paints the
-/// sidebar, header, and terminal together; otherwise the built-in light or dark set is used.
+/// Colors for the whole terminal window. The sidebar, pane headers, and terminal share one set,
+/// derived from whichever theme fills the current appearance slot.
 struct WindowChrome: Equatable {
     var background: Color
     var elevated: Color
@@ -65,28 +49,12 @@ struct WindowChrome: Equatable {
     var accent: Color
     var danger: Color
 
-    init(
-        background: Color,
-        elevated: Color,
-        text: Color,
-        secondary: Color,
-        hairline: Color,
-        accent: Color,
-        danger: Color
-    ) {
-        self.background = background
-        self.elevated = elevated
-        self.text = text
-        self.secondary = secondary
-        self.hairline = hairline
-        self.accent = accent
-        self.danger = danger
-    }
-
+    @MainActor
     static func resolve(isDark: Bool) -> WindowChrome {
-        let option = isDark ? TerminalThemeOption.storedDark() : TerminalThemeOption.storedLight()
-        if let chrome = option.chrome() { return chrome }
-        return isDark ? builtinDark : builtinLight
+        if isDark {
+            return ThemePreview.shared.effectiveDark().chrome()
+        }
+        return ThemePreview.shared.effectiveLight().chrome()
     }
 
     init(theme: GhosttyThemeDefinition, preferredAccent: String? = nil) {
@@ -102,26 +70,6 @@ struct WindowChrome: Equatable {
         self.accent = accent.color
         self.danger = danger.color
     }
-
-    static let builtinLight = WindowChrome(
-        background: Color(red: 1, green: 1, blue: 1),
-        elevated: Color(red: 0.945, green: 0.945, blue: 0.949),
-        text: Color(red: 0.141, green: 0.141, blue: 0.141),
-        secondary: Color(red: 0.4, green: 0.4, blue: 0.4),
-        hairline: Color.black.opacity(0.08),
-        accent: Color(red: 0.784, green: 0.373, blue: 0.267),
-        danger: Color(red: 0.788, green: 0.310, blue: 0.267)
-    )
-
-    static let builtinDark = WindowChrome(
-        background: Color(red: 0.063, green: 0.063, blue: 0.071),
-        elevated: Color(red: 0.078, green: 0.078, blue: 0.086),
-        text: Color(red: 0.886, green: 0.886, blue: 0.886),
-        secondary: Color(red: 0.639, green: 0.639, blue: 0.639),
-        hairline: Color.white.opacity(0.08),
-        accent: Color(red: 0.886, green: 0.475, blue: 0.357),
-        danger: Color(red: 0.886, green: 0.447, blue: 0.416)
-    )
 }
 
 private struct RGBColor {
@@ -156,7 +104,7 @@ private struct RGBColor {
 }
 
 private struct WindowChromeKey: EnvironmentKey {
-    static let defaultValue = WindowChrome.builtinLight
+    static let defaultValue = WindowChrome(theme: GhosttyThemeCatalog.theme(named: TerminalThemeChoice.defaultLightName)!)
 }
 
 extension EnvironmentValues {
