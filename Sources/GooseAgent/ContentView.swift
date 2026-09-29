@@ -1701,10 +1701,9 @@ private struct RowAnchor: NSViewRepresentable {
 private struct TerminalCanvas: View {
     /// One title line. Dragging this line merges panes.
     static let sidebarHeaderHeight: CGFloat = 18
-    /// Room outside every pane so the focus stroke never covers the terminal.
-    static let focusLine: CGFloat = 2
 
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var model: AppModel
     var dropRelay: CanvasDropRelay
     var dark: Bool
@@ -1720,7 +1719,7 @@ private struct TerminalCanvas: View {
         GeometryReader { geo in
             let root = model.displayRoot()
             let bounds = CGRect(origin: .zero, size: geo.size)
-            let layout = Self.layoutBounds(bounds)
+            let layout = bounds
             let frames = root.map { PaneLayout.frames(of: $0, in: layout) } ?? [:]
             let dividers = root.map { PaneLayout.dividers(of: $0, in: layout) } ?? []
             let headerH = headerHeight
@@ -1781,13 +1780,8 @@ private struct TerminalCanvas: View {
                 }
                 ForEach(model.tabs.filter { frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
-                        paneChrome(tab, frame: frame, headerHeight: headerH)
+                        paneChrome(tab, frame: frame, headerHeight: headerH, isSplit: frames.count > 1)
                     }
-                }
-                if let selected = model.selectedTabID, let frame = frames[selected] {
-                    focusRing(around: frame)
-                        .allowsHitTesting(false)
-                        .zIndex(5)
                 }
             }
             .overlay {
@@ -1849,27 +1843,38 @@ private struct TerminalCanvas: View {
         return 0.5
     }
 
-    private func hostTitleColor(_ tab: TerminalTab) -> Color {
+    /// Other panes in a split fall back to the secondary color; danger and duplicate marks always win.
+    private func hostTitleColor(_ tab: TerminalTab, dimmed: Bool) -> Color {
         if tab.showsDisconnected || tab.reconnecting {
             return chrome.danger
         }
         if let mark = model.duplicateHostMark(for: tab.id) {
             return Theme.duplicateHostMark(mark)
         }
+        if dimmed {
+            return chrome.secondary
+        }
         return chrome.text
     }
 
     @ViewBuilder
-    private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
+    private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool) -> some View {
         let focused = model.selectedTabID == tab.id
+        let highlighted = focused && isSplit
+        let dimmed = !focused && isSplit
         if headerHeight > 0 {
             ZStack {
                 chrome.background
                     .allowsHitTesting(false)
+                chrome.accent
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+                        $0.opacity(highlighted ? 0.16 : 0)
+                    }
+                    .allowsHitTesting(false)
                 HStack(spacing: 6) {
                     Text(paneTitle(tab))
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(hostTitleColor(tab))
+                        .font(.system(size: 12, weight: highlighted ? .semibold : .medium, design: .monospaced))
+                        .foregroundStyle(hostTitleColor(tab, dimmed: dimmed))
                         .lineLimit(1)
                     if tab.reconnecting {
                         Image(systemName: "arrow.triangle.2.circlepath")
@@ -1946,23 +1951,6 @@ private func copySessionInfo(_ tab: TerminalTab, model: AppModel) {
 }
 
 private extension TerminalCanvas {
-    /// Panes sit inside a margin the same width as the focus stroke.
-    /// The stroke occupies that margin, so selecting a pane does not cover its content.
-    static func layoutBounds(_ bounds: CGRect) -> CGRect {
-        let margin = focusLine * 2
-        guard bounds.width > margin, bounds.height > margin else { return bounds }
-        return bounds.insetBy(dx: focusLine, dy: focusLine)
-    }
-
-    private func focusRing(around frame: CGRect) -> some View {
-        let line = Self.focusLine
-        let outer = frame.insetBy(dx: -line, dy: -line)
-        return Rectangle()
-            .strokeBorder(chrome.accent.opacity(0.45), lineWidth: line)
-            .frame(width: max(outer.width, 1), height: max(outer.height, 1))
-            .offset(x: outer.minX, y: outer.minY)
-    }
-
     static func contentFrame(_ frame: CGRect, headerHeight: CGFloat) -> CGRect {
         CGRect(
             x: frame.minX,
