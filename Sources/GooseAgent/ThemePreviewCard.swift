@@ -32,15 +32,19 @@ struct ThemePreviewCard: View {
                 swatchStrip
                 metaBar
             }
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                     .stroke(selected ? chrome.accent : chrome.hairline, lineWidth: selected ? 2 : 1)
             )
             .contentShape(Rectangle())
+            // The sample text inside would otherwise be read instead of the theme, leaving just "button".
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: definition.name))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: definition.name))
+        .accessibilityValue(Text(definition.isLightBackground ? "Light theme" : "Dark theme"))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -134,19 +138,13 @@ struct ThemePreviewCard: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(chrome.elevated)
+        .background(chrome.sidebarBackground)
     }
 }
 
 extension Color {
     init?(ghosttyHex raw: String) {
-        var hex = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if hex.hasPrefix("#") { hex.removeFirst() }
-        guard hex.count == 6, let value = Int(hex, radix: 16) else { return nil }
-        self.init(
-            red: Double((value >> 16) & 0xFF) / 255,
-            green: Double((value >> 8) & 0xFF) / 255,
-            blue: Double(value & 0xFF) / 255
-        )
+        guard let rgb = RGBColor(ghosttyHex: raw) else { return nil }
+        self = rgb.color
     }
 }

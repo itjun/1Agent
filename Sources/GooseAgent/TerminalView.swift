@@ -5,13 +5,13 @@ import GhosttyTheme
 import SwiftUI
 
 enum TerminalDefaults {
-    static let defaultFontSize: Double = 14
-    static let defaultFontFamily = "SF Mono"
+    static let defaultFontSize = TerminalSettings.defaults.fontSize
+    static let defaultFontFamily = TerminalSettings.defaults.fontFamily
     static let defaultFontWeight: Double = 0
     static let defaultLineSpacing: Double = 1
-    static let minFontSize: Double = 10
-    static let maxFontSize: Double = 28
-    static let symbolFallbackFamily = "Symbols Nerd Font Mono"
+    static let minFontSize = TerminalSettings.minFontSize
+    static let maxFontSize = TerminalSettings.maxFontSize
+    static let symbolFallbackFamily = TerminalSettings.symbolFallbackFamily
 
     static func registerBundledFonts() {
         guard let url = Bundle.main.url(forResource: "SymbolsNerdFontMono-Regular", withExtension: "ttf") else { return }
@@ -21,8 +21,8 @@ enum TerminalDefaults {
 
 /// Persisted terminal typeface / size. Ghostty reads these on every surface refresh.
 enum TerminalFontSettings {
-    static let familyKey = "appearance.terminalFontFamily"
-    static let sizeKey = "appearance.terminalFontSize"
+    static let familyKey = TerminalSettings.fontFamilyKey
+    static let sizeKey = TerminalSettings.fontSizeKey
 
     /// Preferred families shown first when installed (Ghostty resolves SF Mono even if NSFont cannot).
     private static let preferredFamilies = [
@@ -43,15 +43,7 @@ enum TerminalFontSettings {
     ]
 
     static var family: String {
-        let raw = UserDefaults.standard.string(forKey: familyKey)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return raw.isEmpty ? TerminalDefaults.defaultFontFamily : raw
-    }
-
-    static var size: Double {
-        let stored = UserDefaults.standard.object(forKey: sizeKey) as? Double
-        let value = stored ?? TerminalDefaults.defaultFontSize
-        return min(max(value, TerminalDefaults.minFontSize), TerminalDefaults.maxFontSize)
+        TerminalSettings.load().fontFamily
     }
 
     /// Monospace-ish families for the settings picker, preferred names first.
@@ -124,9 +116,56 @@ enum GhosttyRuntime {
             + "\ntheme = light:\(light.path),dark:\(dark.path)\n")
     }
 
-    /// Called once at launch and again whenever the font settings change. Not per view update.
-    static func applyFontSettings() {
-        controller.setTerminalConfiguration(fontConfiguration())
+    /// Called once at launch and again after any `TerminalSettings` value changes. Not per view update.
+    /// Ghostty only re-renders when the generated configuration actually differs.
+    static func applyTerminalSettings() {
+        let settings = TerminalSettings.load()
+        let custom = TerminalSettings.parseCustomConfig(settings.customConfig)
+        // Ghostty refuses a whole configuration over one bad line, so a broken snippet line
+        // would also block every settings change. Lines it refuses are dropped one by one.
+        let fit = TerminalSnippetFit.fit(custom.entries) { entries in
+            let configuration = terminalConfiguration(settings: settings, snippet: entries)
+            controller.setTerminalConfiguration(configuration)
+            // The controller only commits a configuration Ghostty accepted, and returns false both for a
+            // rejection and for "nothing changed"; `lastConfigurationIssue` is not cleared by the latter.
+            if controller.terminalConfiguration == configuration {
+                return nil
+            }
+            return controller.lastConfigurationIssue ?? String(localized: "Ghostty gave no reason")
+        }
+        let diagnostics = TerminalConfigDiagnostics.shared
+        diagnostics.skippedLines = custom.skippedLines
+        diagnostics.invalidLines = custom.invalidLines
+        diagnostics.rejectedLines = fit.rejected
+        diagnostics.engineIssue = fit.baseIssue
+    }
+
+    /// The engine package writes `ghostty-config-<UUID>.conf` for every applied configuration and removes
+    /// the previous one itself, but the file in use when the app quits stays behind. Files older than
+    /// this process are those leftovers; nothing else in the folder is touched.
+    static func removeLeftoverConfigFiles() {
+        let directory = TerminalController.managedConfigDirectory
+        guard let started = GhosttyRuntime.processStartDate(),
+              let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else { return }
+        for name in names where name.hasPrefix("ghostty-config-") && name.hasSuffix(".conf") {
+            let url = directory.appendingPathComponent(name)
+            guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
+                  let modified = values.contentModificationDate else { continue }
+            if modified < started {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
+    private static func processStartDate() -> Date? {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        if sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) != 0 {
+            return nil
+        }
+        let start = info.kp_proc.p_un.__p_starttime
+        return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
     }
 
     /// Light and night slots are chosen independently; Ghostty switches with the appearance.
@@ -142,27 +181,34 @@ enum GhosttyRuntime {
         )
     }
 
-    private static func fontConfiguration() -> TerminalConfiguration {
-        let family = TerminalFontSettings.family
-        let size = TerminalFontSettings.size
+    /// Settings first, then the advanced snippet, so a snippet line wins over the same setting.
+    private static func terminalConfiguration(
+        settings: TerminalSettings,
+        snippet: [TerminalConfigEntry]
+    ) -> TerminalConfiguration {
+        let entries = settings.configEntries() + snippet
         return TerminalConfiguration { builder in
-            builder.withFontSize(Float(size))
-            builder.withWindowPaddingX(0)
-            builder.withWindowPaddingY(0)
-            builder.withCursorStyle(.block)
-            builder.withCursorStyleBlink(true)
-            builder.withFontThicken(false)
-            builder.withFontFamily(family)
-            builder.withCustom("macos-option-as-alt", "true")
-            builder.withCustom("keybind", "super+c=unbind")
-            builder.withCustom("clipboard-write", "allow")
-            builder.withCustom("mouse-shift-capture", "never")
-            builder.withCustom("font-codepoint-map", "U+E000-U+F8FF=\(TerminalDefaults.symbolFallbackFamily)")
-            builder.withCustom("font-codepoint-map", "U+F0000-U+FFFFD=\(TerminalDefaults.symbolFallbackFamily)")
-            builder.withCustom("font-codepoint-map", "U+100000-U+10FFFD=\(TerminalDefaults.symbolFallbackFamily)")
+            for entry in entries {
+                builder.withCustom(entry.key, entry.value)
+            }
         }
     }
 
+}
+
+/// What the last `applyTerminalSettings()` left out or Ghostty rejected, for the advanced settings page.
+@MainActor
+final class TerminalConfigDiagnostics: ObservableObject {
+    static let shared = TerminalConfigDiagnostics()
+
+    /// Snippet lines dropped because the app owns their key.
+    @Published var skippedLines: [String] = []
+    /// Snippet lines without `key = value`.
+    @Published var invalidLines: [String] = []
+    /// Snippet lines Ghostty refused. The settings and the other snippet lines were applied without them.
+    @Published var rejectedLines: [TerminalConfigRejection] = []
+    /// Ghostty refused the settings even without the snippet; nil when it accepted them.
+    @Published var engineIssue: String?
 }
 
 /// `ssh` copies `TERM` from its own environment onto the remote pty.
@@ -183,6 +229,8 @@ struct TerminalLaunch: Equatable {
     var args: [String]
     var environment: [String]
     var directory: String?
+    /// Local shells only: `ShellIntegrationEnvironment` variables, applied after `sshChildEnvironment`.
+    var shellIntegrationEnvironment: [String] = []
 }
 
 /// Owns one Ghostty session and the child process behind it. The process can be replaced
@@ -252,10 +300,14 @@ final class TerminalProcessHost {
         }
         box.process = process
         startedAt = ProcessInfo.processInfo.systemUptime
+        var environment = sshChildEnvironment(launch.environment)
+        if !launch.shellIntegrationEnvironment.isEmpty {
+            environment = ShellIntegrationEnvironment.merged(environment, overrides: launch.shellIntegrationEnvironment)
+        }
         process.start(
             executable: launch.executable,
             args: launch.args,
-            environment: sshChildEnvironment(launch.environment),
+            environment: environment,
             directory: launch.directory
         )
     }
@@ -267,11 +319,17 @@ final class TerminalProcessHost {
 @MainActor
 enum SSHTerminalRegistry {
     private static var views: [String: SSHTerminalNSView] = [:]
+    /// Session IDs are never reused, so a closed one must never get a terminal again.
+    private static var closedIDs: Set<String> = []
 
-    /// The terminal for this session, made on first use.
-    static func view(for id: String, make: () -> SSHTerminalNSView) -> SSHTerminalNSView {
+    /// The terminal for this session, made on first use. Nil once the session was destroyed:
+    /// SwiftUI still updates a view that is on its way out, and that must not start a new process.
+    static func view(for id: String, make: () -> SSHTerminalNSView) -> SSHTerminalNSView? {
         if let existing = views[id] {
             return existing
+        }
+        if closedIDs.contains(id) {
+            return nil
         }
         let created = make()
         views[id] = created
@@ -280,6 +338,7 @@ enum SSHTerminalRegistry {
 
     /// The tab closed. Ends the process and drops the view.
     static func destroy(_ id: String) {
+        closedIDs.insert(id)
         guard let view = views.removeValue(forKey: id) else { return }
         view.processHost?.terminate()
         view.removeFromSuperview()
@@ -333,22 +392,49 @@ enum TerminalCloseMenu {
 final class SSHTerminalNSView: AppTerminalView {
     var onFocus: (() -> Void)?
     var onClose: (() -> Void)?
+    /// Split Right / Split Down from the context menu: another session like this one beside it.
+    var onSplit: ((SplitEdge) -> Void)?
     var appliedDarkAppearance: Int?
     weak var attachedSurface: TerminalSurface?
+    /// `TerminalTab.sessionID` this terminal was made for. The find bar is keyed by it.
+    var sessionID: String?
     /// Strong: the view is the only owner. The session keeps the process alive on its own, so a weak
     /// reference here drops the host silently and exits, restarts, and cwd lookups stop working.
     var processHost: TerminalProcessHost?
+    /// Set as `delegate` once, when the terminal is made. `delegate` is weak, so the view keeps it alive.
+    let eventRelay = TerminalEventRelay()
+    /// Subview rather than SwiftUI: the metal layer covers any SwiftUI view placed over the terminal.
+    private let bellBorder = TerminalOverlayView()
+    private let linkBanner = TerminalLinkBanner()
+    private let dropHighlight = TerminalOverlayView()
+    /// The engine asked for a pointing hand over a link. Other shapes keep the arrow this view always had.
+    private var showsLinkCursor = false
     private var gestureIsLocal = false
+    /// The right button went down to a program that reads the mouse, so the release goes there too.
+    private var rightClickToProgram = false
     private var locallyConsumedKeyCode: UInt16?
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
         if accepted { onFocus?() }
+        FocusedTerminal.shared.refreshSoon()
         return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        FocusedTerminal.shared.refreshSoon()
+        return resigned
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        FocusedTerminal.shared.refreshSoon()
     }
 
     override func keyDown(with event: NSEvent) {
         locallyConsumedKeyCode = nil
+        hidePointerWhileTyping(event)
         if hasMarkedText() {
             let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if modifiers.contains(.command) || modifiers.contains(.control) { return }
@@ -376,6 +462,133 @@ final class SSHTerminalNSView: AppTerminalView {
             return
         }
         super.keyUp(with: event)
+    }
+
+    func flashBellBorder(color: NSColor) {
+        if bellBorder.superview !== self {
+            bellBorder.frame = bounds
+            bellBorder.autoresizingMask = [.width, .height]
+            addSubview(bellBorder)
+        }
+        guard let layer = bellBorder.layer else { return }
+        layer.borderColor = color.cgColor
+        layer.borderWidth = Theme.PaneStyle.bellBorderWidth
+        layer.opacity = 0
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        fade.duration = Theme.PaneStyle.bellFlashDuration
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(fade, forKey: "bellFlash")
+    }
+
+    /// Nil when the pointer left the link.
+    func showHoverLink(_ url: String?) {
+        guard let url, !url.isEmpty else {
+            linkBanner.removeFromSuperview()
+            return
+        }
+        if linkBanner.superview !== self {
+            addSubview(linkBanner)
+        }
+        let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark)
+        linkBanner.show(
+            url,
+            background: NSColor(chrome.elevated),
+            text: NSColor(chrome.secondary),
+            border: NSColor(chrome.hairline),
+            in: bounds
+        )
+    }
+
+    // MARK: Dropping files
+
+    /// Finder files, or plain text. Tab drags between panes track the mouse themselves and put
+    /// nothing on a pasteboard, so they never reach these methods.
+    static let dropTypes: [NSPasteboard.PasteboardType] = [.fileURL, .string]
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard acceptsDrop(sender) else { return [] }
+        showDropHighlight(true)
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard acceptsDrop(sender) else { return [] }
+        return .copy
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        showDropHighlight(false)
+    }
+
+    override func concludeDragOperation(_ sender: (any NSDraggingInfo)?) {
+        showDropHighlight(false)
+    }
+
+    /// Files become escaped paths separated by spaces, typed at the prompt like any text, so the
+    /// same works in an ssh session. The paste path skips paste protection, as Ghostty's drop does.
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        showDropHighlight(false)
+        guard acceptsDrop(sender) else { return false }
+        let pasteboard = sender.draggingPasteboard
+        let text: String
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL], !urls.isEmpty {
+            text = ShellEscape.dropText(paths: urls.map(\.path))
+        } else if let string = pasteboard.string(forType: .string), !string.isEmpty {
+            text = string
+        } else {
+            return false
+        }
+        window?.makeFirstResponder(self)
+        return paste(text: text)
+    }
+
+    /// A tab that is not shown keeps its view, invisible, under the visible panes.
+    private func acceptsDrop(_ sender: any NSDraggingInfo) -> Bool {
+        guard let types = sender.draggingPasteboard.types,
+              !Set(types).isDisjoint(with: SSHTerminalNSView.dropTypes) else { return false }
+        guard let sessionID else { return false }
+        return TerminalActivity.shared.isOnScreen(sessionID: sessionID)
+    }
+
+    private func showDropHighlight(_ visible: Bool) {
+        guard visible else {
+            dropHighlight.removeFromSuperview()
+            return
+        }
+        if dropHighlight.superview !== self {
+            dropHighlight.frame = bounds
+            dropHighlight.autoresizingMask = [.width, .height]
+            addSubview(dropHighlight)
+        }
+        let accent = NSColor(WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark).accent)
+        dropHighlight.layer?.borderColor = accent.cgColor
+        dropHighlight.layer?.borderWidth = Theme.PaneStyle.dropHighlightWidth
+        dropHighlight.layer?.backgroundColor = accent.withAlphaComponent(Theme.PaneStyle.dropHighlightFillOpacity).cgColor
+    }
+
+    func applyMouseShape(_ shape: TerminalMouseShape) {
+        if shape == .pointer {
+            NSCursor.pointingHand.set()
+            showsLinkCursor = true
+        } else if showsLinkCursor {
+            NSCursor.arrow.set()
+            showsLinkCursor = false
+        }
+    }
+
+    /// `mouse-hide-while-typing` is not handled by the engine in this host. ⌘ and ⌃ combinations are
+    /// shortcuts, not typing, and keep the pointer.
+    private func hidePointerWhileTyping(_ event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if !modifiers.isDisjoint(with: [.command, .control]) {
+            return
+        }
+        if UserDefaults.standard.bool(forKey: TerminalSettings.mouseHideWhileTypingKey) {
+            NSCursor.setHiddenUntilMouseMoves(true)
+        }
     }
 
     private static func ptyBytes(forMacEditingKey event: NSEvent) -> String? {
@@ -414,30 +627,9 @@ final class SSHTerminalNSView: AppTerminalView {
         return gestureIsLocal ? event.addingShiftModifier() : event.removingShiftModifier()
     }
 
-    /// First line under the pane title. A shell drag here moves the window; a captured mouse still reaches the remote app.
-    private static let windowDragBand: CGFloat = 32
-
     override func mouseDown(with event: NSEvent) {
-        if dragWindow(fromTopOf: event) {
-            return
-        }
         gestureIsLocal = isSelectionGesture(event) || !isMouseCaptured
         super.mouseDown(with: routedMouseEvent(event))
-    }
-
-    private func dragWindow(fromTopOf event: NSEvent) -> Bool {
-        guard !isMouseCaptured, let window else { return false }
-        let local = convert(event.locationInWindow, from: nil)
-        guard bounds.contains(local) else { return false }
-        let fromTop = isFlipped ? local.y : bounds.height - local.y
-        guard fromTop >= 0, fromTop <= Self.windowDragBand else { return false }
-        let origin = window.frame.origin
-        window.performDrag(with: event)
-        let moved = window.frame.origin
-        if hypot(moved.x - origin.x, moved.y - origin.y) < 1 {
-            window.makeFirstResponder(self)
-        }
-        return true
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -449,39 +641,80 @@ final class SSHTerminalNSView: AppTerminalView {
         super.mouseUp(with: routedMouseEvent(event))
     }
 
+    /// A program that reads the mouse (vim, tmux, htop) gets the right button, as in Ghostty.
     override func rightMouseDown(with event: NSEvent) {
+        if isMouseCaptured {
+            rightClickToProgram = true
+            super.rightMouseDown(with: event)
+            return
+        }
         window?.makeFirstResponder(self)
     }
 
     override func rightMouseUp(with event: NSEvent) {
+        if rightClickToProgram {
+            rightClickToProgram = false
+            super.rightMouseUp(with: event)
+            return
+        }
         NSMenu.popUpContextMenu(contextMenu(), with: event, for: self)
     }
 
+    /// ⌃-click asks here before any mouse event; a program that reads the mouse keeps that click.
     override func menu(for _: NSEvent) -> NSMenu? {
+        if isMouseCaptured {
+            return nil
+        }
+        return contextMenu()
+    }
+
+    /// The engine shows this for a right-click over a selection while a program reads the mouse.
+    override func selectionContextMenu() -> NSMenu {
         contextMenu()
     }
 
+    /// Each item shows its current shortcut from `AppShortcuts`; ⌘C / ⌘V are fixed in this view.
     private func contextMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.allowsContextMenuPlugIns = false
+        menu.delegate = self
+        var selection: String?
         if attachedSurface?.hasSelection() == true,
-           let selection = attachedSurface?.readSelection(),
-           !selection.isEmpty {
-            menu.addItem(makeItem(String(localized: "Copy"), #selector(copySelectionFromMenu(_:))))
-            if let url = Self.firstURL(in: selection) {
-                menu.addItem(.separator())
-                let open = makeItem(String(localized: "Open Link"), #selector(openLinkFromMenu(_:)))
-                open.representedObject = url
-                menu.addItem(open)
-                let copyLink = makeItem(String(localized: "Copy Link Address"), #selector(copyLinkFromMenu(_:)))
-                copyLink.representedObject = url
-                menu.addItem(copyLink)
-            }
-            menu.addItem(.separator())
+           let text = attachedSurface?.readSelection(),
+           !text.isEmpty {
+            selection = text
         }
-        menu.addItem(makeItem(String(localized: "Paste"), #selector(performPaste(_:))))
-        menu.addItem(makeItem(String(localized: "Select All"), #selector(selectAll(_:))))
+        let copy = makeItem(String(localized: "Copy"), #selector(copySelectionFromMenu(_:)))
+        SSHTerminalNSView.showChord(KeyChord(key: "c", modifiers: .command), on: copy)
+        copy.isEnabled = selection != nil
+        menu.addItem(copy)
+        if let selection, let url = Self.firstURL(in: selection) {
+            let open = makeItem(String(localized: "Open Link"), #selector(openLinkFromMenu(_:)))
+            open.representedObject = url
+            menu.addItem(open)
+            let copyLink = makeItem(String(localized: "Copy Link Address"), #selector(copyLinkFromMenu(_:)))
+            copyLink.representedObject = url
+            menu.addItem(copyLink)
+        }
+        let paste = makeItem(String(localized: "Paste"), #selector(performPaste(_:)))
+        SSHTerminalNSView.showChord(KeyChord(key: "v", modifiers: .command), on: paste)
+        menu.addItem(paste)
+        menu.addItem(makeItem(.selectAll, #selector(selectAll(_:))))
         menu.addItem(.separator())
-        menu.addItem(TerminalCloseMenu.item(action: #selector(closeTerminalFromMenu(_:)), target: self))
+        menu.addItem(makeItem(.find, #selector(findFromMenu(_:))))
+        menu.addItem(makeItem(.clearScreen, #selector(clearScreenFromMenu(_:))))
+        menu.addItem(.separator())
+        menu.addItem(makeItem(.duplicateRight, #selector(splitRightFromMenu(_:))))
+        menu.addItem(makeItem(.duplicateDown, #selector(splitDownFromMenu(_:))))
+        menu.addItem(.separator())
+        let close = TerminalCloseMenu.item(
+            title: String(localized: "Close Pane"),
+            action: #selector(closeTerminalFromMenu(_:)),
+            target: self
+        )
+        SSHTerminalNSView.showChord(AppShortcuts.chord(for: .closeTab), on: close)
+        menu.addItem(close)
         return menu
     }
 
@@ -489,6 +722,37 @@ final class SSHTerminalNSView: AppTerminalView {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
         return item
+    }
+
+    private func makeItem(_ shortcut: AppShortcutID, _ action: Selector) -> NSMenuItem {
+        let item = makeItem(shortcut.title, action)
+        SSHTerminalNSView.showChord(AppShortcuts.chord(for: shortcut), on: item)
+        return item
+    }
+
+    private static func showChord(_ chord: KeyChord, on item: NSMenuItem) {
+        if chord.isUnbound {
+            return
+        }
+        item.keyEquivalent = chord.key
+        item.keyEquivalentModifierMask = chord.menuModifierMask
+    }
+
+    @objc private func findFromMenu(_: Any?) {
+        window?.makeFirstResponder(self)
+        TerminalFind.shared.showFindBar()
+    }
+
+    @objc private func clearScreenFromMenu(_: Any?) {
+        performBindingAction("clear_screen")
+    }
+
+    @objc private func splitRightFromMenu(_: Any?) {
+        onSplit?(.right)
+    }
+
+    @objc private func splitDownFromMenu(_: Any?) {
+        onSplit?(.bottom)
     }
 
     @objc private func openLinkFromMenu(_ sender: NSMenuItem) {
@@ -559,9 +823,49 @@ final class SSHTerminalNSView: AppTerminalView {
         onClose?()
     }
 
+    /// Goes through Ghostty's paste binding so `clipboard-paste-protection` applies: an unsafe paste
+    /// comes back as a confirmation request (`Coordinator.terminalDidRequestClipboardConfirmation`).
     private func pastePlainText() {
-        guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else { return }
-        paste(text: text)
+        performBindingAction("paste_from_clipboard")
+    }
+
+    /// Asks before an unsafe paste. The contents only reach the shell after the user allows it.
+    func confirmPaste(_ request: TerminalClipboardConfirmationRequest) {
+        guard let window else {
+            request.respond(allow: false)
+            return
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "Paste text that may run commands?")
+        alert.informativeText = String(
+            format: String(localized: "The text contains line breaks, so pasting it can run commands right away:\n\n%@"),
+            SSHTerminalNSView.pastePreview(request.contents)
+        )
+        alert.addButton(withTitle: String(localized: "Paste"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.beginSheetModal(for: window) { response in
+            request.respond(allow: response == .alertFirstButtonReturn)
+        }
+    }
+
+    /// The first few lines, each cut short, so a long paste still fits in the alert.
+    static func pastePreview(_ text: String) -> String {
+        let maxLines = 6
+        let maxLineLength = 80
+        let lines = text.components(separatedBy: .newlines)
+        var preview: [String] = []
+        for line in lines.prefix(maxLines) {
+            if line.count > maxLineLength {
+                preview.append(String(line.prefix(maxLineLength)) + "…")
+            } else {
+                preview.append(line)
+            }
+        }
+        if lines.count > maxLines {
+            preview.append(String(format: String(localized: "…and %lld more lines"), lines.count - maxLines))
+        }
+        return preview.joined(separator: "\n")
     }
 }
 
@@ -595,6 +899,62 @@ private extension NSEvent {
     }
 }
 
+/// Decoration drawn inside a terminal view. Clicks and hovers go through to the terminal.
+final class TerminalOverlayView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// The URL under the pointer, bottom left of the terminal, cut in the middle when long.
+final class TerminalLinkBanner: NSView {
+    private let label = NSTextField(labelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerRadius = Theme.Radius.row
+        layer?.borderWidth = 1
+        label.font = .systemFont(ofSize: Theme.PaneStyle.linkBannerFontSize)
+        label.lineBreakMode = .byTruncatingMiddle
+        label.maximumNumberOfLines = 1
+        label.cell?.truncatesLastVisibleLine = true
+        addSubview(label)
+        autoresizingMask = [.maxXMargin, .maxYMargin]
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func show(_ url: String, background: NSColor, text: NSColor, border: NSColor, in container: NSRect) {
+        layer?.backgroundColor = background.cgColor
+        layer?.borderColor = border.cgColor
+        label.textColor = text
+        label.stringValue = url
+        let paddingX = Theme.Space.s
+        let paddingY = Theme.Space.xs / 2
+        let margin = Theme.Space.xs
+        let natural = label.intrinsicContentSize
+        let maxWidth = max(container.width * Theme.PaneStyle.linkBannerMaxWidthRatio, paddingX * 2)
+        let width = min(natural.width + paddingX * 2, maxWidth)
+        let height = natural.height + paddingY * 2
+        frame = NSRect(x: margin, y: margin, width: width, height: height)
+        label.frame = NSRect(x: paddingX, y: paddingY, width: width - paddingX * 2, height: natural.height)
+    }
+}
+
 /// Plain container that hosts the registry's terminal view for one session. SwiftUI may create and
 /// destroy containers freely; the terminal inside is only detached, never terminated here.
 final class TerminalHostView: NSView {
@@ -625,21 +985,32 @@ struct SSHTerminalView: NSViewRepresentable {
     /// Only the window's selected pane grabs the keyboard when its view is first made. Restoring
     /// several terminals at once must not hand focus to whichever finished last.
     var focusesOnCreate: Bool = true
+    /// Asked once when the process first starts. Its text goes to the pty, where it waits
+    /// until the shell reads it, as if typed ahead.
+    var takeInitialInput: () -> String? = { nil }
     /// Exit code and seconds the process lived. Fires again after every in-place reconnect.
     var onExit: (Int32?, TimeInterval) -> Void
     var onClose: () -> Void = {}
     var onFocus: () -> Void = {}
+    var onSplit: (SplitEdge) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     /// The ssh command for a host, or the login shell for a local directory.
     static func launch(alias: String, directory: String?, environment: [String]) -> TerminalLaunch {
         if alias.isEmpty, let directory, !directory.isEmpty {
+            let shell = LocalTerminal.shellExecutable
             return TerminalLaunch(
-                executable: LocalTerminal.shellExecutable,
+                executable: shell,
                 args: ["-l"],
                 environment: environment,
-                directory: LocalTerminal.launchDirectory(directory)
+                directory: LocalTerminal.launchDirectory(directory),
+                shellIntegrationEnvironment: ShellIntegrationEnvironment.variables(
+                    settings: TerminalSettings.load(),
+                    shellPath: shell,
+                    resourcesPath: Bundle.main.resourcePath,
+                    environment: environment
+                )
             )
         }
         return TerminalLaunch(
@@ -653,7 +1024,9 @@ struct SSHTerminalView: NSViewRepresentable {
     func makeNSView(context: Context) -> TerminalHostView {
         let container = TerminalHostView(frame: .zero)
         container.sessionID = sessionID
-        let terminal = SSHTerminalRegistry.view(for: sessionID) { makeTerminal() }
+        guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
+            return container
+        }
         context.coordinator.terminal = terminal
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
@@ -668,7 +1041,9 @@ struct SSHTerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ container: TerminalHostView, context: Context) {
-        let terminal = SSHTerminalRegistry.view(for: sessionID) { makeTerminal() }
+        guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
+            return
+        }
         context.coordinator.terminal = terminal
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
@@ -684,10 +1059,17 @@ struct SSHTerminalView: NSViewRepresentable {
     private func makeTerminal() -> SSHTerminalNSView {
         let host = TerminalProcessHost()
         let view = SSHTerminalNSView(frame: .zero)
+        view.sessionID = sessionID
         view.processHost = host
+        view.eventRelay.terminal = view
+        view.delegate = view.eventRelay
+        view.registerForDraggedTypes(SSHTerminalNSView.dropTypes)
         view.controller = GhosttyRuntime.controller
         view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
         host.start(Self.launch(alias: alias, directory: directory, environment: environment))
+        if let input = takeInitialInput() {
+            host.process.write(Data(input.utf8))
+        }
         return view
     }
 
@@ -697,9 +1079,10 @@ struct SSHTerminalView: NSViewRepresentable {
     private func wire(_ terminal: SSHTerminalNSView, coordinator: Coordinator) {
         coordinator.onClose = onClose
         coordinator.onFocus = onFocus
-        terminal.delegate = coordinator
+        coordinator.onSplit = onSplit
         terminal.onFocus = { [weak coordinator] in coordinator?.onFocus?() }
         terminal.onClose = { [weak coordinator] in coordinator?.onClose?() }
+        terminal.onSplit = { [weak coordinator] edge in coordinator?.onSplit?(edge) }
         let onExit = self.onExit
         terminal.processHost?.onExit = { code, lived in
             onExit(code, lived)
@@ -716,17 +1099,22 @@ struct SSHTerminalView: NSViewRepresentable {
         GhosttyRuntime.controller.setColorScheme(dark ? .dark : .light)
     }
 
-    final class Coordinator: NSObject, TerminalSurfaceLifecycleDelegate {
+    final class Coordinator: NSObject {
         var onClose: (() -> Void)?
         var onFocus: (() -> Void)?
+        var onSplit: ((SplitEdge) -> Void)?
         weak var terminal: SSHTerminalNSView?
+    }
+}
 
-        func terminalDidAttachSurface(_ surface: TerminalSurface) {
-            terminal?.attachedSurface = surface
+/// AppKit appends AutoFill to any text-input view's context menu; a terminal has no use for it.
+extension SSHTerminalNSView: NSMenuDelegate {
+    func menuWillOpen(_ menu: NSMenu) {
+        for item in menu.items where !item.isSeparatorItem && item.target !== self {
+            menu.removeItem(item)
         }
-
-        func terminalDidDetachSurface() {
-            terminal?.attachedSurface = nil
+        while menu.items.last?.isSeparatorItem == true {
+            menu.removeItem(at: menu.items.count - 1)
         }
     }
 }

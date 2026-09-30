@@ -29,13 +29,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "深色" } }
       }
     },
-    "Default" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Default" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "默认" } }
-      }
-    },
     "Follow System" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -120,25 +113,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld px" } }
       }
     },
-    "1Agent 你好 abc 0123456789 -> =>" : {
+    "Ghostty 你好 abc 0123456789 -> =>" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "1Agent 你好 abc 0123456789 -> =>" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1Agent 你好 abc 0123456789 -> =>" } }
-      }
-    },
-    "Address" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Address" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "地址" } }
-      }
-    },
-    "Alias" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Alias" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "别名" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty 你好 abc 0123456789 -> =>" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty 你好 abc 0123456789 -> =>" } }
       }
     },
     "Settings" : {
@@ -167,13 +146,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Workspace %lld" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "工作区 %lld" } }
-      }
-    },
-    "Right-click to reconnect closed terminals, rename the workspace, or arrange its panes." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Right-click to reconnect closed terminals, rename the workspace, or arrange its panes." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "右键可重新连接已断开的终端、重命名工作区，或调整窗格排列。" } }
       }
     },
     "Drag to reorder. Right-click to reconnect closed terminals, rename the workspace, or arrange its panes." : {
@@ -267,27 +239,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在重连…" } }
       }
     },
-    "Copy Host Info" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制" } }
-      }
-    },
-    "Port" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Port" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "端口" } }
-      }
-    },
-    "User" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "User" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用户" } }
-      }
-    },
     "Copy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -302,11 +253,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝链接地址" } }
       }
     },
-    "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info." : {
+    "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info. Drag the blank part of the bar to move the window." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖动标题到窗格的上、下、左、右合并；拖回侧栏拆出。右键标题复制主机信息。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info. Drag the blank part of the bar to move the window." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖动标题到窗格的上、下、左、右合并；拖回侧栏拆出。右键标题复制主机信息。拖动标题条空白处移动窗口。" } }
       }
     },
     "Copy Info" : {
@@ -323,18 +274,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法读取 SSH 配置。" } }
       }
     },
-    "1Agent" : {
+    "Ghostty" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "1Agent" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1Agent" } }
-      }
-    },
-    "Open a Terminal" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open a Terminal" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开终端" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty" } }
       }
     },
     "Local Terminal" : {
@@ -342,27 +286,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Local Terminal" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本地终端" } }
-      }
-    },
-    "Directory" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Directory" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "目录" } }
-      }
-    },
-    "Copy Path" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Path" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制路径" } }
-      }
-    },
-    "Close Tab" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Tab" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭标签" } }
       }
     },
     "Duplicate Right" : {
@@ -407,20 +330,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭终端" } }
       }
     },
-    "Close Tab (%@)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Tab (%@)" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭标签（%@）" } }
-      }
-    },
-    "Hosts" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hosts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主机" } }
-      }
-    },
     "New Tab" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -428,11 +337,32 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新标签" } }
       }
     },
-    "New Tab (%@)" : {
+    "New Local Terminal" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Tab (%@)" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新标签（%@）" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Local Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建本机终端" } }
+      }
+    },
+    "Open Host…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Host…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开主机…" } }
+      }
+    },
+    "Open Host (%@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Host (%@)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开主机 (%@)" } }
+      }
+    },
+    "%lld panes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld panes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个窗格" } }
       }
     },
     "No matching hosts" : {
@@ -456,11 +386,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开链接" } }
       }
     },
-    "Press %@ to open a terminal." : {
+    "Press %@ to open a host, or %@ for a local terminal." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Press %@ to open a terminal." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按 %@ 打开终端。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Press %@ to open a host, or %@ for a local terminal." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按 %@ 打开主机，按 %@ 新建本机终端。" } }
       }
     },
     "Paste" : {
@@ -484,13 +414,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新连接" } }
       }
     },
-    "Reload SSH config" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reload SSH config" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新读取 SSH 配置" } }
-      }
-    },
     "SSH config has no hosts to connect to." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -503,20 +426,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Select All" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全选" } }
-      }
-    },
-    "Select a host" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Select a host" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择一台主机" } }
-      }
-    },
-    "Select a host from the list to open an SSH session." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Select a host from the list to open an SSH session." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从左侧列表选择一台主机，打开 SSH 会话。" } }
       }
     },
     "Opened more than once" : {
@@ -540,11 +449,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "以工作区打开 %lld 台" } }
       }
     },
-    "⏎ opens the ticked hosts together. ⌘-click to tick more." : {
+    "⏎ opens the selected hosts as one workspace. ⌘-click to select more." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "⏎ opens the ticked hosts together. ⌘-click to tick more." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "⏎ 一起打开已勾选主机，⌘-点击可继续勾选。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "⏎ opens the selected hosts as one workspace. ⌘-click to select more." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "⏎ 将已选主机合并为工作区打开，⌘-点击继续选择。" } }
       }
     },
     "↑↓ to move, ⏎ to open, ⌘-click to tick several." : {
@@ -552,13 +461,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "↑↓ to move, ⏎ to open, ⌘-click to tick several." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "↑↓ 移动，⏎ 打开，⌘-点击可多选。" } }
-      }
-    },
-    "Tick host" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tick host" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "勾选主机" } }
       }
     },
     "Open" : {
@@ -589,67 +491,18 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在重新连接" } }
       }
     },
-    "New Window" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Window" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建窗口" } }
-      }
-    },
-    "Window %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Window %lld" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "窗口 %lld" } }
-      }
-    },
-    "Window name" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Window name" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "窗口名称" } }
-      }
-    },
-    "Double-click to rename this window." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Double-click to rename this window." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "双击可重命名此窗口。" } }
-      }
-    },
-    "Open in New Window" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open in New Window" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在新窗口打开" } }
-      }
-    },
-    "Close this window and its %lld terminals?" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close this window and its %lld terminals?" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭此窗口及其中的 %lld 个终端？" } }
-      }
-    },
-    "Drag terminals to another window first if you want to keep them." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag terminals to another window first if you want to keep them." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "想保留这些终端，请先把它们拖到其他窗口。" } }
-      }
-    },
-    "Close Window" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Window" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭窗口" } }
-      }
-    },
     "Some hosts are not in your SSH config" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Some hosts are not in your SSH config" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "部分主机不在 SSH 配置里" } }
+      }
+    },
+    "No folder to open." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No folder to open." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有可打开的文件夹。" } }
       }
     },
     "Not opened: %@. Add them to ~/.ssh/config (or config.d) first." : {
@@ -748,6 +601,1693 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Current dark theme" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前深色主题" } }
+      }
+    },
+    "My Themes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "My Themes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "我的主题" } }
+      }
+    },
+    "Import Theme File…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import Theme File…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导入主题文件…" } }
+      }
+    },
+    "Open Themes Folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Themes Folder" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开主题文件夹" } }
+      }
+    },
+    "Put Ghostty theme files in %@ and they appear here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Put Ghostty theme files in %@ and they appear here." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "把 Ghostty 主题文件放进 %@ 即可出现在这里。" } }
+      }
+    },
+    "Move to Trash" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move to Trash" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移到废纸篓" } }
+      }
+    },
+    "Move “%@” to the Trash?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move “%@” to the Trash?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "将“%@”移到废纸篓？" } }
+      }
+    },
+    "The theme file goes to the Trash, where it can be put back." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The theme file goes to the Trash, where it can be put back." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主题文件会移到废纸篓，之后可以从废纸篓放回。" } }
+      }
+    },
+    "Theme File Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Theme File Error" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主题文件操作失败" } }
+      }
+    },
+    "Choose Ghostty theme files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose Ghostty theme files" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择 Ghostty 主题文件" } }
+      }
+    },
+    "Import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导入" } }
+      }
+    },
+    "“%@” could not be read as text." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "“%@” could not be read as text." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法把“%@”读取为文本。" } }
+      }
+    },
+    "“%@” is not a Ghostty theme file: it needs background and foreground colors." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "“%@” is not a Ghostty theme file: it needs background and foreground colors." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "“%@”不是 Ghostty 主题文件：需要 background 和 foreground 颜色。" } }
+      }
+    },
+    "Windows, tabs and splits are managed by this app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Windows, tabs and splits are managed by this app" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "窗口、标签和分屏由本应用管理" } }
+      }
+    },
+    "Only applies to other platforms" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Only applies to other platforms" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅适用于其它平台" } }
+      }
+    },
+    "This app starts the shell itself" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This app starts the shell itself" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端进程由本应用启动" } }
+      }
+    },
+    "App-level feature this app does not have" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "App-level feature this app does not have" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本应用没有这项 App 级功能" } }
+      }
+    },
+    "This terminal engine does not support background blur" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This terminal engine does not support background blur" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本终端引擎不支持背景毛玻璃" } }
+      }
+    },
+    "This terminal engine does not support custom shaders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This terminal engine does not support custom shaders" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本终端引擎不支持自定义着色器" } }
+      }
+    },
+    "Could not read %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not read %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法读取 %@" } }
+      }
+    },
+    "config-file %@: cycle detected, skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "config-file %@: cycle detected, skipped" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "config-file %@：检测到循环引用，已跳过" } }
+      }
+    },
+    "config-file %@: file not found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "config-file %@: file not found" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "config-file %@：文件不存在" } }
+      }
+    },
+    "config-file %@: not a file" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "config-file %@: not a file" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "config-file %@：不是文件" } }
+      }
+    },
+    "%@: line without “=” skipped: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@: line without “=” skipped: %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@：缺少“=”的行已跳过：%@" } }
+      }
+    },
+    "%@: line without a key skipped: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@: line without a key skipped: %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@：缺少键名的行已跳过：%@" } }
+      }
+    },
+    "Only one font family can be set; fallback fonts are not imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Only one font family can be set; fallback fonts are not imported" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "只能设置一个字体，后备字体不导入" } }
+      }
+    },
+    "Value not understood, and this key is managed by the app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Value not understood, and this key is managed by the app" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "值无法识别，且该键由本应用管理" } }
+      }
+    },
+    "Ligatures on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ligatures on" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连字开启" } }
+      }
+    },
+    "Ligatures off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ligatures off" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连字关闭" } }
+      }
+    },
+    "theme = %@ could not be read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "theme = %@ could not be read" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法解析 theme = %@" } }
+      }
+    },
+    "%@ is not a valid Ghostty theme file" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ is not a valid Ghostty theme file" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 不是有效的 Ghostty 主题文件" } }
+      }
+    },
+    "Theme “%@” was not found in your themes folder or the built-in themes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Theme “%@” was not found in your themes folder or the built-in themes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在主题文件夹和内置主题中都找不到“%@”" } }
+      }
+    },
+    "“%@” is a light theme; the dark theme stays unchanged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "“%@” is a light theme; the dark theme stays unchanged" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "“%@”是浅色主题，深色主题保持不变" } }
+      }
+    },
+    "“%@” is a dark theme; the light theme stays unchanged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "“%@” is a dark theme; the light theme stays unchanged" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "“%@”是深色主题，浅色主题保持不变" } }
+      }
+    },
+    "Would remove every built-in terminal key binding" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Would remove every built-in terminal key binding" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "会清除终端引擎的全部内置快捷键" } }
+      }
+    },
+    "Not a trigger=action key binding" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not a trigger=action key binding" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不是 trigger=action 格式的快捷键" } }
+      }
+    },
+    "global:/all: prefixes and key sequences cannot become app shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "global:/all: prefixes and key sequences cannot become app shortcuts" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "带 global:/all: 前缀或按键序列的快捷键无法映射为应用快捷键" } }
+      }
+    },
+    "Key not supported for app shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Key not supported for app shortcuts" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "应用快捷键不支持该按键" } }
+      }
+    },
+    "global:/all: key bindings need the whole app, not one terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "global:/all: key bindings need the whole app, not one terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "global:/all: 快捷键作用于整个 App，终端引擎无法处理" } }
+      }
+    },
+    "⌘C is handled by the app: copy with a selection, otherwise sent to the shell" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "⌘C is handled by the app: copy with a selection, otherwise sent to the shell" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "⌘C 由本应用处理：有选区时复制，否则发送给 Shell" } }
+      }
+    },
+    "This app has no matching feature" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This app has no matching feature" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本应用没有对应功能" } }
+      }
+    },
+    "Split Right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Split Right" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向右分屏" } }
+      }
+    },
+    "Split Down" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Split Down" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向下分屏" } }
+      }
+    },
+    "Next Pane" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Next Pane" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下一个窗格" } }
+      }
+    },
+    "Previous Pane" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Previous Pane" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上一个窗格" } }
+      }
+    },
+    "Focus Pane Left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focus Pane Left" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "聚焦左侧窗格" } }
+      }
+    },
+    "Focus Pane Right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focus Pane Right" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "聚焦右侧窗格" } }
+      }
+    },
+    "Focus Pane Above" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focus Pane Above" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "聚焦上方窗格" } }
+      }
+    },
+    "Focus Pane Below" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focus Pane Below" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "聚焦下方窗格" } }
+      }
+    },
+    "Move Pane Left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move Pane Left" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向左移动窗格" } }
+      }
+    },
+    "Move Pane Right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move Pane Right" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向右移动窗格" } }
+      }
+    },
+    "Move Pane Up" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move Pane Up" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向上移动窗格" } }
+      }
+    },
+    "Move Pane Down" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move Pane Down" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向下移动窗格" } }
+      }
+    },
+    "Found a Ghostty config file. Import its font, theme and other settings?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Found a Ghostty config file. Import its font, theme and other settings?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "发现 Ghostty 配置文件，是否导入字体、主题和其它设置？" } }
+      }
+    },
+    "Review and Import…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Review and Import…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查看并导入…" } }
+      }
+    },
+    "Not Now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not Now" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "以后再说" } }
+      }
+    },
+    "Advanced" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Advanced" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "高级" } }
+      }
+    },
+    "Import from Ghostty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import from Ghostty" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从 Ghostty 导入" } }
+      }
+    },
+    "No Ghostty config file was found. Ghostty reads ~/.config/ghostty/config.ghostty and ~/Library/Application Support/com.mitchellh.ghostty/config.ghostty." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No Ghostty config file was found. Ghostty reads ~/.config/ghostty/config.ghostty and ~/Library/Application Support/com.mitchellh.ghostty/config.ghostty." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未找到 Ghostty 配置文件。Ghostty 会读取 ~/.config/ghostty/config.ghostty 和 ~/Library/Application Support/com.mitchellh.ghostty/config.ghostty。" } }
+      }
+    },
+    "Config files found:" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Config files found:" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "找到的配置文件：" } }
+      }
+    },
+    "Import Configuration from Ghostty…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import Configuration from Ghostty…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从 Ghostty 导入配置…" } }
+      }
+    },
+    "Undo Last Import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Undo Last Import" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "撤销上次导入" } }
+      }
+    },
+    "Last import undone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Last import undone" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已撤销上次导入" } }
+      }
+    },
+    "Import complete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import complete" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导入完成" } }
+      }
+    },
+    "Custom Configuration Snippet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Custom Configuration Snippet" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义配置片段" } }
+      }
+    },
+    "One Ghostty setting per line, as key = value. Settings that have their own control are changed on their page." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "One Ghostty setting per line, as key = value. Settings that have their own control are changed on their page." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "每行一个 Ghostty 配置，格式 key = value；界面已提供的设置请在对应页面修改。" } }
+      }
+    },
+    "Apply" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Apply" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "应用" } }
+      }
+    },
+    "Configuration OK" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Configuration OK" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "配置正常" } }
+      }
+    },
+    "Skipped, managed by the app: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Skipped, managed by the app: %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已跳过（由界面管理）：%@" } }
+      }
+    },
+    "Invalid line, needs key = value: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid line, needs key = value: %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无效行（需要 key = value）：%@" } }
+      }
+    },
+    "Ghostty rejected the configuration: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty rejected the configuration: %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "引擎拒绝了该配置：%@" } }
+      }
+    },
+    "Left out, Ghostty rejected it: %@ (%@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Left out, Ghostty rejected it: %1$@ (%2$@)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已剔除，引擎拒绝此行：%1$@（%2$@）" } }
+      }
+    },
+    "Ghostty gave no reason" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty gave no reason" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "引擎未给出原因" } }
+      }
+    },
+    "Current Configuration" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current Configuration" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前生效配置" } }
+      }
+    },
+    "What Ghostty is running with: settings from every page, then the custom snippet. Theme colors are applied separately." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What Ghostty is running with: settings from every page, then the custom snippet. Theme colors are applied separately." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端正在使用的配置：先是各页面的设置，再是自定义配置片段。主题颜色单独应用。" } }
+      }
+    },
+    "Hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "收起" } }
+      }
+    },
+    "Show" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "展开" } }
+      }
+    },
+    "Nothing to change: the app already matches your Ghostty configuration." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Nothing to change: the app already matches your Ghostty configuration." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无需更改：当前设置已与 Ghostty 配置一致。" } }
+      }
+    },
+    "Settings to Apply" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings to Apply" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "将应用的设置" } }
+      }
+    },
+    "%@: %@ (unchanged)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@: %@ (unchanged)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@：%@（未变）" } }
+      }
+    },
+    "%@: %@ → %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@: %@ → %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@：%@ → %@" } }
+      }
+    },
+    "Theme" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Theme" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主题" } }
+      }
+    },
+    "Dark: %@ (unchanged)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark: %@ (unchanged)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "深色：%@（未变）" } }
+      }
+    },
+    "Light: %@ (unchanged)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light: %@ (unchanged)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色：%@（未变）" } }
+      }
+    },
+    "Dark: %@ (now %@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark: %@ (now %@)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "深色：%@（当前为 %@）" } }
+      }
+    },
+    "Light: %@ (now %@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light: %@ (now %@)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色：%@（当前为 %@）" } }
+      }
+    },
+    "theme file is copied into your themes folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "theme file is copied into your themes folder" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主题文件会拷贝到主题文件夹" } }
+      }
+    },
+    "Add to Custom Snippet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add to Custom Snippet" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "放入高级片段" } }
+      }
+    },
+    "Keyboard Shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Keyboard Shortcuts" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "快捷键" } }
+      }
+    },
+    "Ignored" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ignored" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "忽略" } }
+      }
+    },
+    "Not Migrated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not Migrated" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未迁移" } }
+      }
+    },
+    "Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端" } }
+      }
+    },
+    "Restore Page Defaults" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore Page Defaults" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复本页默认" } }
+      }
+    },
+    "Cursor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cursor" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "光标" } }
+      }
+    },
+    "Style" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Style" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "样式" } }
+      }
+    },
+    "Shape of the cursor. Some programs, such as vim, set their own." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shape of the cursor. Some programs, such as vim, set their own." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "光标形状。vim 等部分程序会自行设置光标形状。" } }
+      }
+    },
+    "Block" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Block" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "方块" } }
+      }
+    },
+    "Bar" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bar" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "竖线" } }
+      }
+    },
+    "Underline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Underline" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下划线" } }
+      }
+    },
+    "Hollow Block" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hollow Block" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "空心方块" } }
+      }
+    },
+    "Blink" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Blink" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "闪烁" } }
+      }
+    },
+    "Blink the cursor while the terminal has focus." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Blink the cursor while the terminal has focus." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端处于焦点时光标闪烁。" } }
+      }
+    },
+    "Opacity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Opacity" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不透明度" } }
+      }
+    },
+    "Lower values let the character under the cursor show through." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Lower values let the character under the cursor show through." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "数值越低，光标下的字符越清晰可见。" } }
+      }
+    },
+    "%lld%%" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld%%" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld%%" } }
+      }
+    },
+    "Scrollback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scrollback" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "滚动" } }
+      }
+    },
+    "Scrollback Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scrollback Size" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "回滚缓冲大小" } }
+      }
+    },
+    "Memory each terminal keeps for history. Applies to terminals opened after the change." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Memory each terminal keeps for history. Applies to terminals opened after the change." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "每个终端用于保存历史输出的内存上限。对修改后新打开的终端生效。" } }
+      }
+    },
+    "%lld MB" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld MB" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld MB" } }
+      }
+    },
+    "Mouse and Clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mouse and Clipboard" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "鼠标与剪贴板" } }
+      }
+    },
+    "Copy on Select" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy on Select" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选中即复制" } }
+      }
+    },
+    "Copy text to the clipboard as soon as it is selected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy text to the clipboard as soon as it is selected." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选中文字后立即复制到剪贴板。" } }
+      }
+    },
+    "Off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Off" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭" } }
+      }
+    },
+    "Copy to Clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy to Clipboard" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制到剪贴板" } }
+      }
+    },
+    "Selection Clipboard Only (no effect on macOS)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Selection Clipboard Only (no effect on macOS)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅选区剪贴板（macOS 上无效果）" } }
+      }
+    },
+    "Clipboard and Selection Clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Clipboard and Selection Clipboard" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "剪贴板与选区剪贴板" } }
+      }
+    },
+    "Paste Protection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste Protection" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "粘贴保护" } }
+      }
+    },
+    "Ask before pasting text with line breaks or other content that could run commands." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ask before pasting text with line breaks or other content that could run commands." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "粘贴含换行或可能直接执行命令的内容前先确认。" } }
+      }
+    },
+    "Hide Pointer While Typing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide Pointer While Typing" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "输入时隐藏鼠标" } }
+      }
+    },
+    "Hide the mouse pointer while typing; it comes back when the mouse moves." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide the mouse pointer while typing; it comes back when the mouse moves." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打字时隐藏鼠标指针，移动鼠标后重新显示。" } }
+      }
+    },
+    "Detect Links" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Detect Links" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "识别链接" } }
+      }
+    },
+    "Underline links under the pointer while ⌘ is held; ⌘-click opens them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Underline links under the pointer while ⌘ is held; ⌘-click opens them." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按住 ⌘ 时为指针下的链接加下划线，⌘ 点按即可打开。" } }
+      }
+    },
+    "Keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Keyboard" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "键盘" } }
+      }
+    },
+    "Option as Alt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Option as Alt" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Option 作为 Alt" } }
+      }
+    },
+    "When on, Option combinations reach programs as Alt (Emacs, word jumps in the shell). When off, Option types special characters." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "When on, Option combinations reach programs as Alt (Emacs, word jumps in the shell). When off, Option types special characters." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "开启后 Option 组合键作为 Alt 发送给程序（如 Emacs、shell 单词跳转），关闭则输入特殊字符。" } }
+      }
+    },
+    "Both Sides" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Both Sides" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "两侧" } }
+      }
+    },
+    "Left Only" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Left Only" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅左侧" } }
+      }
+    },
+    "Right Only" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Right Only" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅右侧" } }
+      }
+    },
+    "Bell" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bell" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "铃声" } }
+      }
+    },
+    "Bell Effects" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bell Effects" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "铃声效果" } }
+      }
+    },
+    "What happens when a program rings the bell (for example, a finished command or Tab with no match)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What happens when a program rings the bell (for example, a finished command or Tab with no match)." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "程序响铃时（例如命令结束、Tab 补全无匹配）要执行的提示。" } }
+      }
+    },
+    "System Alert Sound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "System Alert Sound" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "系统提示音" } }
+      }
+    },
+    "Play Sound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Play Sound" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "播放声音" } }
+      }
+    },
+    "Bounce Dock Icon" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bounce Dock Icon" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Dock 跳动" } }
+      }
+    },
+    "Mark the Title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mark the Title" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "标题提示" } }
+      }
+    },
+    "Flash the Border" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Flash the Border" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "边框闪烁" } }
+      }
+    },
+    "Play the macOS alert sound." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Play the macOS alert sound." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "播放 macOS 系统提示音。" } }
+      }
+    },
+    "Bounce the Dock icon while the app is in the background." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bounce the Dock icon while the app is in the background." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "应用在后台时让 Dock 图标跳动。" } }
+      }
+    },
+    "Flash a border around the terminal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Flash a border around the terminal." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在终端四周闪烁边框。" } }
+      }
+    },
+    "Shell Integration" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shell Integration" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Shell 集成" } }
+      }
+    },
+    "Integration" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Integration" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "集成方式" } }
+      }
+    },
+    "Applies to local terminals; SSH sessions are not affected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Applies to local terminals; SSH sessions are not affected." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "作用于本机终端；SSH 远程会话不生效。" } }
+      }
+    },
+    "Detect Automatically" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Detect Automatically" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自动检测" } }
+      }
+    },
+    "Features" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Features" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "功能" } }
+      }
+    },
+    "What the integration does in the shell." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What the integration does in the shell." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Shell 集成在 shell 中提供的功能。" } }
+      }
+    },
+    "Bar Cursor at the Prompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bar Cursor at the Prompt" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "提示符处竖线光标" } }
+      }
+    },
+    "Keep Terminal Info for sudo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Keep Terminal Info for sudo" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "sudo 保留终端信息" } }
+      }
+    },
+    "Set the Title Automatically" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set the Title Automatically" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自动设置标题" } }
+      }
+    },
+    "Compatible TERM over SSH" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Compatible TERM over SSH" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "SSH 使用兼容的 TERM" } }
+      }
+    },
+    "Install terminfo over SSH" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Install terminfo over SSH" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "SSH 时安装 terminfo" } }
+      }
+    },
+    "Add Ghostty to PATH" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add Ghostty to PATH" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "将 Ghostty 加入 PATH" } }
+      }
+    },
+    "Show a bar cursor while typing at the prompt." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show a bar cursor while typing at the prompt." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在提示符处输入时光标显示为竖线。" } }
+      }
+    },
+    "Let sudo keep the terminal's terminfo." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Let sudo keep the terminal's terminfo." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "让 sudo 保留当前终端的 terminfo。" } }
+      }
+    },
+    "Show the running command or folder in the title." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show the running command or folder in the title." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在标题中显示正在运行的命令或所在目录。" } }
+      }
+    },
+    "Send a TERM value the remote host understands." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Send a TERM value the remote host understands." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "向远程主机发送它能识别的 TERM 值。" } }
+      }
+    },
+    "Copy Ghostty's terminfo to the remote host on first connect." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Ghostty's terminfo to the remote host on first connect." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "首次连接时把 Ghostty 的 terminfo 复制到远程主机。" } }
+      }
+    },
+    "Put Ghostty's command-line tool on PATH." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Put Ghostty's command-line tool on PATH." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "把 Ghostty 命令行工具加入 PATH。" } }
+      }
+    },
+    "Contrast and Transparency" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Contrast and Transparency" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "对比度与透明" } }
+      }
+    },
+    "Minimum Contrast" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Minimum Contrast" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最小对比度" } }
+      }
+    },
+    "Brighten or darken text that is hard to read on its background. 1 turns it off; 4.5 is the usual readability bar." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Brighten or darken text that is hard to read on its background. 1 turns it off; 4.5 is the usual readability bar." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自动提亮或压暗与背景难以区分的文字。1 表示关闭；4.5 是常用的可读性标准。" } }
+      }
+    },
+    "Background Opacity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Background Opacity" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "背景不透明度" } }
+      }
+    },
+    "Below 100%, the desktop shows through the terminal area. The sidebar and pane titles stay opaque." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Below 100%, the desktop shows through the terminal area. The sidebar and pane titles stay opaque." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "低于 100% 时终端区域会透出桌面，侧栏与窗格标题条保持不透明。" } }
+      }
+    },
+    "Background Blur" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Background Blur" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "背景模糊" } }
+      }
+    },
+    "Blur what shows through a translucent terminal. Drawn by this app; available below 100% opacity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Blur what shows through a translucent terminal. Drawn by this app; available below 100% opacity." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "模糊透过终端看到的内容。由本应用绘制，仅在不透明度低于 100% 时可用。" } }
+      }
+    },
+    "Glyphs and Spacing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Glyphs and Spacing" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "字形与间距" } }
+      }
+    },
+    "Thicken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Thicken" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "加粗" } }
+      }
+    },
+    "Draw glyphs a little heavier, which helps thin fonts on some displays." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Draw glyphs a little heavier, which helps thin fonts on some displays." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "把字形画得稍粗一些，细字体在部分显示器上会更清楚。" } }
+      }
+    },
+    "Thicken Strength" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Thicken Strength" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "加粗强度" } }
+      }
+    },
+    "How much heavier; only used while Thicken is on." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "How much heavier; only used while Thicken is on." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "加粗的程度，仅在开启加粗时生效。" } }
+      }
+    },
+    "Ligatures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ligatures" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连字" } }
+      }
+    },
+    "Join character pairs such as -> and => into one glyph when the font supports it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Join character pairs such as -> and => into one glyph when the font supports it." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "字体支持时，把 -> 和 => 等字符组合显示为一个连字。" } }
+      }
+    },
+    "Line Height" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Line Height" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "行高微调" } }
+      }
+    },
+    "Add or remove space between lines, as a share of the font's own line height." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add or remove space between lines, as a share of the font's own line height." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按字体原有行高的百分比增加或减少行间距。" } }
+      }
+    },
+    "Horizontal Padding" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Horizontal Padding" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "水平内边距" } }
+      }
+    },
+    "Space between the text and the left and right edges of the terminal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Space between the text and the left and right edges of the terminal." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "文字与终端左右边缘之间的距离。" } }
+      }
+    },
+    "Vertical Padding" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vertical Padding" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "垂直内边距" } }
+      }
+    },
+    "Space between the text and the bottom edge of the terminal. The top stays close under the title." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Space between the text and the bottom edge of the terminal. The top stays close under the title." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "文字与终端下边缘之间的距离。顶部始终紧贴标题。" } }
+      }
+    },
+    "%lld pt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld pt" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld pt" } }
+      }
+    },
+    "The preview follows Thicken and Line Height roughly; the terminal shows the exact result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The preview follows Thicken and Line Height roughly; the terminal shows the exact result." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "预览只近似反映加粗与行高，实际效果以终端为准。" } }
+      }
+    },
+    "App" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "App" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "应用" } }
+      }
+    },
+    "Panes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Panes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "窗格" } }
+      }
+    },
+    "Increase Font Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Increase Font Size" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "放大字号" } }
+      }
+    },
+    "Decrease Font Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Decrease Font Size" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "缩小字号" } }
+      }
+    },
+    "Reset Font Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset Font Size" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复字号" } }
+      }
+    },
+    "Clear Screen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Clear Screen" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "清屏" } }
+      }
+    },
+    "Scroll to Top" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scroll to Top" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "滚到顶部" } }
+      }
+    },
+    "Scroll to Bottom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scroll to Bottom" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "滚到底部" } }
+      }
+    },
+    "Page Up" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Page Up" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上一页" } }
+      }
+    },
+    "Page Down" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Page Down" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下一页" } }
+      }
+    },
+    "Previous Command" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Previous Command" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上一条命令" } }
+      }
+    },
+    "Next Command" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Next Command" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下一条命令" } }
+      }
+    },
+    "Find" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查找" } }
+      }
+    },
+    "Find…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查找…" } }
+      }
+    },
+    "Find Next" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find Next" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查找下一个" } }
+      }
+    },
+    "Find Previous" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find Previous" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查找上一个" } }
+      }
+    },
+    "Use Selection for Find" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Use Selection for Find" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用所选内容查找" } }
+      }
+    },
+    "Find in Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find in Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在终端中查找" } }
+      }
+    },
+    "Hide Find Bar" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide Find Bar" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "隐藏查找栏" } }
+      }
+    },
+    "Applies to local zsh only, in terminals opened after a change. Other shells and SSH sessions do not load it. The two SSH features are not used, because they need Ghostty's command-line tool." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Applies to local zsh only, in terminals opened after a change. Other shells and SSH sessions do not load it. The two SSH features are not used, because they need Ghostty's command-line tool." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅对本机 zsh 生效，修改后新打开的终端才会加载。其他 shell 与 SSH 远程会话不加载。两项 SSH 功能需要 Ghostty 命令行工具，这里不会启用。" } }
+      }
+    },
+    "Paste text that may run commands?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste text that may run commands?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "要粘贴可能会执行命令的文本吗？" } }
+      }
+    },
+    "The text contains line breaks, so pasting it can run commands right away:\n\n%@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The text contains line breaks, so pasting it can run commands right away:\n\n%@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "这段文本包含换行，粘贴后可能会立即执行命令：\n\n%@" } }
+      }
+    },
+    "…and %lld more lines" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "…and %lld more lines" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "……还有 %lld 行" } }
+      }
+    },
+    "Not Set" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not Set" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未设置" } }
+      }
+    },
+    "Space" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Space" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "空格" } }
+      }
+    },
+    "Restore All Defaults" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore All Defaults" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部恢复默认" } }
+      }
+    },
+    "No matching shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No matching shortcuts" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有匹配的快捷键" } }
+      }
+    },
+    "Click a shortcut, then press the new keys. Esc cancels; Delete clears it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Click a shortcut, then press the new keys. Esc cancels; Delete clears it." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "点击快捷键后按下新的组合键。Esc 取消，Delete 清除。" } }
+      }
+    },
+    "Restore all shortcuts to their defaults?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore all shortcuts to their defaults?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "将所有快捷键恢复为默认？" } }
+      }
+    },
+    "Restore Defaults" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore Defaults" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复默认" } }
+      }
+    },
+    "Every shortcut you changed or cleared goes back to its default." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Every shortcut you changed or cleared goes back to its default." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "所有改过或清除过的快捷键都会恢复为默认值。" } }
+      }
+    },
+    "Restore default (%@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore default (%@)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复默认（%@）" } }
+      }
+    },
+    "Press shortcut…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Press shortcut…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按下快捷键…" } }
+      }
+    },
+    "Click to record a new shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Click to record a new shortcut" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "点击录制新的快捷键" } }
+      }
+    },
+    "Conflicts with “%@”" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Conflicts with “%@”" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "与“%@”冲突" } }
+      }
+    },
+    "Use Anyway (Clear Other)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Use Anyway (Clear Other)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仍然使用（清除对方）" } }
+      }
+    },
+    "Include ⌘, ⌃ or ⌥" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Include ⌘, ⌃ or ⌥" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "需要包含 ⌘、⌃ 或 ⌥" } }
+      }
+    },
+    "%@ is reserved by the system" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ is reserved by the system" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 由系统保留" } }
+      }
+    },
+    "Search shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search shortcuts" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "搜索快捷键" } }
+      }
+    },
+    "Command Succeeded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Command Succeeded" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "命令已成功完成" } }
+      }
+    },
+    "Command Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Command Failed" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "命令执行失败" } }
+      }
+    },
+    "Command Finished" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Command Finished" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "命令已结束" } }
+      }
+    },
+    "Took %@ and exited with code %lld." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Took %@ and exited with code %lld." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "耗时 %@，退出码 %lld。" } }
+      }
+    },
+    "Took %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Took %@." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "耗时 %@。" } }
+      }
+    },
+    "Not supported yet: needs a sound file setting." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not supported yet: needs a sound file setting." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂不支持：需要先有声音文件设置。" } }
+      }
+    },
+    "Show a bell on the session's sidebar row until you open it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show a bell on the session's sidebar row until you open it." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在侧栏该会话行显示铃铛，直到你打开它。" } }
+      }
+    },
+    "Play Sound does nothing yet: the app has no setting for the sound file. The other effects apply right away; one bell per session is handled every half second at most." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Play Sound does nothing yet: the app has no setting for the sound file. The other effects apply right away; one bell per session is handled every half second at most." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "「播放声音」暂不生效：应用还没有声音文件设置。其余效果即时生效；同一会话每半秒最多响应一次铃声。" } }
+      }
+    },
+    "Bell Rang" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bell Rang" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "有响铃" } }
+      }
+    },
+    "Terminal Progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Terminal Progress" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端进度" } }
+      }
+    },
+    "Open this link?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open this link?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开这个链接吗？" } }
+      }
+    },
+    "A program in the terminal asked to open a link that another app handles:\n\n%@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A program in the terminal asked to open a link that another app handles:\n\n%@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端里的程序请求打开一个由其他应用处理的链接：\n\n%@" } }
+      }
+    },
+    "Close Pane" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Pane" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭窗格" } }
+      }
+    },
+    "Zoom Split" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Zoom Split" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "放大/还原分屏" } }
+      }
+    },
+    "Zoomed. Click to show all panes (%@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Zoomed. Click to show all panes (%@)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已放大。点击显示全部窗格（%@）" } }
+      }
+    },
+    "Allow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许" } }
+      }
+    },
+    "Allow Ghostty to execute \"%@\"?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow Ghostty to execute \"%@\"?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许 Ghostty 执行“%@”吗？" } }
+      }
+    },
+    "Allow Ghostty to execute these %lld files?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow Ghostty to execute these %lld files?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许 Ghostty 执行这 %lld 个文件吗？" } }
+      }
+    },
+    "Toggle Full Screen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Toggle Full Screen" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "切换全屏" } }
+      }
+    },
+    "Previous Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Previous Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上一个终端" } }
+      }
+    },
+    "Next Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Next Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下一个终端" } }
+      }
+    },
+    "Go to Terminal %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Go to Terminal %lld" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "切换到第 %lld 个终端" } }
+      }
+    },
+    "Go to Last Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Go to Last Terminal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "切换到最后一个终端" } }
+      }
+    },
+    "Sidebar" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sidebar" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "侧栏" } }
       }
     }
   },

@@ -33,8 +33,7 @@ enum SidebarDropTarget: Equatable {
     case block(SidebarBlock)
 }
 
-/// One per window. Tracks the drag that started in this window, and draws the landing preview for
-/// any drag that is currently over this window, including one that began somewhere else.
+/// Tracks the drag that started in the main window and draws its landing preview.
 final class CanvasDropRelay: ObservableObject {
     var frames: [UUID: CGRect] = [:]
     weak var modelBox: AppModel?
@@ -44,8 +43,6 @@ final class CanvasDropRelay: ObservableObject {
     var rowAnchors: [UUID: AnchorBox] = [:]
     var blockAnchors: [SidebarBlock: AnchorBox] = [:]
     var dragTitle = ""
-    /// The relay of the window that showed the preview last, so it can be told to hide it.
-    private weak var lastForeign: CanvasDropRelay?
     private var autoscrollTimer: Timer?
     private var autoscrollStep: CGFloat = 0
 
@@ -118,37 +115,22 @@ final class CanvasDropRelay: ObservableObject {
         dragEnded(windowPoint: windowPoint)
     }
 
-    /// Routes the move to whichever 1Agent window is under the pointer.
+    /// Shows the landing preview while the pointer is inside this window; outside there is nothing to land on.
     func dragMoved(windowPoint: NSPoint) {
         guard let payload = ownPayload, let source = nsWindow else { return }
         let screenPoint = source.convertPoint(toScreen: windowPoint)
-        let hit = MainActor.assumeIsolated {
-            MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil)
+        let inside = MainActor.assumeIsolated {
+            MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil) != nil
         }
-        guard let (state, target) = hit, let relay = MainActor.assumeIsolated({ state.relay }) else {
-            // Over no window at all: the drop would open a new window.
-            hideForeignPreview()
-            stopAutoscroll()
-            catcher?.hide()
+        guard inside else {
+            hidePreview()
             return
         }
-        if relay !== self {
-            catcher?.hide()
-            if lastForeign !== relay {
-                lastForeign?.hidePreview()
-            }
-            lastForeign = relay
-            relay.dragTitle = dragTitle
-            relay.showPreview(for: payload, windowPoint: target.convertPoint(fromScreen: screenPoint))
-            return
-        }
-        hideForeignPreview()
         showPreview(for: payload, windowPoint: windowPoint)
     }
 
     func dragEnded(windowPoint: NSPoint) {
         stopAutoscroll()
-        hideForeignPreview()
         catcher?.hide()
         guard let payload = ownPayload, let source = nsWindow else { return }
         let screenPoint = source.convertPoint(toScreen: windowPoint)
@@ -157,27 +139,13 @@ final class CanvasDropRelay: ObservableObject {
             defer {
                 model.endDrag(in: window)
             }
-            let hit = MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil)
-            guard let (state, target) = hit, let relay = state.relay else {
-                // Dropped on the desktop or another app: a new window takes the dragged terminals.
-                switch payload {
-                case .tabs(let ids, _):
-                    model.openInNewWindow(ids)
-                case .block(let block, let from):
-                    model.openBlockInNewWindow(block, from: from)
-                }
-                return
-            }
-            relay.performDrop(of: payload, windowPoint: target.convertPoint(fromScreen: screenPoint), model: model)
+            // Dropped on the desktop or another app: nothing happens.
+            guard MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil) != nil else { return }
+            performDrop(of: payload, windowPoint: windowPoint, model: model)
         }
     }
 
-    private func hideForeignPreview() {
-        lastForeign?.hidePreview()
-        lastForeign = nil
-    }
-
-    // MARK: Preview and drop in this window (payload may come from another window)
+    // MARK: Preview and drop in this window
 
     func hidePreview() {
         stopAutoscroll()
@@ -758,7 +726,6 @@ struct TabContextMenu {
     var duplicateDown: () -> Void
     var merge: () -> Void
     var createArea: () -> Void
-    var openInNewWindow: () -> Void
     var close: () -> Void
     var copyInfo: () -> Void
 }
@@ -1018,13 +985,6 @@ final class TabDragHandleView: NSView {
         merge.target = self
         merge.isEnabled = actions.splits || actions.canMerge
         menu.addItem(merge)
-        let newWindow = NSMenuItem(
-            title: String(localized: "Open in New Window"),
-            action: #selector(openInNewWindowFromMenu(_:)),
-            keyEquivalent: ""
-        )
-        newWindow.target = self
-        menu.addItem(newWindow)
         menu.addItem(TerminalCloseMenu.item(action: #selector(closeFromMenu(_:)), target: self))
         return menu
     }
@@ -1054,10 +1014,6 @@ final class TabDragHandleView: NSView {
 
     @objc private func createAreaFromMenu(_: Any?) {
         contextMenuActions?.createArea()
-    }
-
-    @objc private func openInNewWindowFromMenu(_: Any?) {
-        contextMenuActions?.openInNewWindow()
     }
 
     @objc private func closeFromMenu(_: Any?) {

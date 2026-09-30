@@ -6,15 +6,17 @@ ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
 endif
 
 CODE_SIGN_IDENTITY ?= -
-APP_BUNDLE = 1Agent.app
-APP_BUILT = build/Build/Products/Debug/$(APP_BUNDLE)
+APP_BUNDLE = Ghostty.app
+# ".noindex" keeps Spotlight/LaunchServices from listing the build copy next to /Applications (same bundle id).
+DERIVED_DATA = build/DerivedData.noindex
+APP_BUILT = $(DERIVED_DATA)/Build/Products/Debug/$(APP_BUNDLE)
 
 gen:
 	xcodegen generate
 
 # Compile, then install into /Applications (quit → replace → relaunch if needed).
 build: gen
-	set -o pipefail; xcodebuild -project 1Agent.xcodeproj -scheme 1Agent -configuration Debug -derivedDataPath build build CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" CODE_SIGN_STYLE=Manual -skipPackagePluginValidation | tee /tmp/1agent-build.log | tail -8
+	set -o pipefail; xcodebuild -project 1Agent.xcodeproj -scheme 1Agent -configuration Debug -derivedDataPath $(DERIVED_DATA) -clonedSourcePackagesDirPath build/SourcePackages build CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" CODE_SIGN_STYLE=Manual -skipPackagePluginValidation | tee /tmp/1agent-build.log | tail -8
 	./scripts/install-app.sh "$(CURDIR)/$(APP_BUILT)"
 
 install:
@@ -28,12 +30,29 @@ test:
 	/tmp/goose-ssh-config-test
 	swiftc -o /tmp/goose-external-open-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Sources/GooseAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift
 	/tmp/goose-external-open-test
-	swiftc -o /tmp/goose-pane-layout-test Sources/GooseAgent/PaneLayout.swift Tests/PaneLayoutTests.swift
+	swiftc -o /tmp/goose-pane-layout-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/PaneLayoutTests.swift
 	/tmp/goose-pane-layout-test
 	swiftc -o /tmp/goose-workspace-board-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
 	/tmp/goose-workspace-board-test
 	swiftc -o /tmp/goose-settings-window-frame-test Sources/GooseAgent/SettingsWindowFrame.swift Tests/SettingsWindowFrameTests.swift
 	/tmp/goose-settings-window-frame-test
+	swiftc -o /tmp/goose-terminal-settings-test Sources/GooseAgent/TerminalSettings.swift Tests/TerminalSettingsTests.swift
+	/tmp/goose-terminal-settings-test
+	swiftc -o /tmp/goose-command-finished-policy-test Sources/GooseAgent/TerminalSettings.swift Sources/GooseAgent/CommandFinishedPolicy.swift Tests/CommandFinishedPolicyTests.swift
+	/tmp/goose-command-finished-policy-test
+	swiftc -o /tmp/goose-shell-escape-test Sources/GooseAgent/ShellEscape.swift Tests/ShellEscapeTests.swift
+	/tmp/goose-shell-escape-test
+	swiftc -o /tmp/goose-shell-integration-test Sources/GooseAgent/TerminalSettings.swift Sources/GooseAgent/ShellIntegration.swift Tests/ShellIntegrationTests.swift
+	/tmp/goose-shell-integration-test
+	swiftc -o /tmp/goose-ghostty-config-importer-test Sources/GooseAgent/TerminalSettings.swift Sources/GooseAgent/GhosttyConfigImporter.swift Tests/GhosttyConfigImporterTests.swift
+	/tmp/goose-ghostty-config-importer-test
+	swiftc -o /tmp/goose-keyboard-shortcuts-test Sources/GooseAgent/KeyboardShortcuts.swift Tests/KeyboardShortcutsTests.swift
+	/tmp/goose-keyboard-shortcuts-test
+	# The parser needs GhosttyThemeDefinition; build just that file from the package checkout (run make build once first).
+	mkdir -p /tmp/goose-ghostty-theme
+	swiftc -parse-as-library -emit-library -static -module-name GhosttyTheme -emit-module -emit-module-path /tmp/goose-ghostty-theme/GhosttyTheme.swiftmodule -o /tmp/goose-ghostty-theme/libGhosttyTheme.a build/SourcePackages/checkouts/libghostty-spm/Sources/GhosttyTheme/GhosttyThemeDefinition.swift
+	swiftc -I /tmp/goose-ghostty-theme -L /tmp/goose-ghostty-theme -lGhosttyTheme -o /tmp/goose-user-theme-parser-test Sources/GooseAgent/UserThemeParser.swift Tests/UserThemeParserTests.swift
+	/tmp/goose-user-theme-parser-test
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

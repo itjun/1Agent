@@ -3,31 +3,51 @@ import QuartzCore
 import SwiftUI
 
 struct TerminalCanvas: View {
-    /// One title line. Dragging this line merges panes.
-    static let sidebarHeaderHeight: CGFloat = 18
-
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isKeyWindow) private var isKeyWindow
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(TerminalSettings.backgroundOpacityKey) private var backgroundOpacity = TerminalSettings.defaults.backgroundOpacity
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
+    @ObservedObject private var find = TerminalFind.shared
     var dropRelay: CanvasDropRelay
     var dark: Bool
-    @State private var ratioDrag: (id: UUID, start: CGFloat)?
+    /// Background opacity below 100%: the canvas stays clear so the window shows through.
+    var translucent: Bool
+    /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
+    @State private var ratioDrag: (id: UUID, split: UUID, start: CGFloat)?
+    /// Divider under the pointer. Its line turns accent while set.
+    @State private var hoveredDividerID: UUID?
     /// Last on-screen content rect per tab. Hidden tabs keep this size/position so Ghostty
     /// does not resize the PTY to 1×1 (which reflows scrollback and jumps the cursor).
     @State private var lastContentFrame: [UUID: CGRect] = [:]
 
-    private var headerHeight: CGFloat { Self.sidebarHeaderHeight }
+    /// Panes in a split each get a title bar. A lone pane gets a plain strip as tall as the system
+    /// title bar instead.
+    private func headerHeight(isSplit: Bool) -> CGFloat {
+        if isSplit {
+            return Theme.PaneStyle.headerHeight
+        }
+        return Theme.PaneStyle.stripHeight
+    }
+
+    /// Terminal background as Ghostty draws it, so the strip and title bars read as part of the terminal.
+    private var terminalSurface: Color {
+        if translucent {
+            return chrome.background.opacity(backgroundOpacity)
+        }
+        return chrome.background
+    }
 
     var body: some View {
         GeometryReader { geo in
             let root = model.displayRoot(in: window)
             let bounds = CGRect(origin: .zero, size: geo.size)
             let layout = bounds
-            let frames = root.map { PaneLayout.frames(of: $0, in: layout) } ?? [:]
-            let dividers = root.map { PaneLayout.dividers(of: $0, in: layout) } ?? []
-            let headerH = headerHeight
+            let zoomed = model.zoomedPane(in: window)
+            let frames = Self.paneFrames(root, zoomed: zoomed, in: layout)
+            let dividers = Self.paneDividers(root, zoomed: zoomed, in: layout)
+            let isSplit = frames.count > 1
+            let headerH = headerHeight(isSplit: isSplit)
             let fallbackContent = Self.contentFrame(layout, headerHeight: headerH)
             // Only this window's terminals get a view here. A terminal shown in another window
             // keeps its process; the registry hands the same view over when it moves.
@@ -36,9 +56,9 @@ struct TerminalCanvas: View {
             let liveIDs = Set(ownTabs.map(\.id))
             let _ = dropRelay.sync(frames: frames, model: model, window: window)
             ZStack(alignment: .topLeading) {
-                chrome.background
+                translucent ? Color.clear : chrome.background
                 ForEach(ownTabs) { tab in
-                    let content = frames[tab.id].map { Self.contentFrame($0, headerHeight: headerH) }
+                    let content = frames[tab.id].map { Self.contentFrame($0, headerHeight: headerH + findBarInset(tab)) }
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
                     SSHTerminalView(
@@ -48,6 +68,7 @@ struct TerminalCanvas: View {
                         environment: model.launchEnvironment,
                         dark: dark,
                         focusesOnCreate: window.selectedTabID == tab.id,
+                        takeInitialInput: { model.takeInitialInput(for: tab.id) },
                         onExit: { code, lived in
                             // A local shell exit closes the tab. ssh uses 255 when the connection itself fails.
                             if tab.isLocal {
@@ -59,7 +80,8 @@ struct TerminalCanvas: View {
                             }
                         },
                         onClose: { model.closeTab(tab.id) },
-                        onFocus: { model.notePaneFocused(tab.id, in: window) }
+                        onFocus: { model.notePaneFocused(tab.id, in: window) },
+                        onSplit: { edge in model.duplicate(tab.id, edge: edge) }
                     )
                     .id(tab.sessionID)
                     .frame(
@@ -85,11 +107,11 @@ struct TerminalCanvas: View {
                     }
                 }
                 ForEach(dividers) { divider in
-                    dividerControl(divider)
+                    dividerControl(divider, in: layout)
                 }
                 ForEach(model.tabs.filter { frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
-                        paneChrome(tab, frame: frame, headerHeight: headerH, isSplit: frames.count > 1)
+                        paneChrome(tab, frame: frame, headerHeight: headerH, isSplit: isSplit, isZoomed: zoomed == tab.id)
                     }
                 }
             }
@@ -104,34 +126,67 @@ struct TerminalCanvas: View {
         }
     }
 
-    private func dividerControl(_ divider: PaneDivider) -> some View {
+    private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {
         let vertical = divider.axis == .vertical
+        let active = hoveredDividerID == divider.id || ratioDrag?.id == divider.id
+        var lineWidth = Theme.PaneStyle.dividerLineWidth
+        if active {
+            lineWidth = Theme.PaneStyle.dividerActiveLineWidth
+        }
         return Color.clear
             .frame(width: divider.frame.width, height: divider.frame.height)
             .overlay {
                 Rectangle()
-                    .fill(chrome.hairline)
+                    .fill(active ? chrome.accent : chrome.hairline)
                     .frame(
-                        width: vertical ? 1 : divider.frame.width,
-                        height: vertical ? divider.frame.height : 1
+                        width: vertical ? lineWidth : divider.frame.width,
+                        height: vertical ? divider.frame.height : lineWidth
                     )
                     .allowsHitTesting(false)
             }
-            .contentShape(Rectangle())
-            .offset(x: divider.frame.minX, y: divider.frame.minY)
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        let start = ratioDrag?.id == divider.id ? ratioDrag!.start : currentRatio(divider.id)
-                        if ratioDrag?.id != divider.id {
-                            ratioDrag = (divider.id, start)
+            .overlay {
+                // AppKit owns the cursor here: the terminal views underneath set their own cursor
+                // on every move, which a SwiftUI hover push cannot win against.
+                PaneDividerHandle(
+                    vertical: vertical,
+                    onHover: { inside in
+                        if inside {
+                            hoveredDividerID = divider.id
+                        } else if hoveredDividerID == divider.id {
+                            hoveredDividerID = nil
                         }
-                        let delta = divider.axis == .vertical ? value.translation.width : value.translation.height
+                    },
+                    onDragChanged: { delta in
+                        if ratioDrag?.id != divider.id {
+                            let start = currentRatio(divider.splitID)
+                            var split = divider.splitID
+                            if let segment = divider.segment,
+                               let detached = model.detachDividerSegment(segment, of: divider.splitID, in: layout) {
+                                split = detached
+                            }
+                            ratioDrag = (divider.id, split, start)
+                        }
+                        guard let drag = ratioDrag else { return }
                         guard divider.span > 1 else { return }
-                        model.setSplitRatio(divider.id, to: start + delta / divider.span)
+                        model.setSplitRatio(drag.split, to: drag.start + delta / divider.span)
+                    },
+                    onDragEnded: { ratioDrag = nil },
+                    onDoubleClick: {
+                        var split = divider.splitID
+                        if let segment = divider.segment,
+                           let detached = model.detachDividerSegment(segment, of: divider.splitID, in: layout) {
+                            split = detached
+                        }
+                        model.evenOutSplit(split)
                     }
-                    .onEnded { _ in ratioDrag = nil }
-            )
+                )
+            }
+            .offset(x: divider.frame.minX, y: divider.frame.minY)
+            .onDisappear {
+                if hoveredDividerID == divider.id {
+                    hoveredDividerID = nil
+                }
+            }
             .zIndex(4)
     }
 
@@ -152,99 +207,213 @@ struct TerminalCanvas: View {
         return 0.5
     }
 
-    /// The focused pane's title takes the accent; other panes in a split fall back to secondary. Danger always wins.
-    private func hostTitleColor(_ tab: TerminalTab, focused: Bool, dimmed: Bool) -> Color {
-        if tab.showsDisconnected || tab.reconnecting {
-            return chrome.danger
-        }
+    /// The focused pane's title takes the accent; other panes in a split fall back to secondary.
+    /// Connection state is shown by the icon next to the title, not by recoloring the text.
+    private func hostTitleColor(focused: Bool) -> Color {
         if focused {
             return chrome.accent
         }
-        if dimmed {
-            return chrome.secondary
-        }
-        return chrome.text
+        return chrome.secondary
     }
 
     @ViewBuilder
-    private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool) -> some View {
+    private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
         let focused = window.selectedTabID == tab.id
-        let highlighted = focused && isSplit
-        let focusColor = isKeyWindow ? chrome.accent : chrome.secondary
-        let dimmed = !focused && isSplit
-        if headerHeight > 0 {
+        if isSplit {
             ZStack {
-                chrome.background
+                terminalSurface
                     .allowsHitTesting(false)
-                focusColor
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
-                        $0.opacity(highlighted ? 0.12 : 0)
-                    }
-                    .allowsHitTesting(false)
-                // A 2pt accent bar along the top makes the focused pane readable at a glance in a grid.
+                WindowDragArea(onClick: { model.selectOnly(tab.id, in: window) })
                 VStack(spacing: 0) {
-                    focusColor
-                        .frame(height: 2)
-                        .opacity(highlighted ? 1 : 0)
                     Spacer(minLength: 0)
+                    PaneProgressBar(sessionID: tab.sessionID)
+                }
+                .allowsHitTesting(false)
+                // Only the title merges panes; the blank rest of the bar moves the window.
+                HStack(spacing: 6) {
+                    DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
+                    Text(paneTitle(tab))
+                        .font(Theme.Font.paneTitle)
+                        .fontWeight(focused ? .semibold : .medium)
+                        .foregroundStyle(hostTitleColor(focused: focused))
+                        .lineLimit(1)
+                    if tab.reconnecting {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
+                            .foregroundStyle(chrome.warning)
+                            .accessibilityLabel(Text("Reconnecting…"))
+                    } else if tab.showsDisconnected {
+                        Image(systemName: "link.slash")
+                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
+                            .foregroundStyle(chrome.danger)
+                            .accessibilityLabel(Text("Connection closed"))
+                    }
+                }
+                .allowsHitTesting(false)
+                .padding(.horizontal, Theme.Space.s)
+                .frame(maxHeight: .infinity)
+                .overlay {
+                    TabDragHandle(
+                        onClick: { _, _ in model.selectOnly(tab.id, in: window) },
+                        onBegan: { dropRelay.dragBegan(tab.id) },
+                        onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                        onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                        onSecondaryClick: { copySessionInfo(tab, model: model) },
+                        freezesWindow: true
+                    )
+                    .help(String(localized: "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info. Drag the blank part of the bar to move the window."))
+                }
+                .padding(.horizontal, Theme.Space.s)
+            }
+            .frame(width: frame.width, height: headerHeight)
+            .position(x: frame.midX, y: frame.minY + headerHeight / 2)
+            .zIndex(4)
+        } else {
+            // A lone pane has no title bar: a strip in the terminal's own color, where the
+            // system title bar would be, shows the title centered and moves the window.
+            ZStack(alignment: .trailing) {
+                terminalSurface
+                    .allowsHitTesting(false)
+                WindowDragArea()
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    PaneProgressBar(sessionID: tab.sessionID)
                 }
                 .allowsHitTesting(false)
                 HStack(spacing: 6) {
                     DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
                     Text(paneTitle(tab))
-                        .font(.system(size: 12, weight: highlighted ? .semibold : .medium, design: .monospaced))
-                        .foregroundStyle(hostTitleColor(tab, focused: highlighted && isKeyWindow, dimmed: dimmed))
+                        .font(Theme.Font.paneTitle)
+                        .foregroundStyle(chrome.secondary)
                         .lineLimit(1)
+                        .truncationMode(.middle)
                     if tab.reconnecting {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(chrome.danger)
+                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
+                            .foregroundStyle(chrome.warning)
                             .accessibilityLabel(Text("Reconnecting…"))
                     } else if tab.showsDisconnected {
                         Image(systemName: "link.slash")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
                             .foregroundStyle(chrome.danger)
                             .accessibilityLabel(Text("Connection closed"))
                     }
                 }
-                .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .allowsHitTesting(false)
-                TabDragHandle(
-                    onClick: { _, _ in model.selectOnly(tab.id, in: window) },
-                    onBegan: { dropRelay.dragBegan(tab.id) },
-                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    onSecondaryClick: { copySessionInfo(tab, model: model) },
-                    freezesWindow: true
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .help(String(localized: "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info."))
+                // The title moves the window like the rest of the strip; right-click copies host info.
+                .background(WindowDragArea(onSecondaryClick: { copySessionInfo(tab, model: model) }))
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, Theme.PaneStyle.stripTitleInset)
+                .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
+                if isZoomed {
+                    zoomMark
+                        .padding(.horizontal, Theme.Space.s)
+                }
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
             .zIndex(4)
         }
-        if focused, tab.reconnecting {
-            Text("Reconnecting…")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(chrome.secondary)
-                .position(x: frame.midX, y: frame.maxY - 28)
+        let showsBanner = showsConnectionBanner(tab)
+        if showsBanner {
+            connectionBanner(tab)
+                .frame(width: frame.width, height: Theme.PaneStyle.bannerHeight)
+                .position(x: frame.midX, y: frame.minY + headerHeight + Theme.PaneStyle.bannerHeight / 2)
                 .zIndex(4)
-        } else if focused, tab.showsDisconnected {
-            Button {
-                model.reconnect(tab.id)
-            } label: {
-                Text("Reconnect")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(chrome.background)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(chrome.accent))
+        }
+        if let findState = find.states[tab.sessionID] {
+            let bannerOffset = showsBanner ? Theme.PaneStyle.bannerHeight : 0
+            let findTop = frame.minY + headerHeight + bannerOffset
+            TerminalFindBar(state: findState, onFocus: { model.notePaneFocused(tab.id, in: window) })
+                .frame(width: frame.width, height: Theme.PaneStyle.findBarHeight)
+                .position(x: frame.midX, y: findTop + Theme.PaneStyle.findBarHeight / 2)
+                .zIndex(4)
+        }
+    }
+
+    /// Shown at the right end of the zoomed pane's strip. A click shows every pane again.
+    private var zoomMark: some View {
+        let help = String(
+            format: String(localized: "Zoomed. Click to show all panes (%@)"),
+            AppShortcuts.display(for: .toggleSplitZoom)
+        )
+        return Button {
+            model.toggleSplitZoom(in: window)
+        } label: {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .semibold))
+                .foregroundStyle(chrome.accent)
+                .frame(width: Theme.PaneStyle.headerButtonSize, height: Theme.PaneStyle.headerButtonSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(Text(help))
+    }
+
+    private func showsConnectionBanner(_ tab: TerminalTab) -> Bool {
+        window.selectedTabID == tab.id && (tab.reconnecting || tab.showsDisconnected)
+    }
+
+    /// The terminal starts below an open find bar, and below the banner above that bar, so neither
+    /// hides the row Ghostty scrolls the current match to.
+    private func findBarInset(_ tab: TerminalTab) -> CGFloat {
+        guard find.openSessionIDs.contains(tab.sessionID) else { return 0 }
+        if showsConnectionBanner(tab) {
+            return Theme.PaneStyle.bannerHeight + Theme.PaneStyle.findBarHeight
+        }
+        return Theme.PaneStyle.findBarHeight
+    }
+
+    /// Strip under the title bar for a lost SSH link. Only the Reconnect button takes clicks;
+    /// the rest lets the terminal keep its text selection.
+    private func connectionBanner(_ tab: TerminalTab) -> some View {
+        let tint: Color
+        let message: String
+        if tab.reconnecting {
+            tint = chrome.warning
+            if tab.reconnectAttempts > 0 {
+                message = String(
+                    format: String(localized: "Connection lost, reconnecting (%lld/%lld)"),
+                    tab.reconnectAttempts,
+                    AppModel.maxAutoReconnectAttempts
+                )
+            } else {
+                message = String(localized: "Reconnecting…")
             }
-            .buttonStyle(.plain)
-            .position(x: frame.midX, y: frame.maxY - 28)
-            .zIndex(4)
+        } else {
+            tint = chrome.danger
+            message = String(localized: "Connection closed")
+        }
+        return HStack(spacing: Theme.Space.s) {
+            Text(message)
+                .font(Theme.Font.body)
+                .foregroundStyle(chrome.text)
+                .lineLimit(1)
+                .allowsHitTesting(false)
+            Spacer(minLength: 0)
+            if tab.showsDisconnected {
+                Button {
+                    model.reconnect(tab.id)
+                } label: {
+                    Text("Reconnect")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(chrome.background)
+                        .padding(.horizontal, Theme.Space.m)
+                        .padding(.vertical, Theme.Space.xs)
+                        .background(Capsule().fill(chrome.accent))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, Theme.Space.m)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            ZStack {
+                chrome.background
+                tint.opacity(Theme.PaneStyle.bannerTintOpacity)
+            }
+            .allowsHitTesting(false)
         }
     }
 
@@ -280,6 +449,24 @@ func copySessionInfo(_ tab: TerminalTab, model: AppModel) {
 }
 
 extension TerminalCanvas {
+    /// A zoomed pane takes the whole area. The other panes get no frame, so their terminals stay
+    /// alive, hidden at their last size, like any tab that is not shown.
+    static func paneFrames(_ root: PaneNode?, zoomed: UUID?, in layout: CGRect) -> [UUID: CGRect] {
+        if let zoomed {
+            return [zoomed: layout]
+        }
+        guard let root else { return [:] }
+        return PaneLayout.frames(of: root, in: layout)
+    }
+
+    static func paneDividers(_ root: PaneNode?, zoomed: UUID?, in layout: CGRect) -> [PaneDivider] {
+        if zoomed != nil {
+            return []
+        }
+        guard let root else { return [] }
+        return PaneLayout.dividers(of: root, in: layout)
+    }
+
     static func contentFrame(_ frame: CGRect, headerHeight: CGFloat) -> CGRect {
         CGRect(
             x: frame.minX,
@@ -287,5 +474,131 @@ extension TerminalCanvas {
             width: frame.width,
             height: max(frame.height - headerHeight, 1)
         )
+    }
+}
+
+/// Grab area of a divider between panes. Reports hover and the drag distance in points
+/// (rightward / downward positive), and keeps the resize cursor while over it or dragging.
+struct PaneDividerHandle: NSViewRepresentable {
+    var vertical: Bool
+    var onHover: (Bool) -> Void
+    var onDragChanged: (CGFloat) -> Void
+    var onDragEnded: () -> Void
+    var onDoubleClick: () -> Void
+
+    func makeNSView(context: Context) -> PaneDividerView {
+        PaneDividerView()
+    }
+
+    func updateNSView(_ view: PaneDividerView, context: Context) {
+        view.vertical = vertical
+        view.onHover = onHover
+        view.onDragChanged = onDragChanged
+        view.onDragEnded = onDragEnded
+        view.onDoubleClick = onDoubleClick
+        view.window?.invalidateCursorRects(for: view)
+    }
+}
+
+final class PaneDividerView: NSView {
+    var vertical = true
+    var onHover: (Bool) -> Void = { _ in }
+    var onDragChanged: (CGFloat) -> Void = { _ in }
+    var onDragEnded: () -> Void = {}
+    var onDoubleClick: () -> Void = {}
+
+    private var cursor: NSCursor {
+        if vertical {
+            return NSCursor.resizeLeftRight
+        }
+        return NSCursor.resizeUpDown
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(convert(point, from: superview)) ? self : nil
+    }
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas {
+            removeTrackingArea(area)
+        }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeAlways, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: cursor)
+    }
+
+    override func layout() {
+        super.layout()
+        window?.invalidateCursorRects(for: self)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        cursor.set()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        claimCursor()
+        onHover(true)
+    }
+
+    /// The terminal under the grab area gets the same moves and resets its own cursor,
+    /// so set ours again after it has run.
+    override func mouseMoved(with event: NSEvent) {
+        claimCursor()
+    }
+
+    private func claimCursor() {
+        cursor.set()
+        DispatchQueue.main.async {
+            self.cursor.set()
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onHover(false)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        if event.clickCount == 2 {
+            onDoubleClick()
+            return
+        }
+        let start = event.locationInWindow
+        window.trackEvents(
+            matching: [.leftMouseDragged, .leftMouseUp],
+            timeout: 3600,
+            mode: .eventTracking
+        ) { event, stop in
+            guard let event else {
+                stop.pointee = true
+                return
+            }
+            self.cursor.set()
+            if event.type == .leftMouseUp {
+                self.onDragEnded()
+                stop.pointee = true
+                return
+            }
+            let point = event.locationInWindow
+            if self.vertical {
+                self.onDragChanged(point.x - start.x)
+            } else {
+                // Window coordinates grow upward; the layout grows downward.
+                self.onDragChanged(start.y - point.y)
+            }
+        }
     }
 }

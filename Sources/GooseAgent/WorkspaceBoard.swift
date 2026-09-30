@@ -5,7 +5,7 @@ struct Workspace: Identifiable, Equatable, Codable {
     var id: UUID
     var number: Int
     var layout: PaneNode
-    /// Sidebar title. Empty means the generated name, such as Workspace 1 or Local Group.
+    /// Sidebar title. Empty means the generated name, such as Workspace 1.
     var name: String? = nil
 }
 
@@ -344,6 +344,60 @@ enum WorkspaceBoard {
             leading: WorkspaceBoard.stackRows(top),
             trailing: WorkspaceBoard.stackRows(bottom)
         ))
+    }
+
+    /// ⌘1…⌘8: the terminal at that 1-based position of the sidebar order, nil past the end.
+    static func terminal(number: Int, in order: [UUID]) -> UUID? {
+        if number < 1 || number > order.count {
+            return nil
+        }
+        return order[number - 1]
+    }
+
+    /// ⇧⌘[ / ⇧⌘]: the terminal before or after `current` in sidebar order, wrapping at the ends.
+    /// With nothing selected, the first (forward) or last terminal. Nil when there is nothing to switch to.
+    static func adjacentTerminal(to current: UUID?, forward: Bool, in order: [UUID]) -> UUID? {
+        guard let current, let index = order.firstIndex(of: current) else {
+            if forward {
+                return order.first
+            }
+            return order.last
+        }
+        if order.count < 2 {
+            return nil
+        }
+        var next = index + (forward ? 1 : -1)
+        if next < 0 {
+            next = order.count - 1
+        } else if next >= order.count {
+            next = 0
+        }
+        return order[next]
+    }
+
+    /// The terminal to select after the selected `closed` one closes. Both lists are taken before it closes.
+    /// Another pane of its workspace comes first (the next one, else the previous one), so the keyboard stays
+    /// in the split; otherwise the sidebar neighbor (the next row, else the previous one). Never the first
+    /// row just because it is first, which is often an SSH session. Nil when nothing else is left.
+    static func selectionAfterClosing(_ closed: UUID, workspaceMembers: [UUID], sidebarOrder: [UUID]) -> UUID? {
+        if let index = workspaceMembers.firstIndex(of: closed) {
+            if index + 1 < workspaceMembers.count {
+                return workspaceMembers[index + 1]
+            }
+            if index > 0 {
+                return workspaceMembers[index - 1]
+            }
+        }
+        guard let index = sidebarOrder.firstIndex(of: closed) else {
+            return sidebarOrder.first { $0 != closed }
+        }
+        if index + 1 < sidebarOrder.count {
+            return sidebarOrder[index + 1]
+        }
+        if index > 0 {
+            return sidebarOrder[index - 1]
+        }
+        return nil
     }
 
     private static func withoutSingleLeaves(_ workspaces: [Workspace]) -> [Workspace] {

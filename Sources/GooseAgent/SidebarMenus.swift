@@ -10,7 +10,6 @@ struct WorkspaceHeaderMenu: NSViewRepresentable {
     var onLayout: (WorkspaceLayout) -> Void
     var onReconnect: () -> Void
     var onRename: () -> Void
-    var onOpenInNewWindow: () -> Void
     var onDissolve: () -> Void
     var onDragBegan: () -> Void
     var onDragMoved: (NSPoint) -> Void
@@ -27,7 +26,6 @@ struct WorkspaceHeaderMenu: NSViewRepresentable {
         view.onLayout = onLayout
         view.onReconnect = onReconnect
         view.onRename = onRename
-        view.onOpenInNewWindow = onOpenInNewWindow
         view.onDissolve = onDissolve
         view.onDragBegan = onDragBegan
         view.onDragMoved = onDragMoved
@@ -43,7 +41,6 @@ final class WorkspaceHeaderMenuView: NSView {
     var onLayout: (WorkspaceLayout) -> Void = { _ in }
     var onReconnect: () -> Void = {}
     var onRename: () -> Void = {}
-    var onOpenInNewWindow: () -> Void = {}
     var onDissolve: () -> Void = {}
     var onDragBegan: () -> Void = {}
     var onDragMoved: (NSPoint) -> Void = { _ in }
@@ -120,13 +117,6 @@ final class WorkspaceHeaderMenuView: NSView {
         )
         rename.target = self
         menu.addItem(rename)
-        let newWindow = NSMenuItem(
-            title: String(localized: "Open in New Window"),
-            action: #selector(openInNewWindowFromMenu(_:)),
-            keyEquivalent: ""
-        )
-        newWindow.target = self
-        menu.addItem(newWindow)
         menu.addItem(TerminalCloseMenu.item(
             title: String(localized: "Dissolve Workspace"),
             action: #selector(dissolveFromMenu(_:)),
@@ -153,10 +143,6 @@ final class WorkspaceHeaderMenuView: NSView {
 
     @objc private func renameFromMenu(_: Any?) {
         onRename()
-    }
-
-    @objc private func openInNewWindowFromMenu(_: Any?) {
-        onOpenInNewWindow()
     }
 
     @objc private func dissolveFromMenu(_: Any?) {

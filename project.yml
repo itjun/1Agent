@@ -1,6 +1,6 @@
 name: 1Agent
 options:
-  bundleIdPrefix: com.itjun
+  bundleIdPrefix: com.mitchellh
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -14,7 +14,7 @@ packages:
     # Prebuilt libghostty xcframework — pin exactly and review the checksum diff
     # on every bump (supply-chain discipline for a binary dependency). The
     # version scheme is <major.minor>.<UTC yyyymmdd>, so `from:` would drift.
-    exactVersion: "1.6.20260909"
+    exactVersion: "1.6.20260929"
 targets:
   1Agent:
     type: application
@@ -25,7 +25,12 @@ targets:
         buildPhase: resources
         excludes:
           - Localizable.xcstrings
+          - shell-integration/**
       - path: Resources/Localizable.xcstrings
+      # A folder reference keeps the directory layout and hidden files such as zsh/.zshenv.
+      - path: Resources/shell-integration
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: GhosttyTerminal
         product: GhosttyTerminal
@@ -34,8 +39,8 @@ targets:
     info:
       path: Sources/GooseAgent/Info.plist
       properties:
-        CFBundleName: "1Agent"
-        CFBundleDisplayName: "1Agent"
+        CFBundleName: "Ghostty"
+        CFBundleDisplayName: "Ghostty"
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
@@ -48,17 +53,53 @@ targets:
           - en
           - zh-Hans
         CFBundleURLTypes:
-          - CFBundleURLName: com.itjun.1agent
+          - CFBundleURLName: com.mitchellh.ghostty
             CFBundleURLSchemes:
-              - oneagent
+              - ghostty
+        CFBundleDocumentTypes:
+          - CFBundleTypeExtensions:
+              - command
+              - tool
+              - sh
+              - zsh
+              - csh
+              - pl
+            CFBundleTypeName: Terminal scripts
+            CFBundleTypeRole: Editor
+          - CFBundleTypeName: Folders
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.directory
+          - CFBundleTypeRole: Shell
+            LSItemContentTypes:
+              - public.unix-executable
+        NSServices:
+          - NSMenuItem:
+              default: New Ghostty Tab Here
+            NSMessage: openTab
+            NSRequiredContext:
+              NSTextContent: FilePath
+            NSSendTypes:
+              - NSFilenamesPboardType
+              - public.plain-text
+          - NSMenuItem:
+              default: New Ghostty Window Here
+            NSMessage: openWindow
+            NSRequiredContext:
+              NSTextContent: FilePath
+            NSSendTypes:
+              - NSFilenamesPboardType
+              - public.plain-text
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent
-        PRODUCT_NAME: "1Agent"
+        PRODUCT_BUNDLE_IDENTIFIER: com.mitchellh.ghostty
+        PRODUCT_NAME: "Ghostty"
+        PRODUCT_MODULE_NAME: GooseAgent
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         SWIFT_VERSION: "5.10"
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "20000"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_APP_SANDBOX: NO

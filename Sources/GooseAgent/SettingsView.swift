@@ -1,14 +1,39 @@
+import AppKit
 import GhosttyTheme
 import SwiftUI
 
 enum SettingsLayout {
     static let sidebarWidth: CGFloat = 180
     static let separatorWidth: CGFloat = 1
+    /// One page row in the left navigation.
+    static let navRowHeight: CGFloat = 30
+    /// One segment of the appearance-mode control.
+    static let segmentHeight: CGFloat = 28
+    /// Font preview box; fixed so the card does not jump while the size slider moves.
+    static let fontPreviewHeight: CGFloat = 96
+    /// Advanced snippet editor.
+    static let customConfigEditorHeight: CGFloat = 160
+    /// Read-only view of the configuration Ghostty is running with.
+    static let renderedConfigHeight: CGFloat = 260
+    /// Control column on the right of a `SettingsRow`: sliders, segmented pickers, menus.
+    static let rowControlWidth: CGFloat = 320
+    /// Current value printed after a slider, e.g. "80%".
+    static let valueLabelWidth: CGFloat = 64
+    /// Key-combination field on the Shortcuts page; wide enough for "⌃⌥⇧⌘←" and "按下快捷键…".
+    static let shortcutRecorderWidth: CGFloat = 150
+    static let shortcutRecorderHeight: CGFloat = 26
+    /// Per-row "restore default" button, kept in place even when hidden so the fields stay aligned.
+    static let shortcutResetButtonSize: CGFloat = 22
+    /// Search field above the shortcut cards, the height of a regular push button row.
+    static let shortcutSearchHeight: CGFloat = 32
 }
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
     case appearance
     case font
+    case terminal
+    case shortcuts
+    case advanced
 
     var id: Self { self }
 
@@ -16,7 +41,68 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "Appearance"
         case .font: "Font"
+        case .terminal: "Terminal"
+        case .shortcuts: "Keyboard Shortcuts"
+        case .advanced: "Advanced"
         }
+    }
+
+    var symbol: String {
+        switch self {
+        case .appearance: "paintpalette"
+        case .font: "textformat"
+        case .terminal: "terminal"
+        case .shortcuts: "command"
+        case .advanced: "wrench.and.screwdriver"
+        }
+    }
+}
+
+/// One settings group, like System Settings: a headline (plus an optional trailing control)
+/// above a bordered card that holds the content.
+struct SettingsCard<Content: View, Accessory: View>: View {
+    @Environment(\.windowChrome) private var chrome
+    let title: LocalizedStringKey
+    @ViewBuilder let content: () -> Content
+    @ViewBuilder let accessory: () -> Accessory
+
+    init(
+        _ title: LocalizedStringKey,
+        @ViewBuilder content: @escaping () -> Content,
+        @ViewBuilder accessory: @escaping () -> Accessory
+    ) {
+        self.title = title
+        self.content = content
+        self.accessory = accessory
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.s) {
+                Text(title)
+                    .font(Theme.Font.sectionTitle)
+                    .foregroundStyle(chrome.text)
+                Spacer(minLength: Theme.Space.s)
+                accessory()
+            }
+            content()
+                .padding(Theme.Space.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .fill(chrome.elevated)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .stroke(chrome.hairline, lineWidth: 1)
+                )
+        }
+    }
+}
+
+extension SettingsCard where Accessory == EmptyView {
+    init(_ title: LocalizedStringKey, @ViewBuilder content: @escaping () -> Content) {
+        self.init(title, content: content, accessory: { EmptyView() })
     }
 }
 
@@ -28,9 +114,23 @@ struct SettingsView: View {
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
+    @AppStorage(TerminalSettings.fontThickenKey) private var fontThicken = TerminalSettings.defaults.fontThicken
+    @AppStorage(TerminalSettings.fontThickenStrengthKey) private var fontThickenStrength = TerminalSettings.defaults.fontThickenStrength
+    @AppStorage(TerminalSettings.fontLigaturesKey) private var fontLigatures = TerminalSettings.defaults.fontLigatures
+    @AppStorage(TerminalSettings.cellHeightAdjustKey) private var cellHeightAdjust = TerminalSettings.defaults.cellHeightAdjust
+    @AppStorage(TerminalSettings.paddingXKey) private var paddingX = TerminalSettings.defaults.paddingX
+    @AppStorage(TerminalSettings.paddingYKey) private var paddingY = TerminalSettings.defaults.paddingY
+    @AppStorage(TerminalSettings.minimumContrastKey) private var minimumContrast = TerminalSettings.defaults.minimumContrast
+    @AppStorage(TerminalSettings.backgroundOpacityKey) private var backgroundOpacity = TerminalSettings.defaults.backgroundOpacity
+    @AppStorage(TerminalSettings.backgroundBlurKey) private var backgroundBlur = false
     @ObservedObject private var preview = ThemePreview.shared
+    @ObservedObject private var userThemes = UserThemeStore.shared
+    @ObservedObject private var importRequests = GhosttyImportRequests.shared
     @State private var themeQuery = ""
     @State private var themeFilter: ThemeFilter = .all
+    /// User theme waiting for the Move to Trash confirmation.
+    @State private var themePendingTrash: String?
+    @State private var themeFileError: String?
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -41,7 +141,7 @@ struct SettingsView: View {
     }
 
     private let themeColumns = [
-        GridItem(.adaptive(minimum: 300), spacing: 12),
+        GridItem(.adaptive(minimum: 300), spacing: Theme.Space.m),
     ]
 
     private static let searchControlHeight: CGFloat = 38
@@ -55,12 +155,19 @@ struct SettingsView: View {
         !trimmedQuery.isEmpty || themeFilter != .all
     }
 
-    /// Every name match (the whole catalog for an empty search), narrowed by the filter and sorted by name.
+    /// Every name match (user themes plus the whole catalog for an empty search), narrowed by the filter
+    /// and sorted by name. A catalog theme hidden by a same-named user theme is left out.
     /// The grid is lazy, so showing all ~485 cards costs no more than the visible rows.
     private var matchingThemes: [GhosttyThemeDefinition] {
-        var themes = GhosttyThemeCatalog.allThemes
+        var catalogThemes = GhosttyThemeCatalog.allThemes
+        var ownThemes = userThemes.themes
         if !trimmedQuery.isEmpty {
-            themes = GhosttyThemeCatalog.search(trimmedQuery)
+            catalogThemes = GhosttyThemeCatalog.search(trimmedQuery)
+            ownThemes = ownThemes.filter { $0.name.localizedCaseInsensitiveContains(trimmedQuery) }
+        }
+        var themes = ownThemes
+        for theme in catalogThemes where userThemes.theme(named: theme.name) == nil {
+            themes.append(theme)
         }
         return themes
             .filter { themeFilter.includes($0) }
@@ -90,46 +197,98 @@ struct SettingsView: View {
         .oneagentHideFocusRing()
         .onAppear {
             TerminalThemeChoice.migrateIfNeeded()
-            lightThemeRaw = TerminalThemeChoice.storedLight().rawValue
-            darkThemeRaw = TerminalThemeChoice.storedDark().rawValue
             if !fontFamilies.contains(fontFamily) {
                 fontFamily = TerminalDefaults.defaultFontFamily
             }
-            GhosttyRuntime.applyFontSettings()
+            GhosttyRuntime.applyTerminalSettings()
+            if importRequests.previewPending {
+                selectedPage = .advanced
+            }
+        }
+        .onChange(of: importRequests.previewPending) { _, pending in
+            if pending {
+                selectedPage = .advanced
+            }
+        }
+        .alert(
+            String(format: String(localized: "Move “%@” to the Trash?"), themePendingTrash ?? ""),
+            isPresented: Binding(
+                get: { themePendingTrash != nil },
+                set: { presented in
+                    if !presented {
+                        themePendingTrash = nil
+                    }
+                }
+            ),
+            presenting: themePendingTrash
+        ) { name in
+            Button("Move to Trash", role: .destructive) {
+                trashTheme(named: name)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("The theme file goes to the Trash, where it can be put back.")
+        }
+        .alert(
+            "Theme File Error",
+            isPresented: Binding(
+                get: { themeFileError != nil },
+                set: { presented in
+                    if !presented {
+                        themeFileError = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK") {}
+        } message: {
+            Text(verbatim: themeFileError ?? "")
         }
     }
 
     private var settingsNavigation: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 2) {
             Text("Settings")
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(chrome.text)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 16)
+                .padding(.horizontal, Theme.Space.l)
+                .padding(.top, Theme.Space.xs)
+                .padding(.bottom, Theme.Space.l)
 
             ForEach(SettingsPage.allCases) { page in
                 let selected = selectedPage == page
                 Button {
                     selectedPage = page
                 } label: {
-                    Text(page.title)
-                        .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                        .foregroundStyle(chrome.text)
-                        .lineLimit(1)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 9)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Rectangle().fill(selected ? chrome.accent.opacity(0.16) : Color.clear))
-                        .contentShape(Rectangle())
+                    HStack(spacing: Theme.Space.s) {
+                        Image(systemName: page.symbol)
+                            .font(.system(size: 13))
+                            .foregroundStyle(selected ? chrome.accent : chrome.secondary)
+                            .frame(width: 18)
+                            // `textformat` 在中文环境会渲染成汉字「格式」，固定用拉丁变体让它保持图标外观。
+                            .environment(\.locale, Locale(identifier: "en"))
+                        Text(page.title)
+                            .font(Theme.Font.row.weight(selected ? .semibold : .regular))
+                            .foregroundStyle(chrome.text)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, Theme.Space.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: SettingsLayout.navRowHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                            .fill(selected ? chrome.accentFill : Color.clear)
+                    )
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.horizontal, Theme.Space.s)
             }
             Spacer(minLength: 0)
         }
         .frame(width: SettingsLayout.sidebarWidth, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(chrome.elevated.opacity(0.58).ignoresSafeArea())
+        .background(chrome.sidebarBackground.ignoresSafeArea())
     }
 
     private var settingsContent: some View {
@@ -139,49 +298,104 @@ struct SettingsView: View {
                 appearancePage
             case .font:
                 fontPage
+            case .terminal:
+                TerminalSettingsPage()
+            case .shortcuts:
+                ShortcutsSettingsPage()
+            case .advanced:
+                AdvancedSettingsPage()
             }
         }
-        .padding(28)
+        .padding(Theme.Space.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var appearancePage: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("SSH sends a keepalive probe every 30 seconds; after 3 missed replies the connection counts as lost and reconnects automatically. This cannot be turned off.")
-                .font(Theme.sidebarRowMeta)
-                .foregroundStyle(chrome.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Appearance Mode")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(chrome.text)
-            HStack(spacing: 8) {
-                ForEach(TerminalAppearance.allCases) { mode in
-                    appearanceCard(mode)
-                }
+        VStack(alignment: .leading, spacing: Theme.Space.xl) {
+            SettingsCard("Appearance Mode") {
+                appearanceModeControl
             }
 
-            HStack(spacing: 8) {
-                Text("Terminal Colors")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(chrome.text)
-                Spacer(minLength: 8)
+            SettingsCard("Terminal Colors") {
+                themePicker
+            } accessory: {
                 restoreDefaultThemesButton
             }
 
-            themePicker
+            windowEffectsCard
+
+            RestorePageDefaultsButton {
+                restoreAppearancePageDefaults()
+            }
+        }
+    }
+
+    private var minimumContrastLabel: String {
+        if minimumContrast <= 1 {
+            return String(localized: "Off")
+        }
+        return String(format: "%.1f", minimumContrast)
+    }
+
+    private var windowEffectsCard: some View {
+        SettingsCard("Contrast and Transparency") {
+            VStack(alignment: .leading, spacing: Theme.Space.l) {
+                SettingsRow("Minimum Contrast", detail: "Brighten or darken text that is hard to read on its background. 1 turns it off; 4.5 is the usual readability bar.", ghosttyKey: "minimum-contrast") {
+                    SettingsSlider(
+                        value: $minimumContrast,
+                        range: TerminalSettings.minimumContrastRange,
+                        step: 0.5,
+                        label: minimumContrastLabel,
+                        onCommit: { GhosttyRuntime.applyTerminalSettings() }
+                    )
+                }
+                SettingsRow("Background Opacity", detail: "Below 100%, the desktop shows through the terminal area. The sidebar and pane titles stay opaque.", ghosttyKey: "background-opacity") {
+                    SettingsSlider(
+                        value: $backgroundOpacity,
+                        range: TerminalSettings.backgroundOpacityRange,
+                        step: 0.05,
+                        label: TerminalSettingsPage.percent(backgroundOpacity),
+                        onCommit: { GhosttyRuntime.applyTerminalSettings() }
+                    )
+                }
+                SettingsRow("Background Blur", detail: "Blur what shows through a translucent terminal. Drawn by this app; available below 100% opacity.") {
+                    SettingsSwitch(isOn: $backgroundBlur)
+                        .disabled(backgroundOpacity >= 1)
+                }
+            }
+        }
+    }
+
+    /// Mode and window effects apply at once; the default themes are previewed first, like the
+    /// card's own restore button, and saved from the action bar.
+    private func restoreAppearancePageDefaults() {
+        appearanceRaw = TerminalAppearance.system.rawValue
+        AppearanceDriver.shared.reapply()
+        minimumContrast = TerminalSettings.defaults.minimumContrast
+        backgroundOpacity = TerminalSettings.defaults.backgroundOpacity
+        backgroundBlur = false
+        GhosttyRuntime.applyTerminalSettings()
+        if !preview.showsDefaults {
+            preview.showDefaults()
         }
     }
 
     private var fontPage: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Terminal Font")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(chrome.text)
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Space.xl) {
+            fontFamilyCard
+            fontRenderingCard
+            RestorePageDefaultsButton {
+                restoreFontPageDefaults()
+            }
+        }
+    }
+
+    private var fontFamilyCard: some View {
+        SettingsCard("Terminal Font") {
+            VStack(alignment: .leading, spacing: Theme.Space.l) {
+                HStack(spacing: Theme.Space.m) {
                     Text("Font")
-                        .font(.system(size: 13))
+                        .font(Theme.Font.body)
                         .foregroundStyle(chrome.text)
                         .frame(width: 56, alignment: .leading)
                     Picker("", selection: $fontFamily) {
@@ -194,9 +408,9 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                HStack(spacing: 12) {
+                HStack(spacing: Theme.Space.m) {
                     Text("Size")
-                        .font(.system(size: 13))
+                        .font(Theme.Font.body)
                         .foregroundStyle(chrome.text)
                         .frame(width: 56, alignment: .leading)
                     Slider(
@@ -210,51 +424,195 @@ struct SettingsView: View {
                         .frame(width: 48, alignment: .trailing)
                 }
 
-                Text("1Agent 你好 abc 0123456789 -> =>")
-                    .font(.custom(fontFamily, size: CGFloat(fontSize)))
-                    .foregroundStyle(chrome.text)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(chrome.background)
-                    )
+                fontPreview
+                Text("The preview follows Thicken and Line Height roughly; the terminal shows the exact result.")
+                    .font(Theme.Font.rowMeta)
+                    .foregroundStyle(chrome.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 12).fill(chrome.elevated))
             .onChange(of: fontFamily) { _, _ in
-                GhosttyRuntime.applyFontSettings()
+                GhosttyRuntime.applyTerminalSettings()
             }
             .onChange(of: fontSize) { _, newValue in
                 let clamped = min(max(newValue, TerminalDefaults.minFontSize), TerminalDefaults.maxFontSize)
                 if clamped != newValue {
                     fontSize = clamped
                 }
-                GhosttyRuntime.applyFontSettings()
+                GhosttyRuntime.applyTerminalSettings()
             }
         }
     }
 
-    private func appearanceCard(_ mode: TerminalAppearance) -> some View {
+    private var cellHeightLabel: String {
+        if cellHeightAdjust > 0 {
+            return "+\(cellHeightAdjust)%"
+        }
+        return "\(cellHeightAdjust)%"
+    }
+
+    private var fontRenderingCard: some View {
+        SettingsCard("Glyphs and Spacing") {
+            VStack(alignment: .leading, spacing: Theme.Space.l) {
+                SettingsRow("Thicken", detail: "Draw glyphs a little heavier, which helps thin fonts on some displays.", ghosttyKey: "font-thicken") {
+                    SettingsSwitch(isOn: $fontThicken.applyingTerminalSettings())
+                }
+                SettingsRow("Thicken Strength", detail: "How much heavier; only used while Thicken is on.", ghosttyKey: "font-thicken-strength") {
+                    SettingsSlider(
+                        value: Binding(
+                            get: { Double(fontThickenStrength) },
+                            set: { fontThickenStrength = Int($0.rounded()) }
+                        ),
+                        range: TerminalSettings.fontThickenStrengthRange,
+                        step: 5,
+                        label: String(fontThickenStrength),
+                        onCommit: { GhosttyRuntime.applyTerminalSettings() }
+                    )
+                    .disabled(!fontThicken)
+                }
+                SettingsRow("Ligatures", detail: "Join character pairs such as -> and => into one glyph when the font supports it.", ghosttyKey: "font-feature") {
+                    SettingsSwitch(isOn: $fontLigatures.applyingTerminalSettings())
+                }
+                SettingsRow("Line Height", detail: "Add or remove space between lines, as a share of the font's own line height.", ghosttyKey: "adjust-cell-height") {
+                    SettingsSlider(
+                        value: Binding(
+                            get: { Double(cellHeightAdjust) },
+                            set: { cellHeightAdjust = Int($0.rounded()) }
+                        ),
+                        range: TerminalSettings.cellHeightAdjustRange,
+                        step: 5,
+                        label: cellHeightLabel,
+                        onCommit: { GhosttyRuntime.applyTerminalSettings() }
+                    )
+                }
+                SettingsRow("Horizontal Padding", detail: "Space between the text and the left and right edges of the terminal.", ghosttyKey: "window-padding-x") {
+                    paddingStepper($paddingX)
+                }
+                SettingsRow("Vertical Padding", detail: "Space between the text and the bottom edge of the terminal. The top stays close under the title.", ghosttyKey: "window-padding-y") {
+                    paddingStepper($paddingY)
+                }
+            }
+        }
+    }
+
+    private func paddingStepper(_ value: Binding<Int>) -> some View {
+        HStack(spacing: Theme.Space.s) {
+            Text(String(format: String(localized: "%lld pt"), value.wrappedValue))
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(chrome.secondary)
+            Stepper("", value: value.applyingTerminalSettings(), in: TerminalSettings.paddingRange)
+                .labelsHidden()
+        }
+    }
+
+    private func restoreFontPageDefaults() {
+        let defaults = TerminalSettings.defaults
+        fontFamily = defaults.fontFamily
+        fontSize = defaults.fontSize
+        fontThicken = defaults.fontThicken
+        fontThickenStrength = defaults.fontThickenStrength
+        fontLigatures = defaults.fontLigatures
+        cellHeightAdjust = defaults.cellHeightAdjust
+        paddingX = defaults.paddingX
+        paddingY = defaults.paddingY
+        GhosttyRuntime.applyTerminalSettings()
+    }
+
+    /// Thicken has no SwiftUI equivalent; a heavier weight is the closest the preview can get.
+    private var previewWeight: Font.Weight {
+        if !fontThicken {
+            return .regular
+        }
+        if fontThickenStrength >= 128 {
+            return .semibold
+        }
+        return .medium
+    }
+
+    /// Extra space between the preview lines, following Line Height.
+    private var previewLineGap: CGFloat {
+        let extra = CGFloat(fontSize) * CGFloat(cellHeightAdjust) / 100
+        return max(0, Theme.Space.xs + extra)
+    }
+
+    /// Sample text in the chosen font, drawn with the terminal's own colors: plain text, then
+    /// prompt-like tokens in accent / success / warning / danger.
+    private var fontPreview: some View {
+        VStack(alignment: .leading, spacing: previewLineGap) {
+            Text("Ghostty 你好 abc 0123456789 -> =>")
+                .foregroundStyle(chrome.text)
+            HStack(spacing: 0) {
+                Text(verbatim: "developer@mac ~").foregroundStyle(chrome.accent)
+                Text(verbatim: "  ✔ 200").foregroundStyle(chrome.success)
+                Text(verbatim: "  ⚠ 302").foregroundStyle(chrome.warning)
+                Text(verbatim: "  ✘ 500").foregroundStyle(chrome.danger)
+            }
+        }
+        .font(.custom(fontFamily, size: CGFloat(fontSize)))
+        .fontWeight(previewWeight)
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: SettingsLayout.fontPreviewHeight, alignment: .leading)
+        .padding(.horizontal, Theme.Space.m)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                .fill(chrome.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                .stroke(chrome.hairline, lineWidth: 1)
+        )
+    }
+
+    /// Follow System / Light / Dark as one segmented control. Picking a segment applies at once, as before.
+    private var appearanceModeControl: some View {
+        HStack(spacing: 2) {
+            ForEach(TerminalAppearance.allCases) { mode in
+                appearanceSegment(mode)
+            }
+        }
+        .padding(3)
+        .fixedSize(horizontal: true, vertical: false)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                .fill(chrome.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                .stroke(chrome.hairline, lineWidth: 1)
+        )
+    }
+
+    private func appearanceSegment(_ mode: TerminalAppearance) -> some View {
         let selected = appearance == mode
         return Button {
             appearanceRaw = mode.rawValue
             AppearanceDriver.shared.reapply()
         } label: {
-            Text(mode.title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(chrome.text)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(selected ? chrome.accent : chrome.hairline, lineWidth: selected ? 2 : 1)
-                )
+            HStack(spacing: Theme.Space.xs + 2) {
+                Image(systemName: SettingsView.appearanceSymbol(mode))
+                    .font(.system(size: 12))
+                Text(mode.title)
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundStyle(selected ? chrome.accent : chrome.text)
+            .padding(.horizontal, Theme.Space.m)
+            .frame(height: SettingsLayout.segmentHeight)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                    .fill(selected ? chrome.accentFill : Color.clear)
+            )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private static func appearanceSymbol(_ mode: TerminalAppearance) -> String {
+        switch mode {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max"
+        case .dark: return "moon"
+        }
     }
 
     /// Previews the GitHub light and dark defaults together; the action bar then saves or cancels them.
@@ -265,32 +623,34 @@ struct SettingsView: View {
         } label: {
             Text("Restore Default Themes")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(chrome.secondary)
+                // Accent while clickable; the muted tertiary alone reads as disabled.
+                .foregroundStyle(disabled ? chrome.tertiary : chrome.accent)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(disabled)
-        .opacity(disabled ? 0.45 : 1)
     }
 
     /// The two themes in use (or being previewed) stay on top; clicking one lists that slot's themes.
     /// The list opens on typing or on Dark / Light; clicking a card previews it in every window without saving.
     private var themePicker: some View {
         let results = matchingThemes
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: Theme.Space.l) {
             // 与下方结果网格共用列定义，两张卡占前两列并与结果卡对齐。
-            LazyVGrid(columns: themeColumns, alignment: .leading, spacing: 12) {
+            LazyVGrid(columns: themeColumns, alignment: .leading, spacing: Theme.Space.m) {
                 currentThemeCard(title: "Current light theme", choice: preview.effectiveLight(), filter: .light)
                 currentThemeCard(title: "Current dark theme", choice: preview.effectiveDark(), filter: .dark)
             }
 
-            HStack(spacing: 12) {
+            userThemesSection
+
+            HStack(spacing: Theme.Space.m) {
                 themeSearchField
                 themeFilterBar
             }
 
             if !showsThemeList {
-                Text(String(format: String(localized: "Type to search %lld themes"), GhosttyThemeCatalog.allThemes.count))
+                Text(String(format: String(localized: "Type to search %lld themes"), results.count))
                     .font(Theme.sidebarRowMeta)
                     .foregroundStyle(chrome.secondary)
             } else if results.isEmpty {
@@ -301,13 +661,21 @@ struct SettingsView: View {
                 Text(String(format: String(localized: "Showing %lld themes"), results.count))
                     .font(Theme.sidebarRowMeta)
                     .foregroundStyle(chrome.secondary)
-                LazyVGrid(columns: themeColumns, spacing: 12) {
+                LazyVGrid(columns: themeColumns, spacing: Theme.Space.m) {
                     ForEach(results) { definition in
                         ThemePreviewCard(
                             definition: definition,
                             selected: isInUse(definition)
                         ) {
                             preview.show(definition)
+                        }
+                        .contextMenu {
+                            // A user theme hides the catalog theme of the same name, so the name is enough.
+                            if userThemes.theme(named: definition.name) != nil {
+                                Button("Move to Trash") {
+                                    themePendingTrash = definition.name
+                                }
+                            }
                         }
                     }
                 }
@@ -335,15 +703,15 @@ struct SettingsView: View {
                 .help("Clear search")
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, Theme.Space.m)
         .frame(maxWidth: .infinity)
         .frame(height: SettingsView.searchControlHeight)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(chrome.elevated)
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                .fill(chrome.background)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                 .stroke(chrome.hairline, lineWidth: 1)
         )
     }
@@ -357,13 +725,13 @@ struct SettingsView: View {
                     themeFilter = filter
                 } label: {
                     Text(filter.title)
-                        .font(.system(size: 14, weight: selected ? .semibold : .regular))
-                        .foregroundStyle(chrome.text)
-                        .padding(.horizontal, 14)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(selected ? chrome.accent : chrome.text)
+                        .padding(.horizontal, Theme.Space.m)
                         .frame(maxHeight: .infinity)
                         .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(selected ? chrome.accent.opacity(0.22) : Color.clear)
+                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                                .fill(selected ? chrome.accentFill : Color.clear)
                         )
                         .contentShape(Rectangle())
                 }
@@ -375,11 +743,11 @@ struct SettingsView: View {
         .frame(height: SettingsView.searchControlHeight)
         .fixedSize(horizontal: true, vertical: false)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(chrome.elevated)
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                .fill(chrome.background)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                 .stroke(chrome.hairline, lineWidth: 1)
         )
     }
@@ -398,6 +766,95 @@ struct SettingsView: View {
             .help(hint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Themes from Ghostty's own themes folder. The header buttons stay visible before the first theme exists.
+    private var userThemesSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.m) {
+                Text("My Themes")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(chrome.secondary)
+                Spacer(minLength: Theme.Space.s)
+                Button {
+                    importThemeFiles()
+                } label: {
+                    Label("Import Theme File…", systemImage: "square.and.arrow.down")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(chrome.accent)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Button {
+                    openThemesFolder()
+                } label: {
+                    Label("Open Themes Folder", systemImage: "folder")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(chrome.accent)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            if userThemes.themes.isEmpty {
+                let folder = (UserThemeStore.directoryURL.path as NSString).abbreviatingWithTildeInPath
+                Text(String(format: String(localized: "Put Ghostty theme files in %@ and they appear here."), folder))
+                    .font(Theme.sidebarRowMeta)
+                    .foregroundStyle(chrome.secondary)
+            } else {
+                LazyVGrid(columns: themeColumns, alignment: .leading, spacing: Theme.Space.m) {
+                    ForEach(userThemes.themes) { definition in
+                        ThemePreviewCard(
+                            definition: definition,
+                            selected: isInUse(definition)
+                        ) {
+                            preview.show(definition)
+                        }
+                        .contextMenu {
+                            Button("Move to Trash") {
+                                themePendingTrash = definition.name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func importThemeFiles() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.message = String(localized: "Choose Ghostty theme files")
+        panel.prompt = String(localized: "Import")
+        guard panel.runModal() == .OK else { return }
+        var failures: [String] = []
+        for url in panel.urls {
+            do {
+                try userThemes.importThemeFile(from: url)
+            } catch {
+                failures.append(error.localizedDescription)
+            }
+        }
+        if !failures.isEmpty {
+            themeFileError = failures.joined(separator: "\n")
+        }
+    }
+
+    private func openThemesFolder() {
+        do {
+            try userThemes.openDirectory()
+        } catch {
+            themeFileError = error.localizedDescription
+        }
+    }
+
+    private func trashTheme(named name: String) {
+        do {
+            try userThemes.deleteTheme(named: name)
+        } catch {
+            themeFileError = error.localizedDescription
+        }
     }
 
     private func isInUse(_ definition: GhosttyThemeDefinition) -> Bool {
@@ -422,7 +879,7 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
-        .background(chrome.elevated)
+        .background(chrome.sidebarBackground)
         .overlay(alignment: .top) {
             Rectangle().fill(chrome.hairline).frame(height: 1)
         }
@@ -461,6 +918,7 @@ struct SettingsWindowRoot: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @ObservedObject private var preview = ThemePreview.shared
+    @ObservedObject private var userThemes = UserThemeStore.shared
 
     private var chrome: WindowChrome {
         let _ = lightThemeRaw
@@ -493,6 +951,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.model = model
         if let window, window.isVisible {
             window.close()
+            return
+        }
+        show(model: model)
+    }
+
+    /// Opens Settings, or brings it to the front when it is already open.
+    func show(model: AppModel) {
+        self.model = model
+        if let window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
             return
         }
         model.keyWindow?.hostPickerPresented = false

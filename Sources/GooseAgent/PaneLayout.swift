@@ -1,4 +1,5 @@
 import CoreGraphics
+import CryptoKit
 import Foundation
 
 enum SplitEdge: Equatable {
@@ -43,6 +44,11 @@ indirect enum PaneNode: Equatable, Codable {
 
 struct PaneDivider: Equatable, Identifiable {
     var id: UUID
+    /// The split this divider resizes. Same as `id` unless the divider is one segment of a longer line.
+    var splitID: UUID
+    /// Set when both sides of the split line up across it: the line is cut into one segment per cell,
+    /// and dragging a segment moves only that cell's column (or row).
+    var segment: Int?
     var axis: SplitAxis
     var frame: CGRect
     /// Min X or Y of the whole split, used while dragging the divider.
@@ -57,6 +63,36 @@ enum PaneLayout {
             return leaf == id
         case .split(let split):
             return contains(id, in: split.leading) || contains(id, in: split.trailing)
+        }
+    }
+
+    /// Ratio for split `id` that gives every pane along its axis the same size, e.g. 1/3 when one
+    /// pane sits beside a column of two stacked left-right. Nil when no such split exists.
+    static func evenRatio(for id: UUID, in node: PaneNode) -> CGFloat? {
+        guard case .split(let split) = node else { return nil }
+        if split.id == id {
+            let leading = PaneLayout.cellCount(split.leading, along: split.axis)
+            let trailing = PaneLayout.cellCount(split.trailing, along: split.axis)
+            return CGFloat(leading) / CGFloat(leading + trailing)
+        }
+        if let ratio = PaneLayout.evenRatio(for: id, in: split.leading) {
+            return ratio
+        }
+        return PaneLayout.evenRatio(for: id, in: split.trailing)
+    }
+
+    /// Panes side by side along `axis`. A split across the other axis counts its fuller side.
+    static func cellCount(_ node: PaneNode, along axis: SplitAxis) -> Int {
+        switch node {
+        case .leaf:
+            return 1
+        case .split(let split):
+            let leading = PaneLayout.cellCount(split.leading, along: axis)
+            let trailing = PaneLayout.cellCount(split.trailing, along: axis)
+            if split.axis == axis {
+                return leading + trailing
+            }
+            return max(leading, trailing)
         }
     }
 
@@ -304,28 +340,172 @@ enum PaneLayout {
         guard case .split(let split) = node else { return }
         let pair = childRects(split, in: rect)
         let hit: CGFloat = 8
+        let aligned = PaneLayout.alignedCells(split, in: rect)
         switch split.axis {
         case .vertical:
             let x = pair.0.maxX - (hit - 1) / 2
-            result.append(PaneDivider(
-                id: split.id,
-                axis: .vertical,
-                frame: CGRect(x: x, y: rect.minY, width: hit, height: rect.height),
-                origin: rect.minX,
-                span: rect.width
-            ))
+            guard let aligned else {
+                result.append(PaneDivider(
+                    id: split.id,
+                    splitID: split.id,
+                    axis: .vertical,
+                    frame: CGRect(x: x, y: rect.minY, width: hit, height: rect.height),
+                    origin: rect.minX,
+                    span: rect.width
+                ))
+                break
+            }
+            let cells = aligned.leading
+            for index in cells.indices {
+                let start = cells[index].rect.minY
+                var end = rect.maxY
+                if index + 1 < cells.count {
+                    end = cells[index + 1].rect.minY
+                }
+                result.append(PaneDivider(
+                    id: PaneLayout.segmentID(split.id, index),
+                    splitID: split.id,
+                    segment: index,
+                    axis: .vertical,
+                    frame: CGRect(x: x, y: start, width: hit, height: end - start),
+                    origin: rect.minX,
+                    span: rect.width
+                ))
+            }
         case .horizontal:
             let y = pair.0.maxY - (hit - 1) / 2
-            result.append(PaneDivider(
-                id: split.id,
-                axis: .horizontal,
-                frame: CGRect(x: rect.minX, y: y, width: rect.width, height: hit),
-                origin: rect.minY,
-                span: rect.height
-            ))
+            guard let aligned else {
+                result.append(PaneDivider(
+                    id: split.id,
+                    splitID: split.id,
+                    axis: .horizontal,
+                    frame: CGRect(x: rect.minX, y: y, width: rect.width, height: hit),
+                    origin: rect.minY,
+                    span: rect.height
+                ))
+                break
+            }
+            let cells = aligned.leading
+            for index in cells.indices {
+                let start = cells[index].rect.minX
+                var end = rect.maxX
+                if index + 1 < cells.count {
+                    end = cells[index + 1].rect.minX
+                }
+                result.append(PaneDivider(
+                    id: PaneLayout.segmentID(split.id, index),
+                    splitID: split.id,
+                    segment: index,
+                    axis: .horizontal,
+                    frame: CGRect(x: start, y: y, width: end - start, height: hit),
+                    origin: rect.minY,
+                    span: rect.height
+                ))
+            }
         }
         collectDividers(split.leading, in: pair.0, into: &result)
         collectDividers(split.trailing, in: pair.1, into: &result)
+    }
+
+    /// Dragging one segment of a divider. The split is turned the other way round, rows of columns into
+    /// columns of rows (or back), so that segment's cell gets a split of its own; every pane keeps its frame.
+    /// Returns the new tree and the split under that segment, whose id is the segment's divider id.
+    /// Nil when the split is not in `node` or its sides do not line up in `rect`.
+    /// Pane order follows the new tree: a grid of rows reads column by column afterwards, and back.
+    static func detachSegment(_ segment: Int, of splitID: UUID, in node: PaneNode, rect: CGRect) -> (PaneNode, UUID)? {
+        guard case .split(var split) = node else { return nil }
+        let pair = childRects(split, in: rect)
+        if split.id != splitID {
+            if let found = PaneLayout.detachSegment(segment, of: splitID, in: split.leading, rect: pair.0) {
+                split.leading = found.0
+                return (.split(split), found.1)
+            }
+            if let found = PaneLayout.detachSegment(segment, of: splitID, in: split.trailing, rect: pair.1) {
+                split.trailing = found.0
+                return (.split(split), found.1)
+            }
+            return nil
+        }
+        guard let aligned = PaneLayout.alignedCells(split, in: rect) else { return nil }
+        guard segment >= 0, segment < aligned.leading.count else { return nil }
+        var cells: [PaneNode] = []
+        for index in aligned.leading.indices {
+            cells.append(.split(SplitNode(
+                id: PaneLayout.segmentID(split.id, index),
+                axis: split.axis,
+                ratio: split.ratio,
+                leading: aligned.leading[index].node,
+                trailing: aligned.trailing[index].node
+            )))
+        }
+        let rebuilt = PaneLayout.replacingChainCells(split.leading, axis: PaneLayout.crossAxis(split.axis), cells: &cells)
+        return (rebuilt, PaneLayout.segmentID(split.id, segment))
+    }
+
+    /// Divider id of one segment. It is also the id of the split that segment gets once detached, so the
+    /// divider view under the pointer survives the rebuild and the drag goes on.
+    static func segmentID(_ splitID: UUID, _ index: Int) -> UUID {
+        let digest = Array(Insecure.MD5.hash(data: Data("\(splitID.uuidString)/\(index)".utf8)))
+        return UUID(uuid: (
+            digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
+            digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]
+        ))
+    }
+
+    private static func crossAxis(_ axis: SplitAxis) -> SplitAxis {
+        if axis == .vertical {
+            return .horizontal
+        }
+        return .vertical
+    }
+
+    /// Both sides of the split cut the other way into the same number of cells at the same positions
+    /// (within a point). Nil otherwise, or when neither side is cut.
+    private static func alignedCells(
+        _ split: SplitNode,
+        in rect: CGRect
+    ) -> (leading: [(node: PaneNode, rect: CGRect)], trailing: [(node: PaneNode, rect: CGRect)])? {
+        let pair = childRects(split, in: rect)
+        let cross = PaneLayout.crossAxis(split.axis)
+        let leading = PaneLayout.chainCells(split.leading, axis: cross, in: pair.0)
+        let trailing = PaneLayout.chainCells(split.trailing, axis: cross, in: pair.1)
+        guard leading.count >= 2, leading.count == trailing.count else { return nil }
+        let tolerance: CGFloat = 1
+        for index in leading.indices {
+            let a = leading[index].rect
+            let b = trailing[index].rect
+            if cross == .vertical {
+                if abs(a.minX - b.minX) > tolerance || abs(a.maxX - b.maxX) > tolerance {
+                    return nil
+                }
+            } else {
+                if abs(a.minY - b.minY) > tolerance || abs(a.maxY - b.maxY) > tolerance {
+                    return nil
+                }
+            }
+        }
+        return (leading, trailing)
+    }
+
+    /// Cells of the run of `axis` splits that starts at `node`, in tree order. Anything else is one cell.
+    private static func chainCells(_ node: PaneNode, axis: SplitAxis, in rect: CGRect) -> [(node: PaneNode, rect: CGRect)] {
+        guard case .split(let split) = node, split.axis == axis else { return [(node, rect)] }
+        let pair = childRects(split, in: rect)
+        return PaneLayout.chainCells(split.leading, axis: axis, in: pair.0)
+            + PaneLayout.chainCells(split.trailing, axis: axis, in: pair.1)
+    }
+
+    /// Same walk as `chainCells`, putting `cells` in place of the cells in order. The run's splits keep their ratios.
+    private static func replacingChainCells(_ node: PaneNode, axis: SplitAxis, cells: inout [PaneNode]) -> PaneNode {
+        guard case .split(var split) = node, split.axis == axis else {
+            if cells.isEmpty {
+                return node
+            }
+            return cells.removeFirst()
+        }
+        split.leading = PaneLayout.replacingChainCells(split.leading, axis: axis, cells: &cells)
+        split.trailing = PaneLayout.replacingChainCells(split.trailing, axis: axis, cells: &cells)
+        return .split(split)
     }
 
     private static func childRects(_ split: SplitNode, in rect: CGRect) -> (CGRect, CGRect) {

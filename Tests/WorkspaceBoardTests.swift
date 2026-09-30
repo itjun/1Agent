@@ -9,6 +9,27 @@ enum WorkspaceBoardTests {
         let third = UUID()
         let fourth = UUID()
 
+        let sidebar = [first, second, third]
+        expect(WorkspaceBoard.terminal(number: 1, in: sidebar) == first, "⌘1 is the first sidebar terminal")
+        expect(WorkspaceBoard.terminal(number: 3, in: sidebar) == third, "⌘3 is the third")
+        expect(WorkspaceBoard.terminal(number: 4, in: sidebar) == nil, "past the end there is nothing")
+        expect(WorkspaceBoard.terminal(number: 0, in: sidebar) == nil, "0 is not a position")
+        expect(WorkspaceBoard.adjacentTerminal(to: second, forward: true, in: sidebar) == third, "next follows sidebar order")
+        expect(WorkspaceBoard.adjacentTerminal(to: third, forward: true, in: sidebar) == first, "next wraps to the top")
+        expect(WorkspaceBoard.adjacentTerminal(to: first, forward: false, in: sidebar) == third, "previous wraps to the bottom")
+        expect(WorkspaceBoard.adjacentTerminal(to: nil, forward: false, in: sidebar) == third, "no selection: previous is the last")
+        expect(WorkspaceBoard.adjacentTerminal(to: first, forward: true, in: [first]) == nil, "a lone terminal has nothing to switch to")
+        expect(WorkspaceBoard.adjacentTerminal(to: nil, forward: true, in: []) == nil, "an empty sidebar has nothing")
+
+        expect(WorkspaceBoard.selectionAfterClosing(second, workspaceMembers: [], sidebarOrder: sidebar) == third, "closing a row selects the next row")
+        expect(WorkspaceBoard.selectionAfterClosing(third, workspaceMembers: [], sidebarOrder: sidebar) == second, "closing the last row selects the one above, not the first")
+        expect(WorkspaceBoard.selectionAfterClosing(first, workspaceMembers: [], sidebarOrder: sidebar) == second, "closing the first row selects the next row")
+        expect(WorkspaceBoard.selectionAfterClosing(first, workspaceMembers: [], sidebarOrder: [first]) == nil, "closing the only terminal leaves nothing")
+        let splitSidebar = [first, second, third, fourth]
+        expect(WorkspaceBoard.selectionAfterClosing(third, workspaceMembers: [second, third], sidebarOrder: splitSidebar) == second, "a pane of the same workspace comes before the next sidebar row")
+        expect(WorkspaceBoard.selectionAfterClosing(second, workspaceMembers: [second, third], sidebarOrder: splitSidebar) == third, "the next pane of the workspace comes first")
+        expect(WorkspaceBoard.selectionAfterClosing(fourth, workspaceMembers: [], sidebarOrder: [first, fourth, second]) == second, "sidebar order decides the neighbor, not creation order")
+
         let merged = WorkspaceBoard.drop(dragged: second, onto: first, edge: .right, in: [])
         expect(merged.count == 1, "two hosts become one workspace")
         expect(merged[0].number == 1, "the first merge is workspace 1")
