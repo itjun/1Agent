@@ -222,7 +222,6 @@ struct HostPicker: View {
             model.openLocalTerminal(in: window)
         } label: {
             HStack(spacing: Theme.Space.s) {
-                HostIconView(isLocal: true, directory: NSHomeDirectory(), size: SheetLayout.pickerIconSize)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Local Terminal")
                         .font(Theme.Font.row.weight(.medium))
@@ -260,7 +259,6 @@ struct HostPicker: View {
         let isTicked = ticked.contains(host.alias)
         let openCount = model.openSessionCount(alias: host.alias)
         return HStack(spacing: Theme.Space.s) {
-            HostIconView(isLocal: false, size: SheetLayout.pickerIconSize)
             VStack(alignment: .leading, spacing: 2) {
                 Text(host.alias)
                     .font(Theme.Font.row.weight(.medium))

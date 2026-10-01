@@ -254,7 +254,6 @@ struct RootView: View {
         }
         let hovered = hoveredTabID == tab.id
         return HStack(spacing: 6) {
-            HostIconView(isLocal: tab.isLocal, directory: tab.directory, size: SidebarLayout.rowIconSize)
             DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
             Text(sidebarTitle(tab))
                 .font(selected ? Theme.Font.row.weight(.medium) : Theme.Font.row)
@@ -556,8 +555,6 @@ enum SidebarLayout {
     static let trafficLightInset: CGFloat = 78
     /// Horizontal gap between a row's selection/hover shape and the block edge.
     static let rowInset: CGFloat = 6
-    /// System host icon at the start of a row.
-    static let rowIconSize: CGFloat = 16
     /// Space above a Local Group / Ungrouped title.
     static let sectionTopInset: CGFloat = 10
     /// Pane-count capsule on a workspace card.
@@ -780,7 +777,6 @@ enum SheetLayout {
     static let searchFieldHeight: CGFloat = 38
     /// One host (or the local terminal) row in the host picker.
     static let pickerRowHeight: CGFloat = 36
-    static let pickerIconSize: CGFloat = 20
 }
 
 /// A small colored dot before a host title that is open more than once. The color is per alias,
