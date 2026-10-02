@@ -17,6 +17,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case selectTerminal7
     case selectTerminal8
     case selectLastTerminal
+    case terminalSwitcher
     case duplicateRight
     case duplicateDown
     case toggleSplitZoom
@@ -56,7 +57,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
             return .app
         case .previousTerminal, .nextTerminal,
              .selectTerminal1, .selectTerminal2, .selectTerminal3, .selectTerminal4,
-             .selectTerminal5, .selectTerminal6, .selectTerminal7, .selectTerminal8, .selectLastTerminal:
+             .selectTerminal5, .selectTerminal6, .selectTerminal7, .selectTerminal8, .selectLastTerminal, .terminalSwitcher:
             return .sidebar
         case .duplicateRight, .duplicateDown, .toggleSplitZoom, .closeTab, .nextPane, .previousPane,
              .paneLeft, .paneRight, .paneUp, .paneDown,
@@ -83,6 +84,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
             let number = terminalNumber ?? 0
             return String(localized: "Go to Terminal \(number)")
         case .selectLastTerminal: return String(localized: "Go to Last Terminal")
+        case .terminalSwitcher: return String(localized: "Terminal Switcher")
         case .duplicateRight: return String(localized: "Split Right")
         case .duplicateDown: return String(localized: "Split Down")
         case .toggleSplitZoom: return String(localized: "Zoom Split")
@@ -134,6 +136,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .selectTerminal7: return KeyChord(key: "7", modifiers: .command)
         case .selectTerminal8: return KeyChord(key: "8", modifiers: .command)
         case .selectLastTerminal: return KeyChord(key: "9", modifiers: .command)
+        case .terminalSwitcher: return KeyChord(key: "\t", modifiers: .control)
         case .duplicateRight: return KeyChord(key: "d", modifiers: .command)
         case .duplicateDown: return KeyChord(key: "d", modifiers: [.command, .shift])
         case .toggleSplitZoom: return KeyChord(key: "\r", modifiers: [.command, .shift])

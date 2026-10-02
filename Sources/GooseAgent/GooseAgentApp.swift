@@ -134,6 +134,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ShortcutRecorder.isRecording {
             return event
         }
+        if TerminalSwitcher.shared.isOpen {
+            return TerminalSwitcher.shared.handle(event) ? nil : event
+        }
         let window = model.keyWindow
         if event.keyCode == 53, let window, window.draggingTabID != nil || window.draggingBlock != nil {
             model.endDrag(in: window)
@@ -224,6 +227,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let window else { return false }
         if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || window.hostPickerPresented {
             return false
+        }
+        if id == .terminalSwitcher {
+            return TerminalSwitcher.shared.open(model: model, window: window, chord: chord)
         }
         if id == .previousTerminal {
             return model.selectAdjacentTerminal(forward: false, in: window)

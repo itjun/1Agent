@@ -356,6 +356,11 @@ enum SSHTerminalRegistry {
         views[id]?.processHost?.process.currentWorkingDirectory
     }
 
+    /// The rows on screen as plain text. Nil before the terminal was made or once it closed.
+    static func viewportText(for id: String) -> String? {
+        views[id]?.processHost?.session.readViewportText()
+    }
+
     /// Starts the same command again inside the same terminal. False when the view is gone.
     @discardableResult
     static func restart(_ id: String, notice: String) -> Bool {

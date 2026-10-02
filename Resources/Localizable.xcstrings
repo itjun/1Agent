@@ -2289,6 +2289,27 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Sidebar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "侧栏" } }
       }
+    },
+    "Terminal Switcher" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Terminal Switcher" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端切换器" } }
+      }
+    },
+    "Not started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not started" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未启动" } }
+      }
+    },
+    "Return or click to switch · Esc to cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Return or click to switch · Esc to cancel" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "回车或点击切换 · Esc 取消" } }
+      }
     }
   },
   "version" : "1.0"

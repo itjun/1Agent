@@ -14,6 +14,7 @@
 		176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651A72E339CED37F30858736 /* ShellIntegration.swift */; };
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
+		272263DCE7BC9D40856986FB /* TerminalSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */; };
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
 		2CC7E9867CD194A86B245F50 /* ThemePreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78EF3DC9557BC5009929F59 /* ThemePreviewCard.swift */; };
 		33DCFCC9A4C67EC83537B7CB /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
@@ -94,6 +95,7 @@
 		55C2B2A2DC927B76E00D66C9 /* UserThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserThemeStore.swift; sourceTree = "<group>"; };
 		5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SymbolsNerdFont-LICENSE.txt"; sourceTree = "<group>"; };
 		5A7EE823807020FCAC7AB30D /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
+		616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSwitcher.swift; sourceTree = "<group>"; };
 		64BF08A42C7BDF982C716507 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		651A72E339CED37F30858736 /* ShellIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellIntegration.swift; sourceTree = "<group>"; };
 		6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 1Agent.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -225,6 +227,7 @@
 				22680FE638056AFBBDA0F764 /* TerminalProcess.swift */,
 				C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */,
 				76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */,
+				616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */,
 				361A21A864C230DE8DF8A323 /* TerminalThemes.swift */,
 				7DC2AB74FE4D721374A45471 /* TerminalView.swift */,
 				FC199BA5503EE914D1E884FD /* Theme.swift */,
@@ -360,6 +363,7 @@
 				292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */,
 				E3CA332263834B7BDAF1871D /* TerminalSettings.swift in Sources */,
 				FC241887E9142971AEC50108 /* TerminalSettingsPage.swift in Sources */,
+				272263DCE7BC9D40856986FB /* TerminalSwitcher.swift in Sources */,
 				E894648382EF9EEBEB3E0882 /* TerminalThemes.swift in Sources */,
 				837075A95F60DAEF5F9564E0 /* TerminalView.swift in Sources */,
 				197C7C9B933208A046590B37 /* Theme.swift in Sources */,
