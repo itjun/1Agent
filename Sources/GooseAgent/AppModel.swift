@@ -36,6 +36,9 @@ struct TerminalTab: Identifiable, Equatable {
     var reconnectAttempts: Int = 0
     /// Waiting for or starting an automatic reconnect.
     var reconnecting: Bool = false
+    var content: PaneContent = .terminal
+    /// Remote shell directory last reported through OSC 7. Memory only.
+    var remoteDirectory: String? = nil
 
     var sessionID: String { "\(id.uuidString)#\(generation)" }
 
@@ -46,10 +49,16 @@ struct TerminalTab: Identifiable, Equatable {
         return false
     }
 
-    /// SSH host or local shell. Empty placeholder tabs are neither.
+    /// SSH host, local shell, or a preview / file pane. Empty placeholder tabs are none of these.
     var isSession: Bool {
+        if !content.isTerminal { return true }
         if let alias, !alias.isEmpty { return true }
         return isLocal
+    }
+
+    /// A session that runs in a terminal view.
+    var hasTerminal: Bool {
+        content.isTerminal && isSession
     }
 
     /// Unexpected disconnect that still needs a clear closed mark.
@@ -139,6 +148,9 @@ final class AppModel: ObservableObject {
 
     /// Host badge for a remote session, the short directory for a local one.
     func sessionTitle(_ tab: TerminalTab) -> String {
+        if let title = tab.contentTitle {
+            return title
+        }
         if tab.isLocal, let directory = tab.directory {
             return LocalTerminal.displayPath(directory)
         }
@@ -180,7 +192,7 @@ final class AppModel: ObservableObject {
         } else {
             window.zoomedPanes[workspace.id] = selected
         }
-        if let tab = tabs.first(where: { $0.id == selected }), tab.isSession, !tab.exited {
+        if let tab = tabs.first(where: { $0.id == selected }), tab.hasTerminal, !tab.exited {
             SSHTerminalRegistry.focus(tab.sessionID)
         }
     }
@@ -222,7 +234,13 @@ final class AppModel: ObservableObject {
 
     /// The loose group a standalone terminal falls into when nobody has placed it yet.
     private func defaultLooseGroup(for tab: TerminalTab?) -> SidebarBlock {
-        tab?.isLocal == true ? .localGroup : .ungrouped
+        guard let tab else { return .ungrouped }
+        switch tab.content {
+        case .terminal:
+            return tab.isLocal ? .localGroup : .ungrouped
+        case .preview:
+            return .localGroup
+        }
     }
 
     /// Standalone terminals that no window lists. They show in the first window's default groups
@@ -454,17 +472,19 @@ final class AppModel: ObservableObject {
         guard let target = window ?? keyWindow else { return }
         // The picker sheet owns the keyboard; do not duplicate behind it.
         if target.hostPickerPresented { return }
-        if let selected = selectedTab(in: target), selected.isSession {
+        if let selected = selectedTab(in: target), selected.hasTerminal {
             duplicateAsTab(selected.id, in: target)
             return
         }
         openHostPicker(in: target)
     }
 
-    /// ⌘O. Reloads the SSH config and shows the host picker.
-    func openHostPicker(in window: WindowState? = nil) {
+    /// ⌘O. Reloads the SSH config and shows the host picker. `.files` opens the chosen hosts as
+    /// remote tabs in the Files area instead of terminals.
+    func openHostPicker(in window: WindowState? = nil, purpose: HostPickerPurpose = .terminal) {
         reloadHosts()
         guard let target = window ?? keyWindow else { return }
+        target.hostPickerPurpose = purpose
         target.hostPickerPresented = true
     }
 
@@ -473,13 +493,14 @@ final class AppModel: ObservableObject {
     func selectTab(_ id: UUID, in window: WindowState) {
         endZoomIfSwitching(to: id, in: window)
         window.selectedTabID = id
+        window.section = .terminals
         if window.sidebarAnchor == nil {
             window.sidebarAnchor = id
         }
         persistSession()
         guard let tab = tabs.first(where: { $0.id == id }) else { return }
         TerminalActivity.shared.clearBell(sessionID: tab.sessionID)
-        guard tab.isSession, !tab.exited else { return }
+        guard tab.hasTerminal, !tab.exited else { return }
         SSHTerminalRegistry.focus(tab.sessionID)
     }
 
@@ -653,6 +674,7 @@ final class AppModel: ObservableObject {
         }
         target.hostPickerPresented = false
         activate(target)
+        target.section = .terminals
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
@@ -710,6 +732,7 @@ final class AppModel: ObservableObject {
         let target = window ?? mainWindow
         target.hostPickerPresented = false
         activate(target)
+        target.section = .terminals
         // A host 1Panel wrote a moment ago should show its address, not just the alias.
         reloadHosts()
         Task {
@@ -743,6 +766,7 @@ final class AppModel: ObservableObject {
         guard let target = window ?? keyWindow else { return }
         target.hostPickerPresented = false
         activate(target)
+        target.section = .terminals
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
@@ -783,6 +807,7 @@ final class AppModel: ObservableObject {
         let target = mainWindow
         target.hostPickerPresented = false
         activate(target)
+        target.section = .terminals
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
@@ -891,6 +916,13 @@ final class AppModel: ObservableObject {
             }
             launchEnvironment = environment
             tabs = snapshot.tabs.compactMap { item in
+                if let preview = item.preview {
+                    guard FileManager.default.fileExists(atPath: preview) else { return nil }
+                    return TerminalTab(id: item.id, alias: nil, generation: 0, exited: false, content: .preview(path: preview))
+                }
+                if item.files != nil {
+                    return nil
+                }
                 if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
                     return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false)
                 }
@@ -963,10 +995,21 @@ final class AppModel: ObservableObject {
     }
 
     /// The shell reported its directory. Only a local terminal is titled by its path; a remote path
-    /// would be on another machine, so an SSH tab keeps its host title.
-    func noteWorkingDirectory(_ path: String, forSession sessionID: String) {
-        guard let index = tabs.firstIndex(where: { $0.sessionID == sessionID }), tabs[index].isLocal else { return }
+    /// would be on another machine, so an SSH tab keeps its host title and only remembers the path
+    /// as where uploads and the file pane go.
+    func noteWorkingDirectory(_ report: String, forSession sessionID: String) {
+        guard let index = tabs.firstIndex(where: { $0.sessionID == sessionID }) else { return }
+        var path = report
+        if report.hasPrefix("file://"), let url = URL(string: report) {
+            path = url.path
+        }
         guard path.hasPrefix("/") else { return }
+        guard tabs[index].isLocal else {
+            if tabs[index].remoteDirectory != path {
+                tabs[index].remoteDirectory = path
+            }
+            return
+        }
         // Saving the session reads the kernel's resolved path (/private/tmp for /tmp); keep the same
         // form so the title does not flip between the two.
         var resolved = path
@@ -1002,7 +1045,7 @@ final class AppModel: ObservableObject {
     /// Runs ssh again inside the same terminal. The old output stays on screen above a divider.
     private func beginReconnect(_ tabID: UUID, automatic: Bool) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
-        guard tabs[index].isSession, !tabs[index].isLocal else { return }
+        guard tabs[index].hasTerminal, !tabs[index].isLocal else { return }
         let notice: String
         if automatic {
             guard tabs[index].exited else { return }
@@ -1094,7 +1137,7 @@ final class AppModel: ObservableObject {
         }
         guard let window, let selected = window.selectedTabID,
               let tab = tabs.first(where: { $0.id == selected }),
-              tab.isSession, !tab.exited else { return }
+              tab.hasTerminal, !tab.exited else { return }
         SSHTerminalRegistry.focus(tab.sessionID)
     }
 
@@ -1143,7 +1186,7 @@ final class AppModel: ObservableObject {
             }
             syncSelection(in: owner)
             if focusNext, let next = owner.selectedTabID,
-               let tab = tabs.first(where: { $0.id == next }), tab.isSession, !tab.exited {
+               let tab = tabs.first(where: { $0.id == next }), tab.hasTerminal, !tab.exited {
                 SSHTerminalRegistry.focus(tab.sessionID)
             }
         }
@@ -1231,6 +1274,186 @@ final class AppModel: ObservableObject {
             window.sidebarAnchor = copy.id
             selectTab(copy.id, in: window)
         }
+    }
+
+    // MARK: - Opening panes beside a terminal
+
+    /// Finder files dropped on a terminal's split, New Tab, or transfer circle. A folder opens a
+    /// local shell there; a file opens a preview pane.
+    func openDropped(_ urls: [URL], zone: DropZone, on id: UUID, in window: WindowState) {
+        let placement: PanePlacement
+        switch zone {
+        case .splitLeft: placement = .split(.left)
+        case .splitRight: placement = .split(.right)
+        case .newTab: placement = .newTab
+        case .transfer:
+            guard let tab = tabs.first(where: { $0.id == id }) else { return }
+            DropTransfer.run(urls, for: tab, model: self)
+            return
+        case .insertPath, .openInPlace:
+            return
+        }
+        for url in urls {
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
+            if isDirectory.boolValue {
+                openLocalTerminal(at: url.path, placement: placement, beside: id, in: window)
+            } else {
+                open(.preview(path: url.path), placement: placement, beside: id, in: window)
+            }
+        }
+    }
+
+    /// A preview pane as its own sidebar row, or split beside `id`.
+    func open(_ content: PaneContent, placement: PanePlacement, beside id: UUID, in window: WindowState) {
+        let tab = TerminalTab(id: UUID(), alias: nil, generation: 0, exited: false, content: content)
+        add(tab, placement: placement, beside: id, in: window)
+    }
+
+    /// A local shell in `directory`, as its own sidebar row or split beside `id`.
+    func openLocalTerminal(at directory: String, placement: PanePlacement, beside id: UUID, in window: WindowState) {
+        Task {
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard !Task.isCancelled else { return }
+            launchEnvironment = environment
+            let tab = TerminalTab(
+                id: UUID(),
+                alias: nil,
+                directory: LocalTerminal.launchDirectory(directory),
+                generation: 0,
+                exited: false
+            )
+            add(tab, placement: placement, beside: id, in: window)
+        }
+    }
+
+    /// An ssh session to `host` that changes to `directory` once the remote shell is up.
+    func openRemoteTerminal(_ host: String, at directory: String, placement: PanePlacement, beside id: UUID, in window: WindowState) {
+        Task {
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard !Task.isCancelled else { return }
+            launchEnvironment = environment
+            let tab = TerminalTab(id: UUID(), alias: host, generation: 0, exited: false)
+            pendingInitialInput[tab.id] = "cd \(FileRules.shellQuote(directory))\r"
+            add(tab, placement: placement, beside: id, in: window)
+        }
+    }
+
+    // MARK: - Files area
+
+    func showSection(_ section: AppSection, in window: WindowState) {
+        guard window.section != section else { return }
+        window.section = section
+        if section != .terminals {
+            // A hidden terminal must not keep typing focus.
+            MainWindowManager.shared.window(for: window)?.makeFirstResponder(nil)
+        }
+        if section == .terminals, let id = window.selectedTabID,
+           let tab = tabs.first(where: { $0.id == id }), tab.hasTerminal {
+            SSHTerminalRegistry.focus(tab.sessionID)
+        }
+        persistSession()
+    }
+
+    func fileWorkspace(for window: WindowState) -> FileWorkspace {
+        FileBrowserStore.shared.workspace(for: window, model: self)
+    }
+
+    /// The Files area on the host of terminal `id`, in its current folder: that host's tab (a new
+    /// one on the right), or a tab on this Mac. Without a terminal it just opens.
+    func showFiles(for id: UUID?, in window: WindowState) {
+        if let id, let tab = tabs.first(where: { $0.id == id }) {
+            let workspace = fileWorkspace(for: window)
+            if let alias = tab.alias, !alias.isEmpty {
+                workspace.openRemote(host: alias, at: tab.remoteDirectory)
+            } else {
+                workspace.showLocal(localFolder(of: tab))
+            }
+        }
+        showSection(.files, in: window)
+    }
+
+    /// Sidebar rows dropped on a pane of the Files area (`group`) or on the Files button (nil): one
+    /// tab per host (an open one is reused), and a new tab for each terminal on this Mac.
+    func openFiles(forTabs ids: [UUID], in group: UUID? = nil, window: WindowState) {
+        let workspace = fileWorkspace(for: window)
+        var seenHosts = Set<String>()
+        for id in ids {
+            guard let tab = tabs.first(where: { $0.id == id }) else { continue }
+            if let alias = tab.alias, !alias.isEmpty {
+                guard seenHosts.insert(alias).inserted else { continue }
+                workspace.openRemote(host: alias, at: tab.remoteDirectory, in: group)
+            } else if let folder = localFolder(of: tab) {
+                workspace.addLocalTab(at: folder, in: group)
+            }
+        }
+        showSection(.files, in: window)
+    }
+
+    /// Hosts chosen in the picker while it opens file tabs, in the pane whose + opened it.
+    func openFilesTabs(hosts aliases: [String], in window: WindowState) {
+        window.hostPickerPresented = false
+        let workspace = fileWorkspace(for: window)
+        for alias in aliases {
+            workspace.openRemote(host: alias, at: nil, in: workspace.pickerGroupID)
+        }
+        showSection(.files, in: window)
+    }
+
+    private func localFolder(of tab: TerminalTab) -> String? {
+        if tab.hasTerminal {
+            return SSHTerminalRegistry.currentWorkingDirectory(for: tab.sessionID) ?? tab.directory
+        }
+        if case .preview(let path) = tab.content {
+            return (path as NSString).deletingLastPathComponent
+        }
+        return nil
+    }
+
+    /// ⌥⌘O: from a terminal to its files, and back.
+    func toggleSection(in window: WindowState) {
+        if window.section == .files {
+            showSection(.terminals, in: window)
+        } else {
+            showFiles(for: window.selectedTabID, in: window)
+        }
+    }
+
+    /// "Open in Terminal" from the Files area: a new terminal row in `folder`, on `host` or this Mac.
+    func openTerminal(at folder: String, host: String?, in window: WindowState) {
+        showSection(.terminals, in: window)
+        let beside = window.selectedTabID ?? UUID()
+        if let host {
+            openRemoteTerminal(host, at: folder, placement: .newTab, beside: beside, in: window)
+        } else {
+            openLocalTerminal(at: folder, placement: .newTab, beside: beside, in: window)
+        }
+    }
+
+    private func add(_ tab: TerminalTab, placement: PanePlacement, beside id: UUID, in window: WindowState) {
+        let sourceIndex = tabs.firstIndex { $0.id == id }
+        switch placement {
+        case .split(let edge) where sourceIndex != nil:
+            tabs.insert(tab, at: sourceIndex! + 1)
+            let block = window.blocks.first { block in
+                if case .workspace = block { return false }
+                return members(of: block, in: window).contains(id)
+            }
+            workspaces = WorkspaceBoard.drop(dragged: tab.id, onto: id, edge: edge, in: workspaces)
+            adoptNewWorkspaces(in: window, replacing: block, near: id)
+        default:
+            syncLooseMembers()
+            tabs.append(tab)
+            let group = defaultLooseGroup(for: tab)
+            var neighbor: UUID? = nil
+            if looseTabs(in: group, window: window).contains(where: { $0.id == id }) {
+                neighbor = id
+            }
+            place([tab.id], intoLoose: group, in: window, beside: neighbor, after: true)
+        }
+        window.sidebarSelection = [tab.id]
+        window.sidebarAnchor = tab.id
+        selectTab(tab.id, in: window)
     }
 
     func duplicateFocused(downward: Bool, in window: WindowState) {
@@ -1649,6 +1872,12 @@ final class AppModel: ObservableObject {
         syncLooseMembers()
         let snapshot = SessionSnapshot(
             tabs: tabs.compactMap { tab in
+                switch tab.content {
+                case .terminal:
+                    break
+                case .preview(let path):
+                    return SessionSnapshot.Tab(id: tab.id, alias: nil, preview: path)
+                }
                 if let alias = tab.alias, !alias.isEmpty {
                     return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil)
                 }
@@ -1664,7 +1893,8 @@ final class AppModel: ObservableObject {
                     blocks: window.blocks,
                     localGroup: window.looseMembers[.localGroup] ?? [],
                     ungrouped: window.looseMembers[.ungrouped] ?? [],
-                    selected: window.selectedTabID
+                    selected: window.selectedTabID,
+                    section: window.section
                 )
             },
             keyWindow: mainWindow.id
@@ -1700,6 +1930,9 @@ private struct SessionSnapshot: Codable {
         var id: UUID
         var alias: String?
         var directory: String? = nil
+        var preview: String? = nil
+        /// File panes of an earlier build; such tabs are dropped at launch.
+        var files: FileBrowserTarget? = nil
     }
 
     struct Frame: Codable {
@@ -1726,6 +1959,7 @@ private struct SessionSnapshot: Codable {
         var localGroup: [UUID]
         var ungrouped: [UUID]
         var selected: UUID?
+        var section: AppSection? = nil
     }
 
     static let storageKey = "session.openTabs"
@@ -1844,6 +2078,7 @@ private struct SessionSnapshot: Codable {
         if let selected = key.selected, known.contains(selected) {
             window.selectedTabID = selected
         }
+        window.section = key.section ?? .terminals
     }
 
     static func load() -> SessionSnapshot? {

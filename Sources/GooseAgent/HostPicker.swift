@@ -3,6 +3,7 @@ import SwiftUI
 
 /// ⌘T. Type to filter, ↑↓ to move, ⏎ to open. ⌘-click selects several hosts;
 /// ⏎ then opens all of them as one workspace. Hosts are grouped by the `config.d` file they came from.
+/// Opened from the Files area, the chosen hosts become remote tabs there instead.
 struct HostPicker: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject var model: AppModel
@@ -78,19 +79,25 @@ struct HostPicker: View {
         filtered.map(\.alias)
     }
 
+    private var forFiles: Bool {
+        window.hostPickerPurpose == .files
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             searchField
                 .padding(Theme.Space.l)
 
-            localTerminalRow
-                .padding(.horizontal, Theme.Space.l)
+            if !forFiles {
+                localTerminalRow
+                    .padding(.horizontal, Theme.Space.l)
 
-            Rectangle()
-                .fill(chrome.hairline)
-                .frame(height: 1)
-                .padding(.horizontal, Theme.Space.l)
-                .padding(.vertical, Theme.Space.s)
+                Rectangle()
+                    .fill(chrome.hairline)
+                    .frame(height: 1)
+                    .padding(.horizontal, Theme.Space.l)
+                    .padding(.vertical, Theme.Space.s)
+            }
 
             if model.configFailed {
                 Text("Could not read SSH config.")
@@ -146,7 +153,7 @@ struct HostPicker: View {
                     .lineLimit(1)
                 Spacer()
                 if ticked.count >= 2 {
-                    Button(String(format: String(localized: "Open %lld as Workspace"), ticked.count)) {
+                    Button(String(format: forFiles ? String(localized: "Open %lld as Tabs") : String(localized: "Open %lld as Workspace"), ticked.count)) {
                         openTicked()
                     }
                     .keyboardShortcut(.return, modifiers: .command)
@@ -249,6 +256,9 @@ struct HostPicker: View {
 
     private var hintText: String {
         if ticked.count >= 2 {
+            if forFiles {
+                return String(localized: "⏎ opens the selected hosts as tabs. ⌘-click to select more.")
+            }
             return String(localized: "⏎ opens the selected hosts as one workspace. ⌘-click to select more.")
         }
         return String(localized: "↑↓ to move, ⏎ to open, ⌘-click to tick several.")
@@ -298,7 +308,7 @@ struct HostPicker: View {
                 toggleTick(host.alias)
                 highlighted = host.alias
             } else {
-                model.openHost(host.alias, in: window)
+                open([host.alias])
             }
         }
         .onHover { inside in
@@ -351,13 +361,21 @@ struct HostPicker: View {
             return
         }
         guard let alias = highlighted ?? orderedAliases.first else { return }
-        model.openHost(alias, in: window)
+        open([alias])
     }
 
     private func openTicked() {
         let order = model.hosts.map(\.alias)
         let chosen = order.filter { ticked.contains($0) }
         guard !chosen.isEmpty else { return }
-        model.openHosts(chosen, in: window)
+        open(chosen)
+    }
+
+    private func open(_ aliases: [String]) {
+        if forFiles {
+            model.openFilesTabs(hosts: aliases, in: window)
+        } else {
+            model.openHosts(aliases, in: window)
+        }
     }
 }

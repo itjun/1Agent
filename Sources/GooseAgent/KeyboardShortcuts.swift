@@ -20,6 +20,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case terminalSwitcher
     case duplicateRight
     case duplicateDown
+    case openFileBrowser
     case toggleSplitZoom
     case closeTab
     case settings
@@ -59,7 +60,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
              .selectTerminal1, .selectTerminal2, .selectTerminal3, .selectTerminal4,
              .selectTerminal5, .selectTerminal6, .selectTerminal7, .selectTerminal8, .selectLastTerminal, .terminalSwitcher:
             return .sidebar
-        case .duplicateRight, .duplicateDown, .toggleSplitZoom, .closeTab, .nextPane, .previousPane,
+        case .duplicateRight, .duplicateDown, .openFileBrowser, .toggleSplitZoom, .closeTab, .nextPane, .previousPane,
              .paneLeft, .paneRight, .paneUp, .paneDown,
              .movePaneLeft, .movePaneRight, .movePaneUp, .movePaneDown:
             return .pane
@@ -87,6 +88,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .terminalSwitcher: return String(localized: "Terminal Switcher")
         case .duplicateRight: return String(localized: "Split Right")
         case .duplicateDown: return String(localized: "Split Down")
+        case .openFileBrowser: return String(localized: "Switch Terminals and Files")
         case .toggleSplitZoom: return String(localized: "Zoom Split")
         case .closeTab: return String(localized: "Close Terminal")
         case .settings: return String(localized: "Settings")
@@ -139,6 +141,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .terminalSwitcher: return KeyChord(key: "\t", modifiers: .control)
         case .duplicateRight: return KeyChord(key: "d", modifiers: .command)
         case .duplicateDown: return KeyChord(key: "d", modifiers: [.command, .shift])
+        case .openFileBrowser: return KeyChord(key: "o", modifiers: [.command, .option])
         case .toggleSplitZoom: return KeyChord(key: "\r", modifiers: [.command, .shift])
         case .closeTab: return KeyChord(key: "w", modifiers: .command)
         case .settings: return KeyChord(key: ",", modifiers: .command)

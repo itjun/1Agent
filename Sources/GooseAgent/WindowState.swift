@@ -11,6 +11,8 @@ final class WindowState: ObservableObject, Identifiable {
     /// Standalone terminals of this window's two loose groups, in sidebar order.
     @Published var looseMembers: [SidebarBlock: [UUID]] = [.localGroup: [], .ungrouped: []]
     @Published var selectedTabID: UUID?
+    /// What fills the area right of the sidebar.
+    @Published var section: AppSection = .terminals
     /// Sidebar multi-select. Not written into the session snapshot.
     @Published var sidebarSelection: Set<UUID> = []
     var sidebarAnchor: UUID?
@@ -20,6 +22,10 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var draggingBlock: SidebarBlock?
     @Published var dropHighlight: TabDropHighlight?
     @Published var hostPickerPresented = false
+    /// What a host chosen in the picker opens. Back to `.terminal` whenever the picker closes.
+    @Published var hostPickerPurpose: HostPickerPurpose = .terminal
+    /// Where a sidebar row dragged over the Files area or the Files button would land.
+    @Published var filesDropTarget: FilesDropTarget?
     /// Workspace ID → the pane drawn alone (⇧⌘↩). Memory only; not in the session snapshot.
     @Published var zoomedPanes: [UUID: UUID] = [:]
     /// Last known frame on screen, restored at launch.
@@ -31,6 +37,31 @@ final class WindowState: ObservableObject, Identifiable {
     init(id: UUID = UUID(), frame: CGRect? = nil) {
         self.id = id
         self.frame = frame
+    }
+}
+
+enum HostPickerPurpose {
+    /// New terminals.
+    case terminal
+    /// New remote tabs in the Files area.
+    case files
+}
+
+enum FilesDropTarget: Hashable {
+    /// A pane of the Files area.
+    case group(UUID)
+    case button
+}
+
+/// Terminals, or the file manager, right of the sidebar.
+enum AppSection: String, Codable {
+    case terminals
+    case files
+
+    /// A saved session may name an area that no longer exists; it opens on Terminals.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AppSection(rawValue: raw) ?? .terminals
     }
 }
 

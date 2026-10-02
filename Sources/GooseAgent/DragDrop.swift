@@ -42,6 +42,10 @@ final class CanvasDropRelay: ObservableObject {
     weak var sidebarAnchor: NSView?
     var rowAnchors: [UUID: AnchorBox] = [:]
     var blockAnchors: [SidebarBlock: AnchorBox] = [:]
+    /// The two sides of the Files area, and the Files button in the sidebar header. A sidebar row
+    /// dropped on any of them opens that host's files instead of moving the row.
+    var filesSideAnchors: [FilesDropTarget: AnchorBox] = [:]
+    weak var filesButtonAnchor: NSView?
     var dragTitle = ""
     private var autoscrollTimer: Timer?
     private var autoscrollStep: CGFloat = 0
@@ -78,6 +82,8 @@ final class CanvasDropRelay: ObservableObject {
             let count = window.draggingTabIDs.count
             if count >= 2 {
                 dragTitle = String(format: String(localized: "%lld terminals"), count)
+            } else if let title = model.tabs.first(where: { $0.id == id })?.contentTitle {
+                dragTitle = title
             } else if let tab = model.tabs.first(where: { $0.id == id }), tab.isLocal, let directory = tab.directory {
                 dragTitle = LocalTerminal.displayPath(directory)
             } else {
@@ -137,6 +143,7 @@ final class CanvasDropRelay: ObservableObject {
         MainActor.assumeIsolated {
             guard let model = modelBox, let window = windowBox else { return }
             defer {
+                window.filesDropTarget = nil
                 model.endDrag(in: window)
             }
             // Dropped on the desktop or another app: nothing happens.
@@ -154,6 +161,9 @@ final class CanvasDropRelay: ObservableObject {
             if let window = windowBox, window.dropHighlight != nil {
                 window.dropHighlight = nil
             }
+            if let window = windowBox, window.filesDropTarget != nil {
+                window.filesDropTarget = nil
+            }
         }
     }
 
@@ -161,6 +171,17 @@ final class CanvasDropRelay: ObservableObject {
         guard let catcher else { return }
         catcher.layoutSubtreeIfNeeded()
         updateAutoscroll(windowPoint: windowPoint)
+        let overFiles = MainActor.assumeIsolated { () -> Bool in
+            guard let window = windowBox else { return false }
+            let target = filesTarget(at: windowPoint, window: window)
+            if window.filesDropTarget != target { window.filesDropTarget = target }
+            if target != nil, window.dropHighlight != nil { window.dropHighlight = nil }
+            return target != nil
+        }
+        if overFiles {
+            catcher.present(over: catcher, zone: nil, title: dragTitle)
+            return
+        }
         if overCanvas(windowPoint) {
             let zone = canvasZone(for: payload, windowPoint: windowPoint)
             catcher.present(over: catcher, zone: zone, title: dragTitle)
@@ -194,6 +215,16 @@ final class CanvasDropRelay: ObservableObject {
         catcher?.hide()
         guard let window = windowBox else { return }
         window.dropHighlight = nil
+        let filesTarget = filesTarget(at: windowPoint, window: window)
+        window.filesDropTarget = nil
+        if let filesTarget {
+            let group: UUID? = switch filesTarget {
+            case .group(let id): id
+            case .button: nil
+            }
+            model.openFiles(forTabs: draggedIDs(of: payload, model: model), in: group, window: window)
+            return
+        }
         let excluded = Set(draggedIDs(of: payload, model: model))
         if overCanvas(windowPoint) {
             let swiftPoint = catcher?.swiftPoint(windowPoint) ?? .zero
@@ -349,7 +380,28 @@ final class CanvasDropRelay: ObservableObject {
 
     private func overCanvas(_ windowPoint: NSPoint) -> Bool {
         guard let catcher else { return false }
-        return catcher.contains(windowPoint) && catcher.bounds.width > 2
+        let showingTerminals = MainActor.assumeIsolated { windowBox?.section != .files }
+        return showingTerminals && catcher.contains(windowPoint) && catcher.bounds.width > 2
+    }
+
+    /// The Files button anywhere; a side of the Files area while it is shown.
+    @MainActor
+    private func filesTarget(at windowPoint: NSPoint, window: WindowState) -> FilesDropTarget? {
+        if let button = filesButtonAnchor, Self.view(button, contains: windowPoint) {
+            return .button
+        }
+        guard window.section == .files else { return nil }
+        for (target, box) in filesSideAnchors {
+            if let view = box.view, Self.view(view, contains: windowPoint) {
+                return target
+            }
+        }
+        return nil
+    }
+
+    private static func view(_ view: NSView, contains windowPoint: NSPoint) -> Bool {
+        guard view.window != nil else { return false }
+        return view.bounds.contains(view.convert(windowPoint, from: nil))
     }
 
     private func sidebarContains(_ windowPoint: NSPoint) -> Bool {

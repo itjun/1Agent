@@ -52,7 +52,7 @@ struct TerminalCanvas: View {
             // Only this window's terminals get a view here. A terminal shown in another window
             // keeps its process; the registry hands the same view over when it moves.
             let shown = Set(model.sidebarOrder(in: window))
-            let ownTabs = model.tabs.filter { $0.isSession && shown.contains($0.id) }
+            let ownTabs = model.tabs.filter { $0.hasTerminal && shown.contains($0.id) }
             let liveIDs = Set(ownTabs.map(\.id))
             let _ = dropRelay.sync(frames: frames, model: model, window: window)
             ZStack(alignment: .topLeading) {
@@ -81,7 +81,9 @@ struct TerminalCanvas: View {
                         },
                         onClose: { model.closeTab(tab.id) },
                         onFocus: { model.notePaneFocused(tab.id, in: window) },
-                        onSplit: { edge in model.duplicate(tab.id, edge: edge) }
+                        onSplit: { edge in model.duplicate(tab.id, edge: edge) },
+                        onFileDrop: { urls, zone in model.openDropped(urls, zone: zone, on: tab.id, in: window) },
+                        onOpenFiles: { model.showFiles(for: tab.id, in: window) }
                     )
                     .id(tab.sessionID)
                     .frame(
@@ -104,6 +106,15 @@ struct TerminalCanvas: View {
                         if let content {
                             lastContentFrame[tab.id] = content
                         }
+                    }
+                }
+                ForEach(model.tabs.filter { !$0.content.isTerminal && frames[$0.id] != nil }) { tab in
+                    if let frame = frames[tab.id] {
+                        let content = Self.contentFrame(frame, headerHeight: headerH)
+                        PaneContentView(model: model, window: window, tab: tab)
+                            .frame(width: content.width, height: content.height)
+                            .position(x: content.midX, y: content.midY)
+                            .zIndex(1)
                     }
                 }
                 ForEach(dividers) { divider in
@@ -264,6 +275,13 @@ struct TerminalCanvas: View {
                     .help(String(localized: "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info. Drag the blank part of the bar to move the window."))
                 }
                 .padding(.horizontal, Theme.Space.s)
+                if tab.content.isTerminal {
+                    HStack {
+                        Spacer(minLength: 0)
+                        filesButton(tab)
+                    }
+                    .padding(.horizontal, Theme.Space.xs)
+                }
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
@@ -305,10 +323,16 @@ struct TerminalCanvas: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, Theme.PaneStyle.stripTitleInset)
                 .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
-                if isZoomed {
-                    zoomMark
-                        .padding(.horizontal, Theme.Space.s)
+                HStack(spacing: 0) {
+                    if tab.content.isTerminal {
+                        filesButton(tab)
+                    }
+                    if isZoomed {
+                        zoomMark
+                    }
                 }
+                .padding(.horizontal, Theme.Space.s)
+                .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
@@ -329,6 +353,26 @@ struct TerminalCanvas: View {
                 .position(x: frame.midX, y: findTop + Theme.PaneStyle.findBarHeight / 2)
                 .zIndex(4)
         }
+    }
+
+    /// Switches to the Files area on this terminal's machine and folder.
+    private func filesButton(_ tab: TerminalTab) -> some View {
+        let help = String(
+            format: String(localized: "Open File Manager (%@)"),
+            AppShortcuts.display(for: .openFileBrowser)
+        )
+        return Button {
+            model.showFiles(for: tab.id, in: window)
+        } label: {
+            Image(systemName: "folder")
+                .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .semibold))
+                .foregroundStyle(chrome.secondary)
+                .frame(width: Theme.PaneStyle.headerButtonSize, height: Theme.PaneStyle.headerButtonSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(Text(help))
     }
 
     /// Shown at the right end of the zoomed pane's strip. A click shows every pane again.
@@ -418,6 +462,9 @@ struct TerminalCanvas: View {
     }
 
     private func paneTitle(_ tab: TerminalTab) -> String {
+        if let title = tab.contentTitle {
+            return title
+        }
         if tab.isLocal, let directory = tab.directory {
             return LocalTerminal.displayPath(directory)
         }
@@ -431,7 +478,9 @@ struct TerminalCanvas: View {
 @MainActor
 func copySessionInfo(_ tab: TerminalTab, model: AppModel) {
     let text: String
-    if tab.isLocal {
+    if case .preview(let path) = tab.content {
+        text = path
+    } else if tab.isLocal {
         text = tab.directory?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     } else if let alias = tab.alias {
         let copied = model.host(alias)?.connectionCopyText ?? ""

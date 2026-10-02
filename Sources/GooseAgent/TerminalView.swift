@@ -2,6 +2,7 @@ import AppKit
 import CoreText
 import GhosttyTerminal
 import GhosttyTheme
+import Quartz
 import SwiftUI
 
 enum TerminalDefaults {
@@ -356,6 +357,19 @@ enum SSHTerminalRegistry {
         views[id]?.processHost?.process.currentWorkingDirectory
     }
 
+    /// Text typed at the prompt as a paste. False when the view is gone.
+    @discardableResult
+    static func paste(_ text: String, into id: String) -> Bool {
+        guard let view = views[id] else { return false }
+        view.window?.makeFirstResponder(view)
+        return view.paste(text: text)
+    }
+
+    /// The terminal's window, for sheets and progress shown over it.
+    static func window(for id: String) -> NSWindow? {
+        views[id]?.window
+    }
+
     /// The rows on screen as plain text. Nil before the terminal was made or once it closed.
     static func viewportText(for id: String) -> String? {
         views[id]?.processHost?.session.readViewportText()
@@ -399,6 +413,12 @@ final class SSHTerminalNSView: AppTerminalView {
     var onClose: (() -> Void)?
     /// Split Right / Split Down from the context menu: another session like this one beside it.
     var onSplit: ((SplitEdge) -> Void)?
+    /// Finder files dropped on a split, New Tab, or transfer circle.
+    var onFileDrop: (([URL], DropZone) -> Void)?
+    /// Open File Manager from the context menu.
+    var onOpenFiles: (() -> Void)?
+    /// The session runs over ssh: the transfer circle uploads instead of copying.
+    var dropIsRemote = false
     var appliedDarkAppearance: Int?
     weak var attachedSurface: TerminalSurface?
     /// `TerminalTab.sessionID` this terminal was made for. The find bar is keyed by it.
@@ -412,6 +432,8 @@ final class SSHTerminalNSView: AppTerminalView {
     private let bellBorder = TerminalOverlayView()
     private let linkBanner = TerminalLinkBanner()
     private let dropHighlight = TerminalOverlayView()
+    private let dropOverlay = DropZoneOverlay()
+    private var quickLookURLs: [URL] = []
     /// The engine asked for a pointing hand over a link. Other shapes keep the arrow this view always had.
     private var showsLinkCursor = false
     private var gestureIsLocal = false
@@ -514,40 +536,113 @@ final class SSHTerminalNSView: AppTerminalView {
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
         guard acceptsDrop(sender) else { return [] }
-        showDropHighlight(true)
+        trackDrop(sender)
         return .copy
     }
 
     override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
         guard acceptsDrop(sender) else { return [] }
+        trackDrop(sender)
         return .copy
     }
 
     override func draggingExited(_ sender: (any NSDraggingInfo)?) {
-        showDropHighlight(false)
+        endDropFeedback()
     }
 
     override func concludeDragOperation(_ sender: (any NSDraggingInfo)?) {
-        showDropHighlight(false)
+        endDropFeedback()
     }
 
-    /// Files become escaped paths separated by spaces, typed at the prompt like any text, so the
-    /// same works in an ssh session. The paste path skips paste protection, as Ghostty's drop does.
+    /// Finder files go to the circle under the mouse. Plain text, and Insert Path, become escaped
+    /// paths typed at the prompt like any text, so the same works in an ssh session. The paste path
+    /// skips paste protection, as Ghostty's drop does.
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        showDropHighlight(false)
+        let zone = dropOverlay.superview === self ? dropOverlay.zone(at: sender.draggingLocation) : nil
+        endDropFeedback()
         guard acceptsDrop(sender) else { return false }
         let pasteboard = sender.draggingPasteboard
-        let text: String
-        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL], !urls.isEmpty {
-            text = ShellEscape.dropText(paths: urls.map(\.path))
-        } else if let string = pasteboard.string(forType: .string), !string.isEmpty {
-            text = string
-        } else {
-            return false
+        if let urls = droppedFiles(pasteboard) {
+            return drop(urls, on: zone ?? .insertPath)
         }
+        guard let string = pasteboard.string(forType: .string), !string.isEmpty else { return false }
         window?.makeFirstResponder(self)
-        return paste(text: text)
+        return paste(text: string)
+    }
+
+    private func droppedFiles(_ pasteboard: NSPasteboard) -> [URL]? {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        guard let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL],
+              !urls.isEmpty else { return nil }
+        return urls
+    }
+
+    private func drop(_ urls: [URL], on zone: DropZone) -> Bool {
+        switch zone {
+        case .insertPath:
+            window?.makeFirstResponder(self)
+            return paste(text: ShellEscape.dropText(paths: urls.map(\.path)))
+        case .openInPlace:
+            window?.makeFirstResponder(self)
+            var isDirectory: ObjCBool = false
+            if urls.count == 1, FileManager.default.fileExists(atPath: urls[0].path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                guard let process = processHost?.process else { return false }
+                process.write(Data("cd \(ShellEscape.escape(urls[0].path))\r".utf8))
+                return true
+            }
+            showQuickLook(urls)
+            return true
+        case .splitLeft, .splitRight, .newTab, .transfer:
+            guard let onFileDrop else { return false }
+            onFileDrop(urls, zone)
+            return true
+        }
+    }
+
+    private func trackDrop(_ sender: any NSDraggingInfo) {
+        guard droppedFiles(sender.draggingPasteboard) != nil else {
+            showDropHighlight(true)
+            return
+        }
+        if dropOverlay.superview !== self {
+            dropOverlay.frame = bounds
+            dropOverlay.autoresizingMask = [.width, .height]
+            dropOverlay.configure(transfer: onFileDrop != nil, remote: dropIsRemote)
+            addSubview(dropOverlay)
+        }
+        dropOverlay.highlight(dropOverlay.zone(at: sender.draggingLocation))
+    }
+
+    private func endDropFeedback() {
+        showDropHighlight(false)
+        dropOverlay.highlight(nil)
+        dropOverlay.removeFromSuperview()
+    }
+
+    /// The panel asks the responder chain for its data source; this view is first responder here.
+    private func showQuickLook(_ urls: [URL]) {
+        quickLookURLs = urls
+        guard let panel = QLPreviewPanel.shared() else { return }
+        if panel.isVisible, (panel.currentController as AnyObject?) === self {
+            panel.reloadData()
+        } else {
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+        !quickLookURLs.isEmpty
+    }
+
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = self
+        panel.reloadData()
+    }
+
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = nil
+        quickLookURLs = []
     }
 
     /// A tab that is not shown keeps its view, invisible, under the visible panes.
@@ -712,6 +807,11 @@ final class SSHTerminalNSView: AppTerminalView {
         menu.addItem(.separator())
         menu.addItem(makeItem(.duplicateRight, #selector(splitRightFromMenu(_:))))
         menu.addItem(makeItem(.duplicateDown, #selector(splitDownFromMenu(_:))))
+        if onOpenFiles != nil {
+            let files = makeItem(String(localized: "Open File Manager"), #selector(openFilesFromMenu(_:)))
+            SSHTerminalNSView.showChord(AppShortcuts.chord(for: .openFileBrowser), on: files)
+            menu.addItem(files)
+        }
         menu.addItem(.separator())
         let close = TerminalCloseMenu.item(
             title: String(localized: "Close Pane"),
@@ -758,6 +858,10 @@ final class SSHTerminalNSView: AppTerminalView {
 
     @objc private func splitDownFromMenu(_: Any?) {
         onSplit?(.bottom)
+    }
+
+    @objc private func openFilesFromMenu(_: Any?) {
+        onOpenFiles?()
     }
 
     @objc private func openLinkFromMenu(_ sender: NSMenuItem) {
@@ -998,6 +1102,8 @@ struct SSHTerminalView: NSViewRepresentable {
     var onClose: () -> Void = {}
     var onFocus: () -> Void = {}
     var onSplit: (SplitEdge) -> Void = { _ in }
+    var onFileDrop: (([URL], DropZone) -> Void)? = nil
+    var onOpenFiles: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -1088,6 +1194,11 @@ struct SSHTerminalView: NSViewRepresentable {
         terminal.onFocus = { [weak coordinator] in coordinator?.onFocus?() }
         terminal.onClose = { [weak coordinator] in coordinator?.onClose?() }
         terminal.onSplit = { [weak coordinator] edge in coordinator?.onSplit?(edge) }
+        coordinator.onFileDrop = onFileDrop
+        terminal.onFileDrop = { [weak coordinator] urls, zone in coordinator?.onFileDrop?(urls, zone) }
+        terminal.dropIsRemote = !alias.isEmpty
+        coordinator.onOpenFiles = onOpenFiles
+        terminal.onOpenFiles = { [weak coordinator] in coordinator?.onOpenFiles?() }
         let onExit = self.onExit
         terminal.processHost?.onExit = { code, lived in
             onExit(code, lived)
@@ -1108,7 +1219,19 @@ struct SSHTerminalView: NSViewRepresentable {
         var onClose: (() -> Void)?
         var onFocus: (() -> Void)?
         var onSplit: ((SplitEdge) -> Void)?
+        var onFileDrop: (([URL], DropZone) -> Void)?
+        var onOpenFiles: (() -> Void)?
         weak var terminal: SSHTerminalNSView?
+    }
+}
+
+extension SSHTerminalNSView: QLPreviewPanelDataSource {
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+        quickLookURLs.count
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
+        quickLookURLs[index] as NSURL
     }
 }
 

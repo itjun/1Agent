@@ -229,6 +229,9 @@ final class TerminalSwitcher: ObservableObject {
 
     /// Same wording as the sidebar row.
     private static func title(for tab: TerminalTab) -> String {
+        if let title = tab.contentTitle {
+            return title
+        }
         if tab.isLocal, let directory = tab.directory {
             return LocalTerminal.displayPath(directory)
         }

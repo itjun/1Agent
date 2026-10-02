@@ -56,7 +56,15 @@ struct RootView: View {
             SidebarDivider(chrome: chrome, storedWidth: $sidebarWidth, liveWidth: $liveSidebarWidth)
                 // Above both neighbours so the wide hit area wins over the rows and the terminal.
                 .zIndex(1)
-            detail
+            ZStack {
+                // Terminals stay in the view tree while Files is shown, so no session is torn down.
+                detail
+                    .opacity(window.section == .terminals ? 1 : 0)
+                    .allowsHitTesting(window.section == .terminals)
+                if window.section == .files {
+                    FilesWorkspaceView(model: model, window: window, relay: dropRelay)
+                }
+            }
         }
         .frame(minWidth: 880, minHeight: 520)
         .background(terminalTranslucent ? Color.clear : chrome.background)
@@ -85,7 +93,7 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
-        .sheet(isPresented: $window.hostPickerPresented) {
+        .sheet(isPresented: $window.hostPickerPresented, onDismiss: { window.hostPickerPurpose = .terminal }) {
             HostPicker(model: model, window: window)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
                 .environment(\.windowChrome, chrome)
@@ -124,6 +132,24 @@ struct RootView: View {
         return selectedSessionBadge
     }
 
+    private var filesButton: some View {
+        let showing = window.section == .files
+        let targeted = window.filesDropTarget == .button
+        return SidebarIconButton(
+            symbol: showing ? "folder.fill" : "folder",
+            help: String(format: String(localized: "Files (%@)"), AppShortcuts.display(for: .openFileBrowser)),
+            accessibilityLabel: "Files",
+            fill: chrome.sidebarBackground,
+            hoverFill: chrome.elevated,
+            tint: showing || targeted ? chrome.accent : nil,
+            highlighted: targeted,
+            action: { model.toggleSection(in: window) }
+        )
+        .background(BoundsAnchor { dropRelay.filesButtonAnchor = $0 })
+        .opacity(sidebarHovered || showing || targeted ? 1 : 0)
+        .allowsHitTesting(sidebarHovered || showing)
+    }
+
     private var windowControls: some View {
         SidebarIconButton(
             symbol: "plus",
@@ -133,6 +159,8 @@ struct RootView: View {
             hoverFill: chrome.elevated,
             action: { model.openHostPicker(in: window) }
         )
+        .opacity(sidebarHovered ? 1 : 0)
+        .allowsHitTesting(sidebarHovered)
     }
 
     private var sidebar: some View {
@@ -140,9 +168,8 @@ struct RootView: View {
             HStack(spacing: Theme.Space.xs) {
                 WindowDragArea()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                filesButton
                 windowControls
-                    .opacity(sidebarHovered ? 1 : 0)
-                    .allowsHitTesting(sidebarHovered)
             }
             .padding(.leading, SidebarLayout.trafficLightInset)
             .padding(.trailing, Theme.Space.s)
@@ -228,6 +255,9 @@ struct RootView: View {
 
     private var selectedSessionBadge: String {
         guard let tab = model.selectedTab(in: window) else { return "" }
+        if let title = tab.contentTitle {
+            return title
+        }
         if tab.isLocal, let directory = tab.directory {
             return LocalTerminal.displayPath(directory)
         }
@@ -341,6 +371,9 @@ struct RootView: View {
     }
 
     private func sidebarTitle(_ tab: TerminalTab) -> String {
+        if let title = tab.contentTitle {
+            return title
+        }
         if tab.isLocal, let directory = tab.directory {
             return LocalTerminal.displayPath(directory)
         }
@@ -551,7 +584,7 @@ enum SidebarLayout {
     /// edge takes over clicks on the header buttons.
     static let headerBottomGap: CGFloat = 12
     static let rowHeight: CGFloat = 28
-    /// Leading space that keeps the header clear of the traffic lights.
+    /// Width the traffic lights take from the window's left edge.
     static let trafficLightInset: CGFloat = 78
     /// Horizontal gap between a row's selection/hover shape and the block edge.
     static let rowInset: CGFloat = 6
@@ -579,6 +612,10 @@ struct SidebarIconButton: View {
     /// Opaque base; also what shows when the pointer is elsewhere.
     var fill: Color
     var hoverFill: Color
+    /// Symbol color when the button stands for the current state; nil keeps the default.
+    var tint: Color? = nil
+    /// Drawn with the hover fill even without the pointer, e.g. while something is dragged onto it.
+    var highlighted = false
     var action: () -> Void
     @State private var hovering = false
 
@@ -586,10 +623,11 @@ struct SidebarIconButton: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .frame(width: SidebarLayout.iconButtonSize, height: SidebarLayout.iconButtonSize)
                 .background(
                     RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                        .fill(hovering ? hoverFill : Color.clear)
+                        .fill(hovering || highlighted ? hoverFill : Color.clear)
                 )
                 // Opaque fill so AppKit does not treat the hit as window-drag.
                 .background(fill)
@@ -777,6 +815,41 @@ enum SheetLayout {
     static let searchFieldHeight: CGFloat = 38
     /// One host (or the local terminal) row in the host picker.
     static let pickerRowHeight: CGFloat = 36
+    /// File list in the "convert to UTF-8 + LF before upload" alert.
+    static let uploadCheckListWidth: CGFloat = 460
+    static let uploadCheckListMaxHeight: CGFloat = 240
+}
+
+/// Geometry of the file pane, after 1Panel's SFTP page.
+enum FileBrowserLayout {
+    static let titleBarHeight: CGFloat = 40
+    static let toolbarHeight: CGFloat = 36
+    static let headerHeight: CGFloat = 36
+    static let rowHeight: CGFloat = 40
+    static let filterWidth: CGFloat = 160
+    /// Name, modified, size, kind. The name column takes what is left.
+    static let nameMinWidth: CGFloat = 120
+    static let modifiedWidth: CGFloat = 128
+    static let sizeWidth: CGFloat = 72
+    static let kindWidth: CGFloat = 64
+    static let iconSize: CGFloat = 18
+    static let toolbarButtonSize: CGFloat = 24
+    static let folderColor = Color(red: 0x4C / 255, green: 0x8D / 255, blue: 0xFF / 255)
+    /// Text preview drawer along the bottom of a column.
+    static let previewHeightShare: CGFloat = 0.5
+    static let previewByteLimit = 512 * 1024
+    /// Progress toast at the bottom center of the window.
+    static let toastWidth: CGFloat = 360
+    static let toastHeight: CGFloat = 40
+    /// From the window top; clears the tab strip.
+    static let toastTopInset: CGFloat = 44
+    static let toastLingerSeconds: Double = 2.5
+    /// Tab strip above each side of the Files area, as in Xftp.
+    static let tabStripHeight: CGFloat = 32
+    static let tabMinWidth: CGFloat = 56
+    static let tabMaxWidth: CGFloat = 180
+    /// Share of a pane's width and height kept from each edge: dropping a tab inside joins the pane.
+    static let joinZoneInset: CGFloat = 0.3
 }
 
 /// Geometry of the ⌃⇥ terminal switcher. Cards grow or shrink with the number of terminals.

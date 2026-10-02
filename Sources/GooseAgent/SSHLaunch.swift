@@ -85,8 +85,10 @@ enum SSHCommand {
     /// `ssh -tt -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -- <alias>`.
     /// The keepalive is fixed on purpose: a dead link is noticed within 90 seconds and then reconnected.
     /// Command-line `-o` wins over `~/.ssh/config`, so these two values always apply.
+    /// The connection is shared with the file pane and uploads, which never ask for a password.
     static func arguments(alias: String) -> [String] {
-        ["-tt", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "--", alias]
+        ["-tt", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3"]
+            + RemoteShell.multiplexOptions() + ["--", alias]
     }
 }
 

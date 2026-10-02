@@ -153,6 +153,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if jumpsToPromptByShiftAlias(chord) {
             return nil
         }
+        if chord == AppShortcuts.chord(for: .openFileBrowser) {
+            guard let window, !window.hostPickerPresented,
+                  NSApp.keyWindow?.identifier == MainWindowManager.windowID else { return event }
+            model.toggleSection(in: window)
+            return nil
+        }
+        if let window, window.section == .files, !window.hostPickerPresented,
+           chord == AppShortcuts.chord(for: .closeTab),
+           NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+            _ = model.fileWorkspace(for: window).closeFocusedTab()
+            return nil
+        }
+        if let window, window.section != .terminals, NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+            let terminalChord = AppShortcutID.allCases.contains { id in
+                (id.group == .pane || id.group == .terminal) && AppShortcuts.chord(for: id) == chord
+            }
+            if terminalChord {
+                return event
+            }
+        }
         if let handled = switchPane(chord, in: window) {
             return handled ? nil : event
         }

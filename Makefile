@@ -49,6 +49,12 @@ test:
 	/tmp/goose-ghostty-config-importer-test
 	swiftc -o /tmp/goose-keyboard-shortcuts-test Sources/GooseAgent/KeyboardShortcuts.swift Tests/KeyboardShortcutsTests.swift
 	/tmp/goose-keyboard-shortcuts-test
+	swiftc -o /tmp/goose-drop-zone-layout-test Sources/GooseAgent/DropZoneLayout.swift Tests/DropZoneLayoutTests.swift
+	/tmp/goose-drop-zone-layout-test
+	swiftc -o /tmp/goose-file-rules-test Sources/GooseAgent/Files/FileRules.swift Tests/FileRulesTests.swift
+	/tmp/goose-file-rules-test
+	swiftc -o /tmp/goose-text-file-test Sources/GooseAgent/Files/TextFile.swift Tests/TextFileTests.swift
+	/tmp/goose-text-file-test
 	# The parser needs GhosttyThemeDefinition; build just that file from the package checkout (run make build once first).
 	mkdir -p /tmp/goose-ghostty-theme
 	swiftc -parse-as-library -emit-library -static -module-name GhosttyTheme -emit-module -emit-module-path /tmp/goose-ghostty-theme/GhosttyTheme.swiftmodule -o /tmp/goose-ghostty-theme/libGhosttyTheme.a build/SourcePackages/checkouts/libghostty-spm/Sources/GhosttyTheme/GhosttyThemeDefinition.swift
