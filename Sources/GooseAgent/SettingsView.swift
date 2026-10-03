@@ -121,8 +121,11 @@ struct SettingsView: View {
     @AppStorage(TerminalSettings.paddingXKey) private var paddingX = TerminalSettings.defaults.paddingX
     @AppStorage(TerminalSettings.paddingYKey) private var paddingY = TerminalSettings.defaults.paddingY
     @AppStorage(TerminalSettings.minimumContrastKey) private var minimumContrast = TerminalSettings.defaults.minimumContrast
-    @AppStorage(TerminalSettings.backgroundOpacityKey) private var backgroundOpacity = TerminalSettings.defaults.backgroundOpacity
-    @AppStorage(TerminalSettings.backgroundBlurKey) private var backgroundBlur = false
+    @AppStorage(WindowMaterialSettings.styleKey) private var materialStyle = WindowMaterialSettings.Style.acrylic.rawValue
+    @AppStorage(WindowMaterialSettings.opacityKey) private var storedAcrylicOpacity = WindowMaterialSettings.load().opacity
+    /// Keep dragging local; applying terminal configuration is deferred until the slider commits.
+    @State private var acrylicOpacity = WindowMaterialSettings.load().opacity
+    @ObservedObject private var material = WindowMaterial.shared
     @ObservedObject private var preview = ThemePreview.shared
     @ObservedObject private var userThemes = UserThemeStore.shared
     @ObservedObject private var importRequests = GhosttyImportRequests.shared
@@ -193,9 +196,15 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background.ignoresSafeArea())
+        .background(chrome.background.opacity(material.opacity).ignoresSafeArea())
+        .onChange(of: materialStyle) { _, _ in material.refresh() }
+        .onChange(of: storedAcrylicOpacity) { _, opacity in
+            acrylicOpacity = WindowMaterialSettings.clampedOpacity(opacity)
+            material.refresh()
+        }
         .oneagentHideFocusRing()
         .onAppear {
+            acrylicOpacity = material.settings.opacity
             TerminalThemeChoice.migrateIfNeeded()
             if !fontFamilies.contains(fontFamily) {
                 fontFamily = TerminalDefaults.defaultFontFamily
@@ -288,7 +297,7 @@ struct SettingsView: View {
         }
         .frame(width: SettingsLayout.sidebarWidth, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(chrome.sidebarBackground.ignoresSafeArea())
+        .background(chrome.sidebarBackground.opacity(material.opacity).ignoresSafeArea())
     }
 
     private var settingsContent: some View {
@@ -340,6 +349,21 @@ struct SettingsView: View {
     private var windowEffectsCard: some View {
         SettingsCard("Contrast and Transparency") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
+                SettingsRow("Window Material", detail: "Acrylic uses frosted glass. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors.") {
+                    Picker("Window Material", selection: $materialStyle) {
+                        Text("Acrylic").tag(WindowMaterialSettings.Style.acrylic.rawValue)
+                        Text("Mica").tag(WindowMaterialSettings.Style.mica.rawValue)
+                        Text("Solid").tag(WindowMaterialSettings.Style.solid.rawValue)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 240)
+                }
+                if material.reduceTransparency {
+                    Text("Reduce Transparency is enabled in macOS. Material effects will resume when it is turned off.")
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.secondary)
+                }
                 SettingsRow("Minimum Contrast", detail: "Brighten or darken text that is hard to read on its background. 1 turns it off; 4.5 is the usual readability bar.", ghosttyKey: "minimum-contrast") {
                     SettingsSlider(
                         value: $minimumContrast,
@@ -349,18 +373,18 @@ struct SettingsView: View {
                         onCommit: { GhosttyRuntime.applyTerminalSettings() }
                     )
                 }
-                SettingsRow("Background Opacity", detail: "Below 100%, the desktop shows through the terminal area. The sidebar and pane titles stay opaque.", ghosttyKey: "background-opacity") {
+                SettingsRow("Acrylic Opacity", detail: "Higher values make the theme color stronger; lower values reveal more of the blurred background.") {
                     SettingsSlider(
-                        value: $backgroundOpacity,
-                        range: TerminalSettings.backgroundOpacityRange,
-                        step: 0.05,
-                        label: TerminalSettingsPage.percent(backgroundOpacity),
-                        onCommit: { GhosttyRuntime.applyTerminalSettings() }
+                        value: $acrylicOpacity,
+                        range: WindowMaterialSettings.opacityRange,
+                        step: 0.01,
+                        label: TerminalSettingsPage.percent(acrylicOpacity),
+                        onCommit: {
+                            storedAcrylicOpacity = acrylicOpacity
+                            material.refresh()
+                        }
                     )
-                }
-                SettingsRow("Background Blur", detail: "Blur what shows through a translucent terminal. Drawn by this app; available below 100% opacity.") {
-                    SettingsSwitch(isOn: $backgroundBlur)
-                        .disabled(backgroundOpacity >= 1)
+                    .disabled(materialStyle != WindowMaterialSettings.Style.acrylic.rawValue || material.reduceTransparency)
                 }
             }
         }
@@ -372,8 +396,10 @@ struct SettingsView: View {
         appearanceRaw = TerminalAppearance.system.rawValue
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast
-        backgroundOpacity = TerminalSettings.defaults.backgroundOpacity
-        backgroundBlur = false
+        materialStyle = WindowMaterialSettings.Style.acrylic.rawValue
+        acrylicOpacity = WindowMaterialSettings.defaultOpacity
+        storedAcrylicOpacity = WindowMaterialSettings.defaultOpacity
+        material.refresh()
         GhosttyRuntime.applyTerminalSettings()
         if !preview.showsDefaults {
             preview.showDefaults()
@@ -912,6 +938,7 @@ private enum ThemeFilter: String, CaseIterable, Identifiable {
 
 /// Settings is its own window, with the standard traffic lights, like WeChat.
 struct SettingsWindowRoot: View {
+    @StateObject private var micaWindow = MicaWindowContext()
     @ObservedObject var model: AppModel
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
@@ -919,15 +946,22 @@ struct SettingsWindowRoot: View {
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @ObservedObject private var preview = ThemePreview.shared
     @ObservedObject private var userThemes = UserThemeStore.shared
+    @ObservedObject private var material = WindowMaterial.shared
 
     private var chrome: WindowChrome {
         let _ = lightThemeRaw
         let _ = darkThemeRaw
-        return WindowChrome.resolve(isDark: appearanceDriver.isDark)
+        return material.chrome(isDark: appearanceDriver.isDark, context: micaWindow)
     }
 
     var body: some View {
         SettingsView()
+            .background(MicaWindowReader(context: micaWindow, enabled: material.isMica))
+            .background {
+                if material.isAcrylic {
+                    AcrylicBackdrop().ignoresSafeArea().allowsHitTesting(false)
+                }
+            }
             .environment(\.windowChrome, chrome)
             .preferredColorScheme(appearanceDriver.interfaceColorScheme)
             .oneagentHideFocusRing()
@@ -988,6 +1022,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.isRestorable = false
         window.isReleasedWhenClosed = false
         window.delegate = self
+        WindowMaterial.shared.configure(window)
         window.appearance = TerminalAppearance.appKitAppearance(isDark: TerminalAppearance.stored().resolvesDark())
         let size = NSSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
         window.setContentSize(size)

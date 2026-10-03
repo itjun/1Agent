@@ -1,6 +1,176 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Mica": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Mica"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "云母"
+        }
+      }
+    }
+  },
+  "Acrylic uses frosted glass. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors.": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Acrylic uses frosted glass. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "亚克力使用磨砂玻璃；云母保持不透明，窗口激活时轻微融入壁纸色调；实色使用主题色。"
+        }
+      }
+    }
+  },
+  "Reduce Transparency is enabled in macOS. Material effects will resume when it is turned off.": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Reduce Transparency is enabled in macOS. Material effects will resume when it is turned off."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "macOS 已开启“减少透明度”，关闭后将恢复材质效果。"
+        }
+      }
+    }
+  },
+  "Window Material": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Window Material"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "窗口材质"
+        }
+      }
+    }
+  },
+  "Acrylic": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Acrylic"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "亚克力"
+        }
+      }
+    }
+  },
+  "Solid": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Solid"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "实色"
+        }
+      }
+    }
+  },
+  "Acrylic Opacity": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Acrylic Opacity"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "亚克力不透明度"
+        }
+      }
+    }
+  },
+  "Acrylic blends a frosted backdrop with theme colors and a fine grain. Solid uses opaque theme colors.": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Acrylic blends a frosted backdrop with theme colors and a fine grain. Solid uses opaque theme colors."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "亚克力将磨砂背景、主题色与细微颗粒融合；实色使用不透明的主题色。"
+        }
+      }
+    }
+  },
+  "Higher values make the theme color stronger; lower values reveal more of the blurred background.": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Higher values make the theme color stronger; lower values reveal more of the blurred background."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "数值越高，主题色越浓；数值越低，透出的磨砂背景越明显。"
+        }
+      }
+    }
+  },
+  "Reduce Transparency is enabled in macOS. Acrylic will resume when it is turned off.": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Reduce Transparency is enabled in macOS. Acrylic will resume when it is turned off."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "macOS 已开启“减少透明度”，关闭后将恢复亚克力效果。"
+        }
+      }
+    }
+  },
     "Appearance" : {
       "extractionState" : "manual",
       "localizations" : {
