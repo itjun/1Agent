@@ -129,8 +129,9 @@ struct RootView: View {
             symbol: showing ? "folder.fill" : "folder",
             help: String(format: String(localized: "Files (%@)"), AppShortcuts.display(for: .openFileBrowser)),
             accessibilityLabel: "Files",
-            fill: chrome.sidebarBackground,
-            hoverFill: chrome.elevated,
+            // 与侧栏底色同一材质不透明度，透明材质下才不会盖住毛玻璃/烟雾。
+            fill: chrome.sidebarBackground.opacity(material.opacity),
+            hoverFill: chrome.elevated.opacity(material.opacity),
             tint: showing || targeted ? chrome.accent : nil,
             highlighted: targeted,
             action: { model.toggleSection(in: window) }
@@ -145,8 +146,8 @@ struct RootView: View {
             symbol: "plus",
             help: openHostHelp,
             accessibilityLabel: "Open Host…",
-            fill: chrome.sidebarBackground,
-            hoverFill: chrome.elevated,
+            fill: chrome.sidebarBackground.opacity(material.opacity),
+            hoverFill: chrome.elevated.opacity(material.opacity),
             action: { model.openHostPicker(in: window) }
         )
         .opacity(sidebarHovered ? 1 : 0)
@@ -587,7 +588,7 @@ struct SidebarIconButton: View {
     var symbol: String
     var help: String
     var accessibilityLabel: LocalizedStringKey
-    /// Opaque base; also what shows when the pointer is elsewhere.
+    /// Base matching the surface the button sits on; also what shows when the pointer is elsewhere.
     var fill: Color
     var hoverFill: Color
     /// Symbol color when the button stands for the current state; nil keeps the default.
@@ -607,7 +608,7 @@ struct SidebarIconButton: View {
                     RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                         .fill(hovering || highlighted ? hoverFill : Color.clear)
                 )
-                // Opaque fill so AppKit does not treat the hit as window-drag.
+                // A visible layer so AppKit does not treat the hit as window-drag.
                 .background(fill)
                 .contentShape(Rectangle())
         }
