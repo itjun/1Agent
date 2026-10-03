@@ -182,12 +182,13 @@ enum GhosttyRuntime {
         )
     }
 
-    /// Settings first, then the advanced snippet, so a snippet line wins over the same setting.
+    /// The window material owns background opacity; other advanced entries override settings.
     private static func terminalConfiguration(
         settings: TerminalSettings,
         snippet: [TerminalConfigEntry]
     ) -> TerminalConfiguration {
-        let entries = settings.configEntries() + snippet
+        let material = WindowMaterial.shared
+        let entries = material.settings.terminalEntries(settings: settings, snippet: snippet, reduceTransparency: material.reduceTransparency)
         return TerminalConfiguration { builder in
             for entry in entries {
                 builder.withCustom(entry.key, entry.value)

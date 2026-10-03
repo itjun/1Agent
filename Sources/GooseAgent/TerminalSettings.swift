@@ -193,6 +193,7 @@ struct TerminalSettings: Equatable {
     static let managedKeys: Set<String> = [
         "font-family",
         "font-size",
+        "background-opacity",
         "theme",
         "clipboard-write",
         "mouse-shift-capture",
@@ -269,8 +270,7 @@ struct TerminalSettings: Equatable {
     static let shellIntegrationFeaturesKey = "terminal.shellIntegrationFeatures"
     static let bellFeaturesKey = "terminal.bellFeatures"
     static let customConfigKey = "terminal.customConfig"
-    /// Blur behind a translucent terminal. Drawn by the app, not by Ghostty, so it is no field here
-    /// and never part of the rendered configuration. Default off.
+    /// Legacy import preference. Window material now controls the app's native backdrop.
     static let backgroundBlurKey = "terminal.backgroundBlur"
 
     /// Every key `save` writes.

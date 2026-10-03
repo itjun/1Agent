@@ -161,8 +161,8 @@ struct WindowChrome: Equatable {
         return ThemePreview.shared.effectiveLight().chrome()
     }
 
-    init(theme: GhosttyThemeDefinition, preferredAccent: String? = nil) {
-        let background = RGBColor(ghosttyHex: theme.background) ?? RGBColor(red: 0.06, green: 0.06, blue: 0.07)
+    init(theme: GhosttyThemeDefinition, preferredAccent: String? = nil, backgroundOverride: RGBColor? = nil) {
+        let background = backgroundOverride ?? RGBColor(ghosttyHex: theme.background) ?? RGBColor(red: 0.06, green: 0.06, blue: 0.07)
         let foreground = RGBColor(ghosttyHex: theme.foreground) ?? RGBColor(red: 0.9, green: 0.9, blue: 0.9)
         let rawAccent = RGBColor(ghosttyHex: preferredAccent ?? theme.palette[4] ?? theme.cursorColor ?? theme.foreground) ?? foreground
         let rawDanger = RGBColor(ghosttyHex: theme.palette[1] ?? "E2726A") ?? RGBColor(red: 0.86, green: 0.32, blue: 0.28)

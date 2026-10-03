@@ -112,7 +112,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
             window.center()
         }
         windows[state.id] = window
-        applyBackgroundOpacity(TerminalSettings.load().backgroundOpacity, to: state)
+        applyBackgroundOpacity(WindowMaterial.shared.opacity, to: state)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
