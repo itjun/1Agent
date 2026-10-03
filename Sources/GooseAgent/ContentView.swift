@@ -129,8 +129,6 @@ struct RootView: View {
             symbol: showing ? "folder.fill" : "folder",
             help: String(format: String(localized: "Files (%@)"), AppShortcuts.display(for: .openFileBrowser)),
             accessibilityLabel: "Files",
-            // 与侧栏底色同一材质不透明度，透明材质下才不会盖住毛玻璃/烟雾。
-            fill: chrome.sidebarBackground.opacity(material.opacity),
             hoverFill: chrome.elevated.opacity(material.opacity),
             tint: showing || targeted ? chrome.accent : nil,
             highlighted: targeted,
@@ -146,7 +144,6 @@ struct RootView: View {
             symbol: "plus",
             help: openHostHelp,
             accessibilityLabel: "Open Host…",
-            fill: chrome.sidebarBackground.opacity(material.opacity),
             hoverFill: chrome.elevated.opacity(material.opacity),
             action: { model.openHostPicker(in: window) }
         )
@@ -588,8 +585,7 @@ struct SidebarIconButton: View {
     var symbol: String
     var help: String
     var accessibilityLabel: LocalizedStringKey
-    /// Base matching the surface the button sits on; also what shows when the pointer is elsewhere.
-    var fill: Color
+    /// Only drawn on hover or while highlighted, so the button itself shows the surface behind it.
     var hoverFill: Color
     /// Symbol color when the button stands for the current state; nil keeps the default.
     var tint: Color? = nil
@@ -604,12 +600,11 @@ struct SidebarIconButton: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .frame(width: SidebarLayout.iconButtonSize, height: SidebarLayout.iconButtonSize)
+                // The frame keeps the hit here; without any layer AppKit turns the click into a drag.
                 .background(
                     RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                         .fill(hovering || highlighted ? hoverFill : Color.clear)
                 )
-                // A visible layer so AppKit does not treat the hit as window-drag.
-                .background(fill)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
