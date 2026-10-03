@@ -339,6 +339,10 @@ struct SettingsView: View {
         }
     }
 
+    private var selectedMaterialStyle: WindowMaterialSettings.Style {
+        WindowMaterialSettings.Style(rawValue: materialStyle) ?? .acrylic
+    }
+
     private var minimumContrastLabel: String {
         if minimumContrast <= 1 {
             return String(localized: "Off")
@@ -349,15 +353,16 @@ struct SettingsView: View {
     private var windowEffectsCard: some View {
         SettingsCard("Contrast and Transparency") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                SettingsRow("Window Material", detail: "Acrylic uses frosted glass. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors.") {
+                SettingsRow("Window Material", detail: "Acrylic uses frosted glass. Smoke dims what is behind the window with a translucent black veil. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors.") {
                     Picker("Window Material", selection: $materialStyle) {
                         Text("Acrylic").tag(WindowMaterialSettings.Style.acrylic.rawValue)
+                        Text("Smoke").tag(WindowMaterialSettings.Style.smoke.rawValue)
                         Text("Mica").tag(WindowMaterialSettings.Style.mica.rawValue)
                         Text("Solid").tag(WindowMaterialSettings.Style.solid.rawValue)
                     }
                     .labelsHidden()
                     .pickerStyle(.segmented)
-                    .frame(width: 240)
+                    .frame(width: 280)
                 }
                 if material.reduceTransparency {
                     Text("Reduce Transparency is enabled in macOS. Material effects will resume when it is turned off.")
@@ -373,7 +378,7 @@ struct SettingsView: View {
                         onCommit: { GhosttyRuntime.applyTerminalSettings() }
                     )
                 }
-                SettingsRow("Acrylic Opacity", detail: "Higher values make the theme color stronger; lower values reveal more of the blurred background.") {
+                SettingsRow("Background Opacity", detail: "Higher values make the theme color stronger; lower values reveal more of the frosted or smoke-dimmed backdrop.") {
                     SettingsSlider(
                         value: $acrylicOpacity,
                         range: WindowMaterialSettings.opacityRange,
@@ -384,7 +389,7 @@ struct SettingsView: View {
                             material.refresh()
                         }
                     )
-                    .disabled(materialStyle != WindowMaterialSettings.Style.acrylic.rawValue || material.reduceTransparency)
+                    .disabled(!selectedMaterialStyle.isTranslucent || material.reduceTransparency)
                 }
             }
         }
@@ -958,8 +963,8 @@ struct SettingsWindowRoot: View {
         SettingsView()
             .background(MicaWindowReader(context: micaWindow, enabled: material.isMica))
             .background {
-                if material.isAcrylic {
-                    AcrylicBackdrop().ignoresSafeArea().allowsHitTesting(false)
+                if material.isTranslucent {
+                    AcrylicBackdrop(style: material.settings.style).ignoresSafeArea().allowsHitTesting(false)
                 }
             }
             .environment(\.windowChrome, chrome)

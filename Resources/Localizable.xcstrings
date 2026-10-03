@@ -18,19 +18,36 @@
       }
     }
   },
-  "Acrylic uses frosted glass. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors.": {
+  "Smoke": {
     "extractionState": "manual",
     "localizations": {
       "en": {
         "stringUnit": {
           "state": "translated",
-          "value": "Acrylic uses frosted glass. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors."
+          "value": "Smoke"
         }
       },
       "zh-Hans": {
         "stringUnit": {
           "state": "translated",
-          "value": "亚克力使用磨砂玻璃；云母保持不透明，窗口激活时轻微融入壁纸色调；实色使用主题色。"
+          "value": "烟雾"
+        }
+      }
+    }
+  },
+  "Acrylic uses frosted glass. Smoke dims what is behind the window with a translucent black veil. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors.": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Acrylic uses frosted glass. Smoke dims what is behind the window with a translucent black veil. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "亚克力使用磨砂玻璃；烟雾以半透明黑色压暗窗口后方；云母保持不透明，窗口激活时轻微融入壁纸色调；实色使用主题色。"
         }
       }
     }
@@ -103,19 +120,19 @@
       }
     }
   },
-  "Acrylic Opacity": {
+  "Background Opacity": {
     "extractionState": "manual",
     "localizations": {
       "en": {
         "stringUnit": {
           "state": "translated",
-          "value": "Acrylic Opacity"
+          "value": "Background Opacity"
         }
       },
       "zh-Hans": {
         "stringUnit": {
           "state": "translated",
-          "value": "亚克力不透明度"
+          "value": "背景不透明度"
         }
       }
     }
@@ -137,19 +154,19 @@
       }
     }
   },
-  "Higher values make the theme color stronger; lower values reveal more of the blurred background.": {
+  "Higher values make the theme color stronger; lower values reveal more of the frosted or smoke-dimmed backdrop.": {
     "extractionState": "manual",
     "localizations": {
       "en": {
         "stringUnit": {
           "state": "translated",
-          "value": "Higher values make the theme color stronger; lower values reveal more of the blurred background."
+          "value": "Higher values make the theme color stronger; lower values reveal more of the frosted or smoke-dimmed backdrop."
         }
       },
       "zh-Hans": {
         "stringUnit": {
           "state": "translated",
-          "value": "数值越高，主题色越浓；数值越低，透出的磨砂背景越明显。"
+          "value": "数值越高，主题色越浓；数值越低，磨砂或烟雾压暗效果越明显。"
         }
       }
     }

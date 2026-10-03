@@ -11,7 +11,7 @@ final class WindowMaterial: ObservableObject {
 
     var opacity: Double { settings.effectiveOpacity(reduceTransparency: reduceTransparency) }
     var terminalOpacity: Double { settings.terminalOpacity(reduceTransparency: reduceTransparency) }
-    var isAcrylic: Bool { opacity < 1 }
+    var isTranslucent: Bool { opacity < 1 }
     var isMica: Bool { settings.style == .mica && !reduceTransparency }
 
     func chrome(isDark: Bool, context: MicaWindowContext) -> WindowChrome {
@@ -47,14 +47,16 @@ final class WindowMaterial: ObservableObject {
     }
 
     func configure(_ window: NSWindow) {
-        window.isOpaque = !isAcrylic
-        window.backgroundColor = isAcrylic ? .clear : .windowBackgroundColor
+        window.isOpaque = !isTranslucent
+        window.backgroundColor = isTranslucent ? .clear : .windowBackgroundColor
     }
 }
 
 /// A single native backdrop per window. Theme tint is drawn by the foreground surfaces, so the
 /// terminal can keep its text fully opaque while only its background blends with this material.
 struct AcrylicBackdrop: NSViewRepresentable {
+    let style: WindowMaterialSettings.Style
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = AcrylicEffectView()
         view.blendingMode = .behindWindow
@@ -63,14 +65,45 @@ struct AcrylicBackdrop: NSViewRepresentable {
         let grain = AcrylicGrainView(frame: view.bounds)
         grain.autoresizingMask = [.width, .height]
         view.addSubview(grain)
+        let veil = SmokeVeilView(frame: view.bounds)
+        veil.autoresizingMask = [.width, .height]
+        view.addSubview(veil)
+        apply(style, to: view)
         return view
     }
 
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        apply(style, to: view)
+    }
+
+    /// Acrylic is frosted glass with a fine grain; Smoke lays a translucent black veil over the
+    /// same backdrop, dimming what is behind the window in both light and dark mode.
+    private func apply(_ style: WindowMaterialSettings.Style, to view: NSVisualEffectView) {
+        let isSmoke = style == .smoke
+        for case let grain as AcrylicGrainView in view.subviews {
+            grain.isHidden = isSmoke
+        }
+        for case let veil as SmokeVeilView in view.subviews {
+            veil.isHidden = !isSmoke
+        }
+    }
 }
 
 private final class AcrylicEffectView: NSVisualEffectView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// Smoke's translucent black. Unlike a themed surface it never changes with light or dark mode.
+private final class SmokeVeilView: NSView {
+    private static let alpha: CGFloat = 0.35
+
+    override var isOpaque: Bool { false }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.black.withAlphaComponent(Self.alpha).setFill()
+        dirtyRect.fill()
+    }
 }
 
 /// A cached, tiled texture; no animation or per-frame random generation.

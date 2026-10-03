@@ -51,8 +51,8 @@ struct RootView: View {
         }
         .frame(minWidth: 880, minHeight: 520)
         .background {
-            if material.isAcrylic {
-                AcrylicBackdrop().ignoresSafeArea().allowsHitTesting(false)
+            if material.isTranslucent {
+                AcrylicBackdrop(style: material.settings.style).ignoresSafeArea().allowsHitTesting(false)
             } else {
                 chrome.background
             }

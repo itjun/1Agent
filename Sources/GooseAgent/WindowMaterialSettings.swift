@@ -4,8 +4,13 @@ import Foundation
 struct WindowMaterialSettings: Equatable {
     enum Style: String, CaseIterable {
         case acrylic
+        case smoke
         case mica
         case solid
+
+        /// Acrylic and Smoke are the translucent styles; they share the adjustable foreground
+        /// opacity. Mica and Solid stay opaque.
+        var isTranslucent: Bool { self == .acrylic || self == .smoke }
     }
 
     static let styleKey = "appearance.windowMaterial"
@@ -31,7 +36,7 @@ struct WindowMaterialSettings: Equatable {
     }
 
     func effectiveOpacity(reduceTransparency: Bool) -> Double {
-        style == .acrylic && !reduceTransparency ? Self.clampedOpacity(opacity) : 1
+        style.isTranslucent && !reduceTransparency ? Self.clampedOpacity(opacity) : 1
     }
 
     /// Mica's terminal composites onto an opaque app-owned foundation. A clear terminal layer

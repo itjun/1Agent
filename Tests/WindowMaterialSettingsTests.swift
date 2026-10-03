@@ -23,6 +23,12 @@ enum WindowMaterialSettingsTests {
         expect(mica.terminalOpacity(reduceTransparency: false) == 0, "Mica terminal reveals only the app's opaque foundation")
         expect(mica.terminalOpacity(reduceTransparency: true) == 1, "Mica accessibility fallback is solid")
         expect(mica.opacity == 0.62, "Mica retains the saved acrylic opacity")
+        store.set("smoke", forKey: WindowMaterialSettings.styleKey)
+        let smoke = WindowMaterialSettings.load(from: store)
+        expect(smoke.style == .smoke && smoke.style.isTranslucent, "Smoke choice persists and is translucent")
+        expect(smoke.effectiveOpacity(reduceTransparency: false) == 0.62, "Smoke shares the adjustable opacity")
+        expect(smoke.effectiveOpacity(reduceTransparency: true) == 1, "Smoke accessibility fallback is solid")
+        expect(smoke.terminalOpacity(reduceTransparency: false) == 0.62, "Smoke terminal blends with the dimmed backdrop")
         store.set("acrylic", forKey: WindowMaterialSettings.styleKey)
         let acrylic = WindowMaterialSettings.load(from: store)
         expect(acrylic.opacity == 0.62, "switching back retains acrylic opacity")
@@ -39,7 +45,7 @@ enum WindowMaterialSettingsTests {
         var terminal = TerminalSettings.defaults
         terminal.backgroundOpacity = 0.2
         let snippet = [TerminalConfigEntry(key: "background-opacity", value: "0.1"), TerminalConfigEntry(key: "cursor-color", value: "#ffffff")]
-        for (profile, reduced, expected) in [(solid, false, "1"), (mica, false, "0"), (mica, true, "1"), (acrylic, true, "1"), (acrylic, false, "0.62")] {
+        for (profile, reduced, expected) in [(solid, false, "1"), (mica, false, "0"), (mica, true, "1"), (smoke, false, "0.62"), (acrylic, true, "1"), (acrylic, false, "0.62")] {
             let entries = profile.terminalEntries(settings: terminal, snippet: snippet, reduceTransparency: reduced)
             expect(entries.filter { $0.key == "background-opacity" } == [TerminalConfigEntry(key: "background-opacity", value: expected)], "renderer agrees with window material")
             expect(entries.contains(snippet[1]), "other advanced settings are preserved")
