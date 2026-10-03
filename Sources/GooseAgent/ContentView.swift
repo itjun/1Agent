@@ -14,8 +14,8 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    @AppStorage(TerminalSettings.backgroundOpacityKey) private var backgroundOpacity = TerminalSettings.defaults.backgroundOpacity
-    @AppStorage(TerminalSettings.backgroundBlurKey) private var backgroundBlur = false
+    @ObservedObject private var material = WindowMaterial.shared
+    @StateObject private var micaWindow = MicaWindowContext()
     /// Width while the divider is being dragged. Nil when idle; the layout follows it so writes to
     /// `sidebarWidth` during the drag do not move anything.
     @State private var liveSidebarWidth: CGFloat?
@@ -28,24 +28,7 @@ struct RootView: View {
     @FocusState private var workspaceNameFocused: Bool
 
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearanceDriver.isDark)
-    }
-
-    /// Below 100% background opacity every layer behind the terminals turns clear, so the desktop
-    /// (or the blur) shows through. The sidebar and pane titles keep their own opaque fills.
-    private var terminalTranslucent: Bool {
-        backgroundOpacity < 1
-    }
-
-    @ViewBuilder
-    private var terminalBackdrop: some View {
-        if !terminalTranslucent {
-            chrome.background
-        } else if backgroundBlur {
-            TerminalBlurBackdrop()
-        } else {
-            Color.clear
-        }
+        material.chrome(isDark: appearanceDriver.isDark, context: micaWindow)
     }
 
     var body: some View {
@@ -67,7 +50,13 @@ struct RootView: View {
             }
         }
         .frame(minWidth: 880, minHeight: 520)
-        .background(terminalTranslucent ? Color.clear : chrome.background)
+        .background {
+            if material.isAcrylic {
+                AcrylicBackdrop().ignoresSafeArea().allowsHitTesting(false)
+            } else {
+                chrome.background
+            }
+        }
         .environment(\.windowChrome, chrome)
         .ignoresSafeArea(edges: .top)
         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
@@ -81,10 +70,10 @@ struct RootView: View {
             dropRelay.windowBox = window
             GhosttyRuntime.applySelectedThemes()
             appearanceDriver.reapply()
-            MainWindowManager.shared.applyBackgroundOpacity(backgroundOpacity, to: window)
+            MainWindowManager.shared.applyBackgroundOpacity(material.opacity, to: window)
         }
-        .onChange(of: terminalTranslucent) { _, _ in
-            MainWindowManager.shared.applyBackgroundOpacity(backgroundOpacity, to: window)
+        .onChange(of: material.opacity) { _, opacity in
+            MainWindowManager.shared.applyBackgroundOpacity(opacity, to: window)
         }
         .onChange(of: lightThemeRaw) { _, _ in
             GhosttyRuntime.applySelectedThemes()
@@ -93,6 +82,7 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
+        .background(MicaWindowReader(context: micaWindow, enabled: material.isMica))
         .sheet(isPresented: $window.hostPickerPresented, onDismiss: { window.hostPickerPurpose = .terminal }) {
             HostPicker(model: model, window: window)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
@@ -245,7 +235,7 @@ struct RootView: View {
             }
         }
         .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
-        .background(chrome.sidebarBackground)
+        .background(chrome.sidebarBackground.opacity(material.opacity))
         .onHover { inside in
             sidebarHovered = inside
         }
@@ -540,11 +530,13 @@ struct RootView: View {
                 window: window,
                 dropRelay: dropRelay,
                 dark: appearanceDriver.isDark,
-                translucent: terminalTranslucent
+                backgroundOpacity: material.opacity,
+                terminalBackgroundOpacity: material.terminalOpacity
             )
             if model.selectedTab(in: window) == nil {
                 TerminalEmptyState(
                     chrome: chrome,
+                    backgroundOpacity: material.opacity,
                     hint: emptyHint,
                     localTerminalShortcut: AppShortcuts.display(for: .newLocalTerminal),
                     openHostShortcut: AppShortcuts.display(for: .openHost),
@@ -554,22 +546,8 @@ struct RootView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(terminalBackdrop)
+        // Each terminal draws its own theme tint; only the empty state needs one here.
     }
-}
-
-/// Blur behind a translucent terminal area. Ghostty's own `background-blur` does nothing when
-/// embedded, so the app draws it. The material follows the window's light / dark appearance.
-struct TerminalBlurBackdrop: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.blendingMode = .behindWindow
-        view.material = .underWindowBackground
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
 /// Sidebar geometry. The user drags the divider between `minWidth` and `maxWidth`.
@@ -643,6 +621,7 @@ struct SidebarIconButton: View {
 /// Fills the terminal area while nothing is open: a glyph, the hint, and the two ways to start.
 struct TerminalEmptyState: View {
     var chrome: WindowChrome
+    var backgroundOpacity: Double
     var hint: String
     var localTerminalShortcut: String
     var openHostShortcut: String
@@ -681,7 +660,7 @@ struct TerminalEmptyState: View {
         }
         .padding(Theme.Space.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background)
+        .background(chrome.background.opacity(backgroundOpacity))
     }
 }
 

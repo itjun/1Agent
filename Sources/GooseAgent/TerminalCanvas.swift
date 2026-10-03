@@ -5,14 +5,14 @@ import SwiftUI
 struct TerminalCanvas: View {
     @Environment(\.windowChrome) private var chrome
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage(TerminalSettings.backgroundOpacityKey) private var backgroundOpacity = TerminalSettings.defaults.backgroundOpacity
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @ObservedObject private var find = TerminalFind.shared
     var dropRelay: CanvasDropRelay
     var dark: Bool
-    /// Background opacity below 100%: the canvas stays clear so the window shows through.
-    var translucent: Bool
+    var backgroundOpacity: Double
+    var terminalBackgroundOpacity: Double
+    private var translucent: Bool { terminalBackgroundOpacity < 1 }
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
     @State private var ratioDrag: (id: UUID, split: UUID, start: CGFloat)?
     /// Divider under the pointer. Its line turns accent while set.
