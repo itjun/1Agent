@@ -24,23 +24,18 @@ struct GhosttyLoadedConfig: Equatable {
     var warnings: [String] = []
 }
 
-/// A theme name found in the user themes folder or the bundled catalog, or a theme file on disk.
+/// A theme from Ghostty's bundled catalog.
 struct GhosttyThemeLookup: Equatable {
     let isLightBackground: Bool
-    let isUserTheme: Bool
 }
 
 /// What the plan compares against and how theme names resolve. The app fills it from UserDefaults
-/// and the theme stores; tests pass fixed values.
+/// and the bundled theme catalog; tests pass fixed values.
 struct GhosttyImportContext {
     var settings: TerminalSettings
     var lightTheme: String
     var darkTheme: String
-    var userThemesDirectory: URL
-    var home: URL
     var lookupTheme: (String) -> GhosttyThemeLookup?
-    /// Parses a theme file outside the user themes folder; nil when it is not a valid theme.
-    var lookupThemeFile: (URL) -> GhosttyThemeLookup?
 }
 
 struct GhosttySettingChange: Equatable {
@@ -54,23 +49,12 @@ struct GhosttySettingChange: Equatable {
 }
 
 struct GhosttyThemeSlotPlan: Equatable {
-    enum Source: Equatable {
-        case userTheme
-        case builtinTheme
-        /// A theme file outside the user themes folder; copied in on import.
-        case importFile(URL)
-    }
-
-    /// Name stored in the slot. For `importFile` this is the file name; the copy may get a suffix.
+    /// A name in the built-in catalog, stored directly in the slot.
     let name: String
-    let source: Source
     let currentName: String
 
     var isUnchanged: Bool {
-        if case .importFile = source {
-            return false
-        }
-        return name == currentName
+        name == currentName
     }
 }
 
@@ -559,36 +543,11 @@ enum GhosttyConfigImporter {
         if dark {
             currentName = context.darkTheme
         }
-        var name = requested
-        var source = GhosttyThemeSlotPlan.Source.builtinTheme
-        var lookup: GhosttyThemeLookup?
-
-        if requested.hasPrefix("/") || requested.hasPrefix("~/") {
-            let url = GhosttyConfigImporter.expandedURL(requested, relativeTo: context.home, home: context.home)
-            name = url.lastPathComponent
-            let folder = url.deletingLastPathComponent().standardizedFileURL.path
-            if folder == context.userThemesDirectory.standardizedFileURL.path {
-                lookup = context.lookupTheme(name)
-                source = .userTheme
-            } else if GhosttyConfigImporter.isRegularFile(url) {
-                lookup = context.lookupThemeFile(url)
-                source = .importFile(url)
-                if lookup == nil {
-                    warnings.append(String(format: String(localized: "%@ is not a valid Ghostty theme file"), url.path))
-                    return nil
-                }
-            }
-        } else {
-            lookup = context.lookupTheme(requested)
-            if lookup?.isUserTheme == true {
-                source = .userTheme
-            }
-        }
-
-        guard let lookup else {
-            warnings.append(String(format: String(localized: "Theme “%@” was not found in your themes folder or the built-in themes"), requested))
+        guard !requested.contains("/"), let lookup = context.lookupTheme(requested) else {
+            warnings.append(String(format: String(localized: "Theme “%@” is not a built-in Ghostty theme"), requested))
             return nil
         }
+        let name = requested
         if lookup.isLightBackground == dark {
             if dark {
                 warnings.append(String(format: String(localized: "“%@” is a light theme; the dark theme stays unchanged"), name))
@@ -597,7 +556,7 @@ enum GhosttyConfigImporter {
             }
             return nil
         }
-        return GhosttyThemeSlotPlan(name: name, source: source, currentName: currentName)
+        return GhosttyThemeSlotPlan(name: name, currentName: currentName)
     }
 
     // MARK: - Keys the app has no use for

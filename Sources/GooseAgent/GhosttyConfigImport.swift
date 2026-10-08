@@ -40,21 +40,9 @@ enum GhosttyConfigImport {
             settings: TerminalSettings.load(),
             lightTheme: TerminalThemeChoice.storedLight().name,
             darkTheme: TerminalThemeChoice.storedDark().name,
-            userThemesDirectory: UserThemeStore.directoryURL,
-            home: GhosttyConfigImport.home,
             lookupTheme: { name in
-                // Same rules as a stored slot value: retired names do not count.
                 guard let choice = TerminalThemeChoice(raw: name) else { return nil }
-                return GhosttyThemeLookup(
-                    isLightBackground: choice.definition.isLightBackground,
-                    isUserTheme: UserThemeStore.shared.theme(named: name) != nil
-                )
-            },
-            lookupThemeFile: { url in
-                guard let contents = try? String(contentsOf: url, encoding: .utf8),
-                      let theme = UserThemeParser.parse(name: url.lastPathComponent, contents: contents)
-                else { return nil }
-                return GhosttyThemeLookup(isLightBackground: theme.isLightBackground, isUserTheme: false)
+                return GhosttyThemeLookup(isLightBackground: choice.definition.isLightBackground)
             }
         )
         return GhosttyConfigImporter.makePlan(config: config, context: context)
@@ -75,22 +63,18 @@ enum GhosttyConfigImport {
     }
 
     /// Writes settings, theme slots, shortcuts and the snippet in one go, then applies them to every
-    /// terminal. Returns messages for theme files that could not be copied; the rest still applies.
-    @discardableResult
-    static func applyPlan(_ plan: GhosttyImportPlan, defaults: UserDefaults = .standard) -> [String] {
+    /// terminal. Theme slots accept built-in names only.
+    static func applyPlan(_ plan: GhosttyImportPlan, defaults: UserDefaults = .standard) {
         GhosttyConfigImport.saveBackup(defaults: defaults)
         ThemePreview.shared.cancel()
-        var errors: [String] = []
 
         plan.newSettings.save(to: defaults)
 
-        if let light = plan.theme.light,
-           let name = GhosttyConfigImport.storedThemeName(for: light, errors: &errors) {
-            defaults.set(name, forKey: TerminalAppearance.lightThemeKey)
+        if let light = plan.theme.light, let choice = TerminalThemeChoice(raw: light.name) {
+            defaults.set(choice.name, forKey: TerminalAppearance.lightThemeKey)
         }
-        if let dark = plan.theme.dark,
-           let name = GhosttyConfigImport.storedThemeName(for: dark, errors: &errors) {
-            defaults.set(name, forKey: TerminalAppearance.darkThemeKey)
+        if let dark = plan.theme.dark, let choice = TerminalThemeChoice(raw: dark.name) {
+            defaults.set(choice.name, forKey: TerminalAppearance.darkThemeKey)
         }
 
         var chords: [AppShortcutID: KeyChord] = [:]
@@ -104,11 +88,9 @@ enum GhosttyConfigImport {
         }
 
         GhosttyConfigImport.applyToRuntime()
-        return errors
     }
 
-    /// Restores the values saved by the last import and forgets the backup. Theme files copied into
-    /// the themes folder stay there.
+    /// Restores the values saved by the last import and forgets the backup.
     static func undoLastImport(defaults: UserDefaults = .standard) {
         guard let backup = defaults.dictionary(forKey: GhosttyConfigImport.backupKey) else { return }
         ThemePreview.shared.cancel()
@@ -136,16 +118,6 @@ enum GhosttyConfigImport {
             }
         }
         defaults.set(["values": values, "absent": absent], forKey: GhosttyConfigImport.backupKey)
-    }
-
-    private static func storedThemeName(for slot: GhosttyThemeSlotPlan, errors: inout [String]) -> String? {
-        guard case .importFile(let url) = slot.source else { return slot.name }
-        do {
-            return try UserThemeStore.shared.importThemeFile(from: url)
-        } catch {
-            errors.append(error.localizedDescription)
-            return nil
-        }
     }
 
     private static func applyToRuntime() {

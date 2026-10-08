@@ -150,29 +150,26 @@ enum GhosttyConfigImporterTests {
 
     static func testThemePlan() {
         let dir = folder("themes")
-        let userThemes = dir.appendingPathComponent("user-themes", isDirectory: true)
-        let outside = dir.appendingPathComponent("elsewhere/My Night")
-        write("background = #000000\nforeground = #ffffff\n", to: outside)
-        var context = makeContext(home: dir, userThemes: userThemes)
-        context.lookupThemeFile = { _ in GhosttyThemeLookup(isLightBackground: false, isUserTheme: false) }
-
-        let pair = GhosttyConfigImporter.themePlan("light:Claude Paper,dark:Claude Ink", context: context)
-        expect(pair.light == GhosttyThemeSlotPlan(name: "Claude Paper", source: .userTheme, currentName: "GitHub Light Default"), "light slot: \(String(describing: pair.light))")
-        expect(pair.dark == GhosttyThemeSlotPlan(name: "Claude Ink", source: .userTheme, currentName: "GitHub Dark Default"), "dark slot")
-        expect(pair.warnings.isEmpty, "no theme warnings: \(pair.warnings)")
+        let context = makeContext()
+        let pair = GhosttyConfigImporter.themePlan("light:GitHub Light Default,dark:GitHub Dark Default", context: context)
+        expect(pair.light == GhosttyThemeSlotPlan(name: "GitHub Light Default", currentName: "GitHub Light Default"), "built-in light slot")
+        expect(pair.dark == GhosttyThemeSlotPlan(name: "GitHub Dark Default", currentName: "GitHub Dark Default"), "built-in dark slot")
+        expect(pair.warnings.isEmpty, "no built-in theme warnings")
 
         let single = GhosttyConfigImporter.themePlan("GitHub Dark Default", context: context)
         expect(single.light == nil && single.dark?.isUnchanged == true, "single dark theme only fills the dark slot")
-        expect(single.warnings.count == 1, "light slot mismatch warns: \(single.warnings)")
+        expect(single.warnings.count == 1, "light slot mismatch warns")
 
-        let missing = GhosttyConfigImporter.themePlan("light:Nope,dark:Claude Ink", context: context)
-        expect(missing.light == nil && missing.dark != nil && missing.warnings.count == 1, "missing theme warns")
+        let missing = GhosttyConfigImporter.themePlan("light:Claude Paper,dark:Claude Ink", context: context)
+        expect(missing.light == nil && missing.dark == nil && missing.warnings.count == 2, "custom theme names are rejected")
 
-        let file = GhosttyConfigImporter.themePlan("light:Claude Paper,dark:\(outside.path)", context: context)
-        expect(file.dark == GhosttyThemeSlotPlan(name: "My Night", source: .importFile(outside.standardizedFileURL), currentName: "GitHub Dark Default"), "absolute path imports: \(String(describing: file.dark))")
-
-        let inFolder = GhosttyConfigImporter.themePlan("light:\(userThemes.path)/Claude Paper,dark:Claude Ink", context: context)
-        expect(inFolder.light?.source == .userTheme && inFolder.light?.name == "Claude Paper", "path inside the themes folder is a name")
+        // Even a valid file named after an official theme must not be read or imported.
+        let outside = dir.appendingPathComponent("GitHub Dark Default")
+        write("background = #000000\nforeground = #ffffff\n", to: outside)
+        for path in [outside.path, "~/themes/GitHub Dark Default", "themes/GitHub Dark Default"] {
+            let file = GhosttyConfigImporter.themePlan("light:GitHub Light Default,dark:\(path)", context: context)
+            expect(file.light != nil && file.dark == nil && file.warnings.count == 1, "theme file paths are rejected: \(path)")
+        }
     }
 
     // MARK: - Classification
@@ -201,9 +198,9 @@ enum GhosttyConfigImporterTests {
         quick-terminal-position = top
         auto-update = off
         cursor-style-blink = true
-        theme = light:Claude Paper,dark:Claude Ink
+        theme = light:GitHub Light Default,dark:GitHub Dark Default
         """, to: file)
-        var context = makeContext(home: dir, userThemes: dir.appendingPathComponent("t"))
+        var context = makeContext()
         context.settings.customConfig = "selection-background = #333333"
         let plan = GhosttyConfigImporter.makePlan(
             config: GhosttyConfigImporter.loadConfig(files: [file], home: dir),
@@ -243,7 +240,7 @@ enum GhosttyConfigImporterTests {
 
         let unmigrated = plan.unmigrated.map(\.line)
         expect(unmigrated == ["font-family = Symbols Nerd Font", "clipboard-write = deny"], "unmigrated: \(unmigrated)")
-        expect(plan.theme.light?.name == "Claude Paper" && plan.theme.dark?.name == "Claude Ink", "theme planned")
+        expect(plan.theme.light?.name == "GitHub Light Default" && plan.theme.dark?.name == "GitHub Dark Default", "theme planned")
         expect(!plan.changesNothing, "plan changes something")
 
         expect(GhosttyConfigImporter.ignoreReason(forKey: "window-padding-y") == nil, "padding is imported")
@@ -294,21 +291,16 @@ enum GhosttyConfigImporterTests {
 
     // MARK: - Helpers
 
-    static func makeContext(home: URL, userThemes: URL) -> GhosttyImportContext {
+    static func makeContext() -> GhosttyImportContext {
         let themes: [String: GhosttyThemeLookup] = [
-            "Claude Paper": GhosttyThemeLookup(isLightBackground: true, isUserTheme: true),
-            "Claude Ink": GhosttyThemeLookup(isLightBackground: false, isUserTheme: true),
-            "GitHub Light Default": GhosttyThemeLookup(isLightBackground: true, isUserTheme: false),
-            "GitHub Dark Default": GhosttyThemeLookup(isLightBackground: false, isUserTheme: false),
+            "GitHub Light Default": GhosttyThemeLookup(isLightBackground: true),
+            "GitHub Dark Default": GhosttyThemeLookup(isLightBackground: false),
         ]
         return GhosttyImportContext(
             settings: TerminalSettings.defaults,
             lightTheme: "GitHub Light Default",
             darkTheme: "GitHub Dark Default",
-            userThemesDirectory: userThemes,
-            home: home,
-            lookupTheme: { themes[$0] },
-            lookupThemeFile: { _ in nil }
+            lookupTheme: { themes[$0] }
         )
     }
 

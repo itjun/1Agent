@@ -169,36 +169,22 @@ private final class SystemThemeWatcher: NSObject {
 }
 
 
-/// What fills one appearance slot: a named theme from the user's Ghostty themes folder or the catalog.
-/// Stored as the plain theme name. A user theme wins over a catalog theme with the same name.
-/// Empty, `1Agent`, and the retired hand-written names fall back to the GitHub theme for the slot.
+/// What fills one appearance slot: a named theme from Ghostty's built-in catalog.
+/// Stored as the plain catalog name; custom files are never loaded.
+/// Empty or unknown names fall back to the GitHub theme for the slot.
 struct TerminalThemeChoice: Equatable, Hashable {
     static let defaultLightName = "GitHub Light Default"
     static let defaultDarkName = "GitHub Dark Default"
-
-    /// Names of the palettes that used to ship with the app. They fold into the slot default
-    /// unless the user's themes folder has a file with that name.
-    private static let retiredNames: Set<String> = [
-        "1Agent", "Raycast Light", "Raycast Dark",
-        "Absolutely", "Absolutely Light", "Absolutely Dark",
-    ]
 
     let name: String
 
     var rawValue: String { name }
     var title: String { name }
 
-    /// Nil when the string is empty, retired, or names a theme found in neither the user folder nor the catalog.
+    /// Nil when the string is empty or absent from the official catalog.
     init?(raw: String?) {
         let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if trimmed.isEmpty {
-            return nil
-        }
-        if UserThemeStore.shared.theme(named: trimmed) != nil {
-            name = trimmed
-            return
-        }
-        if TerminalThemeChoice.retiredNames.contains(trimmed) {
             return nil
         }
         guard GhosttyThemeCatalog.theme(named: trimmed) != nil else { return nil }
@@ -218,9 +204,6 @@ struct TerminalThemeChoice: Equatable, Hashable {
 
     /// The bundled GitHub themes always exist in the catalog; the forced unwrap guards that assumption.
     var definition: GhosttyThemeDefinition {
-        if let theme = UserThemeStore.shared.theme(named: name) {
-            return theme
-        }
         if let theme = GhosttyThemeCatalog.theme(named: name) {
             return theme
         }
@@ -257,10 +240,7 @@ struct TerminalThemeChoice: Equatable, Hashable {
     }
 
     /// Copies the old single-theme key into the matching slot once.
-    /// `UserThemeStore` loads synchronously on first use, so user theme names are known here even at launch.
-    /// A stored name that does not resolve is kept: an editor saving a theme file, or a folder that is
-    /// briefly unreadable, must not reset the user's choice. `resolved` shows the slot default meanwhile
-    /// and the theme comes back once its file does.
+    /// Only built-in theme names migrate; obsolete custom names resolve to the slot default.
     static func migrateIfNeeded(defaults: UserDefaults = .standard) {
         let legacy = defaults.string(forKey: TerminalAppearance.legacyThemeKey) ?? ""
         if !legacy.isEmpty {

@@ -122,13 +122,10 @@ struct SettingsView: View {
     @AppStorage(TerminalSettings.paddingYKey) private var paddingY = TerminalSettings.defaults.paddingY
     @AppStorage(TerminalSettings.minimumContrastKey) private var minimumContrast = TerminalSettings.defaults.minimumContrast
     @ObservedObject private var preview = ThemePreview.shared
-    @ObservedObject private var userThemes = UserThemeStore.shared
     @ObservedObject private var importRequests = GhosttyImportRequests.shared
     @State private var themeQuery = ""
     @State private var themeFilter: ThemeFilter = .all
     /// User theme waiting for the Move to Trash confirmation.
-    @State private var themePendingTrash: String?
-    @State private var themeFileError: String?
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -153,20 +150,9 @@ struct SettingsView: View {
         !trimmedQuery.isEmpty || themeFilter != .all
     }
 
-    /// Every name match (user themes plus the whole catalog for an empty search), narrowed by the filter
-    /// and sorted by name. A catalog theme hidden by a same-named user theme is left out.
-    /// The grid is lazy, so showing all ~485 cards costs no more than the visible rows.
+    /// Search only Ghostty's official bundled catalog.
     private var matchingThemes: [GhosttyThemeDefinition] {
-        var catalogThemes = GhosttyThemeCatalog.allThemes
-        var ownThemes = userThemes.themes
-        if !trimmedQuery.isEmpty {
-            catalogThemes = GhosttyThemeCatalog.search(trimmedQuery)
-            ownThemes = ownThemes.filter { $0.name.localizedCaseInsensitiveContains(trimmedQuery) }
-        }
-        var themes = ownThemes
-        for theme in catalogThemes where userThemes.theme(named: theme.name) == nil {
-            themes.append(theme)
-        }
+        let themes = trimmedQuery.isEmpty ? GhosttyThemeCatalog.allThemes : GhosttyThemeCatalog.search(trimmedQuery)
         return themes
             .filter { themeFilter.includes($0) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -207,40 +193,6 @@ struct SettingsView: View {
             if pending {
                 selectedPage = .advanced
             }
-        }
-        .alert(
-            String(format: String(localized: "Move “%@” to the Trash?"), themePendingTrash ?? ""),
-            isPresented: Binding(
-                get: { themePendingTrash != nil },
-                set: { presented in
-                    if !presented {
-                        themePendingTrash = nil
-                    }
-                }
-            ),
-            presenting: themePendingTrash
-        ) { name in
-            Button("Move to Trash", role: .destructive) {
-                trashTheme(named: name)
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("The theme file goes to the Trash, where it can be put back.")
-        }
-        .alert(
-            "Theme File Error",
-            isPresented: Binding(
-                get: { themeFileError != nil },
-                set: { presented in
-                    if !presented {
-                        themeFileError = nil
-                    }
-                }
-            )
-        ) {
-            Button("OK") {}
-        } message: {
-            Text(verbatim: themeFileError ?? "")
         }
     }
 
@@ -623,8 +575,6 @@ struct SettingsView: View {
                 currentThemeCard(title: "Current dark theme", choice: preview.effectiveDark(), filter: .dark)
             }
 
-            userThemesSection
-
             HStack(spacing: Theme.Space.m) {
                 themeSearchField
                 themeFilterBar
@@ -649,14 +599,6 @@ struct SettingsView: View {
                             selected: isInUse(definition)
                         ) {
                             preview.show(definition)
-                        }
-                        .contextMenu {
-                            // A user theme hides the catalog theme of the same name, so the name is enough.
-                            if userThemes.theme(named: definition.name) != nil {
-                                Button("Move to Trash") {
-                                    themePendingTrash = definition.name
-                                }
-                            }
                         }
                     }
                 }
@@ -749,95 +691,6 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Themes from Ghostty's own themes folder. The header buttons stay visible before the first theme exists.
-    private var userThemesSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.s) {
-            HStack(spacing: Theme.Space.m) {
-                Text("My Themes")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(chrome.secondary)
-                Spacer(minLength: Theme.Space.s)
-                Button {
-                    importThemeFiles()
-                } label: {
-                    Label("Import Theme File…", systemImage: "square.and.arrow.down")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(chrome.accent)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                Button {
-                    openThemesFolder()
-                } label: {
-                    Label("Open Themes Folder", systemImage: "folder")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(chrome.accent)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            if userThemes.themes.isEmpty {
-                let folder = (UserThemeStore.directoryURL.path as NSString).abbreviatingWithTildeInPath
-                Text(String(format: String(localized: "Put Ghostty theme files in %@ and they appear here."), folder))
-                    .font(Theme.sidebarRowMeta)
-                    .foregroundStyle(chrome.secondary)
-            } else {
-                LazyVGrid(columns: themeColumns, alignment: .leading, spacing: Theme.Space.m) {
-                    ForEach(userThemes.themes) { definition in
-                        ThemePreviewCard(
-                            definition: definition,
-                            selected: isInUse(definition)
-                        ) {
-                            preview.show(definition)
-                        }
-                        .contextMenu {
-                            Button("Move to Trash") {
-                                themePendingTrash = definition.name
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func importThemeFiles() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.message = String(localized: "Choose Ghostty theme files")
-        panel.prompt = String(localized: "Import")
-        guard panel.runModal() == .OK else { return }
-        var failures: [String] = []
-        for url in panel.urls {
-            do {
-                try userThemes.importThemeFile(from: url)
-            } catch {
-                failures.append(error.localizedDescription)
-            }
-        }
-        if !failures.isEmpty {
-            themeFileError = failures.joined(separator: "\n")
-        }
-    }
-
-    private func openThemesFolder() {
-        do {
-            try userThemes.openDirectory()
-        } catch {
-            themeFileError = error.localizedDescription
-        }
-    }
-
-    private func trashTheme(named name: String) {
-        do {
-            try userThemes.deleteTheme(named: name)
-        } catch {
-            themeFileError = error.localizedDescription
-        }
-    }
-
     private func isInUse(_ definition: GhosttyThemeDefinition) -> Bool {
         definition.name == preview.effectiveLight().name || definition.name == preview.effectiveDark().name
     }
@@ -899,7 +752,6 @@ struct SettingsWindowRoot: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @ObservedObject private var preview = ThemePreview.shared
-    @ObservedObject private var userThemes = UserThemeStore.shared
 
     private var chrome: WindowChrome {
         let _ = lightThemeRaw

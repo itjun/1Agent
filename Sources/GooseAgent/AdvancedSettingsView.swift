@@ -12,7 +12,6 @@ struct AdvancedSettingsPage: View {
     /// The plan shown in the preview sheet; nil closes the sheet.
     @State private var plan: GhosttyImportPlan?
     @State private var importStatus: LocalizedStringKey?
-    @State private var importErrors: [String] = []
     @State private var snippetDraft = ""
     @State private var storedSnippet = ""
     @State private var showsRenderedConfig = false
@@ -75,14 +74,12 @@ struct AdvancedSettingsPage: View {
                 HStack(spacing: Theme.Space.m) {
                     Button("Import Configuration from Ghostty…") {
                         importStatus = nil
-                        importErrors = []
                         plan = GhosttyConfigImport.makePlan()
                     }
                     .disabled(detectedFiles.isEmpty)
                     if hasBackup {
                         Button("Undo Last Import") {
                             GhosttyConfigImport.undoLastImport()
-                            importErrors = []
                             importStatus = "Last import undone"
                             reloadState()
                             snippetDraft = storedSnippet
@@ -93,11 +90,6 @@ struct AdvancedSettingsPage: View {
                     Label(importStatus, systemImage: "checkmark.circle")
                         .font(Theme.Font.body)
                         .foregroundStyle(chrome.success)
-                }
-                ForEach(importErrors, id: \.self) { message in
-                    Text(verbatim: message)
-                        .font(Theme.Font.rowMeta)
-                        .foregroundStyle(chrome.danger)
                 }
             }
         }
@@ -115,7 +107,7 @@ struct AdvancedSettingsPage: View {
     }
 
     private func runImport(_ plan: GhosttyImportPlan) {
-        importErrors = GhosttyConfigImport.applyPlan(plan)
+        GhosttyConfigImport.applyPlan(plan)
         importStatus = "Import complete"
         self.plan = nil
         reloadState()
@@ -356,7 +348,7 @@ struct GhosttyImportPreviewSheet: View {
     }
 
     private func themeRow(_ slot: GhosttyThemeSlotPlan, dark: Bool) -> some View {
-        var text: String
+        let text: String
         if slot.isUnchanged {
             if dark {
                 text = String(format: String(localized: "Dark: %@ (unchanged)"), slot.name)
@@ -367,9 +359,6 @@ struct GhosttyImportPreviewSheet: View {
             text = String(format: String(localized: "Dark: %@ (now %@)"), slot.name, slot.currentName)
         } else {
             text = String(format: String(localized: "Light: %@ (now %@)"), slot.name, slot.currentName)
-        }
-        if case .importFile = slot.source {
-            text += " · " + String(localized: "theme file is copied into your themes folder")
         }
         if slot.isUnchanged {
             return row(text, color: chrome.secondary)

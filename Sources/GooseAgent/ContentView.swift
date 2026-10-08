@@ -7,8 +7,6 @@ struct RootView: View {
     @ObservedObject var window: WindowState
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @ObservedObject private var themePreview = ThemePreview.shared
-    /// An edited theme file re-renders the chrome when it is the theme in use.
-    @ObservedObject private var userThemes = UserThemeStore.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName

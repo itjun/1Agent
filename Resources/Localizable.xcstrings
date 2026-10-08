@@ -1,6 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Theme “%@” is not a built-in Ghostty theme" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Theme “%@” is not a built-in Ghostty theme" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "“%@”不是 Ghostty 内置主题" } }
+      }
+    },
     "Appearance" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -603,34 +610,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前深色主题" } }
       }
     },
-    "My Themes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "My Themes" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "我的主题" } }
-      }
-    },
-    "Import Theme File…" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import Theme File…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导入主题文件…" } }
-      }
-    },
-    "Open Themes Folder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Themes Folder" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开主题文件夹" } }
-      }
-    },
-    "Put Ghostty theme files in %@ and they appear here." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Put Ghostty theme files in %@ and they appear here." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "把 Ghostty 主题文件放进 %@ 即可出现在这里。" } }
-      }
-    },
     "Move to Trash" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -638,53 +617,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移到废纸篓" } }
       }
     },
-    "Move “%@” to the Trash?" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move “%@” to the Trash?" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "将“%@”移到废纸篓？" } }
-      }
-    },
-    "The theme file goes to the Trash, where it can be put back." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The theme file goes to the Trash, where it can be put back." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主题文件会移到废纸篓，之后可以从废纸篓放回。" } }
-      }
-    },
-    "Theme File Error" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Theme File Error" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主题文件操作失败" } }
-      }
-    },
-    "Choose Ghostty theme files" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose Ghostty theme files" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择 Ghostty 主题文件" } }
-      }
-    },
     "Import" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Import" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导入" } }
-      }
-    },
-    "“%@” could not be read as text." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "“%@” could not be read as text." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法把“%@”读取为文本。" } }
-      }
-    },
-    "“%@” is not a Ghostty theme file: it needs background and foreground colors." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "“%@” is not a Ghostty theme file: it needs background and foreground colors." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "“%@”不是 Ghostty 主题文件：需要 background 和 foreground 颜色。" } }
       }
     },
     "Windows, tabs and splits are managed by this app" : {
@@ -804,20 +741,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "theme = %@ could not be read" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法解析 theme = %@" } }
-      }
-    },
-    "%@ is not a valid Ghostty theme file" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ is not a valid Ghostty theme file" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 不是有效的 Ghostty 主题文件" } }
-      }
-    },
-    "Theme “%@” was not found in your themes folder or the built-in themes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Theme “%@” was not found in your themes folder or the built-in themes" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在主题文件夹和内置主题中都找不到“%@”" } }
       }
     },
     "“%@” is a light theme; the dark theme stays unchanged" : {
@@ -1196,13 +1119,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Light: %@ (now %@)" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "浅色：%@（当前为 %@）" } }
-      }
-    },
-    "theme file is copied into your themes folder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "theme file is copied into your themes folder" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主题文件会拷贝到主题文件夹" } }
       }
     },
     "Add to Custom Snippet" : {
