@@ -74,7 +74,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var configFailed = false
     @Published private(set) var tabs: [TerminalTab] = []
     @Published private(set) var launchEnvironment: [String] = []
-    /// Merged terminals. A single host is not stored here. Each workspace is one split tree.
+    /// Ordered membership and independently selectable display panels, including single-session workspaces.
     @Published private(set) var workspaces: [Workspace] = []
     /// The one main window. Every terminal and workspace shows in its sidebar.
     let mainWindow = WindowState()
@@ -171,54 +171,54 @@ final class AppModel: ObservableObject {
 
     // MARK: - Zoom
 
-    /// The pane drawn alone in the shown workspace: zoomed, still selected, and not the only pane.
-    func zoomedPane(in window: WindowState) -> UUID? {
+    func selectedPanel(in window: WindowState) -> TerminalPanel? {
         guard let selected = window.selectedTabID,
               let index = WorkspaceBoard.index(containing: selected, in: workspaces) else { return nil }
-        let workspace = workspaces[index]
-        guard window.zoomedPanes[workspace.id] == selected else { return nil }
-        guard WorkspaceBoard.leafIDs(workspace.layout).count >= 2 else { return nil }
+        return workspaces[index].panel(containing: selected)
+    }
+
+    private func clearPanelZoom(for ids: [UUID]) {
+        let wanted = Set(ids)
+        let panels = workspaces.flatMap(\.panels).filter { !wanted.isDisjoint(with: WorkspaceBoard.leafIDs($0.layout)) }
+        for window in windows {
+            for panel in panels { window.zoomedPanes[panel.id] = nil }
+        }
+    }
+
+    /// Zoom belongs to a display panel, independently of the workspace's other panels.
+    func zoomedPane(in window: WindowState) -> UUID? {
+        guard let selected = window.selectedTabID, let panel = selectedPanel(in: window),
+              window.zoomedPanes[panel.id] == selected,
+              WorkspaceBoard.leafIDs(panel.layout).count >= 2 else { return nil }
         return selected
     }
 
-    /// Zooms the selected pane, or shows every pane again. Does nothing to a pane that is alone.
     func toggleSplitZoom(in window: WindowState) {
-        guard let selected = window.selectedTabID,
-              let index = WorkspaceBoard.index(containing: selected, in: workspaces) else { return }
-        let workspace = workspaces[index]
-        guard WorkspaceBoard.leafIDs(workspace.layout).count >= 2 else { return }
-        if window.zoomedPanes[workspace.id] == selected {
-            window.zoomedPanes[workspace.id] = nil
-        } else {
-            window.zoomedPanes[workspace.id] = selected
-        }
+        guard let selected = window.selectedTabID, let panel = selectedPanel(in: window),
+              WorkspaceBoard.leafIDs(panel.layout).count >= 2 else { return }
+        window.zoomedPanes[panel.id] = window.zoomedPanes[panel.id] == selected ? nil : selected
         if let tab = tabs.first(where: { $0.id == selected }), tab.hasTerminal, !tab.exited {
             SSHTerminalRegistry.focus(tab.sessionID)
         }
     }
 
-    /// Moving to another pane of a zoomed workspace shows all its panes again.
     private func endZoomIfSwitching(to id: UUID, in window: WindowState) {
-        guard let index = WorkspaceBoard.index(containing: id, in: workspaces) else { return }
-        let workspaceID = workspaces[index].id
-        if let zoomed = window.zoomedPanes[workspaceID], zoomed != id {
-            window.zoomedPanes[workspaceID] = nil
+        guard let index = WorkspaceBoard.index(containing: id, in: workspaces),
+              let panel = workspaces[index].panel(containing: id) else { return }
+        if let zoomed = window.zoomedPanes[panel.id], zoomed != id {
+            window.zoomedPanes[panel.id] = nil
         }
     }
 
-    /// What the terminal area shows. A selected terminal outside every workspace is shown on its own.
     func displayRoot(in window: WindowState) -> PaneNode? {
-        guard let selectedTabID = window.selectedTabID else { return nil }
-        guard tabs.first(where: { $0.id == selectedTabID })?.isSession == true else { return nil }
-        if let found = WorkspaceBoard.index(containing: selectedTabID, in: workspaces) {
-            return workspaces[found].layout
-        }
-        return .leaf(selectedTabID)
+        guard let selected = window.selectedTabID,
+              tabs.first(where: { $0.id == selected })?.isSession == true else { return nil }
+        return selectedPanel(in: window)?.layout ?? .leaf(selected)
     }
 
     func tabs(in workspace: Workspace) -> [TerminalTab] {
         var members: [TerminalTab] = []
-        for id in WorkspaceBoard.leafIDs(workspace.layout) {
+        for id in workspace.members {
             if let tab = tabs.first(where: { $0.id == id }) {
                 members.append(tab)
             }
@@ -278,13 +278,13 @@ final class AppModel: ObservableObject {
         switch block {
         case .workspace(let id):
             guard let workspace = workspace(for: id) else { return [] }
-            return WorkspaceBoard.leafIDs(workspace.layout)
+            return workspace.members
         case .localGroup, .ungrouped:
             return looseTabs(in: block, window: window).map(\.id)
         }
     }
 
-    /// Sidebar order of one window: block order, members in pane order inside each block.
+    /// Sidebar order of one window: block order, then each block's independent member order.
     func sidebarOrder(in window: WindowState) -> [UUID] {
         var ids: [UUID] = []
         for block in window.blocks {
@@ -553,32 +553,17 @@ final class AppModel: ObservableObject {
         selectOnly(id, in: window)
     }
 
-    /// Hosts that already share one workspace are split back out, not merged again.
+    /// Detach is available only for sessions currently sharing a display panel.
     func sidebarSplits(_ ids: [UUID]) -> Bool {
-        guard let first = ids.first else { return false }
-        guard let workspace = WorkspaceBoard.index(containing: first, in: workspaces) else { return false }
-        for id in ids {
-            if WorkspaceBoard.index(containing: id, in: workspaces) != workspace {
-                return false
-            }
+        ids.contains { id in
+            guard let i = WorkspaceBoard.index(containing: id, in: workspaces),
+                  let panel = workspaces[i].panel(containing: id) else { return false }
+            return WorkspaceBoard.leafIDs(panel.layout).count > 1
         }
-        return true
     }
 
-    /// A proper subset of one workspace (two or more) can leave that group as a new workspace.
     func sidebarCanCreateArea(_ ids: [UUID]) -> Bool {
-        guard ids.count >= 2 else { return false }
-        guard let first = ids.first,
-              let index = WorkspaceBoard.index(containing: first, in: workspaces) else {
-            return false
-        }
-        for id in ids {
-            if WorkspaceBoard.index(containing: id, in: workspaces) != index {
-                return false
-            }
-        }
-        let members = Set(WorkspaceBoard.leafIDs(workspaces[index].layout))
-        return Set(ids).isStrictSubset(of: members)
+        !ids.isEmpty && !workspaces.contains { Set($0.members) == Set(ids) }
     }
 
     /// Right-click on a selected row applies to the whole set. Any other row applies to itself.
@@ -654,7 +639,7 @@ final class AppModel: ObservableObject {
     }
 
     /// `reuse=1`: aliases that are already open are focused; only the missing ones start.
-    /// With several aliases the whole set, old and new, becomes one workspace.
+    /// With several aliases the whole set becomes one workspace, preserving an exact existing group.
     private func openReusing(_ aliases: [String], in target: WindowState, layout: WorkspaceLayout?, name: String?) {
         var existing: [UUID] = []
         var missing: [String] = []
@@ -701,7 +686,7 @@ final class AppModel: ObservableObject {
     private func applyRequestedLayout(_ layout: WorkspaceLayout?, name: String?, to ids: [UUID]) {
         guard let first = ids.first, let index = WorkspaceBoard.index(containing: first, in: workspaces) else { return }
         let workspaceID = workspaces[index].id
-        if let layout, WorkspaceBoard.availableLayouts(paneCount: ids.count).contains(layout) {
+        if let layout, ids.count >= 2 {
             applyWorkspaceLayout(workspaceID, layout)
         }
         if let name {
@@ -722,8 +707,7 @@ final class AppModel: ObservableObject {
         alert.runModal()
     }
 
-    /// One host stays under Ungrouped. Two or more become a workspace in the default layout,
-    /// or in `layout` when the caller asked for one.
+    /// Multiple hosts share workspace membership, with independent panels unless a layout was requested.
     func openHosts(_ aliases: [String], in window: WindowState? = nil, layout: WorkspaceLayout? = nil, name: String? = nil) {
         let aliases = aliases
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -786,7 +770,7 @@ final class AppModel: ObservableObject {
 
     /// Finder "New Ghostty Tab/Window Here", `open` of a folder or script, and `-e` from the
     /// command line. Waits for the saved session on a cold launch, then adds and selects.
-    /// A workspace needs two panes, so only two or more folders from "Window Here" form one;
+    /// Multiple folders from "Window Here" share a workspace with independent panels;
     /// a single folder opens as a plain local terminal either way.
     func openLocalTerminals(at directories: [String], asWorkspace: Bool, initialInput: String? = nil) {
         guard !directories.isEmpty else { return }
@@ -1148,7 +1132,7 @@ final class AppModel: ObservableObject {
         if let owner, owner.selectedTabID == id {
             var workspaceMembers: [UUID] = []
             if let workspaceIndex = WorkspaceBoard.index(containing: id, in: workspaces) {
-                workspaceMembers = WorkspaceBoard.leafIDs(workspaces[workspaceIndex].layout)
+                workspaceMembers = workspaces[workspaceIndex].panel(containing: id).map { WorkspaceBoard.leafIDs($0.layout) } ?? []
             }
             nextSelection = WorkspaceBoard.selectionAfterClosing(
                 id,
@@ -1521,8 +1505,8 @@ final class AppModel: ObservableObject {
         guard let selected = window.selectedTabID, let root = displayRoot(in: window) else { return false }
         let frames = PaneLayout.frames(of: root, in: CGRect(x: 0, y: 0, width: 1600, height: 1000))
         guard frames.count >= 2 else { return false }
-        if let index = WorkspaceBoard.index(containing: selected, in: workspaces) {
-            window.zoomedPanes[workspaces[index].id] = nil
+        if let panel = selectedPanel(in: window) {
+            window.zoomedPanes[panel.id] = nil
         }
         guard let neighbor = PaneLayout.neighbor(of: selected, toward: direction, frames: frames) else {
             return true
@@ -1541,33 +1525,48 @@ final class AppModel: ObservableObject {
 
     // MARK: - Merge / split from the sidebar menu
 
-    func mergeSidebar(_ ids: [UUID], in window: WindowState) {
+    func mergeSidebar(_ ids: [UUID], onto target: UUID, as layout: WorkspaceLayout, in window: WindowState) {
         let ordered = sidebarOrder(in: window).filter { ids.contains($0) }
         guard ordered.count >= 2 else { return }
-        let index = blockIndex(ofFirst: ordered, in: window)
-        createWorkspace(from: ordered, atBlockIndex: index, in: window)
+        let targetBlock = window.blocks.first { members(of: $0, in: window).contains(target) }
+        clearPanelZoom(for: ordered)
+        workspaces = WorkspaceBoard.combine(ordered, onto: target, as: layout, in: workspaces)
+        removeFromLooseGroups(ordered)
+        adoptNewWorkspaces(in: window, replacing: targetBlock, near: target)
         window.sidebarSelection = Set(ordered)
-        window.sidebarAnchor = ordered[0]
-        selectTab(ordered[0], in: window)
+        window.sidebarAnchor = target
+        selectTab(target, in: window)
+        persistSession()
     }
 
-    /// Moves a proper subset of a workspace into a newly numbered workspace.
     func createAreaFromSidebar(_ ids: [UUID], in window: WindowState) {
-        guard sidebarCanCreateArea(ids) else { return }
-        mergeSidebar(ids, in: window)
+        let ordered = sidebarOrder(in: window).filter { ids.contains($0) }
+        guard sidebarCanCreateArea(ordered) else { return }
+        createWorkspace(from: ordered, atBlockIndex: blockIndex(ofFirst: ordered, in: window), in: window)
     }
 
-    /// Pulls these hosts out of their workspace. A workspace with one host left dissolves.
     func splitSidebar(_ ids: [UUID], in window: WindowState) {
+        clearPanelZoom(for: ids)
+        workspaces = WorkspaceBoard.detach(sessionIDs(ids), in: workspaces)
+        persistSession()
+        if let selected = window.selectedTabID { selectTab(selected, in: window) }
+    }
+
+    func removeSidebarFromWorkspace(_ ids: [UUID], in window: WindowState) {
         let ordered = sidebarOrder(in: window).filter { ids.contains($0) }
-        guard sidebarSplits(ordered) else { return }
         for id in ordered {
             let tab = tabs.first { $0.id == id }
             place([id], intoLoose: defaultLooseGroup(for: tab), in: window, beside: nil, after: true)
         }
-        window.sidebarSelection = Set(ordered)
-        window.sidebarAnchor = ordered[0]
-        selectTab(ordered[0], in: window)
+        select(ordered, in: window)
+        persistSession()
+    }
+
+    func splitWorkspacePanels(_ workspaceID: UUID) {
+        guard let workspace = workspace(for: workspaceID) else { return }
+        clearPanelZoom(for: workspace.members)
+        workspaces = WorkspaceBoard.detach(workspace.members, in: workspaces)
+        persistSession()
     }
 
     /// Where the block holding the first of `ids` sits, so a new workspace appears near it.
@@ -1635,6 +1634,7 @@ final class AppModel: ObservableObject {
         guard tabs.contains(where: { $0.id == target && $0.isSession }) else { return }
         let sources = Set(dragged.compactMap { self.window(containing: $0)?.id })
         let targetBlock = window.blocks.first { members(of: $0, in: window).contains(target) }
+        clearPanelZoom(for: dragged + [target])
         var next = WorkspaceBoard.drop(dragged: first, onto: target, edge: edge, in: workspaces)
         var previous = first
         for id in dragged.dropFirst() {
@@ -1653,11 +1653,12 @@ final class AppModel: ObservableObject {
 
     /// Dragged terminals join `workspaceID` beside `target`, or at its end when `target` is nil.
     /// Members that are already inside only move; the split shape is kept for them.
-    func joinWorkspace(_ ids: [UUID], _ workspaceID: UUID, beside target: UUID?, after: Bool) {
+    func joinWorkspace(_ ids: [UUID], _ workspaceID: UUID, beside target: UUID?, after: Bool, detach: Bool = false) {
         let dragged = sessionIDs(ids).filter { $0 != target }
         guard !dragged.isEmpty else { return }
         let sources = Set(dragged.compactMap { self.window(containing: $0)?.id })
-        var next = workspaces
+        if detach { clearPanelZoom(for: dragged) }
+        var next = detach ? WorkspaceBoard.detach(dragged, in: workspaces) : workspaces
         var anchor = target
         var anchorAfter = after
         for id in dragged {
@@ -1695,13 +1696,13 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
-    /// Two or more dragged terminals become a new workspace whose block sits at `blockIndex` of `window`.
+    /// Creates a workspace with independent panels at the requested sidebar position.
     func createWorkspace(from ids: [UUID], atBlockIndex blockIndex: Int, in window: WindowState) {
         let dragged = sessionIDs(ids)
-        guard dragged.count >= 2 else { return }
+        guard !dragged.isEmpty else { return }
         let sources = Set(dragged.compactMap { self.window(containing: $0)?.id })
         let before = Set(workspaces.map(\.id))
-        let next = WorkspaceBoard.merge(dragged, in: workspaces)
+        let next = WorkspaceBoard.create(dragged, in: workspaces)
         guard next != workspaces else { return }
         workspaces = next
         removeFromLooseGroups(dragged)
@@ -1727,7 +1728,14 @@ final class AppModel: ObservableObject {
         guard !ids.isEmpty else { return }
         switch targetBlock {
         case .workspace(let workspaceID):
-            joinWorkspace(ids, workspaceID, beside: nil, after: true)
+            if case .workspace(let sourceID) = dragged {
+                workspaces = WorkspaceBoard.joinWorkspace(sourceID, to: workspaceID, in: workspaces)
+                select(ids, in: target)
+                syncSelection(in: source)
+                persistSession()
+            } else {
+                joinWorkspace(ids, workspaceID, beside: nil, after: true)
+            }
         case .localGroup, .ungrouped:
             moveToLooseGroup(ids, targetBlock, in: target, beside: nil, after: true)
         }
@@ -1808,7 +1816,7 @@ final class AppModel: ObservableObject {
     func dissolveWorkspace(_ workspaceID: UUID) {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
         let home = window(showing: workspaceID) ?? keyWindow
-        let members = WorkspaceBoard.leafIDs(workspace.layout)
+        let members = workspace.members
         workspaces = WorkspaceBoard.dissolve(workspaceID, in: workspaces)
         if let home {
             for id in members {
@@ -1821,6 +1829,7 @@ final class AppModel: ObservableObject {
 
     func applyWorkspaceLayout(_ workspaceID: UUID, _ layout: WorkspaceLayout) {
         guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        clearPanelZoom(for: workspaces[index].members)
         workspaces[index] = WorkspaceBoard.apply(layout, to: workspaces[index])
         persistSession()
     }
@@ -1832,8 +1841,8 @@ final class AppModel: ObservableObject {
 
     /// Double-click on a divider: size the split so every pane along it gets the same share.
     func evenOutSplit(_ id: UUID) {
-        for workspace in workspaces {
-            if let ratio = PaneLayout.evenRatio(for: id, in: workspace.layout) {
+        for panel in workspaces.flatMap(\.panels) {
+            if let ratio = PaneLayout.evenRatio(for: id, in: panel.layout) {
                 setSplitRatio(id, to: ratio)
                 return
             }
@@ -1844,12 +1853,12 @@ final class AppModel: ObservableObject {
     /// nil when the layout cannot be separated there (the caller then resizes the whole split).
     func detachDividerSegment(_ segment: Int, of splitID: UUID, in rect: CGRect) -> UUID? {
         for index in workspaces.indices {
-            guard let detached = PaneLayout.detachSegment(segment, of: splitID, in: workspaces[index].layout, rect: rect) else {
-                continue
+            for panelIndex in workspaces[index].panels.indices {
+                guard let detached = PaneLayout.detachSegment(segment, of: splitID, in: workspaces[index].panels[panelIndex].layout, rect: rect) else { continue }
+                workspaces[index].panels[panelIndex].layout = detached.0
+                persistSession()
+                return detached.1
             }
-            workspaces[index].layout = detached.0
-            persistSession()
-            return detached.1
         }
         return nil
     }
@@ -1904,24 +1913,9 @@ final class AppModel: ObservableObject {
     }
 
     private static func workspaces(_ workspaces: [Workspace], keeping known: Set<UUID>) -> [Workspace] {
-        var kept: [Workspace] = []
-        for workspace in workspaces {
-            guard let layout = Self.layout(workspace.layout, keeping: known) else { continue }
-            var workspace = workspace
-            workspace.layout = layout
-            kept.append(workspace)
-        }
-        return kept
+        WorkspaceBoard.keeping(known, in: workspaces)
     }
 
-    private static func layout(_ node: PaneNode?, keeping known: Set<UUID>) -> PaneNode? {
-        guard var node else { return nil }
-        for id in WorkspaceBoard.leafIDs(node) where !known.contains(id) {
-            guard let next = PaneLayout.remove(id, from: node) else { return nil }
-            node = next
-        }
-        return PaneLayout.splitRoot(node)
-    }
 }
 
 /// What is written to UserDefaults. Older snapshots had one implicit window; those fields still decode.

@@ -317,27 +317,7 @@ struct RootView: View {
                 onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                 onEnded: { dropRelay.dragEnded(windowPoint: $0) },
                 prepareContextMenu: {
-                    let targets = model.sidebarTargets(clicking: tab.id, in: window)
-                    let splits = model.sidebarSplits(targets)
-                    let canCreateArea = model.sidebarCanCreateArea(targets)
-                    return TabContextMenu(
-                        showsDuplicate: targets.count == 1,
-                        splits: splits,
-                        canMerge: targets.count >= 2,
-                        canCreateArea: canCreateArea,
-                        duplicateRight: { model.duplicate(targets[0], edge: .right) },
-                        duplicateDown: { model.duplicate(targets[0], edge: .bottom) },
-                        merge: {
-                            if splits {
-                                model.splitSidebar(targets, in: window)
-                            } else {
-                                model.mergeSidebar(targets, in: window)
-                            }
-                        },
-                        createArea: { model.createAreaFromSidebar(targets, in: window) },
-                        close: { model.closeTabs(targets) },
-                        copyInfo: { copySessionInfo(tab, model: model) }
-                    )
+                    terminalContextMenu(for: tab, model: model, window: window)
                 }
             )
         }
@@ -382,13 +362,6 @@ struct RootView: View {
             }
     }
 
-    private func workspaceTitle(_ workspace: Workspace) -> String {
-        if let name = workspace.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
-            return name
-        }
-        return String(format: String(localized: "Workspace %lld"), workspace.number)
-    }
-
     private func beginWorkspaceRename(_ workspace: Workspace) {
         workspaceNameDraft = workspaceTitle(workspace)
         skipWorkspaceRenameCommit = false
@@ -402,23 +375,8 @@ struct RootView: View {
         renamingWorkspaceID = nil
     }
 
-    private func workspaceLayoutTitle(_ layout: WorkspaceLayout) -> String {
-        switch layout {
-        case .columns:
-            return String(localized: "Equal Columns")
-        case .rows:
-            return String(localized: "Equal Rows")
-        case .grid:
-            return String(localized: "Grid")
-        case .leadingSide:
-            return String(localized: "Leading Pane on the Left")
-        case .leadingTop:
-            return String(localized: "Leading Pane on the Top")
-        }
-    }
-
     private func workspaceHeader(_ workspace: Workspace) -> some View {
-        let count = WorkspaceBoard.leafIDs(workspace.layout).count
+        let count = workspace.members.count
         let layouts = WorkspaceBoard.availableLayouts(paneCount: count)
         let renaming = renamingWorkspaceID == workspace.id
         return HStack(spacing: Theme.Space.s) {
@@ -477,8 +435,10 @@ struct RootView: View {
                     layouts: layouts,
                     titles: layouts.map { workspaceLayoutTitle($0) },
                     canReconnect: model.tabs(in: workspace).contains { $0.isSession && $0.exited },
+                    canSeparate: workspace.panels.contains { WorkspaceBoard.leafIDs($0.layout).count > 1 },
                     onLayout: { model.applyWorkspaceLayout(workspace.id, $0) },
                     onReconnect: { model.reconnectWorkspace(workspace.id) },
+                    onSeparate: { model.splitWorkspacePanels(workspace.id) },
                     onRename: { beginWorkspaceRename(workspace) },
                     onDissolve: { model.dissolveWorkspace(workspace.id) },
                     onDragBegan: { dropRelay.blockDragBegan(.workspace(workspace.id)) },

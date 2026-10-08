@@ -47,6 +47,7 @@ final class CanvasDropRelay: ObservableObject {
     var filesSideAnchors: [FilesDropTarget: AnchorBox] = [:]
     weak var filesButtonAnchor: NSView?
     var dragTitle = ""
+    private var draggingFromPane = false
     private var autoscrollTimer: Timer?
     private var autoscrollStep: CGFloat = 0
 
@@ -75,10 +76,14 @@ final class CanvasDropRelay: ObservableObject {
 
     // MARK: Drag lifecycle (called by the handles of this window)
 
-    func dragBegan(_ id: UUID) {
+    func dragBegan(_ id: UUID, fromPane: Bool = false) {
+        draggingFromPane = fromPane
         MainActor.assumeIsolated {
             guard let model = modelBox, let window = windowBox else { return }
             model.beginDrag(id, in: window)
+            if fromPane {
+                window.draggingTabIDs = [id]
+            }
             let count = window.draggingTabIDs.count
             if count >= 2 {
                 dragTitle = String(format: String(localized: "%lld terminals"), count)
@@ -94,6 +99,7 @@ final class CanvasDropRelay: ObservableObject {
     }
 
     func blockDragBegan(_ block: SidebarBlock) {
+        draggingFromPane = false
         MainActor.assumeIsolated {
             guard let model = modelBox, let window = windowBox else { return }
             switch block {
@@ -242,7 +248,7 @@ final class CanvasDropRelay: ObservableObject {
             guard let target = sidebarTarget(for: payload, windowPoint: windowPoint, model: model, window: window) else { return }
             switch target {
             case .workspace(let workspaceID, let beside, let after):
-                model.joinWorkspace(ids, workspaceID, beside: beside, after: after)
+                model.joinWorkspace(ids, workspaceID, beside: beside, after: after, detach: draggingFromPane)
             case .loose(let block, let beside, let after):
                 model.moveToLooseGroup(ids, block, in: window, beside: beside, after: after)
             case .gap(let index):
@@ -256,7 +262,7 @@ final class CanvasDropRelay: ObservableObject {
             case .block(let block):
                 switch block {
                 case .workspace(let workspaceID):
-                    model.joinWorkspace(ids, workspaceID, beside: nil, after: true)
+                    model.joinWorkspace(ids, workspaceID, beside: nil, after: true, detach: draggingFromPane)
                 case .localGroup, .ungrouped:
                     model.moveToLooseGroup(ids, block, in: window, beside: nil, after: true)
                 }
@@ -771,12 +777,17 @@ final class DragChipView: NSView {
 /// Follows the pointer until mouse-up. A system drag session does not report the landing point reliably.
 struct TabContextMenu {
     var showsDuplicate: Bool
-    var splits: Bool
-    var canMerge: Bool
+    var canDetach: Bool
+    var canRemove: Bool
     var canCreateArea: Bool
+    var layouts: [(WorkspaceLayout, String)]
+    var workspaces: [(UUID, String)]
     var duplicateRight: () -> Void
     var duplicateDown: () -> Void
-    var merge: () -> Void
+    var merge: (WorkspaceLayout) -> Void
+    var detach: () -> Void
+    var move: (UUID) -> Void
+    var remove: () -> Void
     var createArea: () -> Void
     var close: () -> Void
     var copyInfo: () -> Void
@@ -984,6 +995,7 @@ final class TabDragHandleView: NSView {
             let actions = prepareContextMenu()
             contextMenuActions = actions
             NSMenu.popUpContextMenu(sidebarMenu(for: actions), with: event, for: self)
+            restoreWindowMovementIfPointerLeft()
             return
         }
         guard onClose != nil else {
@@ -1016,6 +1028,7 @@ final class TabDragHandleView: NSView {
                 chord: AppShortcuts.chord(for: .duplicateDown),
                 action: #selector(duplicateDownFromMenu(_:))
             ))
+            menu.addItem(.separator())
         }
         if actions.canCreateArea {
             let createArea = NSMenuItem(
@@ -1026,17 +1039,39 @@ final class TabDragHandleView: NSView {
             createArea.target = self
             menu.addItem(createArea)
         }
-        let mergeTitle = actions.splits
-            ? String(localized: "Split Terminals")
-            : String(localized: "Merge Terminals")
-        let merge = NSMenuItem(
-            title: mergeTitle,
-            action: #selector(mergeFromMenu(_:)),
-            keyEquivalent: ""
-        )
-        merge.target = self
-        merge.isEnabled = actions.splits || actions.canMerge
+        if !actions.workspaces.isEmpty {
+            let move = NSMenuItem(title: String(localized: "Move to Workspace"), action: nil, keyEquivalent: "")
+            let choices = NSMenu()
+            for (index, entry) in actions.workspaces.enumerated() {
+                let item = NSMenuItem(title: entry.1, action: #selector(moveWorkspaceFromMenu(_:)), keyEquivalent: "")
+                item.tag = index
+                item.target = self
+                choices.addItem(item)
+            }
+            move.submenu = choices
+            menu.addItem(move)
+        }
+        let remove = NSMenuItem(title: String(localized: "Remove from Workspace"), action: #selector(removeWorkspaceFromMenu(_:)), keyEquivalent: "")
+        remove.target = self
+        remove.isEnabled = actions.canRemove
+        menu.addItem(remove)
+        menu.addItem(.separator())
+        let merge = NSMenuItem(title: String(localized: "Merge Panels"), action: nil, keyEquivalent: "")
+        let layouts = NSMenu()
+        for (index, entry) in actions.layouts.enumerated() {
+            let item = NSMenuItem(title: entry.1, action: #selector(mergeFromMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            layouts.addItem(item)
+        }
+        merge.submenu = layouts
+        merge.isEnabled = !actions.layouts.isEmpty
         menu.addItem(merge)
+        let detach = NSMenuItem(title: String(localized: "Separate into Independent Panels"), action: #selector(detachFromMenu(_:)), keyEquivalent: "")
+        detach.target = self
+        detach.isEnabled = actions.canDetach
+        menu.addItem(detach)
+        menu.addItem(.separator())
         menu.addItem(TerminalCloseMenu.item(action: #selector(closeFromMenu(_:)), target: self))
         return menu
     }
@@ -1060,8 +1095,18 @@ final class TabDragHandleView: NSView {
         contextMenuActions?.duplicateDown()
     }
 
-    @objc private func mergeFromMenu(_: Any?) {
-        contextMenuActions?.merge()
+    @objc private func mergeFromMenu(_ sender: NSMenuItem) {
+        guard let actions = contextMenuActions, actions.layouts.indices.contains(sender.tag) else { return }
+        actions.merge(actions.layouts[sender.tag].0)
+    }
+
+    @objc private func detachFromMenu(_: Any?) { contextMenuActions?.detach() }
+
+    @objc private func removeWorkspaceFromMenu(_: Any?) { contextMenuActions?.remove() }
+
+    @objc private func moveWorkspaceFromMenu(_ sender: NSMenuItem) {
+        guard let actions = contextMenuActions, actions.workspaces.indices.contains(sender.tag) else { return }
+        actions.move(actions.workspaces[sender.tag].0)
     }
 
     @objc private func createAreaFromMenu(_: Any?) {

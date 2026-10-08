@@ -1,12 +1,61 @@
 import CoreGraphics
 import Foundation
 
+/// A display surface, independent of workspace membership and sidebar ordering.
+struct TerminalPanel: Identifiable, Equatable, Codable {
+    var id: UUID = UUID()
+    var layout: PaneNode
+}
+
 struct Workspace: Identifiable, Equatable, Codable {
     var id: UUID
     var number: Int
-    var layout: PaneNode
-    /// Sidebar title. Empty means the generated name, such as Workspace 1.
-    var name: String? = nil
+    var members: [UUID]
+    var panels: [TerminalPanel]
+    /// Empty means the generated name, such as Workspace 1.
+    var name: String?
+
+    init(id: UUID, number: Int, members: [UUID], panels: [TerminalPanel]? = nil, name: String? = nil) {
+        self.id = id
+        self.number = number
+        self.members = members
+        self.panels = panels ?? members.map { TerminalPanel(layout: .leaf($0)) }
+        self.name = name
+    }
+
+    /// Legacy split workspaces keep their entire tree as one panel.
+    init(id: UUID, number: Int, layout: PaneNode, name: String? = nil) {
+        self.init(id: id, number: number, members: WorkspaceBoard.leafIDs(layout),
+                  panels: [TerminalPanel(id: id, layout: layout)], name: name)
+    }
+
+    func panel(containing id: UUID) -> TerminalPanel? {
+        panels.first { PaneLayout.contains(id, in: $0.layout) }
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, number, members, panels, name, layout }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try values.decode(UUID.self, forKey: .id)
+        let number = try values.decode(Int.self, forKey: .number)
+        let name = try values.decodeIfPresent(String.self, forKey: .name)
+        if let members = try values.decodeIfPresent([UUID].self, forKey: .members) {
+            self.init(id: id, number: number, members: members,
+                      panels: try values.decodeIfPresent([TerminalPanel].self, forKey: .panels), name: name)
+        } else {
+            self.init(id: id, number: number, layout: try values.decode(PaneNode.self, forKey: .layout), name: name)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(number, forKey: .number)
+        try values.encode(members, forKey: .members)
+        try values.encode(panels, forKey: .panels)
+        try values.encodeIfPresent(name, forKey: .name)
+    }
 }
 
 /// How a workspace's panes are arranged. Order follows the sidebar, left to right then top to bottom.
@@ -36,7 +85,7 @@ enum WorkspaceBoard {
 
     static func index(containing tab: UUID, in workspaces: [Workspace]) -> Int? {
         workspaces.firstIndex { workspace in
-            PaneLayout.contains(tab, in: workspace.layout)
+            workspace.members.contains(tab)
         }
     }
 
@@ -65,15 +114,7 @@ enum WorkspaceBoard {
         }
     }
 
-    /// Layout for a freshly merged or opened group: two or three stack vertically, four or more form a grid.
-    static func defaultLayout(paneCount: Int) -> WorkspaceLayout {
-        if paneCount >= 4 {
-            return .grid
-        }
-        return .rows
-    }
-
-    /// Rebuilds the split tree. Fewer than two panes cannot be a workspace.
+    /// Builds only the explicitly requested display arrangement. Single sessions stay leaves.
     static func arrange(_ ids: [UUID], as layout: WorkspaceLayout) -> PaneNode? {
         guard ids.count >= 2 else { return nil }
         switch layout {
@@ -90,194 +131,198 @@ enum WorkspaceBoard {
         }
     }
 
-    /// Replaces the tree and keeps the workspace identity. The member order stays the sidebar order.
+    /// Explicitly combines every workspace member; grouping alone never calls this.
     static func apply(_ layout: WorkspaceLayout, to workspace: Workspace) -> Workspace {
-        let ids = WorkspaceBoard.leafIDs(workspace.layout)
-        guard let arranged = WorkspaceBoard.arrange(ids, as: layout) else { return workspace }
+        guard let arranged = arrange(workspace.members, as: layout) else { return workspace }
         var workspace = workspace
-        workspace.layout = arranged
+        let id = workspace.panels.first?.id ?? UUID()
+        workspace.panels = [TerminalPanel(id: id, layout: arranged)]
         return workspace
     }
 
     static func leafIDs(_ node: PaneNode) -> [UUID] {
         switch node {
-        case .leaf(let id):
-            return [id]
-        case .split(let split):
-            return WorkspaceBoard.leafIDs(split.leading) + WorkspaceBoard.leafIDs(split.trailing)
+        case .leaf(let id): return [id]
+        case .split(let split): return leafIDs(split.leading) + leafIDs(split.trailing)
         }
     }
 
-    /// Moves a member beside another member of the same workspace. The split shape stays; only the occupants move.
+    /// Sidebar ordering must never change the occupants or geometry of a panel.
     static func moveLeaf(_ dragged: UUID, beside target: UUID, after: Bool, in workspaces: [Workspace]) -> [Workspace] {
-        guard dragged != target else { return workspaces }
-        guard let index = WorkspaceBoard.index(containing: dragged, in: workspaces),
-              WorkspaceBoard.index(containing: target, in: workspaces) == index else {
-            return workspaces
-        }
-        var ids = WorkspaceBoard.leafIDs(workspaces[index].layout)
-        guard let from = ids.firstIndex(of: dragged) else { return workspaces }
-        ids.remove(at: from)
-        guard let targetIndex = ids.firstIndex(of: target) else { return workspaces }
-        var destination = targetIndex
-        if after {
-            destination += 1
-        }
-        ids.insert(dragged, at: destination)
-        var workspaces = workspaces
-        workspaces[index].layout = PaneLayout.replacingLeaves(workspaces[index].layout, with: ids)
-        return workspaces
+        guard dragged != target,
+              let index = index(containing: dragged, in: workspaces),
+              workspaces[index].members.contains(target) else { return workspaces }
+        var result = workspaces
+        result[index].members.removeAll { $0 == dragged }
+        let slot = result[index].members.firstIndex(of: target)! + (after ? 1 : 0)
+        result[index].members.insert(dragged, at: slot)
+        return result
     }
 
-    /// Adds `dragged` at the end of an existing workspace. A host already in that group stays put.
     static func join(_ dragged: UUID, to workspaceID: UUID, in workspaces: [Workspace]) -> [Workspace] {
-        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return workspaces }
-        if WorkspaceBoard.index(containing: dragged, in: workspaces) == index { return workspaces }
-        let leaves = WorkspaceBoard.leafIDs(workspaces[index].layout)
-        guard let target = leaves.last, target != dragged else { return workspaces }
-        return WorkspaceBoard.join(dragged, beside: target, after: true, to: workspaceID, in: workspaces)
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }),
+              !workspace.members.contains(dragged) else { return workspaces }
+        var result = extract(dragged, from: workspaces)
+        guard let index = result.firstIndex(where: { $0.id == workspaceID }) else { return workspaces }
+        result[index].members.append(dragged)
+        result[index].panels.append(TerminalPanel(layout: .leaf(dragged)))
+        return result
     }
 
-    /// Inserts `dragged` beside `target` in that workspace's sidebar order.
-    static func join(
-        _ dragged: UUID,
-        beside target: UUID,
-        after: Bool,
-        to workspaceID: UUID,
-        in workspaces: [Workspace]
-    ) -> [Workspace] {
-        guard dragged != target else { return workspaces }
-        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return workspaces }
-        if WorkspaceBoard.index(containing: dragged, in: workspaces) == index {
-            return WorkspaceBoard.moveLeaf(dragged, beside: target, after: after, in: workspaces)
-        }
-        let members = WorkspaceBoard.leafIDs(workspaces[index].layout)
-        guard members.contains(target) else { return workspaces }
-        let edge: SplitEdge = after ? .right : .left
-        var workspaces = WorkspaceBoard.extract(dragged, from: workspaces)
-        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return workspaces }
-        workspaces[index].layout = PaneLayout.split(
-            workspaces[index].layout,
-            target: target,
-            with: dragged,
-            edge: edge
-        )
-        return WorkspaceBoard.withoutSingleLeaves(workspaces)
+    static func join(_ dragged: UUID, beside target: UUID, after: Bool, to workspaceID: UUID,
+                     in workspaces: [Workspace]) -> [Workspace] {
+        guard dragged != target,
+              workspaces.first(where: { $0.id == workspaceID })?.members.contains(target) == true else { return workspaces }
+        let joined = join(dragged, to: workspaceID, in: workspaces)
+        return moveLeaf(dragged, beside: target, after: after, in: joined)
     }
 
-    /// Selected hosts become one new workspace in `defaultLayout`, in the given order.
-    /// Fewer than two hosts, or a set that is already exactly one workspace, stays as it is.
-    static func merge(_ ids: [UUID], in workspaces: [Workspace]) -> [Workspace] {
-        var ordered: [UUID] = []
-        var seen = Set<UUID>()
-        for id in ids where seen.insert(id).inserted {
-            ordered.append(id)
-        }
-        guard ordered.count >= 2 else { return workspaces }
-        let wanted = Set(ordered)
-        if workspaces.contains(where: { Set(WorkspaceBoard.leafIDs($0.layout)) == wanted }) {
-            return workspaces
-        }
-        var workspaces = workspaces
-        for id in ordered {
-            workspaces = WorkspaceBoard.extract(id, from: workspaces)
-        }
-        let preferred = WorkspaceBoard.defaultLayout(paneCount: ordered.count)
-        guard let layout = WorkspaceBoard.arrange(ordered, as: preferred) else { return workspaces }
-        workspaces.append(Workspace(
-            id: UUID(),
-            number: WorkspaceBoard.nextNumber(workspaces),
-            layout: layout
-        ))
-        return workspaces
+    /// Creates membership with independent panels. An exact existing group keeps its identity.
+    static func create(_ ids: [UUID], in workspaces: [Workspace]) -> [Workspace] {
+        let ordered = unique(ids)
+        guard !ordered.isEmpty else { return workspaces }
+        if workspaces.contains(where: { Set($0.members) == Set(ordered) }) { return workspaces }
+        var result = workspaces
+        for id in ordered { result = extract(id, from: result) }
+        result.append(Workspace(id: UUID(), number: nextNumber(result), members: ordered))
+        return result
     }
 
-    /// `dragged` joins `target` on `edge`. A lone host becomes a new workspace.
-    /// A group that is no longer a split is removed, and its remaining host stays standalone.
-    static func drop(
-        dragged: UUID,
-        onto target: UUID,
-        edge: SplitEdge,
-        in workspaces: [Workspace]
-    ) -> [Workspace] {
-        guard dragged != target else { return workspaces }
-        if let draggedIndex = WorkspaceBoard.index(containing: dragged, in: workspaces),
-           let targetIndex = WorkspaceBoard.index(containing: target, in: workspaces),
-           draggedIndex == targetIndex {
-            return WorkspaceBoard.rearrange(
-                dragged: dragged,
-                onto: target,
-                edge: edge,
-                at: draggedIndex,
-                in: workspaces
-            )
+    /// Explicit edge drop: only the target panel changes, even inside the same workspace.
+    static func drop(dragged: UUID, onto target: UUID, edge: SplitEdge, in workspaces: [Workspace]) -> [Workspace] {
+        guard dragged != target, edge != .center else { return workspaces }
+        var result = workspaces
+        if index(containing: target, in: result) == nil {
+            result.append(Workspace(id: UUID(), number: nextNumber(result), members: [target]))
         }
-        var workspaces = WorkspaceBoard.extract(dragged, from: workspaces)
-        if let targetIndex = WorkspaceBoard.index(containing: target, in: workspaces) {
-            workspaces[targetIndex].layout = PaneLayout.split(
-                workspaces[targetIndex].layout,
-                target: target,
-                with: dragged,
-                edge: edge
-            )
-            return WorkspaceBoard.withoutSingleLeaves(workspaces)
-        }
-        let layout = PaneLayout.split(.leaf(target), target: target, with: dragged, edge: edge)
-        guard case .split = layout else { return workspaces }
-        let created = Workspace(
-            id: UUID(),
-            number: WorkspaceBoard.nextNumber(workspaces),
-            layout: layout
-        )
-        workspaces.append(created)
-        return workspaces
-    }
-
-    /// Moves a pane inside the workspace it already belongs to. The group keeps its number.
-    private static func rearrange(
-        dragged: UUID,
-        onto target: UUID,
-        edge: SplitEdge,
-        at index: Int,
-        in workspaces: [Workspace]
-    ) -> [Workspace] {
-        var workspaces = workspaces
-        guard let removed = PaneLayout.remove(dragged, from: workspaces[index].layout) else {
-            return workspaces
-        }
-        let layout = PaneLayout.split(removed, target: target, with: dragged, edge: edge)
-        guard case .split = layout else {
-            workspaces.remove(at: index)
-            return workspaces
-        }
-        workspaces[index].layout = layout
-        return workspaces
-    }
-
-    /// Removes the workspace. Its hosts stay open and show under Ungrouped.
-    static func dissolve(_ workspaceID: UUID, in workspaces: [Workspace]) -> [Workspace] {
-        guard workspaces.contains(where: { $0.id == workspaceID }) else { return workspaces }
-        return workspaces.filter { $0.id != workspaceID }
-    }
-
-    /// Pulls a pane out of its workspace. The group disappears when one host is left.
-    static func extract(_ id: UUID, from workspaces: [Workspace]) -> [Workspace] {
-        guard let found = WorkspaceBoard.index(containing: id, in: workspaces) else { return workspaces }
-        var workspaces = workspaces
-        if let removed = PaneLayout.remove(id, from: workspaces[found].layout) {
-            workspaces[found].layout = removed
+        let destination = result[index(containing: target, in: result)!].id
+        if let source = index(containing: dragged, in: result), result[source].id == destination {
+            result[source] = removingFromPanels([dragged], in: result[source])
         } else {
-            workspaces.remove(at: found)
+            result = extract(dragged, from: result)
+            let i = result.firstIndex { $0.id == destination }!
+            result[i].members.append(dragged)
         }
-        return WorkspaceBoard.withoutSingleLeaves(workspaces)
+        let i = result.firstIndex { $0.id == destination }!
+        let panel = result[i].panels.firstIndex { PaneLayout.contains(target, in: $0.layout) }!
+        result[i].panels[panel].layout = PaneLayout.split(result[i].panels[panel].layout, target: target, with: dragged, edge: edge)
+        return result
+    }
+
+    /// Selected sessions combine in the target's workspace, leaving other panels untouched.
+    static func combine(_ ids: [UUID], onto target: UUID, as layout: WorkspaceLayout,
+                        in workspaces: [Workspace]) -> [Workspace] {
+        let ordered = unique(ids)
+        guard ordered.count >= 2, ordered.contains(target), let tree = arrange(ordered, as: layout) else { return workspaces }
+        var result = workspaces
+        if index(containing: target, in: result) == nil {
+            result.append(Workspace(id: UUID(), number: nextNumber(result), members: [target]))
+        }
+        let destination = result[index(containing: target, in: result)!].id
+        for id in ordered { result = join(id, to: destination, in: result) }
+        let i = result.firstIndex { $0.id == destination }!
+        let old = result[i].panel(containing: target)!
+        let reuse = Set(leafIDs(old.layout)).isSubset(of: Set(ordered))
+        result[i] = removingFromPanels(Set(ordered), in: result[i])
+        result[i].panels.append(TerminalPanel(id: reuse ? old.id : UUID(), layout: tree))
+        return result
+    }
+
+    /// Separate display only, keeping workspace membership and sidebar position.
+    static func detach(_ ids: [UUID], in workspaces: [Workspace]) -> [Workspace] {
+        let wanted = Set(ids)
+        return workspaces.map { workspace in
+            let split = workspace.members.filter { id in
+                wanted.contains(id) && (workspace.panel(containing: id).map { leafIDs($0.layout).count > 1 } ?? false)
+            }
+            guard !split.isEmpty else { return workspace }
+            var result = removingFromPanels(Set(split), in: workspace)
+            result.panels += split.map { TerminalPanel(layout: .leaf($0)) }
+            return result
+        }
+    }
+
+    /// Whole workspace moves preserve panel identities, shapes and ratios.
+    static func joinWorkspace(_ source: UUID, to destination: UUID, in workspaces: [Workspace]) -> [Workspace] {
+        guard source != destination, let moving = workspaces.first(where: { $0.id == source }),
+              workspaces.contains(where: { $0.id == destination }) else { return workspaces }
+        var result = workspaces.filter { $0.id != source }
+        let i = result.firstIndex { $0.id == destination }!
+        result[i].members += moving.members
+        result[i].panels += moving.panels
+        return result
+    }
+
+    static func dissolve(_ workspaceID: UUID, in workspaces: [Workspace]) -> [Workspace] {
+        workspaces.filter { $0.id != workspaceID }
+    }
+
+    /// Membership removal, also used when a session closes. Single-member groups survive.
+    static func extract(_ id: UUID, from workspaces: [Workspace]) -> [Workspace] {
+        guard let i = index(containing: id, in: workspaces) else { return workspaces }
+        var result = workspaces
+        result[i] = removingFromPanels([id], in: result[i])
+        result[i].members.removeAll { $0 == id }
+        return result.filter { !$0.members.isEmpty }
     }
 
     static func setRatio(_ id: UUID, to ratio: CGFloat, in workspaces: [Workspace]) -> [Workspace] {
-        var workspaces = workspaces
-        for index in workspaces.indices {
-            workspaces[index].layout = PaneLayout.setRatio(id, to: ratio, in: workspaces[index].layout)
+        workspaces.map { workspace in
+            var result = workspace
+            for i in result.panels.indices {
+                result.panels[i].layout = PaneLayout.setRatio(id, to: ratio, in: result.panels[i].layout)
+            }
+            return result
         }
-        return workspaces
+    }
+
+    /// Snapshot repair: unique membership, no missing sessions or duplicate leaves, and stable surviving panel IDs.
+    static func keeping(_ known: Set<UUID>, in workspaces: [Workspace]) -> [Workspace] {
+        var used = Set<UUID>()
+        var panelIDs = Set<UUID>()
+        var workspaceIDs = Set<UUID>()
+        return workspaces.compactMap { workspace in
+            guard workspaceIDs.insert(workspace.id).inserted else { return nil }
+            var result = workspace
+            result.members = workspace.members.filter { known.contains($0) && used.insert($0).inserted }
+            guard !result.members.isEmpty else { return nil }
+            var remaining = Set(result.members)
+            func prune(_ node: PaneNode) -> PaneNode? {
+                switch node {
+                case .leaf(let id): return remaining.remove(id) != nil ? node : nil
+                case .split(var split):
+                    let a = prune(split.leading), b = prune(split.trailing)
+                    if let a, let b { split.leading = a; split.trailing = b; return .split(split) }
+                    return a ?? b
+                }
+            }
+            result.panels = workspace.panels.compactMap { panel in
+                guard let layout = prune(panel.layout) else { return nil }
+                let id = panelIDs.insert(panel.id).inserted ? panel.id : UUID()
+                panelIDs.insert(id)
+                return TerminalPanel(id: id, layout: layout)
+            }
+            result.panels += result.members.filter { remaining.contains($0) }.map { TerminalPanel(layout: .leaf($0)) }
+            return result
+        }
+    }
+
+    private static func unique(_ ids: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        return ids.filter { seen.insert($0).inserted }
+    }
+
+    private static func removingFromPanels(_ ids: Set<UUID>, in workspace: Workspace) -> Workspace {
+        var result = workspace
+        result.panels = workspace.panels.compactMap { panel in
+            var layout: PaneNode? = panel.layout
+            for id in ids {
+                if let node = layout { layout = PaneLayout.remove(id, from: node) }
+            }
+            guard let layout else { return nil }
+            return TerminalPanel(id: panel.id, layout: layout)
+        }
+        return result
     }
 
     /// Splits as evenly as possible so each ratio stays inside the 0.2...0.8 limit.
@@ -376,7 +421,7 @@ enum WorkspaceBoard {
     }
 
     /// The terminal to select after the selected `closed` one closes. Both lists are taken before it closes.
-    /// Another pane of its workspace comes first (the next one, else the previous one), so the keyboard stays
+    /// Another session of the same display panel comes first (next, else previous), so the keyboard stays
     /// in the split; otherwise the sidebar neighbor (the next row, else the previous one). Never the first
     /// row just because it is first, which is often an SSH session. Nil when nothing else is left.
     static func selectionAfterClosing(_ closed: UUID, workspaceMembers: [UUID], sidebarOrder: [UUID]) -> UUID? {
@@ -400,14 +445,7 @@ enum WorkspaceBoard {
         return nil
     }
 
-    private static func withoutSingleLeaves(_ workspaces: [Workspace]) -> [Workspace] {
-        workspaces.filter { workspace in
-            if case .split = workspace.layout {
-                return true
-            }
-            return false
-        }
-    }
+
 }
 
 /// Color slot for a host that appears more than once.

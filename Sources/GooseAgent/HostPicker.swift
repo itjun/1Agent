@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// ⌘T. Type to filter, ↑↓ to move, ⏎ to open. ⌘-click selects several hosts;
-/// ⏎ then opens all of them as one workspace. Hosts are grouped by the `config.d` file they came from.
+/// ⏎ then opens all of them as one workspace with independent panels. Hosts are grouped by the `config.d` file they came from.
 /// Opened from the Files area, the chosen hosts become remote tabs there instead.
 struct HostPicker: View {
     @Environment(\.windowChrome) private var chrome
@@ -259,7 +259,7 @@ struct HostPicker: View {
             if forFiles {
                 return String(localized: "⏎ opens the selected hosts as tabs. ⌘-click to select more.")
             }
-            return String(localized: "⏎ opens the selected hosts as one workspace. ⌘-click to select more.")
+            return String(localized: "⏎ opens the selected hosts in one workspace with independent panels. ⌘-click to select more.")
         }
         return String(localized: "↑↓ to move, ⏎ to open, ⌘-click to tick several.")
     }

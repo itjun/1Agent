@@ -26,7 +26,7 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var hostPickerPurpose: HostPickerPurpose = .terminal
     /// Where a sidebar row dragged over the Files area or the Files button would land.
     @Published var filesDropTarget: FilesDropTarget?
-    /// Workspace ID → the pane drawn alone (⇧⌘↩). Memory only; not in the session snapshot.
+    /// Panel ID → the pane drawn alone (⇧⌘↩). Memory only; not in the session snapshot.
     @Published var zoomedPanes: [UUID: UUID] = [:]
     /// Last known frame on screen, restored at launch.
     var frame: CGRect?

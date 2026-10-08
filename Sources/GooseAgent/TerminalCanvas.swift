@@ -199,8 +199,8 @@ struct TerminalCanvas: View {
             }
             return find(split.trailing)
         }
-        for workspace in model.workspaces {
-            if let ratio = find(workspace.layout) {
+        for panel in model.workspaces.flatMap(\.panels) {
+            if let ratio = find(panel.layout) {
                 return ratio
             }
         }
@@ -255,13 +255,13 @@ struct TerminalCanvas: View {
                 .overlay {
                     TabDragHandle(
                         onClick: { _, _ in model.selectOnly(tab.id, in: window) },
-                        onBegan: { dropRelay.dragBegan(tab.id) },
+                        onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
                         onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                         onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                        onSecondaryClick: { copySessionInfo(tab, model: model) },
+                        prepareContextMenu: { terminalContextMenu(for: tab, model: model, window: window) },
                         freezesWindow: true
                     )
-                    .help(String(localized: "Drag the title onto the top, bottom, left, or right of a pane to merge. Drag it back to the sidebar to separate it. Right-click the title to copy host info. Drag the blank part of the bar to move the window."))
+                    .help(String(localized: "Drag the title onto a pane edge to combine. Drag it back to the workspace sidebar to separate. Right-click to manage panels and workspace membership or copy host info. Drag the blank part of the bar to move the window."))
                 }
                 .padding(.horizontal, Theme.Space.s)
                 if tab.content.isTerminal {

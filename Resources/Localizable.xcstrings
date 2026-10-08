@@ -1,6 +1,62 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Drag the title onto a pane edge to combine. Drag it back to the workspace sidebar to separate. Right-click to manage panels and workspace membership or copy host info. Drag the blank part of the bar to move the window." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag the title onto a pane edge to combine. Drag it back to the workspace sidebar to separate. Right-click to manage panels and workspace membership or copy host info. Drag the blank part of the bar to move the window." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "将标题拖到面板边缘以合并，拖回工作区侧栏以拆分。右键可管理面板、工作区归属或复制主机信息。拖动标题栏空白处可移动窗口。" } }
+      }
+    },
+    "Move to Workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Move to Workspace" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移入分组" } }
+      }
+    },
+    "Merge Panels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Merge Panels" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "合并面板" } }
+      }
+    },
+    "Separate into Independent Panels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Separate into Independent Panels" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拆分面板" } }
+      }
+    },
+    "Remove from Workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Remove from Workspace" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移出分组" } }
+      }
+    },
+    "Merge All and Arrange" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Merge All and Arrange" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部合并并排列" } }
+      }
+    },
+    "Separate All Panels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Separate All Panels" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部拆为独立面板" } }
+      }
+    },
+    "Drag to reorder. Right-click to manage the workspace or combine and separate its panels." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag to reorder. Right-click to manage the workspace or combine and separate its panels." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖动以调整顺序。右键可管理工作区，或合并、拆分面板。" } }
+      }
+    },
     "Theme “%@” is not a built-in Ghostty theme" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -355,7 +411,7 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "New Workspace" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "创建新区" } }
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建分组" } }
       }
     },
     "Merge Terminals" : {
@@ -491,11 +547,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "以工作区打开 %lld 台" } }
       }
     },
-    "⏎ opens the selected hosts as one workspace. ⌘-click to select more." : {
+    "⏎ opens the selected hosts in one workspace with independent panels. ⌘-click to select more." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "⏎ opens the selected hosts as one workspace. ⌘-click to select more." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "⏎ 将已选主机合并为工作区打开，⌘-点击继续选择。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "⏎ opens the selected hosts in one workspace with independent panels. ⌘-click to select more." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "⏎ 将所选主机加入同一工作区，每个主机独立显示。⌘-点击可多选。" } }
       }
     },
     "↑↓ to move, ⏎ to open, ⌘-click to tick several." : {

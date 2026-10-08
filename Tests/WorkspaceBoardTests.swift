@@ -30,60 +30,139 @@ enum WorkspaceBoardTests {
         expect(WorkspaceBoard.selectionAfterClosing(second, workspaceMembers: [second, third], sidebarOrder: splitSidebar) == third, "the next pane of the workspace comes first")
         expect(WorkspaceBoard.selectionAfterClosing(fourth, workspaceMembers: [], sidebarOrder: [first, fourth, second]) == second, "sidebar order decides the neighbor, not creation order")
 
-        let merged = WorkspaceBoard.drop(dragged: second, onto: first, edge: .right, in: [])
-        expect(merged.count == 1, "two hosts become one workspace")
-        expect(merged[0].number == 1, "the first merge is workspace 1")
-        expect(WorkspaceBoard.leafIDs(merged[0].layout) == [first, second], "the incoming pane sits on the right")
-        let swapped = WorkspaceBoard.drop(dragged: second, onto: first, edge: .left, in: merged)
-        expect(swapped.count == 1 && swapped[0].id == merged[0].id && swapped[0].number == 1, "rearranging a pair keeps that workspace")
-        expect(WorkspaceBoard.leafIDs(swapped[0].layout) == [second, first], "the incoming pane sits on the left")
+        let group = WorkspaceBoard.create([first, second, third, fourth, second], in: [])
+        expect(group.count == 1 && group[0].members == [first, second, third, fourth], "creation makes unique ordered membership")
+        expect(group[0].panels.count == 4, "grouping never combines display panels")
+        for id in group[0].members {
+            expect(WorkspaceBoard.leafIDs(group[0].panel(containing: id)!.layout) == [id], "every new member starts alone")
+        }
+        expect(WorkspaceBoard.create(group[0].members, in: group) == group, "creating the exact group preserves its identity and panels")
+        let combined = WorkspaceBoard.drop(dragged: third, onto: second, edge: .right, in: group)
+        expect(combined[0].id == group[0].id && combined[0].members == group[0].members, "combining inside a group preserves membership and order")
+        expect(combined[0].panels.count == 3, "A, B+C and D coexist")
+        expect(WorkspaceBoard.leafIDs(combined[0].panel(containing: second)!.layout) == [second, third], "B and C share one display tree")
+        expect(combined[0].panel(containing: first) == group[0].panel(containing: first), "A stays independent with a stable panel identity")
+        expect(combined[0].panel(containing: fourth) == group[0].panel(containing: fourth), "D is untouched")
+        let reordered = WorkspaceBoard.moveLeaf(fourth, beside: first, after: false, in: combined)
+        expect(reordered[0].members == [fourth, first, second, third], "sidebar drag changes member order")
+        expect(reordered[0].panels == combined[0].panels, "sidebar drag never changes panel geometry or occupants")
+        let detached = WorkspaceBoard.detach([second], in: combined)
+        expect(detached[0].members == group[0].members && detached[0].panels.count == 4, "detaching retains membership")
+        expect(WorkspaceBoard.detach([first], in: detached) == detached, "detaching an independent panel keeps its identity")
 
-        let secondGroup = WorkspaceBoard.drop(dragged: fourth, onto: third, edge: .bottom, in: merged)
-        expect(secondGroup.count == 2, "a second pair is its own workspace")
-        expect(secondGroup.map(\.number).sorted() == [1, 2], "the second merge is workspace 2")
-        expect(WorkspaceBoard.index(containing: first, in: secondGroup) != WorkspaceBoard.index(containing: third, in: secondGroup), "the two groups do not share a tree")
+        let otherPair = WorkspaceBoard.drop(dragged: fourth, onto: first, edge: .bottom, in: combined)
+        expect(otherPair[0].panels.count == 2, "two independent split combinations coexist")
+        let remaining = WorkspaceBoard.extract(first, from: WorkspaceBoard.extract(second, from: WorkspaceBoard.extract(third, from: otherPair)))
+        expect(remaining.count == 1 && remaining[0].members == [fourth], "a single-member workspace survives")
+        expect(remaining[0].id == group[0].id, "single member keeps its workspace identity")
+        expect(WorkspaceBoard.extract(fourth, from: remaining).isEmpty, "only empty workspaces are removed")
+        expect(WorkspaceBoard.dissolve(group[0].id, in: group).isEmpty, "explicit dissolution removes the workspace")
 
-        let emptied = WorkspaceBoard.extract(second, from: merged)
-        expect(emptied.isEmpty, "extracting one host of a pair dissolves the workspace")
+        for edge in [SplitEdge.left, .right, .top, .bottom] {
+            let dropped = WorkspaceBoard.drop(dragged: third, onto: second, edge: edge, in: group)
+            let tree = dropped[0].panel(containing: second)!.layout
+            let frames = PaneLayout.frames(of: tree, in: CGRect(x: 0, y: 0, width: 800, height: 600))
+            let source = frames[third]!, target = frames[second]!
+            switch edge {
+            case .left: expect(source.maxX <= target.minX, "left edge drop")
+            case .right: expect(source.minX >= target.maxX, "right edge drop")
+            case .top: expect(source.maxY <= target.minY, "top edge drop")
+            case .bottom: expect(source.minY >= target.maxY, "bottom edge drop")
+            case .center: break
+            }
+            let rearranged = WorkspaceBoard.drop(dragged: third, onto: second, edge: .left, in: dropped)
+            expect(rearranged[0].members == group[0].members, "rearranging keeps sidebar order")
+            expect(rearranged[0].panel(containing: second)!.id == dropped[0].panel(containing: second)!.id, "rearranging keeps display identity")
+        }
+        expect(WorkspaceBoard.drop(dragged: first, onto: first, edge: .left, in: group) == group, "self drop has no effect")
+        let outsider = UUID(), companion = UUID()
+        let cross = WorkspaceBoard.create([outsider, companion], in: combined)
+        let destination = cross.last!.id
+        let joined = WorkspaceBoard.join(second, to: destination, in: cross)
+        expect(joined.first!.members == [first, third, fourth], "cross-group move removes just the moved membership")
+        expect(WorkspaceBoard.leafIDs(joined.last!.panel(containing: second)!.layout) == [second], "sidebar cross-group move makes an independent panel")
+        expect(WorkspaceBoard.leafIDs(joined.first!.panel(containing: third)!.layout) == [third], "source split folds around its survivor")
+        let crossDrop = WorkspaceBoard.drop(dragged: second, onto: outsider, edge: .top, in: cross)
+        expect(crossDrop.last!.members.contains(second) && !crossDrop.first!.members.contains(second), "edge drop adopts target workspace")
+        expect(WorkspaceBoard.leafIDs(crossDrop.last!.panel(containing: outsider)!.layout) == [second, outsider], "cross-group edge drop combines only target panel")
+        let whole = WorkspaceBoard.joinWorkspace(cross[0].id, to: destination, in: cross)
+        expect(whole.count == 1 && whole[0].panels == cross[1].panels + cross[0].panels, "whole-workspace move preserves all display trees and IDs")
 
-        let dissolvedGroup = WorkspaceBoard.dissolve(secondGroup[0].id, in: secondGroup)
-        expect(dissolvedGroup.map(\.number) == [2], "dissolving workspace 1 leaves workspace 2")
-        expect(WorkspaceBoard.index(containing: first, in: dissolvedGroup) == nil, "a dissolved host is no longer grouped")
-        expect(WorkspaceBoard.index(containing: second, in: dissolvedGroup) == nil, "every host in the dissolved workspace is ungrouped")
-        expect(WorkspaceBoard.dissolve(UUID(), in: secondGroup).count == 2, "an unknown workspace is left alone")
-
-        let moved = WorkspaceBoard.drop(dragged: fourth, onto: first, edge: .left, in: secondGroup)
-        expect(moved.count == 1, "leaving a pair dissolves that workspace")
-        let movedLeaves = WorkspaceBoard.leafIDs(moved[0].layout)
-        expect(movedLeaves.contains(first) && movedLeaves.contains(second) && movedLeaves.contains(fourth), "the dragged host joins the other workspace")
-        expect(!movedLeaves.contains(third), "the host left behind is no longer in a workspace")
-        expect(moved[0].id == merged[0].id, "joining an existing workspace keeps that workspace")
-
-        var triple = WorkspaceBoard.drop(dragged: second, onto: first, edge: .right, in: [])
-        triple = WorkspaceBoard.drop(dragged: third, onto: second, edge: .bottom, in: triple)
-        let keptID = triple[0].id
-        let rearranged = WorkspaceBoard.drop(dragged: third, onto: first, edge: .left, in: triple)
-        expect(rearranged.count == 1 && rearranged[0].id == keptID, "rearranging inside a workspace does not open a new one")
-        expect(WorkspaceBoard.leafIDs(rearranged[0].layout).count == 3, "all three panes stay in the workspace")
-
-        let dissolvedFirst = WorkspaceBoard.extract(second, from: secondGroup)
-        expect(dissolvedFirst.map(\.number) == [2], "workspace 2 remains after workspace 1 dissolves")
-        let fifth = UUID()
-        let sixth = UUID()
-        let reused = WorkspaceBoard.drop(dragged: sixth, onto: fifth, edge: .top, in: dissolvedFirst)
-        expect(reused.map(\.number).sorted() == [1, 2], "the next merge reuses the smallest free number")
-
-        expect(WorkspaceBoard.drop(dragged: first, onto: first, edge: .left, in: []) == [], "a pane does not merge with itself")
-        let untouched = WorkspaceBoard.extract(first, from: [])
-        expect(untouched.isEmpty, "extracting a standalone host does nothing")
+        let subset = WorkspaceBoard.combine([third, second], onto: second, as: .rows, in: group)
+        expect(subset[0].members == group[0].members, "menu combine keeps member order")
+        expect(WorkspaceBoard.leafIDs(subset[0].panel(containing: second)!.layout) == [third, second], "menu combine uses explicit selection order")
+        let across = WorkspaceBoard.combine([second, outsider], onto: outsider, as: .columns, in: cross)
+        expect(across.last!.members.contains(second), "menu combine uses right-click target's workspace")
+        let looseTarget = WorkspaceBoard.combine([first, outsider], onto: outsider, as: .rows, in: group)
+        expect(looseTarget.count == 2 && looseTarget.last!.members == [outsider, first], "combining onto an ungrouped target creates a workspace")
+        let independentSubset = WorkspaceBoard.create([second, third], in: combined)
+        expect(independentSubset.count == 2 && independentSubset.last!.panels.count == 2, "new workspace from selection groups without combining")
+        let all = WorkspaceBoard.apply(.grid, to: group[0])
+        expect(all.members == group[0].members && all.panels.count == 1, "merge-all is explicit")
+        expect(WorkspaceBoard.detach(all.members, in: [all])[0].panels.count == 4, "separate-all restores independent panels without removing membership")
+        let panelMembers = WorkspaceBoard.leafIDs(combined[0].panel(containing: second)!.layout)
+        expect(WorkspaceBoard.selectionAfterClosing(second, workspaceMembers: panelMembers, sidebarOrder: group[0].members) == third, "closing prefers another member of the same panel")
 
         do {
-            let encoded = try JSONEncoder().encode(merged)
-            let decoded = try JSONDecoder().decode([Workspace].self, from: encoded)
-            expect(decoded == merged, "a workspace survives a relaunch")
-        } catch {
-            fail("workspace did not encode")
+            let data = try JSONEncoder().encode(otherPair)
+            let decoded = try JSONDecoder().decode([Workspace].self, from: data)
+            expect(decoded == otherPair, "multiple panels and stable IDs survive snapshot round-trip")
+            let encodedObject = try JSONSerialization.jsonObject(with: data) as! [[String: Any]]
+            expect(encodedObject[0]["layout"] == nil && encodedObject[0]["members"] != nil, "new snapshots write the decoupled schema")
+            struct Legacy: Encodable { var id: UUID; var number: Int; var layout: PaneNode; var name: String }
+            let legacyTree = WorkspaceBoard.arrange(group[0].members, as: .grid)!
+            let legacy = Legacy(id: group[0].id, number: 7, layout: legacyTree, name: "Saved workspace")
+            let migrated = try JSONDecoder().decode(Workspace.self, from: JSONEncoder().encode(legacy))
+            expect(migrated.id == legacy.id && migrated.number == 7 && migrated.name == legacy.name, "legacy workspace metadata survives")
+            expect(migrated.members == group[0].members && migrated.panels.count == 1 && migrated.panels[0].layout == legacyTree, "legacy four-way split migrates intact")
+            let single = WorkspaceBoard.keeping([first], in: [migrated])
+            expect(single[0].members == [first] && single[0].panels[0].id == migrated.panels[0].id, "restore keeps single survivors and stable panel ID")
+            let repaired = WorkspaceBoard.keeping([first, third, fourth], in: otherPair)
+            expect(repaired[0].members == [first, third, fourth] && repaired[0].panels.count == 2, "restore prunes a missing session and folds its panel")
+            var corrupt = group[0]
+            corrupt.members += [first, outsider]
+            corrupt.panels = [TerminalPanel(layout: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5, leading: .leaf(first), trailing: .leaf(first))))]
+            let cleaned = WorkspaceBoard.keeping(Set(group[0].members), in: [corrupt, group[0]])
+            expect(cleaned.count == 1 && cleaned[0].members == group[0].members && cleaned[0].panels.count == 4, "restore repairs duplicate membership/leaves and missing panel references")
+            let doubleMembership = Workspace(id: UUID(), number: 9, members: [first, outsider])
+            let unique = WorkspaceBoard.keeping(Set(group[0].members + [outsider]), in: group + [doubleMembership])
+            expect(unique.last!.members == [outsider], "restore never places one session in two workspaces")
+            expect(WorkspaceBoard.keeping([], in: otherPair).isEmpty, "empty restored workspaces disappear")
+        } catch { fail("snapshot migration failed: \(error)") }
+
+        // Exercise transitions rather than testing each method only on fresh independent panels.
+        var evolving = group
+        var seed: UInt64 = 42
+        let pool = [first, second, third, fourth, outsider, companion]
+        func random(_ count: Int) -> Int {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Int((seed >> 32) % UInt64(count))
         }
+        for _ in 0..<600 {
+            let source = pool[random(pool.count)], target = pool[random(pool.count)]
+            switch random(8) {
+            case 0: evolving = WorkspaceBoard.create([source, target], in: evolving)
+            case 1: evolving = WorkspaceBoard.drop(dragged: source, onto: target, edge: [.left, .right, .top, .bottom][random(4)], in: evolving)
+            case 2: evolving = WorkspaceBoard.detach([source, target], in: evolving)
+            case 3: evolving = WorkspaceBoard.extract(source, from: evolving)
+            case 4: evolving = WorkspaceBoard.combine([source, target], onto: target, as: .rows, in: evolving)
+            case 5:
+                if let destination = evolving.last?.id { evolving = WorkspaceBoard.join(source, to: destination, in: evolving) }
+            case 6:
+                if evolving.count > 1 { evolving = WorkspaceBoard.joinWorkspace(evolving[0].id, to: evolving[1].id, in: evolving) }
+            default: evolving = WorkspaceBoard.moveLeaf(source, beside: target, after: true, in: evolving)
+            }
+            let members = evolving.flatMap(\.members)
+            expect(Set(members).count == members.count, "sequences never duplicate workspace membership")
+            let panelIDs = evolving.flatMap(\.panels).map(\.id)
+            expect(Set(panelIDs).count == panelIDs.count, "panel identities remain unique after transitions")
+            for workspace in evolving {
+                let leaves = workspace.panels.flatMap { WorkspaceBoard.leafIDs($0.layout) }
+                expect(!workspace.members.isEmpty && Set(leaves) == Set(workspace.members) && leaves.count == workspace.members.count, "every member appears exactly once across its display panels")
+            }
+            expect(WorkspaceBoard.keeping(Set(pool), in: evolving) == evolving, "valid transition results require no snapshot repair")
+        }
+
         let layoutsForTwo = WorkspaceBoard.availableLayouts(paneCount: 2).map(\.rawValue)
         expect(layoutsForTwo == ["columns", "rows"], "two panes only offer a row and a column")
         let layoutsForThree = WorkspaceBoard.availableLayouts(paneCount: 3).map(\.rawValue)
@@ -147,61 +226,6 @@ enum WorkspaceBoardTests {
         let sixWidths = panes.compactMap { sixFrames[$0]?.width }
         expect(sixWidths.count == 6, "six columns all have a frame")
         expect(nearlyEqual(sixWidths.min()!, sixWidths.max()!), "six columns stay equal inside the ratio limit")
-
-        let workspace = Workspace(id: UUID(), number: 4, layout: threeColumns)
-        let applied = WorkspaceBoard.apply(.rows, to: workspace)
-        expect(applied.id == workspace.id && applied.number == 4, "arranging keeps the workspace")
-        expect(WorkspaceBoard.leafIDs(applied.layout) == [a, b, c], "arranging keeps every pane")
-        expect(WorkspaceBoard.arrange([a], as: .columns) == nil, "one pane is not arranged")
-
-        let outsider = UUID()
-        let joined = WorkspaceBoard.join(outsider, to: applied.id, in: [applied])
-        expect(joined.count == 1 && joined[0].id == applied.id, "a standalone host joins the workspace it is dropped on")
-        expect(WorkspaceBoard.leafIDs(joined[0].layout) == [a, b, c, outsider], "the new host is last in the sidebar order")
-        let stayed = WorkspaceBoard.join(a, to: applied.id, in: [applied])
-        expect(stayed == [applied], "dropping a member on its own workspace leaves the tree alone")
-        let atFront = WorkspaceBoard.join(outsider, beside: a, after: false, to: applied.id, in: [applied])
-        expect(WorkspaceBoard.leafIDs(atFront[0].layout) == [outsider, a, b, c], "a host can join before the first member")
-        let afterFirst = WorkspaceBoard.join(outsider, beside: a, after: true, to: applied.id, in: [applied])
-        expect(WorkspaceBoard.leafIDs(afterFirst[0].layout) == [a, outsider, b, c], "a host can join after a chosen member")
-
-        let quad = WorkspaceBoard.arrange([a, b, c, d], as: .grid)!
-        let quadWorkspace = Workspace(id: UUID(), number: 1, layout: quad)
-        let broughtForward = WorkspaceBoard.moveLeaf(d, beside: a, after: false, in: [quadWorkspace])
-        expect(WorkspaceBoard.leafIDs(broughtForward[0].layout) == [d, a, b, c], "moving to the top of the list puts that pane first")
-        expect(splitIDs(broughtForward[0].layout) == splitIDs(quad), "reordering keeps the same splits")
-        let beforeFrames = PaneLayout.frames(of: quad, in: square)
-        let afterFrames = PaneLayout.frames(of: broughtForward[0].layout, in: square)
-        expect(samePlace(afterFrames[d], beforeFrames[a]), "the first sidebar row takes the first window")
-        expect(samePlace(afterFrames[c], beforeFrames[d]), "the last sidebar row takes the last window")
-        let sentBack = WorkspaceBoard.moveLeaf(a, beside: d, after: true, in: [quadWorkspace])
-        expect(WorkspaceBoard.leafIDs(sentBack[0].layout) == [b, c, d, a], "dropping below the last row puts that pane last")
-        let untouchedOrder = WorkspaceBoard.moveLeaf(b, beside: a, after: true, in: [quadWorkspace])
-        expect(untouchedOrder == [quadWorkspace], "dropping a pane where it already sits changes nothing")
-        expect(WorkspaceBoard.moveLeaf(a, beside: outsider, after: false, in: [quadWorkspace]) == [quadWorkspace], "a host outside the workspace is not a reorder target")
-
-        expect(WorkspaceBoard.merge([a], in: [workspace]) == [workspace], "one host is not merged")
-        expect(WorkspaceBoard.merge([a, b, c], in: [workspace]) == [workspace], "selecting every member of a workspace changes nothing")
-        let four = Workspace(id: UUID(), number: 3, layout: WorkspaceBoard.arrange([a, b, c, d], as: .columns)!)
-        let partial = WorkspaceBoard.merge([b, d], in: [four])
-        expect(partial.count == 2, "unselected hosts stay when at least two remain")
-        let kept = partial.first { $0.id == four.id }!
-        let created = partial.first { $0.id != four.id }!
-        expect(kept.number == 3, "the old workspace keeps its number")
-        expect(WorkspaceBoard.leafIDs(kept.layout) == [a, c], "hosts that were not selected stay in order")
-        expect(created.number == 1, "the new workspace takes the smallest free number")
-        expect(WorkspaceBoard.leafIDs(created.layout) == [b, d], "the new workspace follows the given order")
-        let mergedFrames = PaneLayout.frames(of: created.layout, in: wide)
-        expect(mergedFrames[b]!.maxY <= mergedFrames[d]!.minY, "two merged panes stack top to bottom")
-        expect(nearlyEqual(mergedFrames[b]!.height, mergedFrames[d]!.height), "merged panes share the height")
-        let fiveMerged = WorkspaceBoard.merge([a, b, c, d, e], in: [])
-        let fiveMergedFrames = PaneLayout.frames(of: fiveMerged[0].layout, in: wide)
-        expect(nearlyEqual(fiveMergedFrames[a]!.minY, fiveMergedFrames[c]!.minY), "five merged panes form a grid: the first row holds three")
-        expect(fiveMergedFrames[a]!.maxY <= fiveMergedFrames[d]!.minY, "five merged panes form a grid: the rest go to the second row")
-        let picked = WorkspaceBoard.merge([c, a], in: [workspace])
-        expect(picked.count == 1 && picked[0].id != workspace.id, "extracting a pair dissolves the leftover host and opens a new workspace")
-        expect(WorkspaceBoard.leafIDs(picked[0].layout) == [c, a], "the extracted hosts keep the given order")
-        expect(!WorkspaceBoard.leafIDs(picked[0].layout).contains(b), "the host left behind is no longer in a workspace")
 
         expect(DuplicateHostColor.index(for: "nginx", among: ["raven", "main", "nginx", "nginx"]) == 0, "one repeated host takes the first color")
         expect(DuplicateHostColor.index(for: "raven", among: ["raven", "main", "nginx", "nginx"]) == nil, "a host that appears once stays unmarked")

@@ -6,7 +6,8 @@ import Foundation
 /// - `host=<alias>` (repeatable): SSH config aliases to open.
 /// - `group=<name>`: every alias declared in `~/.ssh/config.d/<name>.conf`.
 /// - `reuse=1`: an alias that is already open is focused instead of opened again.
-/// - `layout=columns|rows|grid|leadingSide|leadingTop`: arrangement when two or more open together.
+/// - `layout=columns|rows|grid|leadingSide|leadingTop`: explicitly combine the opened hosts.
+///   Without it they share a workspace but keep independent panels.
 /// - `name=<title>`: sidebar title of the workspace created for two or more hosts.
 /// - `window=new`: still parsed for the 1Panel URL contract, but ignored. Ghostty has one main
 ///   window now and everything opens there.
