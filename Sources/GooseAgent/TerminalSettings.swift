@@ -270,8 +270,6 @@ struct TerminalSettings: Equatable {
     static let shellIntegrationFeaturesKey = "terminal.shellIntegrationFeatures"
     static let bellFeaturesKey = "terminal.bellFeatures"
     static let customConfigKey = "terminal.customConfig"
-    /// Legacy import preference. Window material now controls the app's native backdrop.
-    static let backgroundBlurKey = "terminal.backgroundBlur"
 
     /// Every key `save` writes.
     static let storageKeys = [
