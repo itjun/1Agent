@@ -343,6 +343,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         model.persistSessionIfReady()
+        RemoteShell.closeSharedConnections()
     }
 }
 

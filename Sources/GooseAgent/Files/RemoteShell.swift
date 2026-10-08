@@ -18,6 +18,27 @@ enum RemoteShell {
         ]
     }
 
+    /// `ControlPersist` would keep each shared connection alive after the app quits, so quitting ends them.
+    static func closeSharedConnections() {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: controlDirectory)) ?? []
+        let processes = names.filter { $0.hasPrefix("ghostty-") }.compactMap { name -> Process? in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+            let socket = (controlDirectory as NSString).appendingPathComponent(name)
+            process.arguments = ["-F", "/dev/null", "-S", socket, "-O", "exit", "ghostty"]
+            process.standardInput = FileHandle.nullDevice
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            return (try? process.run()) == nil ? nil : process
+        }
+        let deadline = Date().addingTimeInterval(1)
+        for process in processes {
+            while process.isRunning && Date() < deadline {
+                usleep(20_000)
+            }
+        }
+    }
+
     /// Never prompts: a host that needs a password fails at once with ssh's message.
     static func arguments(alias: String, command: String) -> [String] {
         ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"] + multiplexOptions() + ["-T", "--", alias, command]
