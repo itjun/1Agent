@@ -182,13 +182,13 @@ enum GhosttyRuntime {
         )
     }
 
-    /// The window material owns background opacity; other advanced entries override settings.
+    /// Settings first, then the advanced snippet, so a snippet line wins over the same setting.
+    /// The window is always opaque, so an imported `background-opacity` must not clear the panes.
     private static func terminalConfiguration(
         settings: TerminalSettings,
         snippet: [TerminalConfigEntry]
     ) -> TerminalConfiguration {
-        let material = WindowMaterial.shared
-        let entries = material.settings.terminalEntries(settings: settings, snippet: snippet, reduceTransparency: material.reduceTransparency)
+        let entries = (settings.configEntries() + snippet).filter { $0.key != "background-opacity" }
         return TerminalConfiguration { builder in
             for entry in entries {
                 builder.withCustom(entry.key, entry.value)

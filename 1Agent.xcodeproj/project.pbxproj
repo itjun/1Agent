@@ -9,14 +9,12 @@
 /* Begin PBXBuildFile section */
 		04696D0CA687AB607C42CE64 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE68855BD120DF7421F24EE /* AppLanguage.swift */; };
 		06029F6A3874C4F968989D46 /* GhosttyConfigImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */; };
-		0B8FE412B5B96D41F8747823 /* MicaWindowContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060DC28660FCC99E71CE2230 /* MicaWindowContext.swift */; };
 		0C4038B602AAF8717BC418C2 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DC1BA41700994472C1F669 /* ServiceProvider.swift */; };
 		0DE73A8B2336FE70C87E605A /* goose-agent-icon-rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */; };
 		14211F306FED1B2D11F4BC58 /* FileBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9287816E82C9C005D220C098 /* FileBrowserModel.swift */; };
 		176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651A72E339CED37F30858736 /* ShellIntegration.swift */; };
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
-		1EF5C53591130B36D3CE2051 /* MicaWallpaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76967AF96FA0E29F82D9FBCF /* MicaWallpaper.swift */; };
 		26772E9BB33C53E1A17BD65D /* DropZoneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */; };
 		272263DCE7BC9D40856986FB /* TerminalSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */; };
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
@@ -53,10 +51,8 @@
 		837075A95F60DAEF5F9564E0 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC2AB74FE4D721374A45471 /* TerminalView.swift */; };
 		8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 375997FFA560C71B9DCE5E3D /* SymbolsNerdFontMono-Regular.ttf */; };
 		94C91BF3EF904694099F9B90 /* TransferToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7ABED304CF69F1423985F54 /* TransferToast.swift */; };
-		95FB34A060073C34D9ABE949 /* WindowMaterialSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBDF9FC05A428E503B42D97F /* WindowMaterialSettings.swift */; };
 		97B86305AC381C8700A523A5 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D303E19F85127FB7B052F2ED /* FileBrowserView.swift */; };
 		983049074A7D2DF8A76E5085 /* TextFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2222F4287412ADA926A0AFC /* TextFile.swift */; };
-		9B3DF1803E7BED2727270ACD /* WindowMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = A797D8BB5A2CF4EA3BD02B84 /* WindowMaterial.swift */; };
 		ACE050FD0C4750DFA68F77C7 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A04B67162E2B0A44E4CF076 /* KeyboardShortcuts.swift */; };
 		AD0B5C92727259945341E0C7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 892504A66F17F43AE42EC04A /* SettingsView.swift */; };
 		B59B42C83A80A64345CEE3CD /* goose-agent-icon-1024.png in Resources */ = {isa = PBXBuildFile; fileRef = B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */; };
@@ -92,7 +88,6 @@
 		02ED72874148F6B85ACA03C5 /* ghostty-source.svg */ = {isa = PBXFileReference; path = "ghostty-source.svg"; sourceTree = "<group>"; };
 		043B43BD36E404CF638EB54F /* TerminalCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCanvas.swift; sourceTree = "<group>"; };
 		05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPicker.swift; sourceTree = "<group>"; };
-		060DC28660FCC99E71CE2230 /* MicaWindowContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicaWindowContext.swift; sourceTree = "<group>"; };
 		0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettingsPage.swift; sourceTree = "<group>"; };
 		11B7BE5E018ED46FA154243C /* shell-integration */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "shell-integration"; path = "Resources/shell-integration"; sourceTree = SOURCE_ROOT; };
 		13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZoneLayout.swift; sourceTree = "<group>"; };
@@ -127,7 +122,6 @@
 		6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 1Agent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBoard.swift; sourceTree = "<group>"; };
 		709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyDefaultsMigration.swift; sourceTree = "<group>"; };
-		76967AF96FA0E29F82D9FBCF /* MicaWallpaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicaWallpaper.swift; sourceTree = "<group>"; };
 		76AB46074F2E387D4CB2E709 /* FilesWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesWorkspaceView.swift; sourceTree = "<group>"; };
 		76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsPage.swift; sourceTree = "<group>"; };
 		7DC2AB74FE4D721374A45471 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
@@ -140,7 +134,6 @@
 		97958BC6F31945F5729782D0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMenus.swift; sourceTree = "<group>"; };
 		A4A765B8F209AFF3FB2D170F /* DropZones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZones.swift; sourceTree = "<group>"; };
-		A797D8BB5A2CF4EA3BD02B84 /* WindowMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowMaterial.swift; sourceTree = "<group>"; };
 		AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ghostty-source.png"; sourceTree = "<group>"; };
 		B2D39CACC49F126CA35409C0 /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
 		B3DC1BA41700994472C1F669 /* ServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProvider.swift; sourceTree = "<group>"; };
@@ -162,7 +155,6 @@
 		DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsView.swift; sourceTree = "<group>"; };
 		E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
 		E513AE207C91AAB81A8D5279 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
-		FBDF9FC05A428E503B42D97F /* WindowMaterialSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowMaterialSettings.swift; sourceTree = "<group>"; };
 		FC199BA5503EE914D1E884FD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -272,8 +264,6 @@
 				97958BC6F31945F5729782D0 /* Info.plist */,
 				3A04B67162E2B0A44E4CF076 /* KeyboardShortcuts.swift */,
 				709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */,
-				76967AF96FA0E29F82D9FBCF /* MicaWallpaper.swift */,
-				060DC28660FCC99E71CE2230 /* MicaWindowContext.swift */,
 				E513AE207C91AAB81A8D5279 /* PaneContent.swift */,
 				5A7EE823807020FCAC7AB30D /* PaneLayout.swift */,
 				B3DC1BA41700994472C1F669 /* ServiceProvider.swift */,
@@ -300,8 +290,6 @@
 				B9845CAED25A462CB3B32BBB /* UserThemeParser.swift */,
 				55C2B2A2DC927B76E00D66C9 /* UserThemeStore.swift */,
 				B2D39CACC49F126CA35409C0 /* WindowDragArea.swift */,
-				A797D8BB5A2CF4EA3BD02B84 /* WindowMaterial.swift */,
-				FBDF9FC05A428E503B42D97F /* WindowMaterialSettings.swift */,
 				19288DDD38A9437A008A7ADC /* WindowState.swift */,
 				2254C1C7DBE4FE6A5CC025DC /* WindowTitleSync.swift */,
 				6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */,
@@ -424,8 +412,6 @@
 				FA4489BBA6FBFD7AD8E13D8A /* HostPicker.swift in Sources */,
 				ACE050FD0C4750DFA68F77C7 /* KeyboardShortcuts.swift in Sources */,
 				F0B33CCCEC0174D380DC6718 /* LegacyDefaultsMigration.swift in Sources */,
-				1EF5C53591130B36D3CE2051 /* MicaWallpaper.swift in Sources */,
-				0B8FE412B5B96D41F8747823 /* MicaWindowContext.swift in Sources */,
 				3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */,
 				6167B218E94CB198975D0316 /* PaneLayout.swift in Sources */,
 				D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */,
@@ -457,8 +443,6 @@
 				4BD9D90A4018AAEABF603A15 /* UserThemeParser.swift in Sources */,
 				DF6E2E78F82FD15F563529EE /* UserThemeStore.swift in Sources */,
 				DA01393832E1CE444D4E6E65 /* WindowDragArea.swift in Sources */,
-				9B3DF1803E7BED2727270ACD /* WindowMaterial.swift in Sources */,
-				95FB34A060073C34D9ABE949 /* WindowMaterialSettings.swift in Sources */,
 				E6D187F8589A88CEF1346984 /* WindowState.swift in Sources */,
 				E70D2E0CB2751BB0742B5AF9 /* WindowTitleSync.swift in Sources */,
 				CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */,

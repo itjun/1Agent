@@ -112,22 +112,8 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
             window.center()
         }
         windows[state.id] = window
-        applyBackgroundOpacity(WindowMaterial.shared.opacity, to: state)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
-    }
-
-    /// A translucent terminal needs a non-opaque window. At 100% the window goes back to exactly
-    /// what AppKit creates, so the default look and compositing cost stay unchanged.
-    func applyBackgroundOpacity(_ opacity: Double, to state: WindowState) {
-        guard let window = windows[state.id] else { return }
-        if opacity < 1 {
-            window.isOpaque = false
-            window.backgroundColor = .clear
-        } else {
-            window.isOpaque = true
-            window.backgroundColor = .windowBackgroundColor
-        }
     }
 
     /// Hides the window. The app and its terminals keep running; the Dock icon or the next open shows it again.

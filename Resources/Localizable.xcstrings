@@ -1,193 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-  "Mica": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Mica"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "云母"
-        }
-      }
-    }
-  },
-  "Smoke": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Smoke"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "烟雾"
-        }
-      }
-    }
-  },
-  "Acrylic uses frosted glass. Smoke dims what is behind the window with a translucent black veil. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors.": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Acrylic uses frosted glass. Smoke dims what is behind the window with a translucent black veil. Mica is opaque and subtly tinted by your wallpaper while active. Solid uses theme colors."
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "亚克力使用磨砂玻璃；烟雾以半透明黑色压暗窗口后方；云母保持不透明，窗口激活时轻微融入壁纸色调；实色使用主题色。"
-        }
-      }
-    }
-  },
-  "Reduce Transparency is enabled in macOS. Material effects will resume when it is turned off.": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Reduce Transparency is enabled in macOS. Material effects will resume when it is turned off."
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "macOS 已开启“减少透明度”，关闭后将恢复材质效果。"
-        }
-      }
-    }
-  },
-  "Window Material": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Window Material"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "窗口材质"
-        }
-      }
-    }
-  },
-  "Acrylic": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Acrylic"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "亚克力"
-        }
-      }
-    }
-  },
-  "Solid": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Solid"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "实色"
-        }
-      }
-    }
-  },
-  "Background Opacity": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Background Opacity"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "背景不透明度"
-        }
-      }
-    }
-  },
-  "Acrylic blends a frosted backdrop with theme colors and a fine grain. Solid uses opaque theme colors.": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Acrylic blends a frosted backdrop with theme colors and a fine grain. Solid uses opaque theme colors."
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "亚克力将磨砂背景、主题色与细微颗粒融合；实色使用不透明的主题色。"
-        }
-      }
-    }
-  },
-  "Higher values make the theme color stronger; lower values reveal more of the frosted or smoke-dimmed backdrop.": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Higher values make the theme color stronger; lower values reveal more of the frosted or smoke-dimmed backdrop."
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "数值越高，主题色越浓；数值越低，磨砂或烟雾压暗效果越明显。"
-        }
-      }
-    }
-  },
-  "Reduce Transparency is enabled in macOS. Acrylic will resume when it is turned off.": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Reduce Transparency is enabled in macOS. Acrylic will resume when it is turned off."
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "macOS 已开启“减少透明度”，关闭后将恢复亚克力效果。"
-        }
-      }
-    }
-  },
     "Appearance" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1882,11 +1695,20 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "把 Ghostty 命令行工具加入 PATH。" } }
       }
     },
-    "Contrast and Transparency" : {
-      "extractionState" : "manual",
+    "Contrast" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Contrast and Transparency" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "对比度与透明" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contrast"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对比度"
+          }
+        }
       }
     },
     "Minimum Contrast" : {
@@ -1908,27 +1730,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Background Opacity" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "背景不透明度" } }
-      }
-    },
-    "Below 100%, the desktop shows through the terminal area. The sidebar and pane titles stay opaque." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Below 100%, the desktop shows through the terminal area. The sidebar and pane titles stay opaque." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "低于 100% 时终端区域会透出桌面，侧栏与窗格标题条保持不透明。" } }
-      }
-    },
-    "Background Blur" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Background Blur" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "背景模糊" } }
-      }
-    },
-    "Blur what shows through a translucent terminal. Drawn by this app; available below 100% opacity." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Blur what shows through a translucent terminal. Drawn by this app; available below 100% opacity." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "模糊透过终端看到的内容。由本应用绘制，仅在不透明度低于 100% 时可用。" } }
       }
     },
     "Glyphs and Spacing" : {

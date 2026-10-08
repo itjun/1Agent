@@ -14,8 +14,6 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    @ObservedObject private var material = WindowMaterial.shared
-    @StateObject private var micaWindow = MicaWindowContext()
     /// Width while the divider is being dragged. Nil when idle; the layout follows it so writes to
     /// `sidebarWidth` during the drag do not move anything.
     @State private var liveSidebarWidth: CGFloat?
@@ -28,7 +26,7 @@ struct RootView: View {
     @FocusState private var workspaceNameFocused: Bool
 
     private var chrome: WindowChrome {
-        material.chrome(isDark: appearanceDriver.isDark, context: micaWindow)
+        WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
     var body: some View {
@@ -50,13 +48,7 @@ struct RootView: View {
             }
         }
         .frame(minWidth: 880, minHeight: 520)
-        .background {
-            if material.isTranslucent {
-                AcrylicBackdrop(style: material.settings.style).ignoresSafeArea().allowsHitTesting(false)
-            } else {
-                chrome.background
-            }
-        }
+        .background(chrome.background)
         .environment(\.windowChrome, chrome)
         .ignoresSafeArea(edges: .top)
         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
@@ -70,10 +62,6 @@ struct RootView: View {
             dropRelay.windowBox = window
             GhosttyRuntime.applySelectedThemes()
             appearanceDriver.reapply()
-            MainWindowManager.shared.applyBackgroundOpacity(material.opacity, to: window)
-        }
-        .onChange(of: material.opacity) { _, opacity in
-            MainWindowManager.shared.applyBackgroundOpacity(opacity, to: window)
         }
         .onChange(of: lightThemeRaw) { _, _ in
             GhosttyRuntime.applySelectedThemes()
@@ -82,7 +70,6 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
-        .background(MicaWindowReader(context: micaWindow, enabled: material.isMica))
         .sheet(isPresented: $window.hostPickerPresented, onDismiss: { window.hostPickerPurpose = .terminal }) {
             HostPicker(model: model, window: window)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
@@ -129,7 +116,7 @@ struct RootView: View {
             symbol: showing ? "folder.fill" : "folder",
             help: String(format: String(localized: "Files (%@)"), AppShortcuts.display(for: .openFileBrowser)),
             accessibilityLabel: "Files",
-            hoverFill: chrome.elevated.opacity(material.opacity),
+            hoverFill: chrome.elevated,
             tint: showing || targeted ? chrome.accent : nil,
             highlighted: targeted,
             action: { model.toggleSection(in: window) }
@@ -144,7 +131,7 @@ struct RootView: View {
             symbol: "plus",
             help: openHostHelp,
             accessibilityLabel: "Open Host…",
-            hoverFill: chrome.elevated.opacity(material.opacity),
+            hoverFill: chrome.elevated,
             action: { model.openHostPicker(in: window) }
         )
         .opacity(sidebarHovered ? 1 : 0)
@@ -233,7 +220,7 @@ struct RootView: View {
             }
         }
         .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
-        .background(chrome.sidebarBackground.opacity(material.opacity))
+        .background(chrome.sidebarBackground)
         .onHover { inside in
             sidebarHovered = inside
         }
@@ -527,14 +514,11 @@ struct RootView: View {
                 model: model,
                 window: window,
                 dropRelay: dropRelay,
-                dark: appearanceDriver.isDark,
-                backgroundOpacity: material.opacity,
-                terminalBackgroundOpacity: material.terminalOpacity
+                dark: appearanceDriver.isDark
             )
             if model.selectedTab(in: window) == nil {
                 TerminalEmptyState(
                     chrome: chrome,
-                    backgroundOpacity: material.opacity,
                     hint: emptyHint,
                     localTerminalShortcut: AppShortcuts.display(for: .newLocalTerminal),
                     openHostShortcut: AppShortcuts.display(for: .openHost),
@@ -544,7 +528,6 @@ struct RootView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Each terminal draws its own theme tint; only the empty state needs one here.
     }
 }
 
@@ -617,7 +600,6 @@ struct SidebarIconButton: View {
 /// Fills the terminal area while nothing is open: a glyph, the hint, and the two ways to start.
 struct TerminalEmptyState: View {
     var chrome: WindowChrome
-    var backgroundOpacity: Double
     var hint: String
     var localTerminalShortcut: String
     var openHostShortcut: String
@@ -656,7 +638,7 @@ struct TerminalEmptyState: View {
         }
         .padding(Theme.Space.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background.opacity(backgroundOpacity))
+        .background(chrome.background)
     }
 }
 

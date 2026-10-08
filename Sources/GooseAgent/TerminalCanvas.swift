@@ -10,9 +10,6 @@ struct TerminalCanvas: View {
     @ObservedObject private var find = TerminalFind.shared
     var dropRelay: CanvasDropRelay
     var dark: Bool
-    var backgroundOpacity: Double
-    var terminalBackgroundOpacity: Double
-    private var translucent: Bool { terminalBackgroundOpacity < 1 }
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
     @State private var ratioDrag: (id: UUID, split: UUID, start: CGFloat)?
     /// Divider under the pointer. Its line turns accent while set.
@@ -28,14 +25,6 @@ struct TerminalCanvas: View {
             return Theme.PaneStyle.headerHeight
         }
         return Theme.PaneStyle.stripHeight
-    }
-
-    /// Terminal background as Ghostty draws it, so the strip and title bars read as part of the terminal.
-    private var terminalSurface: Color {
-        if translucent {
-            return chrome.background.opacity(backgroundOpacity)
-        }
-        return chrome.background
     }
 
     var body: some View {
@@ -56,7 +45,7 @@ struct TerminalCanvas: View {
             let liveIDs = Set(ownTabs.map(\.id))
             let _ = dropRelay.sync(frames: frames, model: model, window: window)
             ZStack(alignment: .topLeading) {
-                translucent ? Color.clear : chrome.background
+                chrome.background
                 ForEach(ownTabs) { tab in
                     let content = frames[tab.id].map { Self.contentFrame($0, headerHeight: headerH + findBarInset(tab)) }
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
@@ -232,7 +221,7 @@ struct TerminalCanvas: View {
         let focused = window.selectedTabID == tab.id
         if isSplit {
             ZStack {
-                terminalSurface
+                chrome.background
                     .allowsHitTesting(false)
                 WindowDragArea(onClick: { model.selectOnly(tab.id, in: window) })
                 VStack(spacing: 0) {
@@ -290,7 +279,7 @@ struct TerminalCanvas: View {
             // A lone pane has no title bar: a strip in the terminal's own color, where the
             // system title bar would be, shows the title centered and moves the window.
             ZStack(alignment: .trailing) {
-                terminalSurface
+                chrome.background
                     .allowsHitTesting(false)
                 WindowDragArea()
                 VStack(spacing: 0) {

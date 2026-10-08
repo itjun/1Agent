@@ -13,7 +13,6 @@ struct FilesWorkspaceView: View {
 }
 
 private struct FilesGrid: View {
-    @ObservedObject private var material = WindowMaterial.shared
     @ObservedObject var workspace: FileWorkspace
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
@@ -53,7 +52,7 @@ private struct FilesGrid: View {
             }
             .frame(width: rect.width, height: rect.height, alignment: .topLeading)
         }
-        .background(chrome.background.opacity(material.opacity))
+        .background(chrome.background)
         .onChange(of: tabDrag.draggingID) { _, _ in hoveredDividerID = nil }
         .onChange(of: window.filesDropTarget) { _, _ in hoveredDividerID = nil }
     }
