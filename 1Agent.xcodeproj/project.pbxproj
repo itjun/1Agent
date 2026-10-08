@@ -48,6 +48,7 @@
 		7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */; };
 		814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */; };
 		837075A95F60DAEF5F9564E0 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC2AB74FE4D721374A45471 /* TerminalView.swift */; };
+		85985EC77A19C43B26DB3785 /* SidebarMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32226C016C601AAF3610E178 /* SidebarMaterial.swift */; };
 		8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 375997FFA560C71B9DCE5E3D /* SymbolsNerdFontMono-Regular.ttf */; };
 		94C91BF3EF904694099F9B90 /* TransferToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7ABED304CF69F1423985F54 /* TransferToast.swift */; };
 		97B86305AC381C8700A523A5 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D303E19F85127FB7B052F2ED /* FileBrowserView.swift */; };
@@ -65,6 +66,7 @@
 		DA01393832E1CE444D4E6E65 /* WindowDragArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D39CACC49F126CA35409C0 /* WindowDragArea.swift */; };
 		DB3CE4CD31111689FAE6C7E6 /* TerminalFind.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */; };
 		E3CA332263834B7BDAF1871D /* TerminalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */; };
+		E429B1E8C4918A76629EEF91 /* NativeSidebarSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */; };
 		E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */; };
 		E6D187F8589A88CEF1346984 /* WindowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19288DDD38A9437A008A7ADC /* WindowState.swift */; };
 		E70D2E0CB2751BB0742B5AF9 /* WindowTitleSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2254C1C7DBE4FE6A5CC025DC /* WindowTitleSync.swift */; };
@@ -96,6 +98,7 @@
 		2254C1C7DBE4FE6A5CC025DC /* WindowTitleSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowTitleSync.swift; sourceTree = "<group>"; };
 		22680FE638056AFBBDA0F764 /* TerminalProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProcess.swift; sourceTree = "<group>"; };
 		24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommands.swift; sourceTree = "<group>"; };
+		32226C016C601AAF3610E178 /* SidebarMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMaterial.swift; sourceTree = "<group>"; };
 		32D91EB1556003521E0650B7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		34E42671B05FC0FE55B2965F /* DragDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragDrop.swift; sourceTree = "<group>"; };
 		361A21A864C230DE8DF8A323 /* TerminalThemes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalThemes.swift; sourceTree = "<group>"; };
@@ -151,6 +154,7 @@
 		DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsView.swift; sourceTree = "<group>"; };
 		E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
 		E513AE207C91AAB81A8D5279 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
+		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
 		FC199BA5503EE914D1E884FD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -260,6 +264,7 @@
 				97958BC6F31945F5729782D0 /* Info.plist */,
 				3A04B67162E2B0A44E4CF076 /* KeyboardShortcuts.swift */,
 				709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */,
+				ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */,
 				E513AE207C91AAB81A8D5279 /* PaneContent.swift */,
 				5A7EE823807020FCAC7AB30D /* PaneLayout.swift */,
 				B3DC1BA41700994472C1F669 /* ServiceProvider.swift */,
@@ -268,6 +273,7 @@
 				82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */,
 				651A72E339CED37F30858736 /* ShellIntegration.swift */,
 				0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */,
+				32226C016C601AAF3610E178 /* SidebarMaterial.swift */,
 				A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */,
 				440DFBB9CC120A82EAE3507C /* SSHConfig.swift */,
 				BEAD42576853180D4E34F59B /* SSHLaunch.swift */,
@@ -406,6 +412,7 @@
 				FA4489BBA6FBFD7AD8E13D8A /* HostPicker.swift in Sources */,
 				ACE050FD0C4750DFA68F77C7 /* KeyboardShortcuts.swift in Sources */,
 				F0B33CCCEC0174D380DC6718 /* LegacyDefaultsMigration.swift in Sources */,
+				E429B1E8C4918A76629EEF91 /* NativeSidebarSplit.swift in Sources */,
 				3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */,
 				6167B218E94CB198975D0316 /* PaneLayout.swift in Sources */,
 				D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */,
@@ -417,6 +424,7 @@
 				BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */,
 				176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */,
 				68550A509D3C43DB75677D1A /* ShortcutsSettingsPage.swift in Sources */,
+				85985EC77A19C43B26DB3785 /* SidebarMaterial.swift in Sources */,
 				814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */,
 				38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */,
 				5DEEF6A3D6B4A511C449594D /* TerminalCommands.swift in Sources */,

@@ -27,6 +27,10 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test:
+	swiftc -o /tmp/goose-sidebar-material-test Sources/GooseAgent/SidebarMaterial.swift Tests/SidebarMaterialTests.swift
+	/tmp/goose-sidebar-material-test
+	swiftc -o /tmp/goose-native-sidebar-test Sources/GooseAgent/NativeSidebarSplit.swift Tests/NativeSidebarSplitTests.swift
+	/tmp/goose-native-sidebar-test
 	swiftc -o /tmp/goose-ssh-config-test Sources/GooseAgent/SSHConfig.swift Tests/SSHConfigTests.swift
 	/tmp/goose-ssh-config-test
 	swiftc -o /tmp/goose-external-open-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Sources/GooseAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift

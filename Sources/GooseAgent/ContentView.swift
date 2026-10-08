@@ -12,9 +12,9 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    /// Width while the divider is being dragged. Nil when idle; the layout follows it so writes to
-    /// `sidebarWidth` during the drag do not move anything.
-    @State private var liveSidebarWidth: CGFloat?
+    @AppStorage(SidebarMaterial.storageKey) private var sidebarMaterialRaw = SidebarMaterial.defaultValue.rawValue
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.controlActiveState) private var controlActiveState
     @StateObject private var dropRelay = CanvasDropRelay()
     @State private var renamingWorkspaceID: UUID?
     @State private var workspaceNameDraft = ""
@@ -27,14 +27,28 @@ struct RootView: View {
         WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
+    private var usesGlass: Bool {
+        (SidebarMaterial(rawValue: sidebarMaterialRaw) ?? .defaultValue)
+            .effective(supportsGlass: SidebarMaterial.supportsGlass, reduceTransparency: reduceTransparency) == .liquidGlass
+    }
+
+    private var sidebarChrome: WindowChrome { usesGlass ? chrome.nativeSidebar : chrome }
+
     var body: some View {
         let _ = shortcutsRevision
-        HStack(spacing: 0) {
+        NativeSidebarSplit(
+            glass: usesGlass, width: CGFloat(sidebarWidth),
+            minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
+            defaultWidth: SidebarLayout.defaultWidth,
+            onWidthChange: { sidebarWidth = Double($0) }
+        ) {
             sidebar
-                .frame(width: currentSidebarWidth)
-            SidebarDivider(chrome: chrome, storedWidth: $sidebarWidth, liveWidth: $liveSidebarWidth)
-                // Above both neighbours so the wide hit area wins over the rows and the terminal.
-                .zIndex(1)
+                .environment(\.windowChrome, sidebarChrome)
+                // This root owns a titlebar-height header with the traffic-light inset.
+                .ignoresSafeArea(edges: .top)
+                .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+                .oneagentHideFocusRing()
+        } detail: {
             ZStack {
                 // Terminals stay in the view tree while Files is shown, so no session is torn down.
                 detail
@@ -44,6 +58,10 @@ struct RootView: View {
                     FilesWorkspaceView(model: model, window: window, relay: dropRelay)
                 }
             }
+            .environment(\.windowChrome, chrome)
+            .ignoresSafeArea(edges: .top)
+            .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+            .oneagentHideFocusRing()
         }
         .frame(minWidth: 880, minHeight: 520)
         .background(chrome.background)
@@ -79,14 +97,6 @@ struct RootView: View {
 
     private var openHostHelp: String {
         String(format: String(localized: "Open Host (%@)"), AppShortcuts.display(for: .openHost))
-    }
-
-    /// The width the sidebar is laid out at right now: the drag preview if any, else the stored width.
-    private var currentSidebarWidth: CGFloat {
-        if let liveSidebarWidth {
-            return liveSidebarWidth
-        }
-        return SidebarLayout.clamped(CGFloat(sidebarWidth))
     }
 
     /// Empty-state hint naming the host picker and local terminal shortcuts.
@@ -152,7 +162,7 @@ struct RootView: View {
             if model.sidebarOrder(in: window).isEmpty {
                 Text(emptyHint)
                     .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.secondary)
+                    .foregroundStyle(sidebarChrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Theme.Space.m)
@@ -168,7 +178,7 @@ struct RootView: View {
                         ForEach(visibleBlocks, id: \.self) { block in
                             if block != visibleBlocks.first {
                                 Rectangle()
-                                    .fill(chrome.hairline)
+                                    .fill(sidebarChrome.hairline)
                                     .frame(height: 1)
                                     .padding(.horizontal, Theme.Space.m)
                             }
@@ -218,7 +228,7 @@ struct RootView: View {
             }
         }
         .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
-        .background(chrome.sidebarBackground)
+        .background(usesGlass ? Color.clear : chrome.sidebarBackground)
         .onHover { inside in
             sidebarHovered = inside
         }
@@ -260,7 +270,7 @@ struct RootView: View {
             DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
             Text(sidebarTitle(tab))
                 .font(selected ? Theme.Font.row.weight(.medium) : Theme.Font.row)
-                .foregroundStyle(chrome.text)
+                .foregroundStyle(sidebarChrome.text)
                 .lineLimit(1)
                 .truncationMode(tab.isLocal ? .head : .tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -268,13 +278,13 @@ struct RootView: View {
             if showsReconnecting {
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(chrome.warning)
+                    .foregroundStyle(sidebarChrome.warning)
                     .frame(width: 14, height: 14)
                     .accessibilityLabel(Text("Reconnecting…"))
             } else if showsClosed {
                 Image(systemName: "link.slash")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(chrome.danger)
+                    .foregroundStyle(sidebarChrome.danger)
                     .frame(width: 14, height: 14)
                     .accessibilityLabel(Text("Connection closed"))
             }
@@ -357,7 +367,7 @@ struct RootView: View {
     private func sidebarSectionHeader(_ title: LocalizedStringKey, block: SidebarBlock, isFirst: Bool) -> some View {
         Text(title)
             .font(Theme.Font.sidebarSection)
-            .foregroundStyle(chrome.secondary)
+            .foregroundStyle(sidebarChrome.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.Space.m)
             .padding(.top, isFirst ? 0 : SidebarLayout.sectionTopInset)
@@ -416,7 +426,7 @@ struct RootView: View {
                 TextField("Workspace name", text: $workspaceNameDraft)
                     .textFieldStyle(.plain)
                     .font(Theme.Font.sidebarSection)
-                    .foregroundStyle(chrome.text)
+                    .foregroundStyle(sidebarChrome.text)
                     .focused($workspaceNameFocused)
                     .onAppear {
                         workspaceNameFocused = true
@@ -443,18 +453,18 @@ struct RootView: View {
             } else {
                 Text(workspaceTitle(workspace))
                     .font(Theme.Font.sidebarSection)
-                    .foregroundStyle(chrome.text)
+                    .foregroundStyle(sidebarChrome.text)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
             // Pane count. The capsule shows the bare number; the label spells it out.
             Text(verbatim: String(count))
                 .font(Theme.Font.rowMeta)
-                .foregroundStyle(chrome.secondary)
+                .foregroundStyle(sidebarChrome.secondary)
                 .padding(.horizontal, Theme.Space.xs)
                 .frame(minWidth: SidebarLayout.badgeHeight)
                 .frame(height: SidebarLayout.badgeHeight)
-                .background(Capsule().fill(chrome.hairline))
+                .background(Capsule().fill(sidebarChrome.hairline))
                 .accessibilityLabel(Text(String(format: String(localized: "%lld panes"), count)))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -482,13 +492,16 @@ struct RootView: View {
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {
         if window.dropHighlight == .sidebarRow(tabID) || window.dropHighlight == .sidebar {
-            return chrome.accent.opacity(0.28)
+            return sidebarChrome.accent.opacity(0.28)
         }
         if selected {
-            return chrome.accentFill
+            if usesGlass && controlActiveState != .inactive {
+                return Color(nsColor: .selectedContentBackgroundColor).opacity(0.5)
+            }
+            return sidebarChrome.accentFill
         }
         if hovered {
-            return chrome.hairline
+            return sidebarChrome.hairline
         }
         return Color.clear
     }
@@ -498,10 +511,10 @@ struct RootView: View {
     private func blockFill(_ block: SidebarBlock) -> some View {
         let active = window.dropHighlight == .block(block)
         return RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-            .fill(chrome.accent.opacity(active ? 0.14 : 0))
+            .fill(sidebarChrome.accent.opacity(active ? 0.14 : 0))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .stroke(chrome.accent.opacity(active ? 0.9 : 0), lineWidth: 2)
+                    .stroke(sidebarChrome.accent.opacity(active ? 0.9 : 0), lineWidth: 2)
             )
             .allowsHitTesting(false)
     }
@@ -551,8 +564,6 @@ enum SidebarLayout {
     static let badgeHeight: CGFloat = 16
     /// Icon buttons in the header.
     static let iconButtonSize: CGFloat = 28
-    /// Grab area around the 1pt divider line.
-    static let dividerHitWidth: CGFloat = 9
     /// UserDefaults key for the user width.
     static let widthKey = "sidebar.width"
 
@@ -637,124 +648,6 @@ struct TerminalEmptyState: View {
         .padding(Theme.Space.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(chrome.background)
-    }
-}
-
-/// The 1pt line between the sidebar and the terminal area. Drag to resize the sidebar,
-/// double-click to restore the default width. The grab area is wider than the line.
-struct SidebarDivider: View {
-    var chrome: WindowChrome
-    /// Persisted width. Written as whole points while dragging and once more on release.
-    @Binding var storedWidth: Double
-    /// Width shown while a drag is in progress; nil when idle.
-    @Binding var liveWidth: CGFloat?
-    /// Stored width when the drag began; the drag delta is applied to this.
-    @State private var dragStartWidth: CGFloat?
-
-    var body: some View {
-        Rectangle()
-            .fill(chrome.hairline)
-            .frame(width: 1)
-            .overlay {
-                // AppKit tracks the mouse itself, so a mouse-up over the terminal NSView still ends the drag.
-                SidebarDividerHandle(
-                    onDragChanged: { deltaX in
-                        let start: CGFloat
-                        if let dragStartWidth {
-                            start = dragStartWidth
-                        } else {
-                            start = SidebarLayout.clamped(CGFloat(storedWidth))
-                            dragStartWidth = start
-                        }
-                        let width = SidebarLayout.clamped(start + deltaX)
-                        liveWidth = width
-                        let rounded = Double(Int(width.rounded()))
-                        if storedWidth != rounded {
-                            storedWidth = rounded
-                        }
-                    },
-                    onDragEnded: { deltaX in
-                        if let dragStartWidth {
-                            storedWidth = Double(SidebarLayout.clamped(dragStartWidth + deltaX))
-                        }
-                        liveWidth = nil
-                        dragStartWidth = nil
-                    },
-                    onDoubleClick: {
-                        storedWidth = Double(SidebarLayout.defaultWidth)
-                    }
-                )
-                .frame(width: SidebarLayout.dividerHitWidth)
-            }
-    }
-}
-
-/// The grab area of `SidebarDivider`. Reports drag deltas in window points and double-clicks.
-struct SidebarDividerHandle: NSViewRepresentable {
-    var onDragChanged: (CGFloat) -> Void
-    var onDragEnded: (CGFloat) -> Void
-    var onDoubleClick: () -> Void
-
-    func makeNSView(context: Context) -> SidebarDividerView {
-        SidebarDividerView()
-    }
-
-    func updateNSView(_ view: SidebarDividerView, context: Context) {
-        view.onDragChanged = onDragChanged
-        view.onDragEnded = onDragEnded
-        view.onDoubleClick = onDoubleClick
-    }
-}
-
-/// Tracks the drag with `trackEvents`, so the mouse-up is delivered wherever the pointer ends up.
-final class SidebarDividerView: NSView {
-    var onDragChanged: (CGFloat) -> Void = { _ in }
-    var onDragEnded: (CGFloat) -> Void = { _ in }
-    var onDoubleClick: () -> Void = {}
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        bounds.contains(convert(point, from: superview)) ? self : nil
-    }
-
-    override var mouseDownCanMoveWindow: Bool { false }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .resizeLeftRight)
-    }
-
-    override func layout() {
-        super.layout()
-        // The handle moves with the sidebar edge; keep the cursor rect on it.
-        window?.invalidateCursorRects(for: self)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        guard let window else { return }
-        if event.clickCount == 2 {
-            onDoubleClick()
-            return
-        }
-        let startX = event.locationInWindow.x
-        window.trackEvents(
-            matching: [.leftMouseDragged, .leftMouseUp],
-            timeout: 3600,
-            mode: .eventTracking
-        ) { event, stop in
-            guard let event else {
-                stop.pointee = true
-                return
-            }
-            let deltaX = event.locationInWindow.x - startX
-            if event.type == .leftMouseUp {
-                self.onDragEnded(deltaX)
-                stop.pointee = true
-                return
-            }
-            self.onDragChanged(deltaX)
-        }
     }
 }
 

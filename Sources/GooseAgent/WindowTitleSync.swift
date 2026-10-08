@@ -34,20 +34,5 @@ struct WindowTitleSync: NSViewRepresentable {
         if #available(macOS 11.0, *) {
             window.titlebarSeparatorStyle = .none
         }
-        // Hide any leftover separator view the system still inserts under the traffic lights.
-        Self.hideSeparatorViews(in: window.contentView?.superview)
-    }
-
-    private static func hideSeparatorViews(in root: NSView?) {
-        guard let root else { return }
-        var stack: [NSView] = [root]
-        while let view = stack.popLast() {
-            let name = String(describing: type(of: view))
-            if name.contains("Separator") || name.contains("TitlebarSeparator") {
-                view.isHidden = true
-                view.alphaValue = 0
-            }
-            stack.append(contentsOf: view.subviews)
-        }
     }
 }

@@ -8,6 +8,41 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "“%@”不是 Ghostty 内置主题" } }
       }
     },
+    "Sidebar Material" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sidebar Material" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "侧栏材质" } }
+      }
+    },
+    "Liquid Glass" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Liquid Glass" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "液态玻璃" } }
+      }
+    },
+    "Solid" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Solid" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "实心" } }
+      }
+    },
+    "Reduce Transparency is on. The sidebar uses a solid background." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reduce Transparency is on. The sidebar uses a solid background." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "系统已开启“减少透明度”，侧栏当前使用实心背景。" } }
+      }
+    },
+    "Liquid Glass requires macOS 26 or later. The sidebar uses a solid background." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Liquid Glass requires macOS 26 or later. The sidebar uses a solid background." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "液态玻璃需要 macOS 26 或更新版本，侧栏当前使用实心背景。" } }
+      }
+    },
     "Appearance" : {
       "extractionState" : "manual",
       "localizations" : {

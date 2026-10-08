@@ -4,7 +4,6 @@ import SwiftUI
 
 enum SettingsLayout {
     static let sidebarWidth: CGFloat = 180
-    static let separatorWidth: CGFloat = 1
     /// One page row in the left navigation.
     static let navRowHeight: CGFloat = 30
     /// One segment of the appearance-mode control.
@@ -109,6 +108,8 @@ extension SettingsCard where Accessory == EmptyView {
 struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
     @State private var selectedPage: SettingsPage = .appearance
+    @AppStorage(SidebarMaterial.storageKey) private var sidebarMaterialRaw = SidebarMaterial.defaultValue.rawValue
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
@@ -126,6 +127,17 @@ struct SettingsView: View {
     @State private var themeQuery = ""
     @State private var themeFilter: ThemeFilter = .all
     /// User theme waiting for the Move to Trash confirmation.
+
+    private var usesGlass: Bool {
+        selectedMaterial.effective(supportsGlass: SidebarMaterial.supportsGlass,
+                                   reduceTransparency: reduceTransparency) == .liquidGlass
+    }
+
+    private var selectedMaterial: SidebarMaterial {
+        SidebarMaterial(rawValue: sidebarMaterialRaw) ?? .defaultValue
+    }
+
+    private var sidebarChrome: WindowChrome { usesGlass ? chrome.nativeSidebar : chrome }
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -159,11 +171,14 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        NativeSidebarSplit(
+            glass: usesGlass, width: SettingsLayout.sidebarWidth,
+            minimumWidth: SettingsLayout.sidebarWidth, maximumWidth: SettingsLayout.sidebarWidth,
+            defaultWidth: SettingsLayout.sidebarWidth
+        ) {
             settingsNavigation
-            Rectangle()
-                .fill(chrome.hairline)
-                .frame(width: SettingsLayout.separatorWidth)
+                .environment(\.windowChrome, sidebarChrome)
+        } detail: {
             VStack(spacing: 0) {
                 ScrollView {
                     settingsContent
@@ -175,9 +190,14 @@ struct SettingsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(\.windowChrome, chrome)
+            .background(chrome.background.ignoresSafeArea())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(chrome.background.ignoresSafeArea())
+        // Extend the native columns themselves into the titlebar. Each hosting root still
+        // respects its safe area, keeping navigation and settings below the traffic lights.
+        .ignoresSafeArea(edges: .top)
         .oneagentHideFocusRing()
         .onAppear {
             TerminalThemeChoice.migrateIfNeeded()
@@ -200,7 +220,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Settings")
                 .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(chrome.text)
+                .foregroundStyle(sidebarChrome.text)
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.top, Theme.Space.xs)
                 .padding(.bottom, Theme.Space.l)
@@ -213,13 +233,13 @@ struct SettingsView: View {
                     HStack(spacing: Theme.Space.s) {
                         Image(systemName: page.symbol)
                             .font(.system(size: 13))
-                            .foregroundStyle(selected ? chrome.accent : chrome.secondary)
+                            .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.secondary)
                             .frame(width: 18)
                             // `textformat` 在中文环境会渲染成汉字「格式」，固定用拉丁变体让它保持图标外观。
                             .environment(\.locale, Locale(identifier: "en"))
                         Text(page.title)
                             .font(Theme.Font.row.weight(selected ? .semibold : .regular))
-                            .foregroundStyle(chrome.text)
+                            .foregroundStyle(sidebarChrome.text)
                             .lineLimit(1)
                     }
                     .padding(.horizontal, Theme.Space.s)
@@ -227,7 +247,7 @@ struct SettingsView: View {
                     .frame(height: SettingsLayout.navRowHeight)
                     .background(
                         RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                            .fill(selected ? chrome.accentFill : Color.clear)
+                            .fill(selected ? sidebarChrome.accentFill : Color.clear)
                     )
                     .contentShape(Rectangle())
                 }
@@ -236,9 +256,9 @@ struct SettingsView: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(width: SettingsLayout.sidebarWidth, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(chrome.sidebarBackground.ignoresSafeArea())
+        .background((usesGlass ? Color.clear : chrome.sidebarBackground).ignoresSafeArea())
     }
 
     private var settingsContent: some View {
@@ -264,6 +284,24 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
             SettingsCard("Appearance Mode") {
                 appearanceModeControl
+            }
+
+            SettingsCard("Sidebar Material") {
+                Picker("Sidebar Material", selection: $sidebarMaterialRaw) {
+                    Text("Liquid Glass").tag(SidebarMaterial.liquidGlass.rawValue)
+                    Text("Solid").tag(SidebarMaterial.solid.rawValue)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                if selectedMaterial == .liquidGlass && reduceTransparency {
+                    Text("Reduce Transparency is on. The sidebar uses a solid background.")
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.secondary)
+                } else if selectedMaterial == .liquidGlass && !SidebarMaterial.supportsGlass {
+                    Text("Liquid Glass requires macOS 26 or later. The sidebar uses a solid background.")
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.secondary)
+                }
             }
 
             SettingsCard("Terminal Colors") {
@@ -304,6 +342,7 @@ struct SettingsView: View {
     /// Mode and contrast apply at once; the default themes are previewed first, like the
     /// card's own restore button, and saved from the action bar.
     private func restoreAppearancePageDefaults() {
+        sidebarMaterialRaw = SidebarMaterial.defaultValue.rawValue
         appearanceRaw = TerminalAppearance.system.rawValue
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast

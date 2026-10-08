@@ -161,6 +161,22 @@ struct WindowChrome: Equatable {
         return ThemePreview.shared.effectiveLight().chrome()
     }
 
+    /// System semantic colors remain legible on AppKit's adaptive sidebar glass.
+    var nativeSidebar: WindowChrome {
+        var result = self
+        result.sidebarBackground = .clear
+        result.text = Color(nsColor: .labelColor)
+        result.secondary = Color(nsColor: .secondaryLabelColor)
+        result.tertiary = Color(nsColor: .tertiaryLabelColor)
+        result.hairline = Color(nsColor: .separatorColor)
+        result.accent = Color(nsColor: .controlAccentColor)
+        result.accentFill = Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+        result.danger = Color(nsColor: .systemRed)
+        result.warning = Color(nsColor: .systemOrange)
+        result.success = Color(nsColor: .systemGreen)
+        return result
+    }
+
     init(theme: GhosttyThemeDefinition, preferredAccent: String? = nil) {
         let background = RGBColor(ghosttyHex: theme.background) ?? RGBColor(red: 0.06, green: 0.06, blue: 0.07)
         let foreground = RGBColor(ghosttyHex: theme.foreground) ?? RGBColor(red: 0.9, green: 0.9, blue: 0.9)
