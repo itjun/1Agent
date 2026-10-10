@@ -12,4 +12,4 @@ Requires macOS, Xcode, and XcodeGen:
 make build
 ```
 
-The app is named **Ghostty** and uses bundle identifier `com.mitchellh.ghostty` with URL scheme `ghostty://`, replacing the official Ghostty on this Mac. `make build` installs it to `/Applications/Ghostty.app`; the official app is zipped to `~/iLearn/backups` first. Settings from the old `com.itjun.1agent` domain are copied once on first launch. The Swift module is still `GooseAgent`.
+The app is named **1Agent** and uses bundle identifier `com.itjun.1agent` with URL scheme `oneagent://`. `make build` installs it to `/Applications/1Agent.app`. Official Ghostty keeps its own bundle id and `ghostty://`. The Swift module is still `GooseAgent`.

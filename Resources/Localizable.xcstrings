@@ -372,11 +372,11 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法读取 SSH 配置。" } }
       }
     },
-    "Ghostty" : {
+    "1Agent" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Ghostty" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "1Agent" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1Agent" } }
       }
     },
     "Local Terminal" : {
@@ -2229,18 +2229,18 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许" } }
       }
     },
-    "Allow Ghostty to execute \"%@\"?" : {
+    "Allow 1Agent to execute \"%@\"?" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow Ghostty to execute \"%@\"?" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许 Ghostty 执行“%@”吗？" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow 1Agent to execute \"%@\"?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许 1Agent 执行“%@”吗？" } }
       }
     },
-    "Allow Ghostty to execute these %lld files?" : {
+    "Allow 1Agent to execute these %lld files?" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow Ghostty to execute these %lld files?" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许 Ghostty 执行这 %lld 个文件吗？" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow 1Agent to execute these %lld files?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "允许 1Agent 执行这 %lld 个文件吗？" } }
       }
     },
     "Toggle Full Screen" : {

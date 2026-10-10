@@ -1,6 +1,6 @@
 name: 1Agent
 options:
-  bundleIdPrefix: com.mitchellh
+  bundleIdPrefix: com.itjun
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -39,8 +39,8 @@ targets:
     info:
       path: Sources/GooseAgent/Info.plist
       properties:
-        CFBundleName: "Ghostty"
-        CFBundleDisplayName: "Ghostty"
+        CFBundleName: "1Agent"
+        CFBundleDisplayName: "1Agent"
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
@@ -53,9 +53,9 @@ targets:
           - en
           - zh-Hans
         CFBundleURLTypes:
-          - CFBundleURLName: com.mitchellh.ghostty
+          - CFBundleURLName: com.itjun.1agent
             CFBundleURLSchemes:
-              - ghostty
+              - oneagent
         CFBundleDocumentTypes:
           - CFBundleTypeExtensions:
               - command
@@ -76,7 +76,8 @@ targets:
               - public.unix-executable
         NSServices:
           - NSMenuItem:
-              default: New Ghostty Tab Here
+              default: New 1Agent Tab Here
+              zh-Hans: "在此新建 1Agent 标签"
             NSMessage: openTab
             NSRequiredContext:
               NSTextContent: FilePath
@@ -84,7 +85,8 @@ targets:
               - NSFilenamesPboardType
               - public.plain-text
           - NSMenuItem:
-              default: New Ghostty Window Here
+              default: New 1Agent Window Here
+              zh-Hans: "在此新建 1Agent 窗口"
             NSMessage: openWindow
             NSRequiredContext:
               NSTextContent: FilePath
@@ -93,13 +95,13 @@ targets:
               - public.plain-text
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mitchellh.ghostty
-        PRODUCT_NAME: "Ghostty"
+        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent
+        PRODUCT_NAME: "1Agent"
         PRODUCT_MODULE_NAME: GooseAgent
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         SWIFT_VERSION: "5.10"
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "20000"
+        CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_APP_SANDBOX: NO

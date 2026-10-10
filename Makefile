@@ -6,8 +6,8 @@ ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
 endif
 
 CODE_SIGN_IDENTITY ?= -
-APP_BUNDLE = Ghostty.app
-# ".noindex" keeps Spotlight/LaunchServices from listing the build copy next to /Applications (same bundle id).
+APP_BUNDLE = 1Agent.app
+# ".noindex" keeps Spotlight/LaunchServices from listing the build copy next to /Applications.
 DERIVED_DATA = build/DerivedData.noindex
 APP_BUILT = $(DERIVED_DATA)/Build/Products/Debug/$(APP_BUNDLE)
 

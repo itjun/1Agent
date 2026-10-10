@@ -83,7 +83,7 @@ final class TerminalEventRelay: TerminalSurfaceLifecycleDelegate,
 }
 
 /// Links opened from a terminal. A program can print any link, so only common schemes open at once;
-/// anything else, `ghostty://` included, is shown in full and asked about first.
+/// anything else, `oneagent://` included, is shown in full and asked about first.
 @MainActor
 enum TerminalLinks {
     static let directSchemes: Set<String> = ["http", "https", "mailto", "file"]

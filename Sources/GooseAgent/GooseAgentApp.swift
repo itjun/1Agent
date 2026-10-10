@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
 
-    /// `ghostty://` links, plus folders and scripts from `open`, Finder, or the Dock.
+    /// `oneagent://` links, plus folders and scripts from `open`, Finder, or the Dock.
     func application(_ application: NSApplication, open urls: [URL]) {
         var files: [URL] = []
         for url in urls {
@@ -347,7 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// `open -na Ghostty.app --args --working-directory=<dir> -e <cmd> …` (VS Code / Cursor debug
+/// `open -na 1Agent.app --args --working-directory=<dir> -e <cmd> …` (VS Code / Cursor debug
 /// "runInTerminal") starts a second copy of the app. That copy hands the request to the copy
 /// already running and exits before it reads or writes the session or shows a window.
 ///
@@ -355,7 +355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// file in a folder only this user can open, and the notification carries just its name. The running
 /// copy also checks that the ticket's pid runs this same executable.
 enum CommandLineLaunch {
-    static let handOffNotification = Notification.Name("com.mitchellh.ghostty.handOffRunRequest")
+    static let handOffNotification = Notification.Name("com.itjun.1agent.handOffRunRequest")
     static let ticketKey = "ticket"
     /// The receiver reads the ticket while the sender is still alive; after this the sender gives up.
     static let handOffTimeout: TimeInterval = 2
@@ -365,15 +365,15 @@ enum CommandLineLaunch {
 
     static var handOffDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/com.mitchellh.ghostty/handoff", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/com.itjun.1agent/handoff", isDirectory: true)
     }
 
     /// A distributed notification reaches exactly the running copy. LaunchServices might hand a
-    /// `ghostty://` URL back to this still-launching copy, and would also let any web page run commands.
+    /// `oneagent://` URL back to this still-launching copy, and would also let any web page run commands.
     static func handOffIfAnotherInstanceRuns() {
         guard let request = CommandLineLaunch.request else { return }
         let me = ProcessInfo.processInfo.processIdentifier
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.mitchellh.ghostty"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.itjun.1agent"
         let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).filter {
             $0.processIdentifier != me && !$0.isTerminated
         }

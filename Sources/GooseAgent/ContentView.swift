@@ -112,7 +112,7 @@ struct RootView: View {
     /// Shown in Mission Control and the Window menu.
     private var windowTitle: String {
         if selectedSessionBadge.isEmpty {
-            return "Ghostty"
+            return String(localized: "1Agent")
         }
         return selectedSessionBadge
     }

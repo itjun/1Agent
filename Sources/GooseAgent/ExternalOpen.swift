@@ -1,6 +1,6 @@
 import Foundation
 
-/// What another app (1Panel) asked for through `ghostty://open?…`.
+/// What another app (1Panel) asked for through `oneagent://open?…`.
 ///
 /// Query parameters, all optional except that at least one `host` or a `group` must be present:
 /// - `host=<alias>` (repeatable): SSH config aliases to open.
@@ -9,7 +9,7 @@ import Foundation
 /// - `layout=columns|rows|grid|leadingSide|leadingTop`: explicitly combine the opened hosts.
 ///   Without it they share a workspace but keep independent panels.
 /// - `name=<title>`: sidebar title of the workspace created for two or more hosts.
-/// - `window=new`: still parsed for the 1Panel URL contract, but ignored. Ghostty has one main
+/// - `window=new`: still parsed for the 1Panel URL contract, but ignored. 1Agent has one main
 ///   window now and everything opens there.
 struct ExternalOpenRequest: Equatable {
     var hosts: [String] = []
@@ -28,7 +28,7 @@ struct ExternalOpenRequest: Equatable {
 ///
 /// Comes from `--working-directory=<dir> -e <cmd> <args…>` on the command line (VS Code / Cursor
 /// debug "runInTerminal"), or from a second instance handing that request over as
-/// `ghostty://run?cwd=<dir>&cmd=<line>&wait=1`. `cmd` is one shell line, already quoted.
+/// `oneagent://run?cwd=<dir>&cmd=<line>&wait=1`. `cmd` is one shell line, already quoted.
 struct ExternalRunRequest: Equatable {
     var directory: String?
     var command: String?
@@ -40,11 +40,13 @@ struct ExternalRunRequest: Equatable {
 struct HandOffTicket: Codable, Equatable {
     /// The second instance itself; the receiver checks that it runs the same executable.
     var pid: Int32
-    /// A `ghostty://run?…` URL.
+    /// A `oneagent://run?…` URL.
     var url: String
 }
 
 enum ExternalOpen {
+    /// Scheme registered in Info.plist. 1Panel opens hosts with `oneagent://open`.
+    static let scheme = "oneagent"
     static let handOffMaxAge: TimeInterval = 10
 
     /// A ticket counts only as a regular file of the current user, readable and writable by that user
@@ -66,7 +68,7 @@ enum ExternalOpen {
 
     /// Nil for any other scheme or path. Blank and multi-line aliases are dropped.
     static func request(from url: URL) -> ExternalOpenRequest? {
-        guard url.scheme?.lowercased() == "ghostty" else { return nil }
+        guard url.scheme?.lowercased() == ExternalOpen.scheme else { return nil }
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
         let action = (components.host ?? "").lowercased()
         guard action == "open" else { return nil }
@@ -103,9 +105,9 @@ enum ExternalOpen {
         ExternalOpen.request(from: url)?.hosts ?? []
     }
 
-    /// `ghostty://run?…`. Nil for any other URL, or when neither `cwd` nor `cmd` is given.
+    /// `oneagent://run?…`. Nil for any other URL, or when neither `cwd` nor `cmd` is given.
     static func runRequest(from url: URL) -> ExternalRunRequest? {
-        guard url.scheme?.lowercased() == "ghostty" else { return nil }
+        guard url.scheme?.lowercased() == ExternalOpen.scheme else { return nil }
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
         guard (components.host ?? "").lowercased() == "run" else { return nil }
         var request = ExternalRunRequest()
@@ -134,7 +136,7 @@ enum ExternalOpen {
 
     static func runURL(for request: ExternalRunRequest) -> URL? {
         var components = URLComponents()
-        components.scheme = "ghostty"
+        components.scheme = ExternalOpen.scheme
         components.host = "run"
         var items: [URLQueryItem] = []
         if let directory = request.directory {
@@ -212,9 +214,9 @@ enum ExternalOpen {
     static func executionPrompt(for files: [String]) -> (title: String, detail: String?) {
         if files.count == 1 {
             let path = files[0]
-            return (String(localized: "Allow Ghostty to execute \"\(path)\"?"), nil)
+            return (String(localized: "Allow 1Agent to execute \"\(path)\"?"), nil)
         }
-        let title = String(localized: "Allow Ghostty to execute these \(files.count) files?")
+        let title = String(localized: "Allow 1Agent to execute these \(files.count) files?")
         return (title, files.joined(separator: "\n"))
     }
 

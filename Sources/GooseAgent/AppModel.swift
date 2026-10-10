@@ -596,7 +596,7 @@ final class AppModel: ObservableObject {
         openHosts([alias], in: window)
     }
 
-    /// `ghostty://open?…` from 1Panel. The same URL delivered twice in a short window
+    /// `oneagent://open?…` from 1Panel. The same URL delivered twice in a short window
     /// (AppDelegate and SwiftUI) is ignored. Unknown aliases are reported, not run.
     func openExternalURL(_ url: URL) {
         guard let request = ExternalOpen.request(from: url), !request.isEmpty else { return }
@@ -768,7 +768,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Finder "New Ghostty Tab/Window Here", `open` of a folder or script, and `-e` from the
+    /// Finder "New 1Agent Tab/Window Here", `open` of a folder or script, and `-e` from the
     /// command line. Waits for the saved session on a cold launch, then adds and selects.
     /// Multiple folders from "Window Here" share a workspace with independent panels;
     /// a single folder opens as a plain local terminal either way.

@@ -1,6 +1,6 @@
-# 1Agent (Ghostty) private maintenance notes
+# 1Agent private maintenance notes
 
-This repository is maintained privately by eachann1024. The macOS app is named **Ghostty** with bundle identifier `com.mitchellh.ghostty` and URL scheme `ghostty://`, so on this Mac it replaces the official Ghostty; it installs to `/Applications/Ghostty.app`, and the install script zips the official app to `~/iLearn/backups` before replacing it. Settings from the old `com.itjun.1agent` domain are copied over once at launch. `GooseAgent` remains the Swift module name; the Xcode project/target is still `1Agent`.
+This repository is maintained privately by eachann1024. The macOS app is named **1Agent** with bundle identifier `com.itjun.1agent` and URL scheme `oneagent://`. It installs to `/Applications/1Agent.app` and leaves official Ghostty (`com.mitchellh.ghostty`, `ghostty://`) in place. If `/Applications/Ghostty.app` is a previous build of this app, the install script removes it and restores the official app from `~/iLearn/backups` when that zip exists. Settings saved while this app used the Ghostty bundle id are copied back into `com.itjun.1agent` once at launch. `GooseAgent` remains the Swift module name; the Xcode project/target is still `1Agent`.
 
 ## Local build
 

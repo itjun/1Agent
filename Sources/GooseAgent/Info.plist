@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ghostty</string>
+	<string>1Agent</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -58,7 +58,7 @@
 		<string>zh-Hans</string>
 	</array>
 	<key>CFBundleName</key>
-	<string>Ghostty</string>
+	<string>1Agent</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -67,10 +67,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.mitchellh.ghostty</string>
+			<string>com.itjun.1agent</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>ghostty</string>
+				<string>oneagent</string>
 			</array>
 		</dict>
 	</array>
@@ -90,7 +90,9 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>New Ghostty Tab Here</string>
+				<string>New 1Agent Tab Here</string>
+				<key>zh-Hans</key>
+				<string>在此新建 1Agent 标签</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>openTab</string>
@@ -109,7 +111,9 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>New Ghostty Window Here</string>
+				<string>New 1Agent Window Here</string>
+				<key>zh-Hans</key>
+				<string>在此新建 1Agent 窗口</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>openWindow</string>

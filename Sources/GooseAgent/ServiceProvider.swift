@@ -1,6 +1,6 @@
 import AppKit
 
-/// Finder's Services menu: "New Ghostty Tab Here" and "New Ghostty Window Here".
+/// Finder's Services menu: "New 1Agent Tab Here" and "New 1Agent Window Here".
 /// The selectors are named by `NSMessage` in the Info.plist `NSServices` entries.
 @MainActor
 final class ServiceProvider: NSObject {

@@ -5,7 +5,7 @@
 # 证书只在登录钥匙串里首次创建一次，不需要信任设置，也不参与任何分发。
 set -euo pipefail
 
-APP="${1:?usage: local-codesign.sh path/to/Ghostty.app}"
+APP="${1:?usage: local-codesign.sh path/to/1Agent.app}"
 IDENTITY="Ghostty Local Signing"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
