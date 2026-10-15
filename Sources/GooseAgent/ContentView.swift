@@ -75,6 +75,9 @@ struct RootView: View {
         .onChange(of: window.presentation.sidebarCollapsed) { _, collapsed in
             if collapsed { sidebarRevealed = false }
         }
+        .onChange(of: panelNameFocused) { _, focused in
+            if !focused { commitPanelRename() }
+        }
 
         .task { model.reloadHosts() }
         .onAppear {
@@ -212,7 +215,10 @@ struct RootView: View {
         }
         .background(BoundsAnchor { dropRelay.sidebarAnchor = filesMode ? nil : $0 })
         .background(chrome.panelHeader)
-        .onChange(of: filesMode) { _, _ in clearSidebarDrag() }
+        .onChange(of: filesMode) { _, _ in
+            commitPanelRename()
+            clearSidebarDrag()
+        }
         .onDisappear { dropRelay.sidebarAnchor = nil }
     }
 
@@ -418,14 +424,17 @@ struct RootView: View {
     }
 
     private func renamePanel(_ row: TerminalPanelRow) {
-        panelNameDraft = panelDisplayTitle(row)
+        commitPanelRename()
+        panelNameDraft = window.panelTitles[row.panelID] ?? ""
         renamingPanelID = row.panelID
         panelNameFocused = true
     }
 
     private func commitPanelRename() {
-        if let id = renamingPanelID { model.renamePanel(id, to: panelNameDraft, in: window) }
+        guard let id = renamingPanelID else { return }
         renamingPanelID = nil
+        panelNameFocused = false
+        model.renamePanel(id, to: panelNameDraft, in: window)
     }
 
     @ViewBuilder private func panelRow(_ row: TerminalPanelRow) -> some View {
@@ -433,18 +442,19 @@ struct RootView: View {
             let selected = window.sidebarSelection.isEmpty
                 ? window.selectedTabID.map { row.leafIDs.contains($0) } ?? false
                 : !Set(row.leafIDs).isDisjoint(with: window.sidebarSelection)
-            let subtitle = tab.isLocal ? LocalTerminal.displayPath(tab.directory ?? "~")
-                : tab.alias.flatMap { model.host($0)?.sessionBadge } ?? tab.alias ?? ""
-            let sessionKind = String(localized: tab.isLocal ? "This Mac" : "Remote")
-            let labeledSubtitle = [sessionKind, subtitle].filter { !$0.isEmpty }.joined(separator: " · ")
+            let labeledSubtitle = model.sessionSubtitle(tab)
             HStack(spacing: 9) {
                 TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID), isRemote: !tab.isLocal)
                     .font(.system(size: 15)).frame(width: 20)
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
-                        TextField("Rename", text: $panelNameDraft).textFieldStyle(.plain)
+                        TextField("Rename", text: $panelNameDraft, prompt: Text(verbatim: sessionTitle(tab)))
+                            .textFieldStyle(.plain)
                             .focused($panelNameFocused).onSubmit { commitPanelRename() }
-                            .onExitCommand { renamingPanelID = nil }
+                            .onExitCommand {
+                                renamingPanelID = nil
+                                panelNameFocused = false
+                            }
                             .onAppear { panelNameFocused = true }
                     } else {
                         Text(verbatim: panelDisplayTitle(row)).font(.system(size: 14, weight: selected ? .semibold : .regular))

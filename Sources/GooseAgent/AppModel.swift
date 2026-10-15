@@ -249,6 +249,17 @@ final class AppModel: ObservableObject {
         return host(alias)?.sessionBadge ?? alias
     }
 
+    /// The session's location remains live even when its panel has a custom name.
+    func sessionSubtitle(_ tab: TerminalTab) -> String {
+        if tab.isLocal {
+            return [String(localized: "This Mac"), LocalTerminal.displayPath(tab.directory ?? "~")]
+                .joined(separator: " · ")
+        }
+        let alias = tab.alias ?? ""
+        return [String(localized: "Remote"), host(alias)?.sessionBadge ?? alias, tab.remoteDirectory ?? ""]
+            .filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
     /// The pane is drawn in the main window right now, and that window is on screen.
     func isPaneOnScreen(_ id: UUID) -> Bool {
         guard let nsWindow = MainWindowManager.shared.window(for: mainWindow),
@@ -1147,9 +1158,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// The shell reported its directory. Only a local terminal is titled by its path; a remote path
-    /// would be on another machine, so an SSH tab keeps its host title and only remembers the path
-    /// as where uploads and the file pane go.
+    /// The shell reported its directory. SSH keeps its host title while its subtitle and file
+    /// operations follow the remote path.
     func noteWorkingDirectory(_ report: String, forSession sessionID: String) {
         guard let index = tabs.firstIndex(where: { $0.sessionID == sessionID }) else { return }
         var path = report
