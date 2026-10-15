@@ -854,9 +854,16 @@ enum FileBrowserLayout {
     /// Includes the gaps on both sides, so the entire inter-folder area edits the path.
     static let pathSeparatorWidth: CGFloat = 20
     static let folderColor = Color(red: 0x4C / 255, green: 0x8D / 255, blue: 0xFF / 255)
-    /// Text preview drawer along the bottom of a column.
-    static let previewHeightShare: CGFloat = 0.5
+    /// A full-height overlay follows the source pane's physical side, including moved tabs.
+    static let previewMinimumWidth: CGFloat = 360
+    static let previewWidthShare: CGFloat = 0.5
+    static let previewScrimOpacity: Double = 0.28
     static let transferBarHeight: CGFloat = 24
+    static func previewFrame(in bounds: CGRect, source: CGRect) -> CGRect {
+        let width = min(bounds.width, max(previewMinimumWidth, bounds.width * previewWidthShare))
+        let x = source.midX <= bounds.midX ? bounds.minX : bounds.maxX - width
+        return CGRect(x: x, y: bounds.minY, width: width, height: bounds.height)
+    }
     static let transferRowHeight: CGFloat = 48
     static let transferListMaxHeight: CGFloat = 144
     static let previewByteLimit = 512 * 1024

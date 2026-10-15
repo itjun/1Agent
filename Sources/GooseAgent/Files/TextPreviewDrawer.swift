@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// One independent, read-only preview below both file columns.
+/// A read-only preview in a full-height drawer beside its source file column.
 struct TextPreviewDrawer: View {
     @ObservedObject var column: FileColumn
+    var onClose: (() -> Void)? = nil
     @Environment(\.windowChrome) private var chrome
     @State private var converting = false
     @State private var convertError: String?
@@ -24,6 +25,7 @@ struct TextPreviewDrawer: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(showingFormat ? chrome.panelHeader : chrome.background)
+            .onExitCommand(perform: close)
             .onChange(of: preview.entry.path) { _, _ in
                 convertError = nil
                 backupPath = nil
@@ -31,6 +33,10 @@ struct TextPreviewDrawer: View {
             }
 
         }
+    }
+
+    private func close() {
+        if let onClose { onClose() } else { column.preview = nil }
     }
 
     private func header(_ preview: FileColumn.Preview) -> some View {
@@ -45,8 +51,10 @@ struct TextPreviewDrawer: View {
                 Button { findRequest += 1 } label: { Image(systemName: "magnifyingglass") }
                     .help("Find in Preview")
             }
-            Button { column.preview = nil } label: { Image(systemName: "xmark") }
+            Button(action: close) { Image(systemName: "xmark") }
                 .help("Close Preview").accessibilityLabel(Text("Close Preview"))
+                .accessibilityIdentifier("files.preview.close")
+                .keyboardShortcut(.cancelAction)
         }
         .buttonStyle(FamilyButtonStyle())
         .foregroundStyle(chrome.text)

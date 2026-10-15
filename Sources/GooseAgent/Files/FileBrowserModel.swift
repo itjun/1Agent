@@ -459,7 +459,12 @@ final class FileWorkspace: ObservableObject {
     var activeHost: String? { remoteColumn?.fileSystem.host }
     var selectedPreviewColumn: FileColumn? {
         if let focusedColumn, focusedColumn.preview != nil { return focusedColumn }
-        return [remoteColumn, localColumn].compactMap { $0 }.first { $0.preview != nil }
+        return openColumns.first { $0.preview != nil }
+    }
+
+    /// The workspace presents one modal preview at a time, including restored previews.
+    func dismissPreview() {
+        for column in allTabs where column.preview != nil { column.preview = nil }
     }
 
     func browseRemote(host: String, at path: String? = nil) { openRemote(host: host, at: path) }
@@ -792,6 +797,10 @@ final class FileWorkspace: ObservableObject {
     /// A folder opens in place; any file opens in the preview drawer, as text when it can be read
     /// as text, otherwise as Quick Look.
     func open(_ entry: FileEntry, in column: FileColumn, window: NSWindow?) {
+        focus(column)
+        if !entry.isDirectory {
+            for other in allTabs where other !== column && other.preview != nil { other.preview = nil }
+        }
         if entry.isDirectory {
             column.open(entry.path)
         } else if TextFile.isTextName(entry.name) {

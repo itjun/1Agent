@@ -17,6 +17,7 @@ struct FilesDockView: View {
     @ObservedObject var workspace: FileWorkspace
     var relay: CanvasDropRelay
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(model: AppModel, window: WindowState, relay: CanvasDropRelay) {
         self.model = model
@@ -27,25 +28,48 @@ struct FilesDockView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    FilePairGrid(workspace: workspace, model: model, window: window, relay: relay)
-                        .padding(Theme.Space.s)
-                    if let column = workspace.selectedPreviewColumn {
-                        Divider()
-                        TextPreviewDrawer(column: column)
-                            .id(column.id)
-                            .frame(height: min(300, max(160, geometry.size.height * 0.36)))
-                    }
-                }
-            }
+            FilePairGrid(workspace: workspace, model: model, window: window, relay: relay)
+                .padding(Theme.Space.s)
             FileTransferQueueView()
         }
         .background(chrome.background)
+        .allowsHitTesting(workspace.selectedPreviewColumn == nil)
+        .accessibilityHidden(workspace.selectedPreviewColumn != nil)
+        .overlay { previewOverlay }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: workspace.selectedPreviewColumn?.id)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("workspace.files.content")
         .simultaneousGesture(TapGesture().onEnded { model.focusFiles(in: window) })
         .onDisappear { relay.filesSideAnchors.removeAll() }
+    }
+
+    @ViewBuilder private var previewOverlay: some View {
+        if let column = workspace.selectedPreviewColumn {
+            GeometryReader { geometry in
+                let bounds = CGRect(origin: .zero, size: geometry.size)
+                let frames = PaneLayout.frames(of: workspace.layout, in: bounds)
+                let source = workspace.groupID(of: column).flatMap { frames[$0] } ?? bounds
+                let frame = FileBrowserLayout.previewFrame(in: bounds, source: source)
+                let leading = frame.minX == bounds.minX
+                ZStack(alignment: .topLeading) {
+                    Color.black.opacity(FileBrowserLayout.previewScrimOpacity)
+                        .contentShape(Rectangle())
+                        .onTapGesture { workspace.dismissPreview() }
+                        .accessibilityHidden(true)
+                    TextPreviewDrawer(column: column, onClose: { workspace.dismissPreview() })
+                        .id(column.id)
+                        .frame(width: frame.width, height: frame.height)
+                        .overlay(alignment: leading ? .trailing : .leading) {
+                            Rectangle().fill(chrome.hairline).frame(width: 1)
+                        }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier(leading ? "files.preview.left" : "files.preview.right")
+                        .offset(x: frame.minX)
+                        .transition(.move(edge: leading ? .leading : .trailing).combined(with: .opacity))
+                }
+            }
+            .clipped()
+        }
     }
 }
 
