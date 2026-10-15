@@ -6,10 +6,7 @@ actor SSHLaunchEnvironment {
     static let shared = SSHLaunchEnvironment()
     func get() -> [String] { [] }
 }
-enum SheetLayout {
-    static let uploadCheckListWidth: CGFloat = 600
-    static let uploadCheckListMaxHeight: CGFloat = 360
-}
+
 
 @main
 struct UploadCheckTests {

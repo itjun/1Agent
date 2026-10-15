@@ -419,7 +419,7 @@ struct TerminalSwitcherView: View {
             }
             let height = min(max(100, proxy.size.height - 176), max(130, CGFloat(rows) * (grid.cardHeight + 14) + CGFloat(sections.count) * 34))
             ZStack {
-                Color.black.opacity(0.12)
+                Color.black.opacity(0.6)
                 VStack(spacing: 12) {
                     HStack {
                         Text("Open Items Overview").font(Theme.Font.body.weight(.semibold))
@@ -429,9 +429,8 @@ struct TerminalSwitcherView: View {
                             .buttonStyle(.plain).accessibilityLabel(Text("Close"))
                     }
                     SwitcherSearchField(switcher: switcher).frame(height: 30)
-                    Picker("Content Type", selection: $switcher.scope) {
-                        ForEach(SwitcherScope.allCases, id: \.self) { scope in Text(verbatim: scope.title).tag(scope) }
-                    }.pickerStyle(.segmented).frame(maxWidth: 300, alignment: .leading)
+                    FamilySegments(value: $switcher.scope, options: SwitcherScope.allCases.map { ($0, $0.title) })
+                        .accessibilityLabel(Text("Content Type")).frame(maxWidth: 300, alignment: .leading)
                     ScrollViewReader { reader in
                         ScrollView {
                             if sections.isEmpty {

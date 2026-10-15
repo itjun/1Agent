@@ -8,6 +8,7 @@ struct PinnedLocationsSidebar: View {
     @ObservedObject private var locations = PinnedLocations.shared
     @Environment(\.windowChrome) private var chrome
     @State private var editing = false
+    @State private var choosingFolders = false
     @State private var dropTargeted = false
     @State private var dropError = false
     @State private var dropBefore: UUID?
@@ -71,6 +72,13 @@ struct PinnedLocationsSidebar: View {
             internalType: Self.dragType, targeted: { dropTargeted = $0 }, perform: { receive($0, before: nil) }))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("locations.list")
+        .familySheet(isPresented: $choosingFolders, width: SheetLayout.folderPicker, height: SheetLayout.sessionBodyHeight) {
+            FamilyFolderPicker(initialDirectory: workspace.localColumn.directory, onCancel: { choosingFolders = false }) { urls in
+                locations.add(urls)
+                dropError = false
+                choosingFolders = false
+            }
+        }
     }
 
     private func title(_ item: PinnedLocation) -> String {
@@ -80,18 +88,7 @@ struct PinnedLocationsSidebar: View {
         return (item.path as NSString).lastPathComponent
     }
 
-    private func chooseFolders() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.prompt = String(localized: "Pin Folder")
-        panel.directoryURL = URL(fileURLWithPath: workspace.localColumn.directory)
-        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
-        panel.beginSheetModal(for: window) { response in
-            if response == .OK { locations.add(panel.urls); dropError = false }
-        }
-    }
+    private func chooseFolders() { choosingFolders = true }
 
     private func receive(_ providers: [NSItemProvider], before target: UUID?) -> Bool {
         dropTargeted = false

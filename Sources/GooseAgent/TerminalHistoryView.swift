@@ -8,8 +8,9 @@ final class TerminalHistoryView: NSView {
     private let snapshot: TerminalHistorySnapshot
     private let textView = NSTextView()
     private let scroll = NSScrollView()
-    private let picker = NSSegmentedControl()
-    private let compactPicker = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let picker = NSHostingView(rootView: AnyView(EmptyView()))
+    private let compactPicker = NSHostingView(rootView: AnyView(EmptyView()))
+    private var selectedSection = 0
     private let controls = NSStackView()
     var onContinue: (() -> Void)?
     var onClose: (() -> Void)?
@@ -25,21 +26,8 @@ final class TerminalHistoryView: NSView {
         title.maximumNumberOfLines = 1
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.toolTip = String(localized: "A new session is running. Previous programs and terminal modes are not restored.")
-        picker.segmentCount = 2
-        picker.setLabel(String(localized: "Last Screen"), forSegment: 0)
-        picker.setLabel(String(localized: "Text History"), forSegment: 1)
-        // Always reopen the exact saved viewport. Text History reveals its location in
-        // the larger archive, while a former TUI remains explicitly read-only.
-        picker.selectedSegment = 0
-        picker.target = self; picker.action = #selector(changeSection)
-        picker.controlSize = .small
-        compactPicker.addItems(withTitles: [String(localized: "Last Screen"), String(localized: "Text History")])
-        compactPicker.target = self; compactPicker.action = #selector(changeCompactSection)
-        compactPicker.controlSize = .small
         compactPicker.isHidden = true
-        let button = NSButton(title: String(localized: "Enter New Session"), target: self, action: #selector(continueSession))
-        button.bezelStyle = .rounded
-        button.controlSize = .small
+        let button = FamilyNativeButton(title: String(localized: "Enter New Session"), target: self, action: #selector(continueSession))
         controls.setViews([title, picker, compactPicker] + (showsContinue ? [button] : []), in: .leading)
         if !showsContinue {
             let close = NSButton(image: NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close History"))!,
@@ -106,6 +94,7 @@ final class TerminalHistoryView: NSView {
         let chrome = WindowChrome.resolve(isDark: appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
         layer?.backgroundColor = NSColor(chrome.background).cgColor
         controls.appearance = appearance
+        updatePickers(chrome: chrome)
         controls.wantsLayer = true
         controls.layer?.backgroundColor = NSColor(chrome.sidebarBackground).cgColor
         for label in controls.arrangedSubviews.compactMap({ $0 as? NSTextField }) {
@@ -135,20 +124,25 @@ final class TerminalHistoryView: NSView {
         controls.alignment = narrow ? .leading : .centerY
     }
 
-    @objc private func changeCompactSection() {
-        picker.selectedSegment = compactPicker.indexOfSelectedItem
-        changeSection()
+    private func updatePickers(chrome: WindowChrome) {
+        let binding = Binding(get: { [weak self] in self?.selectedSection ?? 0 }, set: { [weak self] value in
+            self?.selectedSection = value
+            self?.changeSection()
+        })
+        let options = [(0, String(localized: "Last Screen")), (1, String(localized: "Text History"))]
+        picker.rootView = AnyView(FamilySegments(value: binding, options: options).environment(\.windowChrome, chrome).frame(width: 224, height: 32))
+        compactPicker.rootView = AnyView(FamilyPicker(value: binding, options: options).environment(\.windowChrome, chrome).frame(width: 140, height: 32))
     }
 
     @objc private func changeSection() {
-        compactPicker.selectItem(at: picker.selectedSegment)
-        textView.string = picker.selectedSegment == 0 ? snapshot.lastScreenText : snapshot.mainText
+        textView.string = selectedSection == 0 ? snapshot.lastScreenText : snapshot.mainText
         textView.sizeToFit()
+        applyFamilyAppearance()
         DispatchQueue.main.async { [weak self] in self?.restoreScroll() }
     }
 
     private func restoreScroll() {
-        guard picker.selectedSegment == 1 else { scroll.contentView.scroll(to: .zero); return }
+        guard selectedSection == 1 else { scroll.contentView.scroll(to: .zero); return }
         let text = textView.string as NSString
         var position = 0
         for _ in 0..<snapshot.mainViewportTop {

@@ -90,7 +90,7 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
-        .sheet(isPresented: $window.hostPickerPresented) {
+        .familySheet(isPresented: $window.hostPickerPresented, width: SheetLayout.search, height: SheetLayout.sessionBodyHeight) {
             HostPicker(model: model, window: window)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
                 .environment(\.windowChrome, chrome)
@@ -294,26 +294,26 @@ struct RootView: View {
         Button("New Workspace") { model.createAreaFromSidebar(selectedIDs, in: window) }
             .disabled(!model.sidebarCanCreateArea(selectedIDs))
         moveSelectionMenu
-        Menu("Merge Panels") { mergeSelectionItems }
+        FamilyMenu("Merge Panels") { mergeSelectionItems }
     }
 
     private var moveSelectionMenu: some View {
-        Menu("Move to Workspace") {
-            ForEach(model.workspaces.filter { $0.isGrouped && window.blocks.contains(.workspace($0.id)) }) { workspace in
-                Button(workspaceTitle(workspace)) {
+        FamilyMenu("Move to Workspace") {
+            model.workspaces.filter { $0.isGrouped && window.blocks.contains(.workspace($0.id)) }.map { workspace in
+                FamilyMenuItem(title: workspaceTitle(workspace), action: {
                     model.joinWorkspace(selectedIDs, workspace.id, beside: nil, after: true)
-                }
+                })
             }
         }
         .disabled(!model.workspaces.contains { window.blocks.contains(.workspace($0.id)) })
     }
 
-    @ViewBuilder private var mergeSelectionItems: some View {
-        ForEach(WorkspaceBoard.availableLayouts(paneCount: selectedIDs.count), id: \.self) { layout in
-            Button(workspaceLayoutTitle(layout)) {
+    private var mergeSelectionItems: [FamilyMenuItem] {
+        WorkspaceBoard.availableLayouts(paneCount: selectedIDs.count).map { layout in
+            FamilyMenuItem(title: workspaceLayoutTitle(layout), action: {
                 guard let target = window.selectedTabID.flatMap({ selectedIDs.contains($0) ? $0 : nil }) ?? selectedIDs.first else { return }
                 model.mergeSidebar(selectedIDs, onto: target, as: layout, in: window)
-            }
+            })
         }
     }
 
@@ -800,23 +800,6 @@ struct TerminalEmptyState: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(chrome.background)
     }
-}
-
-enum SheetLayout {
-    static let search: CGFloat = 520
-    static let sessionBodyHeight: CGFloat = 580
-    static let settings: CGFloat = 880
-    static let settingsBodyHeight: CGFloat = 720
-    /// Preview of what "Import from Ghostty" would change, shown over Settings.
-    static let importPreview: CGFloat = 680
-    static let importPreviewBodyHeight: CGFloat = 600
-    /// Search field at the top of the host picker.
-    static let searchFieldHeight: CGFloat = 32
-    /// One host (or the local terminal) row in the host picker.
-    static let pickerRowHeight: CGFloat = 36
-    /// File list in the "convert to UTF-8 + LF before upload" alert.
-    static let uploadCheckListWidth: CGFloat = 460
-    static let uploadCheckListMaxHeight: CGFloat = 240
 }
 
 /// Geometry of the file pane, after 1Panel's SFTP page.

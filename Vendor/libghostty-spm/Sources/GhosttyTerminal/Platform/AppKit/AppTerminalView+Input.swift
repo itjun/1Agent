@@ -265,8 +265,7 @@
         }
 
         private func showSelectionCopyMenu(with event: NSEvent) {
-            let menu = selectionContextMenu()
-            NSMenu.popUpContextMenu(menu, with: event, for: self)
+            showSelectionContextMenu(with: event)
         }
 
         private func keyIsBinding(

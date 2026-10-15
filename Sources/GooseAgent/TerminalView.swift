@@ -893,15 +893,18 @@ final class SSHTerminalNSView: AppTerminalView {
             super.rightMouseUp(with: event)
             return
         }
-        NSMenu.popUpContextMenu(contextMenu(), with: event, for: self)
+        FamilyMenuPresenter.shared.show(contextMenu(), with: event, for: self)
     }
 
     /// ⌃-click asks here before any mouse event; a program that reads the mouse keeps that click.
-    override func menu(for _: NSEvent) -> NSMenu? {
-        if isMouseCaptured {
-            return nil
-        }
-        return contextMenu()
+    override func menu(for event: NSEvent) -> NSMenu? {
+        if isMouseCaptured { return nil }
+        FamilyMenuPresenter.shared.show(contextMenu(), with: event, for: self)
+        return nil
+    }
+
+    override func showSelectionContextMenu(with event: NSEvent) {
+        FamilyMenuPresenter.shared.show(contextMenu(), with: event, for: self)
     }
 
     /// The engine shows this for a right-click over a selection while a program reads the mouse.
@@ -1071,7 +1074,7 @@ final class SSHTerminalNSView: AppTerminalView {
             request.respond(allow: false)
             return
         }
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.alertStyle = .warning
         alert.messageText = String(localized: "Paste text that may run commands?")
         alert.informativeText = String(

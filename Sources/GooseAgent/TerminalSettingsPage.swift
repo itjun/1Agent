@@ -78,7 +78,7 @@ struct SettingsSlider: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
-            Slider(value: snappedValue, in: range) { editing in
+            FamilySlider(value: snappedValue, range: range) { editing in
                 isDragging = editing
                 if !editing {
                     onCommit()
@@ -100,7 +100,7 @@ struct SettingsSwitch: View {
     var body: some View {
         Toggle("", isOn: $isOn)
             .labelsHidden()
-            .toggleStyle(.switch)
+            .toggleStyle(FamilyToggleStyle())
             .controlSize(.small)
     }
 }
@@ -210,14 +210,10 @@ struct TerminalSettingsPage: View {
         SettingsCard("Cursor") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
                 SettingsRow("Style", detail: "Shape of the cursor. Some programs, such as vim, set their own.", ghosttyKey: "cursor-style") {
-                    Picker("", selection: $cursorStyle.applyingTerminalSettings()) {
-                        Text("Block").tag(TerminalSettings.CursorStyle.block)
-                        Text("Bar").tag(TerminalSettings.CursorStyle.bar)
-                        Text("Underline").tag(TerminalSettings.CursorStyle.underline)
-                        Text("Hollow Block").tag(TerminalSettings.CursorStyle.blockHollow)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
+                    FamilySegments(value: $cursorStyle.applyingTerminalSettings(), options: [
+                        (.block, String(localized: "Block")), (.bar, String(localized: "Bar")),
+                        (.underline, String(localized: "Underline")), (.blockHollow, String(localized: "Hollow Block"))
+                    ])
                     .frame(width: SettingsLayout.rowControlWidth)
                 }
                 SettingsRow("Blink", detail: "Blink the cursor while the terminal has focus.", ghosttyKey: "cursor-style-blink") {
@@ -267,12 +263,12 @@ struct TerminalSettingsPage: View {
         return choices
     }
 
-    private static func copyOnSelectTitle(_ mode: TerminalSettings.CopyOnSelect) -> LocalizedStringKey {
+    private static func copyOnSelectTitle(_ mode: TerminalSettings.CopyOnSelect) -> String {
         switch mode {
-        case .none: "Off"
-        case .clipboard: "Copy to Clipboard"
-        case .primary: "Selection Clipboard Only (no effect on macOS)"
-        case .both: "Clipboard and Selection Clipboard"
+        case .none: String(localized: "Off")
+        case .clipboard: String(localized: "Copy to Clipboard")
+        case .primary: String(localized: "Selection Clipboard Only (no effect on macOS)")
+        case .both: String(localized: "Clipboard and Selection Clipboard")
         }
     }
 
@@ -280,14 +276,9 @@ struct TerminalSettingsPage: View {
         SettingsCard("Mouse and Clipboard") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
                 SettingsRow("Copy on Select", detail: "Copy text to the clipboard as soon as it is selected.", ghosttyKey: "copy-on-select") {
-                    Picker("", selection: $copyOnSelect.applyingTerminalSettings()) {
-                        ForEach(copyOnSelectChoices, id: \.self) { mode in
-                            Text(TerminalSettingsPage.copyOnSelectTitle(mode)).tag(mode)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(width: SettingsLayout.rowControlWidth, alignment: .trailing)
+                    FamilyPicker(value: $copyOnSelect.applyingTerminalSettings(), options: copyOnSelectChoices.map { ($0, TerminalSettingsPage.copyOnSelectTitle($0)) })
+                        .accessibilityLabel(Text("Copy on Select"))
+                        .frame(width: SettingsLayout.rowControlWidth, alignment: .trailing)
                 }
                 SettingsRow("Paste Protection", detail: "Ask before pasting text with line breaks or other content that could run commands.", ghosttyKey: "clipboard-paste-protection") {
                     SettingsSwitch(isOn: $pasteProtection.applyingTerminalSettings())
@@ -307,14 +298,10 @@ struct TerminalSettingsPage: View {
     private var keyboardCard: some View {
         SettingsCard("Keyboard") {
             SettingsRow("Option as Alt", detail: "When on, Option combinations reach programs as Alt (Emacs, word jumps in the shell). When off, Option types special characters.", ghosttyKey: "macos-option-as-alt") {
-                Picker("", selection: $optionAsAlt.applyingTerminalSettings()) {
-                    Text("Off").tag(TerminalSettings.OptionAsAlt.off)
-                    Text("Both Sides").tag(TerminalSettings.OptionAsAlt.on)
-                    Text("Left Only").tag(TerminalSettings.OptionAsAlt.left)
-                    Text("Right Only").tag(TerminalSettings.OptionAsAlt.right)
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
+                FamilySegments(value: $optionAsAlt.applyingTerminalSettings(), options: [
+                    (.off, String(localized: "Off")), (.on, String(localized: "Both Sides")),
+                    (.left, String(localized: "Left Only")), (.right, String(localized: "Right Only"))
+                ])
                 .frame(width: SettingsLayout.rowControlWidth)
             }
         }
@@ -366,15 +353,15 @@ struct TerminalSettingsPage: View {
 
     // MARK: Shell integration
 
-    private static func shellIntegrationTitle(_ mode: TerminalSettings.ShellIntegration) -> LocalizedStringKey {
+    private static func shellIntegrationTitle(_ mode: TerminalSettings.ShellIntegration) -> String {
         switch mode {
-        case .detect: "Detect Automatically"
-        case .none: "Off"
-        case .zsh: "zsh"
-        case .bash: "bash"
-        case .fish: "fish"
-        case .elvish: "elvish"
-        case .nushell: "nushell"
+        case .detect: String(localized: "Detect Automatically")
+        case .none: String(localized: "Off")
+        case .zsh: String(localized: "zsh")
+        case .bash: String(localized: "bash")
+        case .fish: String(localized: "fish")
+        case .elvish: String(localized: "elvish")
+        case .nushell: String(localized: "nushell")
         }
     }
 
@@ -410,14 +397,9 @@ struct TerminalSettingsPage: View {
         SettingsCard("Shell Integration") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
                 SettingsRow("Integration", detail: "Applies to local terminals; SSH sessions are not affected.", ghosttyKey: "shell-integration") {
-                    Picker("", selection: $shellIntegration.applyingTerminalSettings()) {
-                        ForEach(TerminalSettingsPage.shellIntegrationChoices, id: \.self) { mode in
-                            Text(TerminalSettingsPage.shellIntegrationTitle(mode)).tag(mode)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(width: SettingsLayout.rowControlWidth, alignment: .trailing)
+                    FamilyPicker(value: $shellIntegration.applyingTerminalSettings(), options: TerminalSettingsPage.shellIntegrationChoices.map { ($0, TerminalSettingsPage.shellIntegrationTitle($0)) })
+                        .accessibilityLabel(Text("Integration"))
+                        .frame(width: SettingsLayout.rowControlWidth, alignment: .trailing)
                 }
                 SettingsRow("Features", detail: "What the integration does in the shell.", ghosttyKey: "shell-integration-features") {
                     EmptyView()
@@ -451,7 +433,7 @@ struct TerminalSettingsPage: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .toggleStyle(.checkbox)
+        .toggleStyle(FamilyToggleStyle(checkbox: true))
     }
 
     /// One feature of a stored comma list as a checkbox; each change applies at once.

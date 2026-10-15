@@ -817,7 +817,7 @@ final class AppModel: ObservableObject {
     }
 
     private func reportUnknownHosts(_ aliases: [String]) {
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.messageText = String(localized: "Some hosts are not in your SSH config")
         alert.informativeText = String(
             format: String(localized: "Not opened: %@. Add them to ~/.ssh/config (or config.d) first."),
@@ -917,7 +917,7 @@ final class AppModel: ObservableObject {
     }
 
     private func reportInvalidDirectory(_ path: String) {
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.messageText = String(localized: "Cannot open this directory")
         alert.informativeText = path
         alert.alertStyle = .warning
@@ -1015,7 +1015,7 @@ final class AppModel: ObservableObject {
     /// Allow is the default button, as in Ghostty.
     private func confirmExecution(of files: [String]) -> Bool {
         let prompt = ExternalOpen.executionPrompt(for: files)
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.messageText = prompt.title
         if let detail = prompt.detail {
             alert.informativeText = detail

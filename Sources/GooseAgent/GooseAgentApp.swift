@@ -129,6 +129,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Close Terminal closes the selected terminal so the window stays open. Ctrl+D is left for the shell.
     /// Everything acts on the key window.
     private func handleShortcut(_ event: NSEvent) -> NSEvent? {
+        // A transient menu owns navigation and its commands before app-wide shortcuts.
+        if !FamilyMenuPresenter.shared.panels.isEmpty, FamilyMenuPresenter.shared.handleKey(event) { return nil }
+        if let modal = NSApp.keyWindow as? FamilyModalWindow {
+            if let chord = KeyChord.from(event: event) {
+                if chord == AppShortcuts.chord(for: .closeTab) { modal.cancelOperation(nil); return nil }
+                if AppShortcutID.allCases.contains(where: { $0.group != .terminal && AppShortcuts.chord(for: $0) == chord }) { return nil }
+            }
+            return event
+        }
         // The Settings recorder swallows the key in its own monitor, which may run after this one.
         if ShortcutRecorder.isRecording {
             return event
@@ -516,17 +525,19 @@ struct GooseAgentApp: App {
         .commands {
             let _ = shortcutsRevision
             CommandGroup(replacing: .newItem) {
-                Button("New Terminal") { appDelegate.model.newTab() }
+                Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.newTab() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
-                Button("New Local Terminal") { appDelegate.model.openLocalTerminal() }
+                Button("New Local Terminal") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.openLocalTerminal() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .newLocalTerminal).keyboardShortcut)
                 Button("Open Host…") {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     appDelegate.model.openHostPicker(purpose: appDelegate.model.keyWindow?.presentation.filesVisible == true ? .files : .terminal)
                 }
                     .keyboardShortcut(AppShortcuts.chord(for: .openHost).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
                 Button("Open Items Overview") {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     guard let window = appDelegate.model.keyWindow else { return }
                     DispatchQueue.main.async {
                         TerminalSwitcher.shared.open(model: appDelegate.model, window: window,
@@ -534,12 +545,13 @@ struct GooseAgentApp: App {
                     }
                 }
                 Button("Toggle Full Screen") {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     AppDelegate.toggleFullScreenOfKeyWindow()
                 }
                 .keyboardShortcut(AppShortcuts.chord(for: .toggleFullScreen).keyboardShortcut)
             }
             CommandGroup(replacing: .appSettings) {
-                Button("Settings") { appDelegate.model.toggleSettings() }
+                Button("Settings") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.toggleSettings() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .settings).keyboardShortcut)
             }
             TerminalCommands(focus: FocusedTerminal.shared, model: appDelegate.model) {

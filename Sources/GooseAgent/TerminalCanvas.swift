@@ -383,21 +383,22 @@ struct TerminalCanvas: View {
     }
 
     private func paneActions(_ tab: TerminalTab) -> some View {
-        Menu {
-            Button("Duplicate Right") { model.duplicate(tab.id, edge: .right) }
-            Button("Duplicate Down") { model.duplicate(tab.id, edge: .bottom) }
-            Button("Separate into Independent Panels") { model.splitSidebar([tab.id], in: window) }
-                .disabled(!model.sidebarSplits([tab.id]))
-            Button("Toggle Split Zoom") {
-                model.selectOnly(tab.id, in: window)
-                model.toggleSplitZoom(in: window)
-            }.disabled(!model.sidebarSplits([tab.id]))
-        } label: {
+        FamilyMenu(items: {
+            [
+                FamilyMenuItem(title: String(localized: "Duplicate Right"), action: { model.duplicate(tab.id, edge: .right) }),
+                FamilyMenuItem(title: String(localized: "Duplicate Down"), action: { model.duplicate(tab.id, edge: .bottom) }),
+                FamilyMenuItem(title: String(localized: "Separate into Independent Panels"), enabled: model.sidebarSplits([tab.id]), action: {
+                    model.splitSidebar([tab.id], in: window)
+                }),
+                FamilyMenuItem(title: String(localized: "Toggle Split Zoom"), enabled: model.sidebarSplits([tab.id]), action: {
+                    model.selectOnly(tab.id, in: window)
+                    model.toggleSplitZoom(in: window)
+                }),
+            ]
+        }) {
             Image(systemName: "ellipsis")
                 .frame(width: Theme.PaneStyle.headerButtonSize, height: Theme.PaneStyle.headerButtonSize)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel(Text("Pane Actions"))
     }

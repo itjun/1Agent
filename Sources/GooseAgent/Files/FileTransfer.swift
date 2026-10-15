@@ -14,7 +14,7 @@ enum FileTransfer {
     @MainActor
     static func askAboutConflicts(_ names: Set<String>, in window: NSWindow?) async -> ConflictChoice? {
         guard !names.isEmpty else { return .rename }
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.alertStyle = .warning
         let list = names.sorted().prefix(5).joined(separator: "、")
         alert.messageText = names.count == 1
@@ -24,7 +24,7 @@ enum FileTransfer {
             ? String(localized: "Keep both copies, or replace the existing item?")
             : String(format: String(localized: "%@. Keep both copies, or replace the existing items?"), list)
         alert.addButton(withTitle: String(localized: "Keep Both"))
-        alert.addButton(withTitle: String(localized: "Replace"))
+        alert.addButton(withTitle: String(localized: "Replace")).hasDestructiveAction = true
         alert.addButton(withTitle: String(localized: "Cancel"))
         let response = if let window { await alert.beginSheetModal(for: window) } else { alert.runModal() }
         switch response {

@@ -135,14 +135,23 @@ struct ShortcutsSettingsPage: View {
         .onDisappear {
             recorder.stop()
         }
-        .alert("Restore all shortcuts to their defaults?", isPresented: $confirmsResetAll) {
-            Button("Restore Defaults", role: .destructive) {
-                AppShortcuts.resetAll()
-                clearNotices()
+        .onChange(of: confirmsResetAll) { _, presented in
+            guard presented else { return }
+            let alert = FamilyAlert()
+            alert.alertStyle = .critical
+            alert.messageText = String(localized: "Restore all shortcuts to their defaults?")
+            alert.informativeText = String(localized: "Every shortcut you changed or cleared goes back to its default.")
+            alert.addButton(withTitle: String(localized: "Restore Defaults"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            let handle: (NSApplication.ModalResponse) -> Void = { response in
+                confirmsResetAll = false
+                if response == .alertFirstButtonReturn {
+                    AppShortcuts.resetAll()
+                    clearNotices()
+                }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Every shortcut you changed or cleared goes back to its default.")
+            if let window = NSApp.keyWindow { alert.beginSheetModal(for: window, completionHandler: handle) }
+            else { handle(alert.runModal()) }
         }
     }
 

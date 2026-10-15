@@ -339,14 +339,9 @@ struct SettingsView: View {
                         .font(Theme.Font.body)
                         .foregroundStyle(chrome.text)
                         .frame(width: 56, alignment: .leading)
-                    Picker("", selection: $fontFamily) {
-                        ForEach(fontFamilies, id: \.self) { name in
-                            Text(name).tag(name)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    FamilyPicker(value: $fontFamily, options: fontFamilies.map { ($0, $0) })
+                        .accessibilityLabel(Text("Font"))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 HStack(spacing: Theme.Space.m) {
@@ -354,9 +349,9 @@ struct SettingsView: View {
                         .font(Theme.Font.body)
                         .foregroundStyle(chrome.text)
                         .frame(width: 56, alignment: .leading)
-                    Slider(
+                    FamilySlider(
                         value: $fontSize,
-                        in: TerminalDefaults.minFontSize...TerminalDefaults.maxFontSize,
+                        range: TerminalDefaults.minFontSize...TerminalDefaults.maxFontSize,
                         step: 1
                     )
                     Text(String(format: String(localized: "%lld px"), Int(fontSize.rounded())))
@@ -440,8 +435,7 @@ struct SettingsView: View {
             Text(String(format: String(localized: "%lld pt"), value.wrappedValue))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(chrome.secondary)
-            Stepper("", value: value.applyingTerminalSettings(), in: TerminalSettings.paddingRange)
-                .labelsHidden()
+            FamilyNumberInput(value: value.applyingTerminalSettings(), range: TerminalSettings.paddingRange)
         }
     }
 

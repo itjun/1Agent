@@ -1003,7 +1003,7 @@ final class TabDragHandleView: NSView {
         if let prepareContextMenu {
             let actions = prepareContextMenu()
             contextMenuActions = actions
-            NSMenu.popUpContextMenu(sidebarMenu(for: actions), with: event, for: self)
+            FamilyMenuPresenter.shared.show(sidebarMenu(for: actions), with: event, for: self)
             restoreWindowMovementIfPointerLeft()
             return
         }
@@ -1013,7 +1013,7 @@ final class TabDragHandleView: NSView {
         }
         let menu = NSMenu()
         menu.addItem(TerminalCloseMenu.item(action: #selector(closeFromMenu(_:)), target: self))
-        NSMenu.popUpContextMenu(menu, with: event, for: self)
+        FamilyMenuPresenter.shared.show(menu, with: event, for: self)
     }
 
     private func sidebarMenu(for actions: TabContextMenu) -> NSMenu {

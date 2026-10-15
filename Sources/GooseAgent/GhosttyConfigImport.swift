@@ -160,7 +160,7 @@ enum GhosttyConfigImport {
         if files.isEmpty {
             return
         }
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.messageText = String(localized: "Found a Ghostty config file. Import its font, theme and other settings?")
         var paths: [String] = []
         for url in files {

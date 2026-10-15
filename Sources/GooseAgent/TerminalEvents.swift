@@ -101,7 +101,7 @@ enum TerminalLinks {
             NSWorkspace.shared.open(url)
             return
         }
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.alertStyle = .warning
         alert.messageText = String(localized: "Open this link?")
         alert.informativeText = String(

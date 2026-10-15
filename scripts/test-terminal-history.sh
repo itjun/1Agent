@@ -16,6 +16,13 @@ if [[ ! -d "$history_sdk" ]]; then history_sdk="$(xcrun --sdk macosx --show-sdk-
   "$history_root/Sources/GooseAgent/TerminalHistory.swift" \
   "$history_root/Sources/GooseAgent/TerminalHistoryView.swift" \
   "$history_root/Sources/GooseAgent/Theme.swift" \
+  "$history_root/Sources/GooseAgent/FocusRing.swift" \
+  "$history_root/Sources/GooseAgent/SheetLayout.swift" \
+  "$history_root/Sources/GooseAgent/FamilyModal.swift" \
+  "$history_root/Sources/GooseAgent/FamilyAlert.swift" \
+  "$history_root/Sources/GooseAgent/FamilyControls.swift" \
+  "$history_root/Sources/GooseAgent/FamilyMenu.swift" \
+  "$history_root/Sources/GooseAgent/FamilyMenuControls.swift" \
   "$history_root/Tests/TerminalHistoryViewTests.swift"
 "$history_temp/view-test"
 history_products="${ONEAGENT_HISTORY_PRODUCTS:-$history_root/build/DerivedData.noindex/Build/Products/Debug}"

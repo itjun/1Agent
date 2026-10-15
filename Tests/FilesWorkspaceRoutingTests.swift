@@ -95,6 +95,7 @@ private struct FilesWorkspaceRoutingTests {
         try require(labels.contains(String(localized: "Terminal")) && labels.contains(String(localized: "Files")),
                     "The real SwiftUI toolbar must be reachable through the fixture's accessibility tree")
         try verifySingleFilesEntry(chromeWindow, visible: false)
+        try await verifyFamilyFolderPicker(window: chromeWindow, home: home)
         for layout in [FileWorkspaceLayout.belowTerminal, .sideBySide, .belowTerminal] {
             model.selectFilesLayout(layout, in: state)
             try await settle()
@@ -430,15 +431,18 @@ private struct FilesWorkspaceRoutingTests {
         model.closeTab(created.id)
         model.selectFilesLayout(.sideBySide, in: state)
         native.requestClose()
-        try await eventually("file tab close confirmation") { window.attachedSheet != nil }
+        try await eventually("file tab close confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
         try require(files.allTabs.contains(where: { $0 === column }), "Requesting close must leave the tab open")
-        let cancelledSheet = window.attachedSheet!
-        window.endSheet(cancelledSheet, returnCode: .alertSecondButtonReturn)
-        try await eventually("dismiss cancelled close") { window.attachedSheet == nil }
+        let cancelledSheet = window.childWindows!.first { $0 is FamilyModalWindow }!
+        cancelledSheet.cancelOperation(nil)
+        try await eventually("dismiss cancelled close") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) != true }
         try require(files.allTabs.contains(where: { $0 === column }), "Cancel must retain the tab and its directory")
         native.requestClose()
-        try await eventually("confirm file tab close again") { window.attachedSheet != nil }
-        window.endSheet(window.attachedSheet!, returnCode: .alertFirstButtonReturn)
+        try await eventually("confirm file tab close again") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
+        let dialog = window.childWindows!.first { $0 is FamilyModalWindow }!
+        func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+        let confirm = descendants(dialog.contentView!).compactMap { $0 as? FamilyNativeButton }.first { $0.tag == 0 }!
+        confirm.performClick(nil)
         try await eventually("close confirmed file tab") { !files.allTabs.contains(where: { $0 === column }) }
         try require(!files.allTabs.contains(where: { $0 === column }) && files.remoteTabs.count == 2,
                     "Confirming close must close only the requested file tab")
@@ -560,6 +564,49 @@ private struct FilesWorkspaceRoutingTests {
     }
 
     @MainActor
+    private static func verifyFamilyFolderPicker(window: NSWindow, home: String) async throws {
+        window.orderFront(nil)
+        let originalPins = PinnedLocations.shared.items
+        var chosen: [URL]?
+        var cancelled = false
+        var presentation: FamilyModalPresentation?
+        func makePicker() {
+            let host = NSHostingView(rootView: FamilyFolderPicker(initialDirectory: home, onCancel: {
+                cancelled = true
+                presentation?.close()
+            }, onChoose: { urls in
+                chosen = urls
+                presentation?.close()
+            }).environment(\.windowChrome, WindowChrome(isDark: false)))
+            presentation = FamilyModalPresentation(content: host,
+                size: NSSize(width: SheetLayout.folderPicker, height: SheetLayout.sessionBodyHeight), owner: window) {
+                    cancelled = true
+                    presentation?.close()
+                }
+            presentation?.show()
+        }
+        func button(_ title: String) -> NSObject? {
+            guard let root = presentation?.window.contentView else { return nil }
+            return accessibilityElements(root).first {
+                accessibilityValue($0, "accessibilityRole") as? String == "AXButton" &&
+                (accessibilityValue($0, "accessibilityLabel") as? String == title || accessibilityValue($0, "accessibilityTitle") as? String == title)
+            }
+        }
+        makePicker()
+        try await eventually("load custom folder picker") { button("local-a") != nil }
+        try require(accessibilityBool(button("local-a")!, "accessibilityPerformPress"), "folder can be selected through accessibility")
+        try await settle()
+        try require(accessibilityBool(button(String(localized: "Pin Folder"))!, "accessibilityPerformPress"), "chosen folders can be confirmed")
+        try require(chosen?.map(\.path) == [home + "/local-a"], "picker returns selected folder rather than browsing location")
+        makePicker()
+        try await eventually("reopen custom folder picker") { button("local-b") != nil }
+        presentation?.window.cancelOperation(nil)
+        try require(cancelled && PinnedLocations.shared.items == originalPins,
+                    "cancel leaves saved pinned locations unchanged")
+        print("ok: family folder picker loads directories asynchronously, selects and confirms a folder, and cancels without changing saved locations")
+    }
+
+    @MainActor
     private static func verifyHostPickerAccessibility(model: AppModel, state: WindowState, window: NSWindow, home: String) async throws {
         let config = URL(fileURLWithPath: home).appendingPathComponent(".ssh/config")
         try FileManager.default.createDirectory(at: config.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -569,8 +616,8 @@ private struct FilesWorkspaceRoutingTests {
         try require(model.hosts.map(\.alias) == ["fixture-a", "fixture-b"], "Picker fixture must use only isolated SSH config")
         let sessions = model.tabs.map(\.sessionID)
         func pressHost(_ alias: String) throws {
-            guard let sheet = window.attachedSheet, let content = sheet.contentView else {
-                throw TestFailure(description: "Host picker must be a native sheet")
+            guard let sheet = window.childWindows?.first(where: { $0 is FamilyModalWindow }), let content = sheet.contentView else {
+                throw TestFailure(description: "Host picker must be a family dialog")
             }
             let elements = accessibilityElements(content)
             guard let row = elements.first(where: {

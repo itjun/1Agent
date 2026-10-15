@@ -68,14 +68,12 @@ struct TextPreviewDrawer: View {
     }
 
     private func readingPicker() -> some View {
-        Picker("Reading Encoding", selection: Binding(
+        FamilyPicker(value: Binding(
             get: { column.readingEncoding }, set: { column.reloadPreview(using: $0) }
-        )) {
-            Text("Automatic").tag(Optional<TextFile.Encoding>.none)
-            ForEach(TextFile.Encoding.allCases, id: \.self) { encoding in
-                Text(verbatim: encoding.label).tag(Optional(encoding))
-            }
-        }.fixedSize()
+        ), options: [(Optional<TextFile.Encoding>.none, String(localized: "Automatic"))] +
+            TextFile.Encoding.allCases.map { (Optional($0), $0.label) })
+            .frame(width: 180)
+            .accessibilityLabel(Text("Reading Encoding"))
     }
 
     private func formatMetadata(_ decoded: TextFile.Decoded?) -> some View {
@@ -133,12 +131,16 @@ struct TextPreviewDrawer: View {
 
             }
             HStack(spacing: Theme.Space.m) {
-                Picker("Output Encoding", selection: $outputEncoding) {
-                    ForEach(TextFile.Encoding.allCases, id: \.self) { Text(verbatim: $0.label).tag($0) }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Output Encoding")
+                    FamilyPicker(value: $outputEncoding, options: TextFile.Encoding.allCases.map { ($0, $0.label) })
+                        .accessibilityLabel(Text("Output Encoding"))
                 }
-                Picker("Output Line Endings", selection: $outputEnding) {
-                    Text("Keep Original").tag(Optional<TextFile.LineEnding>.none)
-                    ForEach([TextFile.LineEnding.lf, .crlf, .cr], id: \.self) { Text(verbatim: $0.label).tag(Optional($0)) }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Output Line Endings")
+                    FamilyPicker(value: $outputEnding, options: [(Optional<TextFile.LineEnding>.none, String(localized: "Keep Original"))] +
+                        [TextFile.LineEnding.lf, .crlf, .cr].map { (Optional($0), $0.label) })
+                        .accessibilityLabel(Text("Output Line Endings"))
                 }
             }
             Button("Use UTF-8 + LF") { outputEncoding = .utf8; outputEnding = .lf }

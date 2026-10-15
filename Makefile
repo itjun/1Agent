@@ -27,6 +27,10 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test:
+	swiftc -parse-as-library -o /tmp/oneagent-family-dialog-tests Sources/GooseAgent/Theme.swift Sources/GooseAgent/FocusRing.swift Sources/GooseAgent/SheetLayout.swift Sources/GooseAgent/FamilyModal.swift Sources/GooseAgent/FamilyAlert.swift Tests/FamilyDialogTests.swift
+	/tmp/oneagent-family-dialog-tests
+	swiftc -parse-as-library -o /tmp/oneagent-family-menu-test Sources/GooseAgent/Theme.swift Sources/GooseAgent/FamilyMenu.swift Tests/FamilyMenuTests.swift
+	/tmp/oneagent-family-menu-test
 	swiftc -parse-as-library -o /tmp/oneagent-pinned-locations-test Sources/GooseAgent/Files/PinnedLocations.swift Tests/PinnedLocationsTests.swift
 	/tmp/oneagent-pinned-locations-test
 	swiftc -o /tmp/oneagent-workspace-presentation-test Sources/GooseAgent/WorkspacePresentation.swift Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspacePresentationTests.swift

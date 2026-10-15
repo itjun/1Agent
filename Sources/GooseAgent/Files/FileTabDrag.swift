@@ -210,7 +210,8 @@ final class FileTabHandleView: NSView {
             item.isEnabled = entry.enabled
             menu.addItem(item)
         }
-        return menu
+        FamilyMenuPresenter.shared.show(menu, with: event, for: self)
+        return nil
     }
 
     @objc private func runMenuItem(_ item: NSMenuItem) {
@@ -219,8 +220,8 @@ final class FileTabHandleView: NSView {
     }
 
     func requestClose() {
-        guard let window, window.attachedSheet == nil else { return }
-        let alert = NSAlert()
+        guard let window, window.attachedSheet == nil && !(NSApp.keyWindow is FamilyModalWindow) else { return }
+        let alert = FamilyAlert()
         alert.messageText = String(format: String(localized: "Close file tab “%@”?"), accessibilityLabel() ?? "")
         alert.addButton(withTitle: String(localized: "Close Tab"))
         alert.addButton(withTitle: String(localized: "Cancel"))

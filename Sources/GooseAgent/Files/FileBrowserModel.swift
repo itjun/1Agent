@@ -887,7 +887,7 @@ enum FileBrowserDrag {
 @MainActor
 enum FileBrowserDialogs {
     static func confirmDelete(_ entries: [FileEntry], again: Bool) -> Bool {
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.alertStyle = .critical
         let first = entries[0]
         if entries.count > 1 {
@@ -923,14 +923,14 @@ enum FileBrowserDialogs {
     }
 
     static func askRename(_ current: String) -> String? {
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.messageText = String(localized: "Rename")
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        let field = FamilyNativeTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
         field.stringValue = current
         alert.accessoryView = field
         alert.addButton(withTitle: String(localized: "Rename"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        alert.window.initialFirstResponder = field
+        alert.initialFirstResponder = field
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, !name.contains("/"), name != ".", name != ".." else { return nil }
@@ -938,17 +938,17 @@ enum FileBrowserDialogs {
     }
 
     static func askName(folder: Bool) -> String? {
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.messageText = folder ? String(localized: "New Folder") : String(localized: "New File")
         alert.informativeText = folder
             ? String(localized: "Folder name")
             : String(localized: "File name (created empty)")
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        let field = FamilyNativeTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
         field.stringValue = folder ? String(localized: "New Folder") : String(localized: "New File.txt")
         alert.accessoryView = field
         alert.addButton(withTitle: String(localized: "Create"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        alert.window.initialFirstResponder = field
+        alert.initialFirstResponder = field
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, !name.contains("/"), name != ".", name != ".." else { return nil }

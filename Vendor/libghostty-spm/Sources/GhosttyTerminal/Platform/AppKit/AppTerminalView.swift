@@ -128,6 +128,11 @@
             return point
         }
 
+        /// Hosts can replace menu chrome without changing mouse capture or selection routing.
+        open func showSelectionContextMenu(with event: NSEvent) {
+            NSMenu.popUpContextMenu(selectionContextMenu(), with: event, for: self)
+        }
+
         open func selectionContextMenu() -> NSMenu {
             let menu = NSMenu()
             let copyItem = NSMenuItem(

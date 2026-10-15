@@ -31,14 +31,14 @@ struct AdvancedSettingsPage: View {
         .onChange(of: importRequests.previewPending) { _, _ in
             openPendingPreview()
         }
-        .sheet(isPresented: Binding(
+        .familySheet(isPresented: Binding(
             get: { plan != nil },
             set: { presented in
                 if !presented {
                     plan = nil
                 }
             }
-        )) {
+        ), width: SheetLayout.importPreview, height: SheetLayout.importPreviewBodyHeight) {
             if let plan {
                 GhosttyImportPreviewSheet(
                     plan: plan,

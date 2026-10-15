@@ -136,7 +136,8 @@ final class WorkspaceHeaderMenuView: NSView {
             action: #selector(dissolveFromMenu(_:)),
             target: self
         ))
-        return menu
+        FamilyMenuPresenter.shared.show(menu, with: event, for: self)
+        return nil
     }
 
     @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {

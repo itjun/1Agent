@@ -93,14 +93,16 @@ enum UploadCheck {
     /// The paths to convert: every checked row. Empty means upload everything as it is.
     @MainActor
     static func ask(_ findings: [Finding], in window: NSWindow?, cancellation: FileOperationCancellation? = nil) async -> Set<String>? {
-        let alert = NSAlert()
+        let alert = FamilyAlert()
         alert.alertStyle = .informational
         alert.messageText = String(format: String(localized: "%d text files are not UTF-8 + LF"), findings.count)
         alert.informativeText = String(localized: "Checked files are uploaded as UTF-8 (no BOM) with LF line endings. Files on this Mac are not changed.")
 
         let boxes = findings.map { finding -> NSButton in
             let title = "\(finding.display)  ·  \(finding.encoding)\(finding.inferred ? " (" + String(localized: "Inferred") + ")" : "") · \(finding.lineEnding)"
-            let box = NSButton(checkboxWithTitle: title, target: nil, action: nil)
+            let box = FamilyNativeButton(title: title, target: nil, action: nil)
+            box.kind = .checkbox
+            box.setButtonType(.switch)
             box.state = finding.defaultSelected ? .on : .off
             box.lineBreakMode = .byTruncatingMiddle
             box.toolTip = finding.path
@@ -118,7 +120,7 @@ enum UploadCheck {
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
-        scroll.borderType = .bezelBorder
+        scroll.borderType = .noBorder
         scroll.drawsBackground = false
         let document = FlippedView()
         document.translatesAutoresizingMaskIntoConstraints = false
@@ -143,8 +145,7 @@ enum UploadCheck {
         let cancellationTimer = Timer(timeInterval: 0.1, repeats: true) { _ in
             guard cancellation?.isCancelled == true else { return }
             MainActor.assumeIsolated {
-                if let parent = alert.window.sheetParent { parent.endSheet(alert.window, returnCode: .abort) }
-                else if NSApp.modalWindow === alert.window { NSApp.abortModal() }
+                alert.cancel()
             }
         }
         RunLoop.main.add(cancellationTimer, forMode: .common)
