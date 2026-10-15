@@ -3,7 +3,7 @@ import Foundation
 /// Reading a file as text for the preview drawer: which encoding and line ending it uses, and
 /// the UTF-8 + LF form it can be converted to.
 enum TextFile {
-    enum Encoding: Equatable {
+    enum Encoding: String, Codable, CaseIterable, Hashable, Sendable {
         case utf8
         case utf8BOM
         case utf16LE
@@ -23,7 +23,7 @@ enum TextFile {
         }
     }
 
-    enum LineEnding: Equatable {
+    enum LineEnding: String, Codable, CaseIterable, Hashable, Sendable {
         case lf
         case crlf
         case cr
@@ -41,10 +41,12 @@ enum TextFile {
         }
     }
 
-    struct Decoded: Equatable {
+    struct Decoded: Equatable, Sendable {
         var text: String
         var encoding: Encoding
         var lineEnding: LineEnding
+        var isInferred = false
+        var hasBOM = false
 
         var isUTF8LF: Bool {
             encoding == .utf8 && (lineEnding == .lf || lineEnding == .none)
@@ -85,7 +87,23 @@ enum TextFile {
     }
 
     /// Nil for binary data: a NUL byte outside UTF-16.
-    static func decode(_ data: Data) -> Decoded? {
+    static func decode(_ data: Data, using requested: Encoding? = nil) -> Decoded? {
+        if let requested {
+            var bytes = data
+            let bom: [UInt8]
+            switch requested {
+            case .utf8, .utf8BOM: bom = [0xEF, 0xBB, 0xBF]
+            case .utf16LE: bom = [0xFF, 0xFE]
+            case .utf16BE: bom = [0xFE, 0xFF]
+            default: bom = []
+            }
+            let hasBOM = !bom.isEmpty && bytes.starts(with: bom)
+            if hasBOM { bytes.removeFirst(bom.count) }
+            guard let text = String(data: bytes, encoding: stringEncoding(requested)),
+                  !text.unicodeScalars.contains(where: { $0.value == 0 }) else { return nil }
+            let actualEncoding: Encoding = [.utf8, .utf8BOM].contains(requested) ? (hasBOM ? .utf8BOM : .utf8) : requested
+            return Decoded(text: text, encoding: actualEncoding, lineEnding: lineEnding(of: text), hasBOM: hasBOM)
+        }
         let bytes = [UInt8](data.prefix(4))
         let encoding: Encoding
         let text: String?
@@ -112,7 +130,69 @@ enum TextFile {
             }
         }
         guard let text else { return nil }
-        return Decoded(text: text, encoding: encoding, lineEnding: lineEnding(of: text))
+        return Decoded(text: text, encoding: encoding, lineEnding: lineEnding(of: text),
+                       isInferred: encoding == .gb18030 || encoding == .latin1,
+                       hasBOM: [.utf8BOM, .utf16LE, .utf16BE].contains(encoding))
+    }
+
+    /// A preview prefix can end inside a multibyte character. Try complete character
+    /// boundaries for each candidate before falling back to another encoding.
+    static func decodePreview(_ data: Data, using requested: Encoding? = nil, truncated: Bool) -> Decoded? {
+        guard truncated else { return decode(data, using: requested) }
+        let candidates: [Encoding]
+        if let requested { candidates = [requested] }
+        else if data.starts(with: [0xEF, 0xBB, 0xBF]) { candidates = [.utf8BOM] }
+        else if data.starts(with: [0xFF, 0xFE]) { candidates = [.utf16LE] }
+        else if data.starts(with: [0xFE, 0xFF]) { candidates = [.utf16BE] }
+        else {
+            guard !data.contains(0) else { return nil }
+            candidates = [.utf8, .gb18030, .latin1]
+        }
+        for encoding in candidates {
+            for trailing in 0...min(3, max(0, data.count - 1)) {
+                if var decoded = decode(Data(data.dropLast(trailing)), using: encoding) {
+                    decoded.isInferred = requested == nil && (encoding == .gb18030 || encoding == .latin1)
+                    return decoded
+                }
+            }
+        }
+        return nil
+    }
+
+    enum ConversionError: LocalizedError {
+        case unrepresentable
+        var errorDescription: String? { String(localized: "The selected encoding cannot represent all characters. No file was changed.") }
+    }
+
+    /// Nil leaves the original mixture of line endings untouched; no lossy encoding.
+    static func encode(_ text: String, encoding: Encoding, lineEnding: LineEnding?, includeBOM: Bool? = nil) throws -> Data {
+        var value = text
+        if let lineEnding, [.lf, .crlf, .cr].contains(lineEnding) {
+            value = value.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            if lineEnding == .crlf { value = value.replacingOccurrences(of: "\n", with: "\r\n") }
+            if lineEnding == .cr { value = value.replacingOccurrences(of: "\n", with: "\r") }
+        }
+        guard let data = value.data(using: stringEncoding(encoding), allowLossyConversion: false),
+              String(data: data, encoding: stringEncoding(encoding)) == value else {
+            throw ConversionError.unrepresentable
+        }
+        if includeBOM == false { return data }
+        switch encoding {
+        case .utf8BOM: return Data([0xEF, 0xBB, 0xBF]) + data
+        case .utf16LE: return Data([0xFF, 0xFE]) + data
+        case .utf16BE: return Data([0xFE, 0xFF]) + data
+        default: return data
+        }
+    }
+
+    private static func stringEncoding(_ encoding: Encoding) -> String.Encoding {
+        switch encoding {
+        case .utf8, .utf8BOM: return .utf8
+        case .utf16LE: return .utf16LittleEndian
+        case .utf16BE: return .utf16BigEndian
+        case .gb18030: return gb18030
+        case .latin1: return .isoLatin1
+        }
     }
 
     static func lineEnding(of text: String) -> LineEnding {

@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Inferred" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Inferred"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "推测"}}}},
+    "The selected encoding cannot represent all characters. No file was changed." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The selected encoding cannot represent all characters. No file was changed."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "所选编码无法表示所有字符，文件未被修改。"}}}},
+    "Upload" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Upload"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上传"}}}},
     "Drag the title onto a pane edge to combine. Drag it back to the workspace sidebar to separate. Right-click to manage panels and workspace membership or copy host info. Drag the blank part of the bar to move the window." : {
       "extractionState" : "manual",
       "localizations" : {
