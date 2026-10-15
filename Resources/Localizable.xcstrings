@@ -1,6 +1,11 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Home" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Home"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "个人目录"}}}},
+    "Opened" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Opened"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已打开"}}}},
+    "Remote" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Remote"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "远程"}}}},
+    "Cannot restore remote directory" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cannot restore remote directory"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法恢复远程目录"}}}},
+    "Opened the remote home directory instead." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Opened the remote home directory instead."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已改为打开远程主目录"}}}},
     "Inferred" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Inferred"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "推测"}}}},
     "The selected encoding cannot represent all characters. No file was changed." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The selected encoding cannot represent all characters. No file was changed."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "所选编码无法表示所有字符，文件未被修改。"}}}},
     "Upload" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Upload"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上传"}}}},

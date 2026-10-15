@@ -86,9 +86,35 @@ enum SSHCommand {
     /// The keepalive is fixed on purpose: a dead link is noticed within 90 seconds and then reconnected.
     /// Command-line `-o` wins over `~/.ssh/config`, so these two values always apply.
     /// The connection is shared with the file pane and uploads, which never ask for a password.
-    static func arguments(alias: String) -> [String] {
-        ["-tt", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3"]
-            + RemoteShell.multiplexOptions() + ["--", alias]
+    static func arguments(alias: String, remoteDirectory: String? = nil) -> [String] {
+        var options = ["-tt", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3"]
+            + RemoteShell.multiplexOptions()
+        guard let remoteDirectory, !remoteDirectory.isEmpty else { return options + ["--", alias] }
+        // A directory restore is the explicit launch command. A saved RemoteCommand must not
+        // run before it or conflict with it; this changes this invocation, never ~/.ssh/config.
+        options += ["-o", "RemoteCommand=none"]
+        return options + ["--", alias, remoteStartupCommand(directory: remoteDirectory)]
+    }
+
+    /// Sent as SSH's remote command, after authentication. Nothing is typed into the PTY,
+    /// so password and host-key prompts cannot consume a directory-changing command.
+    static func remoteStartupCommand(directory: String) -> String {
+        let printableDirectory = directory.replacingOccurrences(of: "\0", with: "�")
+        let error = String(localized: "Cannot restore remote directory") + ": " + printableDirectory
+        let fallback = String(localized: "Opened the remote home directory instead.")
+        let failure = "printf '%s\\n' \(quote(error)) \(quote(fallback)) >&2; cd -- \"${HOME:-/}\" || exit 1"
+        let changeDirectory: String
+        if directory.hasPrefix("/"), !directory.contains("\0") {
+            changeDirectory = "if ! cd -- \(quote(directory)); then \(failure); fi"
+        } else {
+            changeDirectory = failure
+        }
+        let script = changeDirectory + "; exec \"${SHELL:-/bin/sh}\" -l"
+        return "exec /bin/sh -c " + quote(script)
+    }
+
+    private static func quote(_ text: String) -> String {
+        "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }
 
