@@ -71,7 +71,7 @@ struct TextPreviewDrawer: View {
             if let url = preview.quickLook { FilePreviewPane(url: url) {} }
             else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         } else if let decoded = preview.decoded {
-            NativeTextPreview(text: decoded.text, chrome: chrome, findRequest: findRequest)
+            NativeTextPreview(text: decoded.text, path: preview.entry.path, findRequest: findRequest, onClose: close)
         } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
     }
 
@@ -176,99 +176,5 @@ struct TextPreviewDrawer: View {
             } catch { convertError = error.localizedDescription }
             converting = false
         }
-    }
-}
-
-/// AppKit provides fast selection, horizontal scrolling and the native find bar.
-private struct NativeTextPreview: NSViewRepresentable {
-    let text: String
-    let chrome: WindowChrome
-    let findRequest: Int
-    final class Coordinator { var text = ""; var findRequest = 0 }
-    func makeCoordinator() -> Coordinator { Coordinator() }
-    func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.findBarPosition = .aboveContent
-        let view = NSTextView(frame: .zero)
-        view.isEditable = false
-        view.isSelectable = true
-        view.isRichText = false
-        view.usesFindBar = true
-        view.isVerticallyResizable = true
-        view.isHorizontallyResizable = true
-        view.autoresizingMask = [.width]
-        view.textContainer?.widthTracksTextView = false
-        view.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        view.textContainerInset = NSSize(width: 12, height: 10)
-        scroll.documentView = view
-        return scroll
-    }
-    func updateNSView(_ scroll: NSScrollView, context: Context) {
-        guard let view = scroll.documentView as? NSTextView else { return }
-        view.backgroundColor = NSColor(chrome.background)
-        view.textColor = NSColor(chrome.text)
-        view.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        if context.coordinator.text != text || view.string != text {
-            context.coordinator.text = text
-            view.string = text
-            view.sizeToFit()
-        }
-        if context.coordinator.findRequest != findRequest {
-            context.coordinator.findRequest = findRequest
-            let item = NSMenuItem()
-            item.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
-            view.performFindPanelAction(item)
-        }
-    }
-}
-
-/// A light syntax tint: comments, strings and numbers. Long files are shown plain.
-enum TextHighlight {
-    static let maxHighlightedLength = 200_000
-    /// The drawer redraws on every selection change in its column; the text rarely changes.
-    @MainActor private static var cached: (text: String, name: String, chrome: WindowChrome, value: AttributedString)?
-
-    @MainActor
-    static func attributed(_ text: String, name: String, chrome: WindowChrome) -> AttributedString {
-        if let cached, cached.name == name, cached.chrome == chrome, cached.text == text {
-            return cached.value
-        }
-        let value = highlight(text, name: name, chrome: chrome)
-        cached = (text, name, chrome, value)
-        return value
-    }
-
-    private static func highlight(_ text: String, name: String, chrome: WindowChrome) -> AttributedString {
-        var result = AttributedString(text)
-        guard text.utf16.count <= maxHighlightedLength else { return result }
-        let ns = text as NSString
-        let full = NSRange(location: 0, length: ns.length)
-        let ext = (name as NSString).pathExtension.lowercased()
-        let hashComments: Set<String> = [
-            "sh", "bash", "zsh", "fish", "py", "rb", "yml", "yaml", "toml", "conf", "cfg", "ini", "env",
-            "properties", "pl", "r", "mk", "cmake", "tf", "hcl", "nginx", "service", "dockerignore", "gitignore",
-        ]
-        let commentPattern = hashComments.contains(ext) || name.lowercased() == "makefile" || name.lowercased() == "dockerfile"
-            ? #"(?m)(^|\s)#.*$"#
-            : #"(?m)//.*$|/\*[\s\S]*?\*/|<!--[\s\S]*?-->"#
-        let rules: [(String, Color)] = [
-            (#"\b\d+(\.\d+)?\b"#, chrome.warning),
-            (#""(\\.|[^"\\\n])*"|'(\\.|[^'\\\n])*'"#, chrome.success),
-            (commentPattern, chrome.secondary),
-        ]
-        for (pattern, color) in rules {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
-            for match in regex.matches(in: text, range: full) {
-                guard let range = Range(match.range, in: text),
-                      let lower = AttributedString.Index(range.lowerBound, within: result),
-                      let upper = AttributedString.Index(range.upperBound, within: result) else { continue }
-                result[lower..<upper].foregroundColor = color
-            }
-        }
-        return result
     }
 }

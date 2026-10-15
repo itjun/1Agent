@@ -80,6 +80,11 @@ private struct FilesWorkspaceRoutingTests {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.regular)
         NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
+        let transferHistory = (0..<4).map { index in
+            FileTransferQueue.Job(id: UUID(), item: .init(path: home + "/history-\(index).txt", isDirectory: false),
+                                  sourceHost: nil, targetHost: "fixture-a", directory: "/fixture", created: Date(), phase: .completed)
+        }
+        defaults.set(try JSONEncoder().encode(transferHistory), forKey: FileTransferQueue.storageKey)
         let model = AppModel()
         let state = model.mainWindow
         try require(MainWindowManager.shared.window(for: state) == nil, "The test must not mount the production window")
@@ -130,6 +135,7 @@ private struct FilesWorkspaceRoutingTests {
                     && initialLocal.showHidden && initialLocal.sortKey == .name && initialLocal.ascending,
                     "Ordinary page switches must retain filter, sort and visibility")
         try require(initialLocal.scrollAnchor == savedScrollAnchor, "Remounting the file page must retain its scroll anchor")
+        try await verifySidePreviews(model: model, state: state, window: chromeWindow, home: home)
         model.hideFiles(in: state)
         try await settle()
         try await verifyFolderLoadStates(window: chromeWindow, workspace: initialFiles, folder: home + "/retry-empty-folder")
@@ -1248,6 +1254,112 @@ private struct FilesWorkspaceRoutingTests {
                     "A wider window restores the preferred sidebar width")
     }
 
+    @MainActor
+    private static func verifySidePreviews(model: AppModel, state: WindowState, window: NSWindow, home: String) async throws {
+        let workspace = model.fileWorkspace(for: state)
+        let local = workspace.localColumn
+        let localPath = home + "/drawer-fixture.py"
+        let localSource = "import os\n# local-drawer-marker 中文😀\nvalue = (42)\nprint(value)\n# " + String(repeating: "long-line ", count: 200)
+        try Data(localSource.utf8).write(to: URL(fileURLWithPath: localPath))
+        local.filter = ""
+        local.refresh()
+        try await eventually("local drawer fixture") { local.entries.contains { $0.path == localPath } }
+        let entry = local.entries.first { $0.path == localPath }!
+        local.selection = [localPath]
+        workspace.openRemote(host: "fixture-a", at: "/fixture")
+        let remote = workspace.remoteColumn!
+        try await settle()
+
+        func element(_ id: String) -> NSObject? {
+            accessibilityElements(window.contentView!).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
+        }
+        func frame(_ object: NSObject) -> NSRect {
+            let selector = NSSelectorFromString("accessibilityFrame")
+            typealias Getter = @convention(c) (AnyObject, Selector) -> NSRect
+            return unsafeBitCast(object.method(for: selector), to: Getter.self)(object, selector)
+        }
+        func textViews(_ view: NSView) -> [NSTextView] {
+            (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap(textViews)
+        }
+        func settleDrawer() async throws {
+            try await Task.sleep(nanoseconds: 300_000_000)
+            window.contentView?.layoutSubtreeIfNeeded()
+        }
+        try await settleDrawer()
+        guard let queue = element("files.transferQueue"), let toggle = element("files.transferQueue.toggle"),
+              let filePage = element("workspace.files.content") else {
+            throw TestFailure(description: "File page and collapsed transfer controls must be accessible")
+        }
+        let pageFrame = frame(filePage)
+        let collapsedHeight = frame(queue).height
+        try require(collapsedHeight <= FileBrowserLayout.transferBarHeight + 2 && element("files.transferQueue.history") == nil,
+                    "Persisted transfer history must start collapsed in a compact footer")
+        try require(accessibilityBool(toggle, "accessibilityPerformPress"), "Transfer history can expand")
+        try await settleDrawer()
+        try require(element("files.transferQueue.history") != nil && frame(element("files.transferQueue")!).height > collapsedHeight + 100,
+                    "History appears only after explicit expansion")
+        _ = accessibilityBool(element("files.transferQueue.toggle")!, "accessibilityPerformPress")
+        try await settleDrawer()
+        let directory = local.directory
+        let selection = local.selection
+        let layout = workspace.layout
+
+        workspace.open(entry, in: local, window: window)
+        try await eventually("load real local preview") { local.preview?.decoded?.text == localSource }
+        try await settleDrawer()
+        guard let code = textViews(window.contentView!).first(where: { $0.string == localSource }) as? PreviewTextView else {
+            throw TestFailure(description: "File drawer must mount the native code surface")
+        }
+        try await eventually("bundled Python highlighting") {
+            code.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == PreviewCodeStyle.color(0xF92672)
+        }
+        try require(code.lineGutter != nil && code.enclosingScrollView!.frame.minX >= code.lineGutter!.frame.maxX,
+                    "Code preview includes a native gutter outside the text scroll view")
+        try require(abs(code.enclosingScrollView!.contentView.bounds.minX) < 1,
+                    "Mounting the gutter must not horizontally crop the beginning of every line")
+        code.setSelectedRange(NSRange(location: (localSource as NSString).range(of: "value").location + 2, length: 0))
+        try require(code.occurrenceRanges.count == 2 && code.activeLine == 2, "Actual drawer highlights the caret symbol and active line")
+        code.setSelectedRange(NSRange(location: (localSource as NSString).range(of: "(42)").location, length: 0))
+        try require(code.matchedBrackets.count == 2, "Actual drawer highlights bracket pairs")
+        guard let left = element("files.preview.left") else { throw TestFailure(description: "Left file opens left drawer") }
+        let leftFrame = frame(left)
+        try require(abs(leftFrame.minX - pageFrame.minX) < 2 && abs(leftFrame.height - pageFrame.height) < 2,
+                    "Left preview is a full-height overlay at the file page's left edge")
+        try require(abs(leftFrame.width - pageFrame.width / 2) < 2, "Wide preview uses half the file page")
+        try require(local.directory == directory && local.selection == selection && workspace.layout == layout,
+                    "Opening preview preserves browsing state and pane layout")
+        try require(accessibilityBool(element("files.preview.close")!, "accessibilityPerformPress"), "Close button dismisses the drawer")
+        try await settleDrawer()
+        try require(element("files.preview.left") == nil && workspace.selectedPreviewColumn == nil, "Closing leaves no stale drawer")
+
+        let remoteEntry = FileEntry(name: "remote.txt", path: "/fixture/remote.txt", isDirectory: false, size: 20, mode: "-rw-r--r--", modified: nil)
+        workspace.focus(remote)
+        remote.preview = .init(entry: remoteEntry, decoded: .init(text: "remote-drawer-marker\n", encoding: .utf8, lineEnding: .lf), truncated: false, error: nil)
+        try await settleDrawer()
+        guard let right = element("files.preview.right") else { throw TestFailure(description: "Right file opens right drawer") }
+        try require(abs(frame(right).maxX - pageFrame.maxX) < 2 && abs(frame(right).height - pageFrame.height) < 2,
+                    "Right preview overlays the full height at the right edge")
+        guard let text = textViews(window.contentView!).first(where: { $0.string.contains("remote-drawer-marker") }) else {
+            throw TestFailure(description: "Drawer must render a native text view")
+        }
+        text.cancelOperation(nil)
+        try await settleDrawer()
+        try require(workspace.selectedPreviewColumn == nil && element("files.preview.right") == nil, "Escape closes the native text preview")
+        try require(abs(frame(element("workspace.files.content")!).height - pageFrame.height) < 2
+                    && abs(frame(element("files.transferQueue")!).height - collapsedHeight) < 2,
+                    "Closing preview restores the exact full-height file page and compact transfer footer")
+        for width in [CGFloat(300), 620, 1200] {
+            let bounds = CGRect(x: 0, y: 0, width: width, height: 600)
+            let rightPane = CGRect(x: width / 2, y: 0, width: width / 2, height: 600)
+            let drawer = FileBrowserLayout.previewFrame(in: bounds, source: rightPane)
+            try require(drawer.width <= width && drawer.maxX == bounds.maxX && drawer.height == bounds.height,
+                        "Side preview fits narrow and wide workspaces")
+        }
+        workspace.close(remote)
+        print("ok: persisted transfers collapse to 24pt; actual left/right native drawers overlay full height, close/Escape preserve directories, selection and split layout")
+    }
+
+    @MainActor
     private static func accessibilityBool(_ element: NSObject, _ name: String) -> Bool {
         let selector = NSSelectorFromString(name)
         guard element.responds(to: selector) else { return false }
