@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Layout" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Layout"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "布局"}}}},
     "%d items" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "%d items"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "%d 项"}}}},
     "Cancelled" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cancelled"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已取消"}}}},
     "Cancelling…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cancelling…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在取消…"}}}},
