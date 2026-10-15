@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct PinnedLocationsSidebar: View {
     @ObservedObject var workspace: FileWorkspace
+    @ObservedObject var dragArea: PinnedLocationDragArea
     var focusFiles: () -> Void
     @ObservedObject private var locations = PinnedLocations.shared
     @Environment(\.windowChrome) private var chrome
@@ -12,7 +13,6 @@ struct PinnedLocationsSidebar: View {
     @State private var dropTargeted = false
     @State private var dropError = false
     @State private var dropBefore: UUID?
-    private static let dragType = "com.itjun.1agent.pinned-location"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,18 +40,20 @@ struct PinnedLocationsSidebar: View {
                                           rename: { locations.rename(item.id, to: $0) },
                                           remove: { locations.remove(item.id) },
                                           shift: { locations.shift(item.id, by: $0) })
-                        .onDrag {
-                            let provider = NSItemProvider()
-                            provider.registerDataRepresentation(forTypeIdentifier: Self.dragType, visibility: .ownProcess) { completion in
-                                completion(Data(item.id.uuidString.utf8), nil)
-                                return nil
+                        .overlay {
+                            if !editing {
+                                PinnedLocationDragHandle(item: item, title: title(item), path: LocalTerminal.displayPath(item.path),
+                                                         area: dragArea, chrome: chrome,
+                                                         open: { workspace.browseLocal(at: item.path); focusFiles() })
+                                    .accessibilityHidden(true)
                             }
-                            return provider
                         }
-                        .onDrop(of: [Self.dragType, UTType.fileURL.identifier], delegate: LocationDropDelegate(
-                            internalType: Self.dragType, targeted: { dropBefore = $0 ? item.id : nil }, perform: { receive($0, before: item.id) }))
+                        .onDrop(of: [UTType.fileURL.identifier], delegate: LocationDropDelegate(
+                            targeted: { dropBefore = $0 ? item.id : nil }, perform: { receive($0, before: item.id) }))
                         .overlay(alignment: .top) {
-                            if dropBefore == item.id { Rectangle().fill(chrome.accent).frame(height: 2).allowsHitTesting(false) }
+                            if dropBefore == item.id || dragArea.insertionBefore == item.id {
+                                Rectangle().fill(chrome.accent).frame(height: 2).allowsHitTesting(false)
+                            }
                         }
                     }
                     if locations.items.isEmpty {
@@ -64,12 +66,14 @@ struct PinnedLocationsSidebar: View {
                     }
                 }.padding(.horizontal, 8).padding(.bottom, 12)
             }
+            .background(BoundsAnchor { dragArea.list = $0 })
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .overlay { Rectangle().stroke(chrome.accent.opacity(dropTargeted ? 0.65 : 0), lineWidth: 1).allowsHitTesting(false) }
-        .onDrop(of: [Self.dragType, UTType.fileURL.identifier], delegate: LocationDropDelegate(
-            internalType: Self.dragType, targeted: { dropTargeted = $0 }, perform: { receive($0, before: nil) }))
+        .overlay { Rectangle().stroke(chrome.accent.opacity(dropTargeted || dragArea.targeted ? 0.65 : 0), lineWidth: 1).allowsHitTesting(false) }
+        .onDrop(of: [UTType.fileURL.identifier], delegate: LocationDropDelegate(
+            targeted: { dropTargeted = $0 }, perform: { receive($0, before: nil) }))
+        .onDisappear { dragArea.cancel(); dragArea.list = nil }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("locations.list")
         .familySheet(isPresented: $choosingFolders, width: SheetLayout.folderPicker, height: SheetLayout.sessionBodyHeight) {
@@ -93,13 +97,6 @@ struct PinnedLocationsSidebar: View {
     private func receive(_ providers: [NSItemProvider], before target: UUID?) -> Bool {
         dropTargeted = false
         dropBefore = nil
-        if let internalItem = providers.first(where: { $0.hasItemConformingToTypeIdentifier(Self.dragType) }) {
-            internalItem.loadDataRepresentation(forTypeIdentifier: Self.dragType) { data, _ in
-                guard let data, let string = String(data: data, encoding: .utf8), let id = UUID(uuidString: string) else { return }
-                Task { @MainActor in locations.move(id, before: target) }
-            }
-            return true
-        }
         let files = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !files.isEmpty else { return false }
         PinnedLocations.requestDroppedURLs(files) { urls in
@@ -163,16 +160,15 @@ private struct PinnedLocationRow: View {
 }
 
 private struct LocationDropDelegate: DropDelegate {
-    var internalType: String
     var targeted: (Bool) -> Void
     var perform: ([NSItemProvider]) -> Bool
     func dropEntered(info: DropInfo) { targeted(true) }
     func dropExited(info: DropInfo) { targeted(false) }
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: info.hasItemsConforming(to: [internalType]) ? .move : .copy)
+        DropProposal(operation: .copy)
     }
     func performDrop(info: DropInfo) -> Bool {
         targeted(false)
-        return perform(info.itemProviders(for: [internalType, UTType.fileURL.identifier]))
+        return perform(info.itemProviders(for: [UTType.fileURL.identifier]))
     }
 }

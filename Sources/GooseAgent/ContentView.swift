@@ -14,6 +14,7 @@ struct RootView: View {
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
     @Environment(\.controlActiveState) private var controlActiveState
     @StateObject private var dropRelay = CanvasDropRelay()
+    @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
     @State private var renamingPanelID: UUID?
     @State private var panelNameDraft = ""
     @State private var expandedWorkspaceActions: UUID?
@@ -180,7 +181,7 @@ struct RootView: View {
             Divider().padding(.horizontal, 16)
 
             if filesMode {
-                FilesSidebar(model: model, window: window, workspace: model.fileWorkspace(for: window))
+                FilesSidebar(model: model, window: window, workspace: model.fileWorkspace(for: window), dragArea: pinnedLocationDrag)
             } else {
                 HStack(spacing: 6) {
                     Text("Opened").font(.system(size: 12, weight: .semibold))
@@ -213,13 +214,16 @@ struct RootView: View {
             }
             .foregroundStyle(sidebarChrome.secondary).padding(.horizontal, 16).padding(.vertical, 10)
         }
-        .background(BoundsAnchor { dropRelay.sidebarAnchor = filesMode ? nil : $0 })
+        .background(BoundsAnchor {
+            dropRelay.sidebarAnchor = filesMode ? nil : $0
+            pinnedLocationDrag.sidebar = filesMode ? $0 : nil
+        })
         .background(chrome.panelHeader)
         .onChange(of: filesMode) { _, _ in
             commitPanelRename()
             clearSidebarDrag()
         }
-        .onDisappear { dropRelay.sidebarAnchor = nil }
+        .onDisappear { dropRelay.sidebarAnchor = nil; pinnedLocationDrag.sidebar = nil }
     }
 
     private var selectedPanelCount: Int {
@@ -696,10 +700,11 @@ private struct FilesSidebar: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @ObservedObject var workspace: FileWorkspace
+    var dragArea: PinnedLocationDragArea
     @Environment(\.windowChrome) private var chrome
 
     var body: some View {
-        PinnedLocationsSidebar(workspace: workspace) { model.focusFiles(in: window) }
+        PinnedLocationsSidebar(workspace: workspace, dragArea: dragArea) { model.focusFiles(in: window) }
     }
 }
 

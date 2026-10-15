@@ -62,6 +62,7 @@
 		91ED427A152DC13AE187EE58 /* FamilyModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2105529F1C40033DFD8D8A32 /* FamilyModal.swift */; };
 		94C91BF3EF904694099F9B90 /* TransferToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7ABED304CF69F1423985F54 /* TransferToast.swift */; };
 		97B86305AC381C8700A523A5 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D303E19F85127FB7B052F2ED /* FileBrowserView.swift */; };
+		97C3688158EFEBC432C8F3AE /* PinnedLocationDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */; };
 		983049074A7D2DF8A76E5085 /* TextFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2222F4287412ADA926A0AFC /* TextFile.swift */; };
 		A89071147FC25805E84361A6 /* FamilyMenuControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC04379ABB1F67A2FA6C90F0 /* FamilyMenuControls.swift */; };
 		A904414E0A56E36983D165D3 /* PreviewSyntax.js in Resources */ = {isa = PBXBuildFile; fileRef = 00BF2C9913789DC6BE4D0051 /* PreviewSyntax.js */; };
@@ -117,6 +118,7 @@
 		13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZoneLayout.swift; sourceTree = "<group>"; };
 		15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */ = {isa = PBXFileReference; path = TerminalLight.ghostty; sourceTree = "<group>"; };
 		16730EE26824B43E5A087F41 /* PinnedLocations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocations.swift; sourceTree = "<group>"; };
+		1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationDrag.swift; sourceTree = "<group>"; };
 		19288DDD38A9437A008A7ADC /* WindowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowState.swift; sourceTree = "<group>"; };
 		199854A048ECCDE3D9559213 /* GooseAgentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooseAgentApp.swift; sourceTree = "<group>"; };
 		2077428E1F778214E2AA9D80 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -240,6 +242,7 @@
 				BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */,
 				906AFAE30A9BC239EE0FB97B /* FileWorkspaceState.swift */,
 				A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */,
+				1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */,
 				16730EE26824B43E5A087F41 /* PinnedLocations.swift */,
 				71FDA7CC65A4FE2654714778 /* PinnedLocationsSidebar.swift */,
 				2531C1F0F126671D179FC3FC /* PreviewSyntax.swift */,
@@ -504,6 +507,7 @@
 				53BB79DFD89397C0F9A670CA /* NativeTextPreview.swift in Sources */,
 				3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */,
 				6167B218E94CB198975D0316 /* PaneLayout.swift in Sources */,
+				97C3688158EFEBC432C8F3AE /* PinnedLocationDrag.swift in Sources */,
 				65D0A618C064D4646AF58B25 /* PinnedLocations.swift in Sources */,
 				DDDCACB8B1882B00AA494196 /* PinnedLocationsSidebar.swift in Sources */,
 				8B9EA4C7BED737DB4F675B71 /* PreviewSyntax.swift in Sources */,

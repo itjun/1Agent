@@ -136,6 +136,7 @@ private struct FilesWorkspaceRoutingTests {
                     "Ordinary page switches must retain filter, sort and visibility")
         try require(initialLocal.scrollAnchor == savedScrollAnchor, "Remounting the file page must retain its scroll anchor")
         try await verifySidePreviews(model: model, state: state, window: chromeWindow, home: home)
+        try await verifyPinnedFolderDrag(window: chromeWindow, workspace: initialFiles)
         model.hideFiles(in: state)
         try await settle()
         try await verifyFolderLoadStates(window: chromeWindow, workspace: initialFiles, folder: home + "/retry-empty-folder")
@@ -1374,6 +1375,109 @@ private struct FilesWorkspaceRoutingTests {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         throw TestFailure(description: "Timed out: \(name)")
+    }
+
+    @MainActor
+    private static func verifyPinnedFolderDrag(window: NSWindow, workspace: FileWorkspace) async throws {
+        let pins = PinnedLocations.shared
+        let original = pins.items
+        let directory = workspace.localColumn.directory
+        let folders = ["drag-pin-a", "drag-pin-b"].map { URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent($0) }
+        for folder in folders {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try Data("keep".utf8).write(to: folder.appendingPathComponent("keep.txt"))
+        }
+        pins.add(folders)
+        defer {
+            for pin in pins.items where !original.contains(where: { $0.id == pin.id }) { pins.remove(pin.id) }
+            workspace.localColumn.open(directory)
+        }
+        window.makeKeyAndOrderFront(nil)
+        try await settle()
+        window.contentView?.layoutSubtreeIfNeeded()
+        func handles(_ view: NSView) -> [PinnedLocationDragHandleView] {
+            (view as? PinnedLocationDragHandleView).map { [$0] } ?? view.subviews.flatMap(handles)
+        }
+        func handle(_ path: String) throws -> PinnedLocationDragHandleView {
+            guard let pin = pins.items.first(where: { $0.path == path }),
+                  let view = handles(window.contentView!).first(where: { $0.itemID == pin.id }) else {
+                throw TestFailure(description: "The real sidebar must mount a native handle for \(path)")
+            }
+            return view
+        }
+        func center(_ view: NSView) -> NSPoint {
+            window.convertPoint(toScreen: view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil))
+        }
+        func gesture(_ view: PinnedLocationDragHandleView, through points: [NSPoint], escape: Bool = false) throws {
+            func event(_ type: NSEvent.EventType, _ point: NSPoint) throws -> NSEvent {
+                guard let event = NSEvent.mouseEvent(with: type, location: window.convertPoint(fromScreen: point),
+                    modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else {
+                    throw TestFailure(description: "Could not create pinned-folder pointer input")
+                }
+                return event
+            }
+            let start = center(view)
+            for point in points { NSApp.postEvent(try event(.leftMouseDragged, point), atStart: false) }
+            if escape {
+                let cancel = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                    characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
+                NSApp.postEvent(cancel, atStart: false)
+            } else {
+                NSApp.postEvent(try event(.leftMouseUp, points.last ?? start), atStart: false)
+            }
+            view.mouseDown(with: try event(.leftMouseDown, start))
+        }
+        let a = try handle(folders[0].path), b = try handle(folders[1].path)
+        guard let area = a.area, let sidebar = area.sidebar else {
+            throw TestFailure(description: "The real sidebar must register its complete drag boundary")
+        }
+        let bounds = window.convertToScreen(sidebar.convert(sidebar.bounds, to: nil))
+        let outside = NSPoint(x: bounds.maxX + 80, y: bounds.midY)
+        let before = pins.items
+        try gesture(a, through: [])
+        try await eventually("click pinned folder") { workspace.localColumn.directory == folders[0].path }
+        try require(pins.items == before, "Ordinary clicks must open without changing pinned folders")
+        try gesture(a, through: [outside], escape: true)
+        try require(pins.items == before, "Escape outside the sidebar must cancel without unpinning")
+        try gesture(a, through: [outside, center(a)])
+        try require(pins.items == before, "Returning to the original row must preserve pins and order")
+        for y in [bounds.minY + 10, bounds.maxY - 10] {
+            try gesture(a, through: [NSPoint(x: bounds.midX, y: y)])
+            try require(pins.items == before, "Sidebar header and footer drops must not unpin")
+        }
+        let aboveA = NSPoint(x: center(a).x, y: center(a).y + 4)
+        try gesture(b, through: [aboveA])
+        try require(pins.items.firstIndex(where: { $0.id == b.itemID })! < pins.items.firstIndex(where: { $0.id == a.itemID })!,
+                    "Native dragging within the list must retain reorder support")
+        try await settle()
+        try require(!area.targeted && area.insertionBefore == nil, "Drag completion must clear insertion feedback")
+
+        // A second window uses the same saved pins. Crossing windows must not count as dragging out.
+        let other = NSWindow(contentRect: NSRect(x: bounds.maxX + 100, y: bounds.minY, width: 200, height: 300),
+                             styleMask: [.titled], backing: .buffered, defer: false)
+        let otherArea = PinnedLocationDragArea(locations: pins)
+        otherArea.sidebar = other.contentView
+        otherArea.list = other.contentView
+        other.orderFront(nil)
+        try gesture(b, through: [other.convertPoint(toScreen: NSPoint(x: 100, y: 150))])
+        try require(pins.items.contains(where: { $0.id == b.itemID }), "Dropping in another sidebar must retain the pin")
+        other.orderOut(nil)
+        other.contentView = nil
+        sidebar.isHidden = true
+        area.finish(b.itemID!, at: outside)
+        sidebar.isHidden = false
+        try require(pins.items.contains(where: { $0.id == b.itemID }), "A missing source boundary must never unpin")
+
+        try gesture(a, through: [outside])
+        try require(!pins.items.contains(where: { $0.id == a.itemID }), "Mouse-up outside the sidebar must unpin")
+        let reloaded = PinnedLocations()
+        try require(reloaded.items == pins.items, "Drag removal must persist")
+        let contents = try String(contentsOf: folders[0].appendingPathComponent("keep.txt"), encoding: .utf8)
+        try require(contents == "keep",
+                    "Drag removal must leave the actual directory and its files untouched")
+        print("Pinned folder native drag: click, reorder, outside release, Escape, return, sidebar boundaries, cross-window and persistence passed")
     }
 
     private static func settle() async throws {
