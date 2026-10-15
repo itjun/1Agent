@@ -10,11 +10,8 @@ options:
     - zh-Hans
 packages:
   GhosttyTerminal:
-    url: https://github.com/Lakr233/libghostty-spm
-    # Prebuilt libghostty xcframework — pin exactly and review the checksum diff
-    # on every bump (supply-chain discipline for a binary dependency). The
-    # version scheme is <major.minor>.<UTC yyyymmdd>, so `from:` would drift.
-    exactVersion: "1.6.20260929"
+    # Reviewed Swift wrapper; the binary URL and checksum remain pinned upstream.
+    path: Vendor/libghostty-spm
 targets:
   1Agent:
     type: application

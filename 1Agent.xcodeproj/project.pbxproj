@@ -348,7 +348,7 @@
 			mainGroup = 8B6A8EE0503382D9119AED66;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D03B4E9E2AE0C42123B14321 /* XCRemoteSwiftPackageReference "libghostty-spm" */,
+				6316148249528D2F5CB7267B /* XCLocalSwiftPackageReference "Vendor/libghostty-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 09996EB00364E4DC50CE4CD1 /* Products */;
@@ -651,26 +651,20 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		D03B4E9E2AE0C42123B14321 /* XCRemoteSwiftPackageReference "libghostty-spm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Lakr233/libghostty-spm";
-			requirement = {
-				kind = exactVersion;
-				version = 1.6.20260929;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		6316148249528D2F5CB7267B /* XCLocalSwiftPackageReference "Vendor/libghostty-spm" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Vendor/libghostty-spm";
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		033219BA9590EAF0ABF5C327 /* GhosttyTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D03B4E9E2AE0C42123B14321 /* XCRemoteSwiftPackageReference "libghostty-spm" */;
 			productName = GhosttyTerminal;
 		};
 		0A4845DDBF4FBE86870CF14E /* GhosttyTheme */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D03B4E9E2AE0C42123B14321 /* XCRemoteSwiftPackageReference "libghostty-spm" */;
 			productName = GhosttyTheme;
 		};
 /* End XCSwiftPackageProductDependency section */
