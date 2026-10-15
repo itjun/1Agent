@@ -1,30 +1,94 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Layout" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Layout"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "布局"}}}},
-    "%d items" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "%d items"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "%d 项"}}}},
-    "Cancelled" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cancelled"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已取消"}}}},
-    "Cancelling…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cancelling…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在取消…"}}}},
-    "Completed" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Completed"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已完成"}}}},
-    "Download" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Download"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "下载"}}}},
-    "Downloads" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Downloads"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "下载"}}}},
-    "Failed" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Failed"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "失败"}}}},
-    "Interrupted" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Interrupted"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已中断"}}}},
-    "Only regular files can be converted" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Only regular files can be converted"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "只能转换普通文件"}}}},
-    "Preparing…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Preparing…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在准备…"}}}},
-    "Queued" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Queued"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "排队中"}}}},
-    "The file changed. Refresh it and try again." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The file changed. Refresh it and try again."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "文件已发生变化，请刷新后重试。"}}}},
-    "The file is too large to convert safely" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The file is too large to convert safely"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "文件过大，无法安全转换"}}}},
-    "Transferring…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Transferring…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在传输…"}}}},
-    "Transfers" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Transfers"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "传输"}}}},
-    "Home" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Home"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "个人目录"}}}},
-    "Opened" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Opened"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已打开"}}}},
-    "Remote" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Remote"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "远程"}}}},
-    "Cannot restore remote directory" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cannot restore remote directory"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法恢复远程目录"}}}},
-    "Opened the remote home directory instead." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Opened the remote home directory instead."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已改为打开远程主目录"}}}},
-    "Inferred" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Inferred"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "推测"}}}},
-    "The selected encoding cannot represent all characters. No file was changed." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The selected encoding cannot represent all characters. No file was changed."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "所选编码无法表示所有字符，文件未被修改。"}}}},
-    "Upload" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Upload"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上传"}}}},
+    "Close History" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Close History" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭历史" } } } },
+    "Loading…" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading…" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "载入中…" } } } },
+
+  "Search name, host, IP or path": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Search name, host, IP or path"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "搜索名称、主机、IP 或路径"
+        }
+      }
+    }
+  },
+  "No Matching Open Items": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "No Matching Open Items"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "没有匹配的已打开内容"
+        }
+      }
+    }
+  },
+  "Content Type": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Content Type"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "内容类型"
+        }
+      }
+    }
+  },
+  "Open Items Overview": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Open Items Overview"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已打开内容"
+        }
+      }
+    }
+  },
+  "All Open Items": {
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "All Open Items"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "全部"
+        }
+      }
+    }
+  },
     "Drag the title onto a pane edge to combine. Drag it back to the workspace sidebar to separate. Right-click to manage panels and workspace membership or copy host info. Drag the blank part of the bar to move the window." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2323,6 +2387,20 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未启动" } }
       }
     },
+    "Open Terminals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Terminals" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已打开的终端" } }
+      }
+    },
+    "Release modifiers to switch · Esc to cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Release modifiers to switch · Esc to cancel" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "松开修饰键切换 · Esc 取消" } }
+      }
+    },
     "Return or click to switch · Esc to cancel" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2631,6 +2709,13 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不显示隐藏文件" } }
       }
     },
+    "Edit Path" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit Path" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "编辑路径" } }
+      }
+    },
     "Home Folder" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2932,6 +3017,13 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接主机…" } }
       }
     },
+    "Close file tab “%@”?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close file tab “%@”?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭文件标签“%@”？" } }
+      }
+    },
     "Close Tab" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3000,6 +3092,2047 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Drag a host from the sidebar or a tab here, or open one." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "把侧栏里的主机或其他标签拖到这里，或新开一个。" } }
+      }
+    },
+    "%d items" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d 项"
+          }
+        }
+      }
+    },
+    "%lld Sessions Selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Sessions Selected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选择 %lld 个会话"
+          }
+        }
+      }
+    },
+    "%lld Views Selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Views Selected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选择 %lld 个视图"
+          }
+        }
+      }
+    },
+    "A new session is running. Previous programs and terminal modes are not restored." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new session is running. Previous programs and terminal modes are not restored."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新会话已启动，上次的程序与终端模式不会恢复。"
+          }
+        }
+      }
+    },
+    "A separate backup is kept beside the file. Existing backups are never replaced." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A separate backup is kept beside the file. Existing backups are never replaced."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将在原文件旁保存独立备份，已有备份不会被覆盖。"
+          }
+        }
+      }
+    },
+    "Actions for %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions for %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@的操作"
+          }
+        }
+      }
+    },
+    "Add Selected Sessions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Selected Sessions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移入所选会话"
+          }
+        }
+      }
+    },
+    "Add a Host to SSH Config" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a Host to SSH Config"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 ~/.ssh/config 中添加 Host 条目后重新打开连接列表。"
+          }
+        }
+      }
+    },
+    "Automatic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动"
+          }
+        }
+      }
+    },
+    "Back to Terminals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to Terminals"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回终端"
+          }
+        }
+      }
+    },
+    "Backup saved: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup saved: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备份已保存：%@"
+          }
+        }
+      }
+    },
+    "Browse Beside Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse Beside Terminal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "终端旁查看"
+          }
+        }
+      }
+    },
+    "Browse Files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse Files"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浏览文件"
+          }
+        }
+      }
+    },
+    "Browse Server Files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse Server Files"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浏览服务器文件"
+          }
+        }
+      }
+    },
+    "Browsed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browsed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已浏览"
+          }
+        }
+      }
+    },
+    "Cancel Transfer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel Transfer"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消传输"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelled"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消"
+          }
+        }
+      }
+    },
+    "Cancelling…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelling…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在取消…"
+          }
+        }
+      }
+    },
+    "Cannot open this directory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot open this directory"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开此目录"
+          }
+        }
+      }
+    },
+    "Check SSH Config Access" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check SSH Config Access"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查 ~/.ssh/config 及 Include 文件是否存在且可读。"
+          }
+        }
+      }
+    },
+    "Choose Directory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Directory"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择目录"
+          }
+        }
+      }
+    },
+    "Choose Directory…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Directory…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择目录…"
+          }
+        }
+      }
+    },
+    "Choose a server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a server"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择服务器"
+          }
+        }
+      }
+    },
+    "Clear Completed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Completed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除已完成"
+          }
+        }
+      }
+    },
+    "Clear Filter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Filter"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除筛选"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
+    "Close Location" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭位置"
+          }
+        }
+      }
+    },
+    "Compact Files Panel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compact Files Panel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收窄文件区"
+          }
+        }
+      }
+    },
+    "Completed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成"
+          }
+        }
+      }
+    },
+    "Copy to %@: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to %@: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制到 %@：%@"
+          }
+        }
+      }
+    },
+    "Copy to Other Pane" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to Other Pane"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制到对面"
+          }
+        }
+      }
+    },
+    "Correct Format" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correct Format"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修正格式"
+          }
+        }
+      }
+    },
+    "Correct Format…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correct Format…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修正格式…"
+          }
+        }
+      }
+    },
+    "Current Line Endings: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Line Endings: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前换行符：%@"
+          }
+        }
+      }
+    },
+    "Current format: %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current format: %@ · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前格式：%@ · %@"
+          }
+        }
+      }
+    },
+    "Dock Files Panel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock Files Panel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "终端下方"
+          }
+        }
+      }
+    },
+    "Download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载"
+          }
+        }
+      }
+    },
+    "Download to %@: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download to %@: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载到 %@：%@"
+          }
+        }
+      }
+    },
+    "Downloads" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载"
+          }
+        }
+      }
+    },
+    "Drag from This Mac or Finder to a remote folder to upload." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag from This Mac or Finder to a remote folder to upload."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将本机或 Finder 中的文件拖到远程目录，即可上传。"
+          }
+        }
+      }
+    },
+    "Enter New Session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter New Session"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "进入新会话"
+          }
+        }
+      }
+    },
+    "Expand Files Panel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand Files Panel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开文件区"
+          }
+        }
+      }
+    },
+    "Failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失败"
+          }
+        }
+      }
+    },
+    "File Workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File Workspace"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件工作区"
+          }
+        }
+      }
+    },
+    "Files Below Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files Below Terminal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "终端下方"
+          }
+        }
+      }
+    },
+    "Find in Preview" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find in Preview"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在预览中查找"
+          }
+        }
+      }
+    },
+    "Hide Files Panel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Files Panel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起文件区"
+          }
+        }
+      }
+    },
+    "Home" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "个人目录"
+          }
+        }
+      }
+    },
+    "Inferred" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inferred"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推测"
+          }
+        }
+      }
+    },
+    "Interrupted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrupted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已中断"
+          }
+        }
+      }
+    },
+    "Keep Original" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Original"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留原有"
+          }
+        }
+      }
+    },
+    "Last Screen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Screen"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最后画面"
+          }
+        }
+      }
+    },
+    "Layout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "布局"
+          }
+        }
+      }
+    },
+    "Locations" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locations"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用目录"
+          }
+        }
+      }
+    },
+    "Maximize Files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximize Files"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大化文件"
+          }
+        }
+      }
+    },
+    "Navigation" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Navigation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导航"
+          }
+        }
+      }
+    },
+    "New Session" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Session"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建"
+          }
+        }
+      }
+    },
+    "New Terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Terminal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建终端"
+          }
+        }
+      }
+    },
+    "New Terminal in Current Directory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Terminal in Current Directory"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在当前目录新建终端"
+          }
+        }
+      }
+    },
+    "No matching sessions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching sessions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有匹配的会话"
+          }
+        }
+      }
+    },
+    "Only regular files can be converted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only regular files can be converted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只能转换普通文件"
+          }
+        }
+      }
+    },
+    "Open Selected Host" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Selected Host"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开所选主机"
+          }
+        }
+      }
+    },
+    "Opened" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opened"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已打开"
+          }
+        }
+      }
+    },
+    "Output Encoding" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Output Encoding"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输出编码"
+          }
+        }
+      }
+    },
+    "Output Line Endings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Output Line Endings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输出换行符"
+          }
+        }
+      }
+    },
+    "Pane Actions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pane Actions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "窗格操作"
+          }
+        }
+      }
+    },
+    "Parent Folder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parent Folder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上级目录"
+          }
+        }
+      }
+    },
+    "Preparing…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备…"
+          }
+        }
+      }
+    },
+    "Preview shows the beginning. Format correction reads the complete file, up to 8 MiB." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview shows the beginning. Format correction reads the complete file, up to 8 MiB."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预览只显示文件开头；修正时将读取完整文件，最大支持 8 MiB。"
+          }
+        }
+      }
+    },
+    "Previous session · read-only text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous session · read-only text"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次会话 · 只读文字"
+          }
+        }
+      }
+    },
+    "Queued" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queued"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排队中"
+          }
+        }
+      }
+    },
+    "Reading Encoding" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading Encoding"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读取编码"
+          }
+        }
+      }
+    },
+    "Refresh the preview before converting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh the preview before converting"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先刷新预览再转换"
+          }
+        }
+      }
+    },
+    "Remember Another Location" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remember Another Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加常用位置"
+          }
+        }
+      }
+    },
+    "Remote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "远程"
+          }
+        }
+      }
+    },
+    "Remote Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote Server"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "远程服务器"
+          }
+        }
+      }
+    },
+    "Resize Files Panel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resize Files Panel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整文件区宽度"
+          }
+        }
+      }
+    },
+    "Restore Files Panel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Files Panel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复文件面板"
+          }
+        }
+      }
+    },
+    "Retry Transfer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry Transfer"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试传输"
+          }
+        }
+      }
+    },
+    "Return to Existing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return to Existing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回已有"
+          }
+        }
+      }
+    },
+    "Reveal in Files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveal in Files"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在文件中显示"
+          }
+        }
+      }
+    },
+    "Save Correction" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Correction"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存修正"
+          }
+        }
+      }
+    },
+    "Saved Locations" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Locations"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的位置"
+          }
+        }
+      }
+    },
+    "Search Sessions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Sessions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索会话"
+          }
+        }
+      }
+    },
+    "Search hostname or IP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search hostname or IP"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索主机名或 IP"
+          }
+        }
+      }
+    },
+    "Servers" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servers"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器"
+          }
+        }
+      }
+    },
+    "Side-by-side Files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Side-by-side Files"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左右对照"
+          }
+        }
+      }
+    },
+    "Split %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分屏 %lld"
+          }
+        }
+      }
+    },
+    "Switch File Pane" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch File Pane"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换文件窗格"
+          }
+        }
+      }
+    },
+    "Terminal Layout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal Layout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "终端布局"
+          }
+        }
+      }
+    },
+    "Terminals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminals"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "终端"
+          }
+        }
+      }
+    },
+    "Text History" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text History"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字历史"
+          }
+        }
+      }
+    },
+    "The file changed. Refresh it and try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file changed. Refresh it and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件已发生变化，请刷新后重试。"
+          }
+        }
+      }
+    },
+    "The file is too large to convert safely" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file is too large to convert safely"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件过大，无法安全转换"
+          }
+        }
+      }
+    },
+    "The selected encoding cannot represent all characters. No file was changed." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected encoding cannot represent all characters. No file was changed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选编码无法表示所有字符，文件未被修改。"
+          }
+        }
+      }
+    },
+    "Toggle Files Panel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Files Panel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示或收起文件区"
+          }
+        }
+      }
+    },
+    "Toggle Session Sidebar" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Session Sidebar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开或收起会话侧栏"
+          }
+        }
+      }
+    },
+    "Toggle Split Zoom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Split Zoom"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放大或还原窗格"
+          }
+        }
+      }
+    },
+    "Toggle Workspace %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Workspace %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开或收起%@"
+          }
+        }
+      }
+    },
+    "Transferring…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transferring…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在传输…"
+          }
+        }
+      }
+    },
+    "Transfers" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transfers"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "传输"
+          }
+        }
+      }
+    },
+    "Upload" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传"
+          }
+        }
+      }
+    },
+    "Upload to %@: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload to %@: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传到 %@：%@"
+          }
+        }
+      }
+    },
+    "Use UTF-8 + LF" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use UTF-8 + LF"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 UTF-8 无 BOM + LF"
+          }
+        }
+      }
+    },
+    "View Previous Session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Previous Session"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看上次会话"
+          }
+        }
+      }
+    },
+    "Workspace Actions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workspace Actions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作区操作"
+          }
+        }
+      }
+    },
+    "Cannot restore remote directory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot restore remote directory"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法恢复远程目录"
+          }
+        }
+      }
+    },
+    "Opened the remote home directory instead." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opened the remote home directory instead."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已改为打开远程主目录"
+          }
+        }
+      }
+    },
+    "History" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史"
+          }
+        }
+      }
+    },
+    "No Previous History" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Previous History"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无历史记录"
+          }
+        }
+      }
+    },
+    "SSH Configuration" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH Configuration"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH 配置"
+          }
+        }
+      }
+    },
+    "SSH config is not UTF-8." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH config is not UTF-8."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH 配置不是 UTF-8 编码。"
+          }
+        }
+      }
+    },
+    "SSH config changed on disk. Reopen it before saving." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH config changed on disk. Reopen it before saving."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH 配置已被修改，请重新打开后再保存。"
+          }
+        }
+      }
+    },
+    "Search hosts or IP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search hosts or IP"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索主机或 IP"
+          }
+        }
+      }
+    },
+    "Hidden files are collapsed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden files are collapsed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已隐藏隐形文件"
+          }
+        }
+      }
+    },
+    "Pin Folder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin Folder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定文件夹"
+          }
+        }
+      }
+    },
+    "Edit Locations" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Locations"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑常用目录"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        }
+      }
+    },
+    "Drop folders here" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop folders here"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖入文件夹以固定"
+          }
+        }
+      }
+    },
+    "Only local folders can be pinned." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only local folders can be pinned."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只能固定本机文件夹"
+          }
+        }
+      }
+    },
+    "Location Name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目录名称"
+          }
+        }
+      }
+    },
+    "Move Location Up" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Location Up"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上移目录"
+          }
+        }
+      }
+    },
+    "Move Location Down" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Location Down"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下移目录"
+          }
+        }
+      }
+    },
+    "Unpin Folder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin Folder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消固定"
+          }
+        }
+      }
+    },
+    "Search name, group or IP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search name, group or IP"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索名称、分组或 IP"
+          }
+        }
       }
     }
   },

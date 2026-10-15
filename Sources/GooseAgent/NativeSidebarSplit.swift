@@ -1,11 +1,84 @@
 import AppKit
 import SwiftUI
 
-/// AppKit owns the sidebar glass and its geometry. Hosting controllers stay alive when the
-/// material changes; in particular, the detail controller and its terminal surfaces never leave
-/// the hierarchy. Pass environments explicitly: these hosts are independent SwiftUI roots.
+/// The production terminal/file hierarchy is also exercised by native geometry tests. The
+/// terminal stays at the same structural position while files expand, collapse and resize.
+struct WorkspaceContentSplit<Terminal: View, Files: View>: View {
+    var presentation: WorkspacePresentation
+    var onRatioChange: (Double) -> Void
+    @ViewBuilder var terminal: () -> Terminal
+    @ViewBuilder var files: () -> Files
+
+    var body: some View {
+        GeometryReader { geometry in
+            let size = geometry.size
+            let dockHeight = WorkspaceChromeLayout.filesHeight(in: size.height, ratio: presentation.filesHeightRatio)
+            let terminalHeight = presentation.filesDockVisible
+                ? max(0, size.height - dockHeight - WorkspaceChromeLayout.dividerWidth) : size.height
+            ZStack(alignment: .topLeading) {
+                terminal()
+                    .frame(width: size.width, height: terminalHeight)
+                    .opacity(presentation.fullFilesWorkspace ? 0 : 1)
+                    .allowsHitTesting(!presentation.fullFilesWorkspace)
+                    .accessibilityHidden(presentation.fullFilesWorkspace)
+                if presentation.filesVisible {
+                    files()
+                        .frame(width: size.width, height: presentation.fullFilesWorkspace ? size.height : dockHeight)
+                        .offset(y: presentation.fullFilesWorkspace ? 0 : terminalHeight + WorkspaceChromeLayout.dividerWidth)
+                }
+                if presentation.filesDockVisible {
+                    WorkspaceDockDivider { delta in
+                        guard size.height > 0 else { return }
+                        onRatioChange(Double((dockHeight - delta) / size.height))
+                    }
+                    .frame(height: WorkspaceChromeLayout.dividerWidth)
+                    .offset(y: terminalHeight)
+                    .accessibilityLabel(Text("Resize Files Panel"))
+                }
+            }
+            .frame(width: size.width, height: size.height)
+            .clipped()
+        }
+    }
+}
+
+private struct WorkspaceDockDivider: NSViewRepresentable {
+    var onDrag: (CGFloat) -> Void
+    func makeNSView(context: Context) -> WorkspaceDockDividerView { WorkspaceDockDividerView() }
+    func updateNSView(_ view: WorkspaceDockDividerView, context: Context) { view.onDrag = onDrag }
+}
+
+private final class WorkspaceDockDividerView: NSView {
+    var onDrag: (CGFloat) -> Void = { _ in }
+    override var mouseDownCanMoveWindow: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeUpDown) }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.separatorColor.setFill()
+        NSRect(x: 0, y: bounds.midY, width: bounds.width, height: 1).fill()
+        NSColor.secondaryLabelColor.setFill()
+        NSBezierPath(roundedRect: NSRect(x: bounds.midX - 14, y: bounds.midY - 1, width: 28, height: 2),
+                     xRadius: 1, yRadius: 1).fill()
+    }
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let wasMovable = window.isMovable
+        window.isMovable = false
+        defer { window.isMovable = wasMovable }
+        let start = event.locationInWindow.y
+        let drag = onDrag
+        window.trackEvents(matching: [.leftMouseDragged, .leftMouseUp], timeout: .infinity, mode: .eventTracking) { next, stop in
+            guard let next else { stop.pointee = true; return }
+            if next.type == .leftMouseUp { stop.pointee = true; return }
+            drag(start - next.locationInWindow.y)
+        }
+    }
+}
+
+/// AppKit owns solid sidebar geometry. Both hosting controllers and terminal surfaces stay
+/// attached across appearance and layout updates. Pass environments to these independent roots.
 struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresentable {
-    var glass: Bool
+    var collapsed: Bool = false
     var width: CGFloat
     var minimumWidth: CGFloat
     var maximumWidth: CGFloat
@@ -27,8 +100,8 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     }
 
     private func configure(_ controller: NativeSidebarSplitController<Sidebar, Detail>) {
-        controller.configure(glass: glass, width: width, minimum: minimumWidth,
-                             maximum: maximumWidth, defaultWidth: defaultWidth,
+        controller.configure(width: width, minimum: minimumWidth,
+                             maximum: maximumWidth, defaultWidth: defaultWidth, collapsed: collapsed,
                              onWidthChange: onWidthChange)
     }
 }
@@ -36,8 +109,9 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
 final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitViewController {
     let sidebarHost: NSHostingController<Sidebar>
     let detailHost: NSHostingController<Detail>
-    private var usesGlass: Bool?
+    private var configured = false
     private var applying = false
+    private var collapsed = false
     private var requestedWidth: CGFloat = 0
     private var lastReportedWidth: CGFloat = 0
     private var pendingWidth: CGFloat?
@@ -82,47 +156,29 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         ])
     }
 
-    func configure(glass: Bool, width: CGFloat, minimum: CGFloat, maximum: CGFloat,
-                   defaultWidth: CGFloat, onWidthChange: @escaping (CGFloat) -> Void) {
+    func configure(width: CGFloat, minimum: CGFloat, maximum: CGFloat,
+                   defaultWidth: CGFloat, collapsed: Bool = false, onWidthChange: @escaping (CGFloat) -> Void) {
         applying = true
         defer { applying = false }
         widthChanged = onWidthChange
         self.defaultWidth = defaultWidth
         let desired = min(max(width, minimum), maximum)
-        let changedMaterial = usesGlass != glass
-        if changedMaterial {
-            let window = view.window
-            let responder = window?.firstResponder
-            // A field editor is shared by the window and is detached when its sidebar
-            // control temporarily leaves the split. Restore its owning control first.
-            let editor = responder as? NSTextView
-            let editingControl = editor?.isFieldEditor == true ? editor?.delegate as? NSView : nil
-            let selection = editor?.selectedRange()
-            let old = splitViewItems[0]
-            removeSplitViewItem(old)
-            let item = glass ? NSSplitViewItem(sidebarWithViewController: sidebarHost)
-                             : NSSplitViewItem(viewController: sidebarHost)
-            item.canCollapse = false
+        let initialConfiguration = !configured
+        let changedCollapse = self.collapsed != collapsed
+        self.collapsed = collapsed
+        if initialConfiguration {
+            let item = splitViewItems[0]
+            item.canCollapse = true
             item.canCollapseFromWindowResize = false
             item.allowsFullHeightLayout = true
-            // Hold width ahead of the detail, but below AppKit's divider drag constraints.
             item.holdingPriority = NSLayoutConstraint.Priority(260)
-            insertSplitViewItem(item, at: 0)
-            usesGlass = glass
-            // Removing only the sidebar item leaves the detail hosting controller untouched.
-            if let editingControl, editingControl.window === window {
-                window?.makeFirstResponder(editingControl)
-                if let selection, let restoredEditor = window?.firstResponder as? NSTextView {
-                    restoredEditor.setSelectedRange(selection)
-                }
-            } else if let responder {
-                window?.makeFirstResponder(responder)
-            }
+            configured = true
         }
         let item = splitViewItems[0]
         item.minimumThickness = minimum
         item.maximumThickness = maximum
-        if changedMaterial || abs(requestedWidth - desired) > 0.5 {
+        item.isCollapsed = collapsed
+        if initialConfiguration || changedCollapse || abs(requestedWidth - desired) > 0.5 {
             requestedWidth = desired
             lastReportedWidth = desired
             pendingWidth = desired
@@ -144,7 +200,7 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
     private func applyPendingWidth() {
         // makeNSViewController runs before the representable receives a window or frame.
         // Ignore provisional native widths until the saved width can actually be restored.
-        guard let width = pendingWidth, view.window != nil, splitView.bounds.width > width else { return }
+        guard !collapsed, let width = pendingWidth, view.window != nil, splitView.bounds.width > width else { return }
         pendingWidth = nil
         let wasApplying = applying
         applying = true
@@ -154,7 +210,7 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
 
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
-        guard !applying, pendingWidth == nil, usesGlass != nil, splitView.bounds.width > 0 else { return }
+        guard !collapsed, !applying, pendingWidth == nil, configured, splitView.bounds.width > 0 else { return }
         let width = sidebarHost.view.frame.width
         guard width > 0, abs(width - lastReportedWidth) > 0.5 else { return }
         requestedWidth = width
@@ -162,7 +218,7 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         // Never publish SwiftUI state in an AppKit layout/update callback. Report only the
         // latest width, including when a drag ends over the terminal rather than the divider.
         DispatchQueue.main.async { [weak self] in
-            guard let self, abs(self.lastReportedWidth - width) < 0.5 else { return }
+            guard let self, !self.collapsed, abs(self.lastReportedWidth - width) < 0.5 else { return }
             self.widthChanged(width)
         }
     }

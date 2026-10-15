@@ -18,10 +18,20 @@ struct ExternalOpenRequest: Equatable {
     var layout: WorkspaceLayout?
     var name: String?
     var newWindow = false
+    var destination: ExternalOpenDestination = .terminal
+    var path: String?
 
     var isEmpty: Bool {
         hosts.isEmpty && (group?.isEmpty ?? true)
     }
+}
+
+enum ExternalOpenDestination: String { case terminal, files }
+
+struct LocalTerminalCandidate {
+    var id: UUID
+    var directory: String
+    var isRunning: Bool
 }
 
 /// A local shell in `directory` that types `command` once it starts.
@@ -93,6 +103,10 @@ enum ExternalOpen {
                 }
             case "window":
                 request.newWindow = value.lowercased() == "new"
+            case "view":
+                request.destination = ExternalOpenDestination(rawValue: value) ?? .terminal
+            case "path":
+                if let path = item.value, path.hasPrefix("/"), !path.contains("\0") { request.path = path }
             default:
                 continue
             }
@@ -115,9 +129,7 @@ enum ExternalOpen {
             let value = item.value ?? ""
             switch item.name.lowercased() {
             case "cwd":
-                if !value.isEmpty {
-                    request.directory = value
-                }
+                request.directory = value
             case "cmd":
                 if !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     request.command = value
@@ -155,8 +167,16 @@ enum ExternalOpen {
     /// `--working-directory=<dir>` and `-e <cmd> <args…>` from the process arguments.
     /// Everything after `-e` belongs to the command. Other flags, including the ones macOS adds
     /// (`-psn_…`, `-NSDocumentRevisionsDebugMode YES`), are ignored. Nil when neither is present.
-    static func runRequest(fromArguments arguments: [String]) -> ExternalRunRequest? {
+    /// A bare existing folder before `-e` (`1Agent <dir>`, as GitHub Desktop's custom shell passes it)
+    /// counts as the working directory when `--working-directory` is absent.
+    static func runRequest(
+        fromArguments arguments: [String],
+        isDirectory: (String) -> Bool = ExternalOpen.isExistingDirectory
+    ) -> ExternalRunRequest? {
         var request = ExternalRunRequest()
+        if let folder = ExternalOpen.positionalDirectory(in: arguments, isDirectory: isDirectory) {
+            request.directory = folder
+        }
         var index = 1
         while index < arguments.count {
             let argument = arguments[index]
@@ -169,9 +189,7 @@ enum ExternalOpen {
             }
             if argument.hasPrefix("--working-directory=") {
                 let value = String(argument.dropFirst("--working-directory=".count))
-                if !value.isEmpty {
-                    request.directory = value
-                }
+                request.directory = value
             } else if argument.hasPrefix("--wait-after-command") {
                 request.waitAfterCommand = !argument.hasSuffix("=false")
             }
@@ -181,6 +199,55 @@ enum ExternalOpen {
             return nil
         }
         return request
+    }
+
+    /// The first argument before `-e` that is not a flag and names an existing folder, made absolute
+    /// against the current directory.
+    static func positionalDirectory(
+        in arguments: [String],
+        isDirectory: (String) -> Bool = ExternalOpen.isExistingDirectory
+    ) -> String? {
+        let base = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+        for argument in arguments.dropFirst() {
+            if argument == "-e" {
+                return nil
+            }
+            if argument.isEmpty || argument.hasPrefix("-") {
+                continue
+            }
+            let path = URL(fileURLWithPath: (argument as NSString).expandingTildeInPath, relativeTo: base).standardizedFileURL.path
+            // Keep explicit paths even when missing: the receiver reports an invalid cwd.
+            // Plain system flag values such as YES still cannot become a directory request.
+            if isDirectory(path) || argument.hasPrefix("/") || argument.hasPrefix("~/") || argument.hasPrefix("./") || argument.hasPrefix("../") {
+                return path
+            }
+        }
+        return nil
+    }
+
+    static func isExistingDirectory(_ path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
+    static func canonicalDirectory(_ path: String) -> String {
+        URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
+            .standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
+    /// Resolve before matching, so Finder aliases such as /tmp and /private/tmp share a shell.
+    static func validatedDirectory(_ path: String) -> String? {
+        guard !path.isEmpty, !path.contains("\0") else { return nil }
+        let canonical = canonicalDirectory(path)
+        return isExistingDirectory(canonical) ? canonical : nil
+    }
+
+    static func reusableLocalTerminal(at directory: String, candidates: [LocalTerminalCandidate],
+                                      mostRecentFirst: [UUID]) -> UUID? {
+        let target = canonicalDirectory(directory)
+        let matches = candidates.filter { $0.isRunning && canonicalDirectory($0.directory) == target }
+        for id in mostRecentFirst where matches.contains(where: { $0.id == id }) { return id }
+        return matches.last?.id
     }
 
     /// What the new shell types for `-e`. Like Ghostty, the command replaces the shell (`exec`), so the

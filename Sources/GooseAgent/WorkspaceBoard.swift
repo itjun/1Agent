@@ -14,13 +14,16 @@ struct Workspace: Identifiable, Equatable, Codable {
     var panels: [TerminalPanel]
     /// Empty means the generated name, such as Workspace 1.
     var name: String?
+    /// A group is optional. Ungrouped split panels still need a durable tree owner.
+    var isGrouped: Bool
 
-    init(id: UUID, number: Int, members: [UUID], panels: [TerminalPanel]? = nil, name: String? = nil) {
+    init(id: UUID, number: Int, members: [UUID], panels: [TerminalPanel]? = nil, name: String? = nil, isGrouped: Bool = true) {
         self.id = id
         self.number = number
         self.members = members
-        self.panels = panels ?? members.map { TerminalPanel(layout: .leaf($0)) }
+        self.panels = panels ?? members.map { TerminalPanel(id: $0, layout: .leaf($0)) }
         self.name = name
+        self.isGrouped = isGrouped
     }
 
     /// Legacy split workspaces keep their entire tree as one panel.
@@ -33,7 +36,7 @@ struct Workspace: Identifiable, Equatable, Codable {
         panels.first { PaneLayout.contains(id, in: $0.layout) }
     }
 
-    private enum CodingKeys: String, CodingKey { case id, number, members, panels, name, layout }
+    private enum CodingKeys: String, CodingKey { case id, number, members, panels, name, layout, isGrouped }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -46,6 +49,7 @@ struct Workspace: Identifiable, Equatable, Codable {
         } else {
             self.init(id: id, number: number, layout: try values.decode(PaneNode.self, forKey: .layout), name: name)
         }
+        isGrouped = try values.decodeIfPresent(Bool.self, forKey: .isGrouped) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -55,6 +59,7 @@ struct Workspace: Identifiable, Equatable, Codable {
         try values.encode(members, forKey: .members)
         try values.encode(panels, forKey: .panels)
         try values.encodeIfPresent(name, forKey: .name)
+        try values.encode(isGrouped, forKey: .isGrouped)
     }
 }
 
@@ -73,9 +78,15 @@ enum WorkspaceLayout: String, Equatable, CaseIterable {
 }
 
 enum WorkspaceBoard {
+    /// Derived chrome only; member reorder does not mutate panels or these identifiers.
+    static func splitNumber(for session: UUID, in workspace: Workspace) -> Int? {
+        let splitPanels = workspace.panels.filter { leafIDs($0.layout).count > 1 }
+        return splitPanels.firstIndex { PaneLayout.contains(session, in: $0.layout) }.map { $0 + 1 }
+    }
+
     /// Smallest positive integer that is not already a workspace title.
     static func nextNumber(_ workspaces: [Workspace]) -> Int {
-        let used = Set(workspaces.map(\.number))
+        let used = Set(workspaces.filter(\.isGrouped).map(\.number))
         var number = 1
         while used.contains(number) {
             number += 1
@@ -165,7 +176,8 @@ enum WorkspaceBoard {
         var result = extract(dragged, from: workspaces)
         guard let index = result.firstIndex(where: { $0.id == workspaceID }) else { return workspaces }
         result[index].members.append(dragged)
-        result[index].panels.append(TerminalPanel(layout: .leaf(dragged)))
+        let panelID = result.flatMap(\.panels).contains { $0.id == dragged } ? UUID() : dragged
+        result[index].panels.append(TerminalPanel(id: panelID, layout: .leaf(dragged)))
         return result
     }
 
@@ -177,14 +189,33 @@ enum WorkspaceBoard {
         return moveLeaf(dragged, beside: target, after: after, in: joined)
     }
 
-    /// Creates membership with independent panels. An exact existing group keeps its identity.
+    /// Grouping preserves every fully selected panel, including its split geometry and identity.
     static func create(_ ids: [UUID], in workspaces: [Workspace]) -> [Workspace] {
         let ordered = unique(ids)
         guard !ordered.isEmpty else { return workspaces }
-        if workspaces.contains(where: { Set($0.members) == Set(ordered) }) { return workspaces }
+        if let existing = workspaces.firstIndex(where: { Set($0.members) == Set(ordered) }) {
+            var result = workspaces
+            result[existing].isGrouped = true
+            return result
+        }
+        let wanted = Set(ordered)
+        var panels: [TerminalPanel] = []
+        var handled = Set<UUID>()
+        for id in ordered where !handled.contains(id) {
+            if let source = index(containing: id, in: workspaces),
+               let panel = workspaces[source].panel(containing: id),
+               Set(leafIDs(panel.layout)).isSubset(of: wanted) {
+                panels.append(panel)
+                handled.formUnion(leafIDs(panel.layout))
+            } else {
+                let panelID = workspaces.flatMap(\.panels).contains { $0.id == id } ? UUID() : id
+                panels.append(TerminalPanel(id: panelID, layout: .leaf(id)))
+                handled.insert(id)
+            }
+        }
         var result = workspaces
         for id in ordered { result = extract(id, from: result) }
-        result.append(Workspace(id: UUID(), number: nextNumber(result), members: ordered))
+        result.append(Workspace(id: UUID(), number: nextNumber(result), members: ordered, panels: panels))
         return result
     }
 
@@ -193,7 +224,9 @@ enum WorkspaceBoard {
         guard dragged != target, edge != .center else { return workspaces }
         var result = workspaces
         if index(containing: target, in: result) == nil {
-            result.append(Workspace(id: UUID(), number: nextNumber(result), members: [target]))
+            let panelID = result.flatMap(\.panels).contains { $0.id == target } ? UUID() : target
+            result.append(Workspace(id: UUID(), number: nextNumber(result), members: [target],
+                                    panels: [TerminalPanel(id: panelID, layout: .leaf(target))], isGrouped: false))
         }
         let destination = result[index(containing: target, in: result)!].id
         if let source = index(containing: dragged, in: result), result[source].id == destination {
@@ -216,7 +249,9 @@ enum WorkspaceBoard {
         guard ordered.count >= 2, ordered.contains(target), let tree = arrange(ordered, as: layout) else { return workspaces }
         var result = workspaces
         if index(containing: target, in: result) == nil {
-            result.append(Workspace(id: UUID(), number: nextNumber(result), members: [target]))
+            let panelID = result.flatMap(\.panels).contains { $0.id == target } ? UUID() : target
+            result.append(Workspace(id: UUID(), number: nextNumber(result), members: [target],
+                                    panels: [TerminalPanel(id: panelID, layout: .leaf(target))], isGrouped: false))
         }
         let destination = result[index(containing: target, in: result)!].id
         for id in ordered { result = join(id, to: destination, in: result) }
@@ -254,7 +289,35 @@ enum WorkspaceBoard {
     }
 
     static func dissolve(_ workspaceID: UUID, in workspaces: [Workspace]) -> [Workspace] {
-        workspaces.filter { $0.id != workspaceID }
+        workspaces.map { workspace in
+            var result = workspace
+            if result.id == workspaceID { result.isGrouped = false }
+            return result
+        }
+    }
+
+    /// Move one complete panel. A nil destination removes grouping without breaking its tree.
+    static func movePanel(_ panelID: UUID, to workspaceID: UUID?, beside targetPanelID: UUID? = nil,
+                          after: Bool = true, in workspaces: [Workspace]) -> [Workspace] {
+        guard let source = workspaces.firstIndex(where: { $0.panels.contains { $0.id == panelID } }),
+              let panel = workspaces[source].panels.first(where: { $0.id == panelID }),
+              panelID != targetPanelID else { return workspaces }
+        if let workspaceID, !workspaces.contains(where: { $0.id == workspaceID }) { return workspaces }
+        let leaves = leafIDs(panel.layout)
+        var result = workspaces
+        result[source].panels.removeAll { $0.id == panelID }
+        result[source].members.removeAll { leaves.contains($0) }
+        if let workspaceID, let destination = result.firstIndex(where: { $0.id == workspaceID }) {
+            var panelSlot = result[destination].panels.count
+            if let targetPanelID, let slot = result[destination].panels.firstIndex(where: { $0.id == targetPanelID }) {
+                panelSlot = slot + (after ? 1 : 0)
+            }
+            result[destination].panels.insert(panel, at: panelSlot)
+            result[destination].members = result[destination].panels.flatMap { leafIDs($0.layout) }
+        } else {
+            result.append(Workspace(id: UUID(), number: 0, members: leaves, panels: [panel], isGrouped: false))
+        }
+        return result.filter { !$0.members.isEmpty }
     }
 
     /// Membership removal, also used when a session closes. Single-member groups survive.

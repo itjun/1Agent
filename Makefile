@@ -1,4 +1,4 @@
-.PHONY: gen build install run test clean
+.PHONY: gen build install run test test-appearance clean
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -27,9 +27,11 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test:
-	swiftc -o /tmp/goose-sidebar-material-test Sources/GooseAgent/SidebarMaterial.swift Tests/SidebarMaterialTests.swift
-	/tmp/goose-sidebar-material-test
-	swiftc -o /tmp/goose-native-sidebar-test Sources/GooseAgent/NativeSidebarSplit.swift Tests/NativeSidebarSplitTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-pinned-locations-test Sources/GooseAgent/Files/PinnedLocations.swift Tests/PinnedLocationsTests.swift
+	/tmp/oneagent-pinned-locations-test
+	swiftc -o /tmp/oneagent-workspace-presentation-test Sources/GooseAgent/WorkspacePresentation.swift Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspacePresentationTests.swift
+	/tmp/oneagent-workspace-presentation-test
+	swiftc -o /tmp/goose-native-sidebar-test Sources/GooseAgent/NativeSidebarSplit.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/NativeSidebarSplitTests.swift
 	/tmp/goose-native-sidebar-test
 	swiftc -o /tmp/goose-ssh-config-test Sources/GooseAgent/SSHConfig.swift Tests/SSHConfigTests.swift
 	/tmp/goose-ssh-config-test
@@ -59,6 +61,15 @@ test:
 	/tmp/goose-file-rules-test
 	swiftc -o /tmp/goose-text-file-test Sources/GooseAgent/Files/TextFile.swift Tests/TextFileTests.swift
 	/tmp/goose-text-file-test
+	swiftc -o /tmp/oneagent-ssh-launch-test Sources/GooseAgent/SSHLaunch.swift Tests/SSHLaunchTests.swift
+	/tmp/oneagent-ssh-launch-test
+	./scripts/test-file-safety.sh
+	bash scripts/test-terminal-history.sh
+	bash scripts/test-upload-check.sh
+
+# Uses the production Debug module. Run make build first.
+test-appearance:
+	bash scripts/test-family-appearance.sh
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

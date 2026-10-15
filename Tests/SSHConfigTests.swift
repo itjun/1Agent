@@ -105,7 +105,34 @@ enum SSHConfigTests {
         expect(HostSearch.filter(result.hosts, query: "qtd").map(\.alias) == ["quoted"], "subsequence matches")
         expect(HostSearch.filter(result.hosts, query: "zzz").isEmpty, "no match")
         expect(HostSearch.filter(result.hosts, query: "  ").map(\.alias) == result.hosts.map(\.alias), "blank keeps order")
-        print("ok")
+        let readOnly = root.appendingPathComponent("readonly")
+        let link = root.appendingPathComponent("linked-config")
+        let contents = "Host readonly\n  HostName 192.0.2.10\n"
+        try! contents.write(to: readOnly, atomically: true, encoding: .utf8)
+        try! FileManager.default.setAttributes([.posixPermissions: 0o400], ofItemAtPath: readOnly.path)
+        try! FileManager.default.createSymbolicLink(at: link, withDestinationURL: readOnly)
+        let beforeFiles = try! FileManager.default.contentsOfDirectory(atPath: root.path).sorted()
+        let beforeAttributes = try! FileManager.default.attributesOfItem(atPath: readOnly.path)
+        let readOnlyResult = SSHConfig.load(from: link)
+        expect(readOnlyResult.hosts.first?.hostName == "192.0.2.10", "read-only symlink config loads")
+        expect((try! String(contentsOf: readOnly, encoding: .utf8)) == contents, "loading preserves config contents")
+        let afterAttributes = try! FileManager.default.attributesOfItem(atPath: readOnly.path)
+        expect(beforeAttributes[.modificationDate] as? Date == afterAttributes[.modificationDate] as? Date,
+               "loading preserves modification time")
+        expect(afterAttributes[.posixPermissions] as? NSNumber == 0o400, "loading preserves permissions")
+        expect((try! FileManager.default.destinationOfSymbolicLink(atPath: link.path)) == readOnly.path,
+               "loading preserves the symlink")
+        expect((try! FileManager.default.contentsOfDirectory(atPath: root.path).sorted()) == beforeFiles,
+               "loading creates no backup or staging files")
+        expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("missing").path),
+               "loading a missing config must not create it")
+        let hosts = [SSHHost(alias: "DEMO-Gray", hostName: "192.0.2.10", source: "生产环境"),
+                     SSHHost(alias: "build", hostName: "198.51.100.2", source: "staging")]
+        expect(HostSearch.filter(hosts, query: "demo-gray").map(\.alias) == ["DEMO-Gray"], "name search is case insensitive")
+        expect(HostSearch.filter(hosts, query: "生产").map(\.alias) == ["DEMO-Gray"], "Chinese group search")
+        expect(HostSearch.filter(hosts, query: "192.0.2").map(\.alias) == ["DEMO-Gray"], "partial IP search")
+        expect(HostSearch.filter(hosts, query: "STAGING").map(\.alias) == ["build"], "group search is case insensitive")
+        print("ok: SSH config read-only loading and name/group/IP search")
     }
 
     static func expect(_ condition: Bool, _ message: String) {

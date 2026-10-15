@@ -18,13 +18,12 @@ struct TerminalCanvas: View {
     /// does not resize the PTY to 1×1 (which reflows scrollback and jumps the cursor).
     @State private var lastContentFrame: [UUID: CGRect] = [:]
 
-    /// Panes in a split each get a title bar. A lone pane gets a plain strip as tall as the system
-    /// title bar instead.
+    /// Split panes retain their draggable titles; a lone terminal starts at the content top.
     private func headerHeight(isSplit: Bool) -> CGFloat {
         if isSplit {
             return Theme.PaneStyle.headerHeight
         }
-        return Theme.PaneStyle.stripHeight
+        return 0
     }
 
     var body: some View {
@@ -54,9 +53,12 @@ struct TerminalCanvas: View {
                         sessionID: tab.sessionID,
                         alias: tab.alias ?? "",
                         directory: tab.isLocal ? tab.directory : nil,
+                        remoteDirectory: tab.remoteDirectory,
                         environment: model.launchEnvironment,
                         dark: dark,
-                        focusesOnCreate: window.selectedTabID == tab.id,
+                        isPresented: visible && !window.presentation.fullFilesWorkspace,
+                        focusesOnCreate: window.selectedTabID == tab.id &&
+                            !(window.presentation.filesVisible && window.presentation.filesWorkspace),
                         takeInitialInput: { model.takeInitialInput(for: tab.id) },
                         onExit: { code, lived in
                             // A local shell exit closes the tab. ssh uses 255 when the connection itself fails.
@@ -71,8 +73,10 @@ struct TerminalCanvas: View {
                         onClose: { model.closeTab(tab.id) },
                         onFocus: { model.notePaneFocused(tab.id, in: window) },
                         onSplit: { edge in model.duplicate(tab.id, edge: edge) },
-                        onFileDrop: { urls, zone in model.openDropped(urls, zone: zone, on: tab.id, in: window) },
-                        onOpenFiles: { model.showFiles(for: tab.id, in: window) }
+                        onRevealFiles: { model.showFiles(for: tab.id, in: window) },
+                        onToggleHistory: { model.toggleTerminalHistory(for: tab.id, in: window) },
+                        isHistoryVisible: { window.historyVisible && window.selectedTabID == tab.id },
+                        onFileDrop: { urls, zone in model.openDropped(urls, zone: zone, on: tab.id, in: window) }
                     )
                     .id(tab.sessionID)
                     .frame(
@@ -113,6 +117,15 @@ struct TerminalCanvas: View {
                     if let frame = frames[tab.id] {
                         paneChrome(tab, frame: frame, headerHeight: headerH, isSplit: isSplit, isZoomed: zoomed == tab.id)
                     }
+                }
+                if isSplit, let selected = window.selectedTabID, let frame = frames[selected] {
+                    Rectangle()
+                        .strokeBorder(chrome.accent.opacity(window.section == .terminals ? 0.75 : 0.3), lineWidth: 1)
+                        .frame(width: frame.width, height: frame.height)
+                        .position(x: frame.midX, y: frame.midY)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                        .zIndex(5)
                 }
             }
             .overlay {
@@ -221,7 +234,7 @@ struct TerminalCanvas: View {
         let focused = window.selectedTabID == tab.id
         if isSplit {
             ZStack {
-                chrome.background
+                chrome.panelHeader
                     .allowsHitTesting(false)
                 WindowDragArea(onClick: { model.selectOnly(tab.id, in: window) })
                 VStack(spacing: 0) {
@@ -258,28 +271,23 @@ struct TerminalCanvas: View {
                         onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
                         onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                         onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                        prepareContextMenu: { terminalContextMenu(for: tab, model: model, window: window) },
+                        prepareContextMenu: nil,
                         freezesWindow: true
                     )
                     .help(String(localized: "Drag the title onto a pane edge to combine. Drag it back to the workspace sidebar to separate. Right-click to manage panels and workspace membership or copy host info. Drag the blank part of the bar to move the window."))
                 }
                 .padding(.horizontal, Theme.Space.s)
-                if tab.content.isTerminal {
-                    HStack {
-                        Spacer(minLength: 0)
-                        filesButton(tab)
-                    }
-                    .padding(.horizontal, Theme.Space.xs)
-                }
+                .padding(.trailing, Theme.PaneStyle.headerButtonSize * 2)
+
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
             .zIndex(4)
-        } else {
+        } else if headerHeight > 0 {
             // A lone pane has no title bar: a strip in the terminal's own color, where the
             // system title bar would be, shows the title centered and moves the window.
             ZStack(alignment: .trailing) {
-                chrome.background
+                chrome.panelHeader
                     .allowsHitTesting(false)
                 WindowDragArea()
                 VStack(spacing: 0) {
@@ -313,9 +321,7 @@ struct TerminalCanvas: View {
                 .padding(.horizontal, Theme.PaneStyle.stripTitleInset)
                 .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
                 HStack(spacing: 0) {
-                    if tab.content.isTerminal {
-                        filesButton(tab)
-                    }
+
                     if isZoomed {
                         zoomMark
                     }
@@ -344,26 +350,6 @@ struct TerminalCanvas: View {
         }
     }
 
-    /// Switches to the Files area on this terminal's machine and folder.
-    private func filesButton(_ tab: TerminalTab) -> some View {
-        let help = String(
-            format: String(localized: "Open File Manager (%@)"),
-            AppShortcuts.display(for: .openFileBrowser)
-        )
-        return Button {
-            model.showFiles(for: tab.id, in: window)
-        } label: {
-            Image(systemName: "folder")
-                .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .semibold))
-                .foregroundStyle(chrome.secondary)
-                .frame(width: Theme.PaneStyle.headerButtonSize, height: Theme.PaneStyle.headerButtonSize)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(Text(help))
-    }
-
     /// Shown at the right end of the zoomed pane's strip. A click shows every pane again.
     private var zoomMark: some View {
         let help = String(
@@ -385,17 +371,35 @@ struct TerminalCanvas: View {
     }
 
     private func showsConnectionBanner(_ tab: TerminalTab) -> Bool {
-        window.selectedTabID == tab.id && (tab.reconnecting || tab.showsDisconnected)
+        tab.reconnecting || tab.showsDisconnected
     }
 
     /// The terminal starts below an open find bar, and below the banner above that bar, so neither
     /// hides the row Ghostty scrolls the current match to.
     private func findBarInset(_ tab: TerminalTab) -> CGFloat {
-        guard find.openSessionIDs.contains(tab.sessionID) else { return 0 }
-        if showsConnectionBanner(tab) {
-            return Theme.PaneStyle.bannerHeight + Theme.PaneStyle.findBarHeight
+        let banner = showsConnectionBanner(tab) ? Theme.PaneStyle.bannerHeight : 0
+        let find = find.openSessionIDs.contains(tab.sessionID) ? Theme.PaneStyle.findBarHeight : 0
+        return banner + find
+    }
+
+    private func paneActions(_ tab: TerminalTab) -> some View {
+        Menu {
+            Button("Duplicate Right") { model.duplicate(tab.id, edge: .right) }
+            Button("Duplicate Down") { model.duplicate(tab.id, edge: .bottom) }
+            Button("Separate into Independent Panels") { model.splitSidebar([tab.id], in: window) }
+                .disabled(!model.sidebarSplits([tab.id]))
+            Button("Toggle Split Zoom") {
+                model.selectOnly(tab.id, in: window)
+                model.toggleSplitZoom(in: window)
+            }.disabled(!model.sidebarSplits([tab.id]))
+        } label: {
+            Image(systemName: "ellipsis")
+                .frame(width: Theme.PaneStyle.headerButtonSize, height: Theme.PaneStyle.headerButtonSize)
         }
-        return Theme.PaneStyle.findBarHeight
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel(Text("Pane Actions"))
     }
 
     /// Strip under the title bar for a lost SSH link. Only the Reconnect button takes clicks;

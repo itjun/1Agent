@@ -42,7 +42,7 @@ struct ThemePreviewCard: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: definition.name))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .accessibilityLabel(Text(verbatim: definition.name))
         .accessibilityValue(Text(definition.isLightBackground ? "Light theme" : "Dark theme"))
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -130,7 +130,7 @@ struct ThemePreviewCard: View {
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(chrome.secondary)
             Text(definition.isLightBackground ? "Light theme" : "Dark theme")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(chrome.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)

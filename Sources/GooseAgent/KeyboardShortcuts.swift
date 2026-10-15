@@ -74,7 +74,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .newTab: return String(localized: "New Tab")
+        case .newTab: return String(localized: "New Terminal")
         case .newLocalTerminal: return String(localized: "New Local Terminal")
         case .openHost: return String(localized: "Open Host…")
         case .toggleFullScreen: return String(localized: "Toggle Full Screen")

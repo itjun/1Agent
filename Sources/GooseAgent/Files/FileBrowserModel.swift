@@ -6,12 +6,7 @@ import Foundation
 /// like one `SftpPane` in 1Panel.
 @MainActor
 final class FileColumn: ObservableObject, Identifiable {
-    enum SortKey {
-        case name
-        case modified
-        case size
-        case kind
-    }
+    typealias SortKey = FileSortKey
 
     /// Text, or a Quick Look of any other file, shown in the preview drawer.
     struct Preview: Equatable {
@@ -23,6 +18,7 @@ final class FileColumn: ObservableObject, Identifiable {
         /// A local copy for Quick Look. Images, PDFs and the like; text files leave it nil.
         var quickLook: URL? = nil
         var isQuickLook = false
+        var revision: FileRevision? = nil
     }
 
     let fileSystem: any FileSystem
@@ -32,20 +28,51 @@ final class FileColumn: ObservableObject, Identifiable {
     @Published private(set) var entries: [FileEntry] = []
     @Published private(set) var loading = false
     @Published var error: String?
-    @Published private(set) var backStack: [String] = []
-    @Published private(set) var forwardStack: [String] = []
-    @Published var selection: Set<String> = []
-    @Published var filter = ""
-    @Published var showHidden = false
-    @Published var sortKey: SortKey = .name
-    @Published var ascending = true
-    @Published var preview: Preview?
+    @Published private(set) var backStack: [String] = [] { didSet { onStateChange?() } }
+    @Published private(set) var forwardStack: [String] = [] { didSet { onStateChange?() } }
+    @Published var selection: Set<String> = [] { didSet { onStateChange?() } }
+    @Published var filter = "" { didSet { reconcileScrollAnchor(); onStateChange?() } }
+    @Published var showHidden = false { didSet { reconcileScrollAnchor(); onStateChange?() } }
+    @Published var sortKey: SortKey = .name { didSet { onStateChange?() } }
+    @Published var ascending = true { didSet { onStateChange?() } }
+    @Published var scrollAnchor: String? { didSet { onStateChange?() } }
+    @Published var preview: Preview? { didSet { onStateChange?() } }
+    @Published private(set) var readingEncoding: TextFile.Encoding?
+    private var previewRequest = UUID()
+    private var restoredState: FileWorkspace.Saved.Tab?
     private var anchor: Int?
     private var loadTask: Task<Void, Never>?
+    /// The initial list can fail before `directory` has a successfully loaded value.
+    private var attemptedPath: String?
     /// False until `start` has its first folder; an `open` before then replaces that folder.
     private var started = false
     private var startOverride: String?
+    private var initialPath: String?
+    var savedPath: String? { directory.isEmpty ? startOverride ?? initialPath : directory }
+    var savedScrollAnchor: String? { restoredState?.scrollAnchor ?? scrollAnchor }
+    var savedPreviewPath: String? { preview?.entry.path ?? restoredState?.previewPath }
     var onDirectoryChange: ((String) -> Void)?
+    var onStateChange: (() -> Void)?
+
+    func restore(_ state: FileWorkspace.Saved.Tab) {
+        restoredState = state
+        initialPath = state.path
+        filter = state.filter ?? ""
+        selection = Set(state.selection ?? [])
+        showHidden = state.showHidden ?? false
+        sortKey = state.sortKey ?? .name
+        ascending = state.ascending ?? true
+        readingEncoding = state.readingEncoding
+        backStack = state.backStack ?? []
+        forwardStack = state.forwardStack ?? []
+        scrollAnchor = state.scrollAnchor
+    }
+
+    private func reconcileScrollAnchor() {
+        guard !loading, !directory.isEmpty, let scrollAnchor,
+              !shown.contains(where: { $0.path == scrollAnchor }) else { return }
+        self.scrollAnchor = nil
+    }
 
     init(fileSystem: any FileSystem) {
         self.fileSystem = fileSystem
@@ -67,18 +94,19 @@ final class FileColumn: ObservableObject, Identifiable {
         }
         return visible.sorted { a, b in
             if a.isDirectory != b.isDirectory { return a.isDirectory }
-            let order: Bool
+            let order: ComparisonResult
             switch sortKey {
             case .name:
-                order = a.name.localizedStandardCompare(b.name) == .orderedAscending
+                order = a.name.localizedStandardCompare(b.name)
             case .modified:
-                order = (a.modified ?? .distantPast) < (b.modified ?? .distantPast)
+                order = (a.modified ?? .distantPast).compare(b.modified ?? .distantPast)
             case .size:
-                order = a.size < b.size
+                order = a.size == b.size ? .orderedSame : a.size < b.size ? .orderedAscending : .orderedDescending
             case .kind:
-                order = Self.kind(of: a).localizedStandardCompare(Self.kind(of: b)) == .orderedAscending
+                order = Self.kind(of: a).localizedStandardCompare(Self.kind(of: b))
             }
-            return ascending ? order : !order
+            let stable = order == .orderedSame ? a.name.localizedStandardCompare(b.name) : order
+            return stable == (ascending ? .orderedAscending : .orderedDescending)
         }
     }
 
@@ -100,6 +128,9 @@ final class FileColumn: ObservableObject, Identifiable {
     // MARK: Navigation
 
     func start(at path: String?) {
+        guard !started, !loading else { return }
+        initialPath = path
+        loading = true
         Task {
             do {
                 home = try await fileSystem.home()
@@ -140,14 +171,16 @@ final class FileColumn: ObservableObject, Identifiable {
     }
 
     func refresh() {
-        guard !directory.isEmpty else { return }
-        load(directory, record: false, keepSelection: true)
+        guard let path = directory.isEmpty ? attemptedPath : directory else { return }
+        load(path, record: false, keepSelection: true)
     }
 
     /// `fallback` opens instead when `path` fails, e.g. a restored folder that was deleted.
     private func load(_ path: String, record: Bool, keepSelection: Bool = false, fallback: String? = nil) {
         loadTask?.cancel()
+        attemptedPath = path
         loading = true
+        error = nil
         let previous = directory
         loadTask = Task {
             do {
@@ -161,15 +194,25 @@ final class FileColumn: ObservableObject, Identifiable {
                 directory = path
                 entries = listed
                 error = nil
-                if changed || !keepSelection {
+                if let restored = restoredState {
+                    restoredState = nil
+                    selection = Set(restored.selection ?? []).intersection(Set(listed.map(\.path)))
+                    filter = restored.filter ?? ""
+                    scrollAnchor = restored.scrollAnchor
+                    if let path = restored.previewPath, let entry = listed.first(where: { $0.path == path }), !entry.isDirectory {
+                        showPreview(entry, using: restored.readingEncoding)
+                    }
+                } else if changed || !keepSelection {
                     selection = []
                     anchor = nil
                     filter = ""
+                    scrollAnchor = nil
                 } else {
                     let paths = Set(listed.map(\.path))
                     selection = selection.intersection(paths)
                 }
                 loading = false
+                reconcileScrollAnchor()
                 if changed { onDirectoryChange?(path) }
             } catch {
                 guard !Task.isCancelled else { return }
@@ -248,24 +291,36 @@ final class FileColumn: ObservableObject, Identifiable {
 
     // MARK: Preview
 
-    func showPreview(_ entry: FileEntry) {
+    func showPreview(_ entry: FileEntry, using encoding: TextFile.Encoding? = nil) {
+        readingEncoding = encoding
+        let request = UUID()
+        previewRequest = request
         preview = Preview(entry: entry, decoded: nil, truncated: false, error: nil)
         let limit = FileBrowserLayout.previewByteLimit
         Task {
             do {
+                let revision = try await fileSystem.revision(entry.path)
                 let data = try await fileSystem.read(entry.path, limit: limit + 1)
-                guard preview?.entry == entry else { return }
+                guard previewRequest == request, preview?.entry == entry else { return }
+                guard try await fileSystem.revision(entry.path) == revision else { throw FileSafety.changed() }
+                guard previewRequest == request, preview?.entry == entry else { return }
                 let truncated = data.count > limit
-                let decoded = TextFile.decode(truncated ? data.prefix(limit) : data)
+                let decoded = TextFile.decodePreview(Data(data.prefix(limit)), using: encoding, truncated: truncated)
                 preview = Preview(
                     entry: entry, decoded: decoded, truncated: truncated,
-                    error: decoded == nil ? String(localized: "Not a text file") : nil
+                    error: decoded == nil ? String(localized: "Not a text file") : nil,
+                    revision: revision
                 )
             } catch {
-                guard preview?.entry == entry else { return }
+                guard previewRequest == request, preview?.entry == entry else { return }
                 preview?.error = error.localizedDescription
             }
         }
+    }
+
+    func reloadPreview(using encoding: TextFile.Encoding?) {
+        guard let current = preview, !current.isQuickLook else { return }
+        showPreview(current.entry, using: encoding)
     }
 
     /// Quick Look of a non-text file. A file on the host is downloaded to a temporary folder first.
@@ -299,26 +354,31 @@ final class FileColumn: ObservableObject, Identifiable {
         }
     }
 
-    /// Rewrites the previewed file as UTF-8 with LF line endings, after copying it to `name.bak`.
-    func convertPreviewToUTF8LF() async throws {
-        guard let current = preview, let decoded = current.decoded, !current.truncated else { return }
-        let backup = current.entry.path + ".bak"
-        let existing = try await fileSystem.existingNames(
-            in: FileRules.parent(of: current.entry.path), among: [(backup as NSString).lastPathComponent]
-        )
-        if !existing.isEmpty {
-            try await fileSystem.delete([backup])
+    /// Conversion always decodes the full current file, never the preview's truncated sample.
+    func savePreviewFormat(encoding: TextFile.Encoding, lineEnding: TextFile.LineEnding?) async throws -> String? {
+        guard let current = preview, let expected = current.revision, !current.isQuickLook else {
+            throw FileError.message(String(localized: "Refresh the preview before converting"))
         }
-        try await fileSystem.copy(current.entry.path, to: backup)
-        try await fileSystem.write(TextFile.utf8LF(decoded.text), to: current.entry.path)
-        showPreview(current.entry)
+        let snapshot = try await fileSystem.readComplete(current.entry.path, maximumBytes: 8 * 1024 * 1024)
+        guard snapshot.revision == expected else { throw FileSafety.changed() }
+        guard let decoded = TextFile.decode(snapshot.data, using: readingEncoding) else {
+            throw FileError.message(String(localized: "Not a text file"))
+        }
+        let output = try TextFile.encode(decoded.text, encoding: encoding, lineEnding: lineEnding,
+                                         includeBOM: encoding == decoded.encoding ? decoded.hasBOM : nil)
+        let backup = try await fileSystem.replaceFile(output, at: current.entry.path, expected: expected)
+        showPreview(current.entry, using: encoding)
         refresh()
+        return backup
     }
+
+    func convertPreviewToUTF8LF() async throws {
+        _ = try await savePreviewFormat(encoding: .utf8, lineEnding: .lf)
+    }
+
 }
 
-/// The Files area of one window: panes arranged in a grid like the terminal canvas, each with any
-/// number of tabs on this Mac or on hosts. Tabs move within and between panes, and a tab dropped on
-/// a pane's edge splits it. Transfers go to the current tab of the pane focused before this one.
+/// One window's independent file page: local browsing on the left, movable remote tabs on the right.
 @MainActor
 final class FileWorkspace: ObservableObject {
     /// One pane of the grid: its tabs and which one is shown.
@@ -330,64 +390,10 @@ final class FileWorkspace: ObservableObject {
         var active: FileColumn? { tabs.first { $0.id == activeID } }
     }
 
-    /// What `files.tabs` holds: the grid, and each pane's tabs (host and folder) and current tab.
-    /// Older versions saved `left` / `right` (or `local` / `remote`) lists; those load as two panes.
-    struct Saved: Codable {
-        struct Tab: Codable {
-            var host: String?
-            var path: String?
-        }
+    typealias Saved = FileWorkspaceSnapshot
 
-        struct SavedGroup: Codable {
-            var id: UUID
-            var tabs: [Tab]
-            var active: Int
-        }
-
-        var layout: PaneNode?
-        var groups: [SavedGroup] = []
-        var focused: UUID?
-
-        private enum CodingKeys: String, CodingKey {
-            case layout, groups, focused
-            case left, right, activeLeft, activeRight
-            case local, remote, activeLocal, activeRemote
-        }
-
-        init() {}
-
-        init(from decoder: Decoder) throws {
-            let values = try decoder.container(keyedBy: CodingKeys.self)
-            if let groups = try values.decodeIfPresent([SavedGroup].self, forKey: .groups) {
-                self.groups = groups
-                layout = try values.decodeIfPresent(PaneNode.self, forKey: .layout)
-                focused = try values.decodeIfPresent(UUID.self, forKey: .focused)
-                return
-            }
-            let left = try values.decodeIfPresent([Tab].self, forKey: .left)
-                ?? values.decodeIfPresent([Tab].self, forKey: .local) ?? []
-            let right = try values.decodeIfPresent([Tab].self, forKey: .right)
-                ?? values.decodeIfPresent([Tab].self, forKey: .remote) ?? []
-            let activeLeft = try values.decodeIfPresent(Int.self, forKey: .activeLeft)
-                ?? values.decodeIfPresent(Int.self, forKey: .activeLocal) ?? 0
-            let activeRight = try values.decodeIfPresent(Int.self, forKey: .activeRight)
-                ?? values.decodeIfPresent(Int.self, forKey: .activeRemote) ?? 0
-            let leading = SavedGroup(id: UUID(), tabs: left, active: activeLeft)
-            let trailing = SavedGroup(id: UUID(), tabs: right, active: activeRight)
-            groups = [leading, trailing]
-            layout = .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
-                                      leading: .leaf(leading.id), trailing: .leaf(trailing.id)))
-            focused = leading.id
-        }
-
-        func encode(to encoder: Encoder) throws {
-            var values = encoder.container(keyedBy: CodingKeys.self)
-            try values.encodeIfPresent(layout, forKey: .layout)
-            try values.encode(groups, forKey: .groups)
-            try values.encodeIfPresent(focused, forKey: .focused)
-        }
-    }
-
+    let localGroupID: UUID
+    private(set) var remoteGroupID: UUID
     @Published private(set) var layout: PaneNode
     @Published private(set) var groups: [UUID: Group] = [:]
     /// The pane last clicked or opened. ⌘W closes its current tab.
@@ -400,65 +406,80 @@ final class FileWorkspace: ObservableObject {
     weak var windowState: WindowState?
     var onChange: ((Saved) -> Void)?
 
-    init(saved: Saved?, model: AppModel, window: WindowState) {
+    init(saved: Saved?, model: AppModel, window: WindowState, loadImmediately: Bool = true) {
         self.model = model
         windowState = window
         let saved = saved ?? Saved()
-        var groups: [UUID: Group] = [:]
-        for savedGroup in saved.groups {
-            var group = Group(id: savedGroup.id)
-            group.tabs = savedGroup.tabs.map { Self.makeColumn(host: $0.host.flatMap { $0.isEmpty ? nil : $0 }, path: $0.path) }
-            if !group.tabs.isEmpty {
-                group.activeID = group.tabs[min(max(savedGroup.active, 0), group.tabs.count - 1)].id
-            }
-            groups[group.id] = group
+        let restored = saved.fixedColumns()
+        let keepsLayout = saved.hasRestorableLayout
+        let localID = keepsLayout ? saved.localGroupID! : UUID()
+        let remoteID = keepsLayout ? saved.remoteGroupID! : UUID()
+        localGroupID = localID
+        remoteGroupID = remoteID
+        func column(_ tab: Saved.Tab) -> FileColumn {
+            let result = FileColumn(fileSystem: fileSystem(for: tab.host))
+            result.restore(tab)
+            if loadImmediately { result.start(at: tab.path) }
+            return result
         }
-        var layout = saved.layout
-        // Keep only panes that both the grid and the list know, and drop empty ones.
-        if let current = layout {
-            for id in WorkspaceBoard.leafIDs(current) where groups[id]?.tabs.isEmpty ?? true {
-                layout = layout.flatMap { PaneLayout.remove(id, from: $0) }
-            }
+        if keepsLayout {
+            groups = Dictionary(uniqueKeysWithValues: saved.groups.map { item in
+                var group = Group(id: item.id, tabs: item.tabs.map(column))
+                group.activeID = group.tabs.isEmpty ? nil : group.tabs[min(max(0, item.active), group.tabs.count - 1)].id
+                return (item.id, group)
+            })
+            layout = saved.layout!
+            focusedGroupID = saved.focused.flatMap { id in saved.groups.contains { $0.id == id } ? id : nil } ?? localID
+        } else {
+            var local = Group(id: localID, tabs: restored.local.map(column))
+            var remote = Group(id: remoteID, tabs: restored.remote.map(column))
+            if local.tabs.isEmpty { local.tabs = [column(Saved.Tab(host: nil, path: NSHomeDirectory()))] }
+            local.activeID = local.tabs[min(restored.activeLocal, local.tabs.count - 1)].id
+            remote.activeID = remote.tabs.isEmpty ? nil : remote.tabs[min(restored.activeRemote, remote.tabs.count - 1)].id
+            groups = [localID: local, remoteID: remote]
+            let restoredRatio: CGFloat
+            if case .split(let old)? = saved.layout { restoredRatio = min(0.7, max(0.3, old.ratio)) }
+            else { restoredRatio = 0.5 }
+            layout = .split(SplitNode(id: UUID(), axis: .vertical, ratio: restoredRatio,
+                                     leading: .leaf(localID), trailing: .leaf(remoteID)))
+            focusedGroupID = restored.focusRemote && remote.active != nil ? remoteID : localID
         }
-        if let current = layout {
-            let leaves = Set(WorkspaceBoard.leafIDs(current))
-            groups = groups.filter { leaves.contains($0.key) }
-        }
-        if layout == nil || groups.isEmpty {
-            var group = Group(id: UUID())
-            let home = Self.makeColumn(host: nil, path: NSHomeDirectory())
-            group.tabs = [home]
-            group.activeID = home.id
-            groups = [group.id: group]
-            layout = .leaf(group.id)
-        }
-        let root = layout!
-        self.groups = groups
-        self.layout = root
-        let leaves = WorkspaceBoard.leafIDs(root)
-        focusedGroupID = saved.focused.flatMap { leaves.contains($0) ? $0 : nil } ?? leaves[0]
-        focusHistory = leaves.filter { $0 != focusedGroupID } + [focusedGroupID]
-        for column in allTabs {
-            column.onDirectoryChange = { [weak self] _ in self?.save() }
-        }
+        focusHistory = groupIDs.filter { $0 != focusedGroupID } + [focusedGroupID]
+        for column in allTabs { observe(column) }
     }
+
+    func startColumns() {
+        for column in allTabs { column.start(at: column.savedPath) }
+    }
+
+    var localColumn: FileColumn { groups[localGroupID]!.active! }
+    var remoteColumn: FileColumn? { groups[remoteGroupID]?.active }
+    var remoteTabs: [FileColumn] { allTabs.filter(\.isRemote) }
+    var localLocations: [FileColumn] { groups[localGroupID]?.tabs ?? [] }
+    var activeHost: String? { remoteColumn?.fileSystem.host }
+    var selectedPreviewColumn: FileColumn? {
+        if let focusedColumn, focusedColumn.preview != nil { return focusedColumn }
+        return [remoteColumn, localColumn].compactMap { $0 }.first { $0.preview != nil }
+    }
+
+    func browseRemote(host: String, at path: String? = nil) { openRemote(host: host, at: path) }
+    func browseLocal(at path: String) { showLocal(path) }
 
     /// Panes in reading order.
     var groupIDs: [UUID] { WorkspaceBoard.leafIDs(layout) }
+    /// All browsing locations, including inactive tabs in each pane.
     var allTabs: [FileColumn] { groupIDs.flatMap { groups[$0]?.tabs ?? [] } }
+    /// One visible browsing location per pane.
+    var openColumns: [FileColumn] { groupIDs.compactMap { groups[$0]?.active } }
     var focusedColumn: FileColumn? { groups[focusedGroupID]?.active }
 
     func groupID(of column: FileColumn) -> UUID? {
         groups.first { $0.value.tabs.contains { $0 === column } }?.key
     }
 
-    /// The current tab of the pane focused before `column`'s, where "Upload" and "Download" send to.
+    /// The fixed opposite endpoint, independent of keyboard focus history.
     func other(than column: FileColumn) -> FileColumn? {
-        let own = groupID(of: column)
-        for id in focusHistory.reversed() where id != own {
-            if let active = groups[id]?.active { return active }
-        }
-        return nil
+        column.isRemote ? localColumn : remoteColumn
     }
 
     func focus(_ column: FileColumn) {
@@ -466,17 +487,26 @@ final class FileWorkspace: ObservableObject {
         focusGroup(id)
     }
 
-    private func focusGroup(_ id: UUID) {
+    func focusGroup(_ id: UUID) {
+        guard groups[id] != nil else { return }
+        if let window = windowState { model?.focusFiles(in: window) }
         focusedGroupID = id
+        if id != localGroupID { remoteGroupID = id }
         focusHistory.removeAll { $0 == id }
         focusHistory.append(id)
+        save()
+    }
+
+    func selectGroup(_ id: UUID) {
+        focusGroup(id)
+        save()
     }
 
     // MARK: Tabs
 
     @discardableResult
     func addLocalTab(at path: String?, in groupID: UUID? = nil) -> FileColumn {
-        let target = groupID ?? preferredGroup(remote: false)
+        let target = localGroupID
         let current = groups[target]?.active.flatMap { $0.isRemote ? nil : $0.directory }
         let column = makeColumn(host: nil, path: path ?? current ?? NSHomeDirectory())
         insert(column, into: target, at: nil)
@@ -486,14 +516,15 @@ final class FileWorkspace: ObservableObject {
     @discardableResult
     func addRemoteTab(host: String, at path: String? = nil, in groupID: UUID? = nil) -> FileColumn {
         let column = makeColumn(host: host, path: path)
-        insert(column, into: groupID ?? preferredGroup(remote: true), at: nil)
+        let target = groupID.flatMap { $0 != localGroupID && groups[$0] != nil ? $0 : nil } ?? remoteGroupID
+        insert(column, into: target, at: nil)
         return column
     }
 
     /// The host's tab if one is open (in `groupID` when given), moved to `path` when given;
     /// otherwise a new tab there.
     func openRemote(host: String, at path: String?, in groupID: UUID? = nil) {
-        let candidates = groupID.map { groups[$0]?.tabs ?? [] } ?? allTabs
+        let candidates = ([remoteColumn].compactMap { $0 } + remoteTabs)
         if let existing = candidates.first(where: { $0.fileSystem.host == host }) {
             activate(existing)
             if let path, !path.isEmpty {
@@ -518,22 +549,9 @@ final class FileWorkspace: ObservableObject {
         }
     }
 
-    /// Where a new tab of that kind goes: the focused pane if its current tab is of that kind, else
-    /// the most recent pane showing that kind. Without one, a host gets a new pane on the right of
-    /// the focused one, so this Mac and the host sit side by side.
-    private func preferredGroup(remote: Bool) -> UUID {
-        for id in [focusedGroupID] + focusHistory.reversed() {
-            if let active = groups[id]?.active, active.isRemote == remote { return id }
-        }
-        if let empty = groupIDs.first(where: { groups[$0]?.tabs.isEmpty ?? false }) { return empty }
-        if remote, groups.count == 1 {
-            let id = UUID()
-            groups[id] = Group(id: id)
-            layout = PaneLayout.split(layout, target: focusedGroupID, with: id, edge: .right)
-            return id
-        }
-        return focusedGroupID
-    }
+    /// A transfer needs both ends visible. Reuse saved columns and their paths instead of
+    /// sending the user through pane-switching menus or resetting the local directory.
+    func prepareTransferPanes() { save() }
 
     func activate(_ column: FileColumn) {
         guard let id = groupID(of: column) else { return }
@@ -544,8 +562,10 @@ final class FileWorkspace: ObservableObject {
 
     func close(_ column: FileColumn) {
         guard let id = groupID(of: column) else { return }
+        if id == localGroupID, localLocations.count == 1 { return }
         detach(column, from: id)
         removeIfEmpty(id)
+        if focusedGroupID == id, groups[id]?.active == nil { focusGroup(localGroupID) }
         save()
     }
 
@@ -569,13 +589,12 @@ final class FileWorkspace: ObservableObject {
     /// Whether dropping `column` on pane `groupID` toward `edge` changes anything: a tab cannot join
     /// its own pane, and the only tab of a pane cannot split that pane.
     func canDrop(_ column: FileColumn, on target: UUID, edge: SplitEdge) -> Bool {
-        guard let source = groupID(of: column), groups[target] != nil else { return false }
-        guard source == target else { return true }
-        return edge != .center && (groups[source]?.tabs.count ?? 0) > 1
+        guard column.isRemote, target != localGroupID, let source = groupID(of: column),
+              let destination = groups[target] else { return false }
+        if source == target { return edge != .center && destination.tabs.count > 1 }
+        return !destination.tabs.isEmpty || edge == .center
     }
 
-    /// A tab dropped on a pane: `.center` joins its tabs (before `before`, else last), an edge splits
-    /// the pane and gives the tab a new pane there. A pane left without tabs closes.
     func drop(_ column: FileColumn, on target: UUID, edge: SplitEdge, before: FileColumn? = nil) {
         guard canDrop(column, on: target, edge: edge), let source = groupID(of: column) else { return }
         detach(column, from: source)
@@ -627,24 +646,32 @@ final class FileWorkspace: ObservableObject {
         groups[id] = group
     }
 
-    /// The last pane stays, empty, so the area always has somewhere to open tabs.
+    /// Keep one remote destination available; close an emptied split without disturbing the local pane.
     private func removeIfEmpty(_ id: UUID) {
-        guard groups[id]?.tabs.isEmpty == true, groups.count > 1,
+        guard id != localGroupID, groups[id]?.tabs.isEmpty == true, groups.count > 2,
               let remaining = PaneLayout.remove(id, from: layout) else { return }
         groups[id] = nil
         layout = remaining
         focusHistory.removeAll { $0 == id }
         if pickerGroupID == id { pickerGroupID = nil }
-        if focusedGroupID == id, let last = focusHistory.last ?? groupIDs.first {
-            focusGroup(last)
+        if remoteGroupID == id {
+            remoteGroupID = focusHistory.reversed().first { $0 != localGroupID && groups[$0] != nil }
+                ?? groupIDs.first { $0 != localGroupID }!
+        }
+        if focusedGroupID == id { focusGroup(remoteGroupID) }
+    }
+
+    private func observe(_ column: FileColumn) {
+        column.onDirectoryChange = { [weak self] _ in self?.save() }
+        column.onStateChange = { [weak self] in
+            self?.objectWillChange.send()
+            self?.save()
         }
     }
 
     private func makeColumn(host: String?, path: String?) -> FileColumn {
         let column = Self.makeColumn(host: host, path: path)
-        column.onDirectoryChange = { [weak self] _ in
-            self?.save()
-        }
+        observe(column)
         return column
     }
 
@@ -657,7 +684,12 @@ final class FileWorkspace: ObservableObject {
 
     private func save() {
         func saved(_ column: FileColumn) -> Saved.Tab {
-            Saved.Tab(host: column.fileSystem.host, path: column.directory.isEmpty ? nil : column.directory)
+            Saved.Tab(host: column.fileSystem.host, path: column.savedPath,
+                      selection: Array(column.selection), filter: column.filter, showHidden: column.showHidden,
+                      sortKey: column.sortKey, ascending: column.ascending,
+                      previewPath: column.savedPreviewPath, readingEncoding: column.readingEncoding,
+                      backStack: column.backStack, forwardStack: column.forwardStack,
+                      scrollAnchor: column.savedScrollAnchor)
         }
         var state = Saved()
         state.layout = layout
@@ -667,6 +699,8 @@ final class FileWorkspace: ObservableObject {
                                     active: group.tabs.firstIndex { $0.id == group.activeID } ?? 0)
         }
         state.focused = focusedGroupID
+        state.localGroupID = localGroupID
+        state.remoteGroupID = remoteGroupID
         onChange?(state)
     }
 
@@ -688,25 +722,22 @@ final class FileWorkspace: ObservableObject {
     private func transfer(_ items: [FileTransfer.Item], from source: any FileSystem, to column: FileColumn,
                           into directory: String, window: NSWindow?) {
         guard !items.isEmpty, !directory.isEmpty else { return }
+        FileTransferQueue.shared.enqueue(items, from: source, to: column.fileSystem,
+                                         into: directory, window: window)
+    }
+
+    func rename(_ entry: FileEntry, in column: FileColumn, window: NSWindow?) {
+        guard let name = FileBrowserDialogs.askRename(entry.name), name != entry.name else { return }
+        let target = FileRules.join(FileRules.parent(of: entry.path), name)
         Task {
-            var toast: Int?
             do {
-                guard let prepared = try await UploadCheck.prepare(
-                    items, from: source, to: column.fileSystem, window: window
-                ) else { return }
-                defer { prepared.cleanUp() }
-                let existing = try await FileTransfer.conflicts(
-                    prepared.items, from: source, to: column.fileSystem, into: directory
-                )
-                guard let choice = await FileTransfer.askAboutConflicts(existing, in: window) else { return }
-                _ = try await FileTransfer.run(
-                    prepared.items, from: source, to: column.fileSystem, into: directory, choice: choice,
-                    window: window, started: { toast = $0 }
-                )
+                try await column.fileSystem.rename(entry.path, to: target)
+                if column.preview?.entry.path == entry.path { column.preview = nil }
+                column.selection = [target]
                 column.refresh()
             } catch {
-                TransferToast.shared.fail(toast, error.localizedDescription, in: window)
-                column.refresh()
+                column.error = error.localizedDescription
+                TransferToast.shared.fail(nil, error.localizedDescription, in: window)
             }
         }
     }
@@ -717,6 +748,7 @@ final class FileWorkspace: ObservableObject {
         for entry in entries {
             let home = column.isRemote ? nil : NSHomeDirectory()
             if let refusal = FileRules.deleteRefusal(entry.path, remote: column.isRemote, home: home) {
+                column.error = refusal
                 TransferToast.shared.fail(nil, refusal, in: window)
                 return
             }
@@ -728,10 +760,11 @@ final class FileWorkspace: ObservableObject {
                 try await column.fileSystem.delete(entries.map(\.path))
                 let toast = TransferToast.shared.begin(String(localized: "Deleting…"), in: window)
                 TransferToast.shared.finish(toast, String(localized: "Deleted"))
+                column.refresh()
             } catch {
+                column.error = error.localizedDescription
                 TransferToast.shared.fail(nil, error.localizedDescription, in: window)
             }
-            column.refresh()
         }
     }
 
@@ -750,6 +783,7 @@ final class FileWorkspace: ObservableObject {
                 column.refresh()
                 column.selection = [path]
             } catch {
+                column.error = error.localizedDescription
                 TransferToast.shared.fail(nil, error.localizedDescription, in: window)
             }
         }
@@ -789,11 +823,27 @@ final class FileBrowserStore {
     static let tabsKey = "files.tabs"
     private var workspaces: [UUID: FileWorkspace] = [:]
 
-    func workspace(for window: WindowState, model: AppModel) -> FileWorkspace {
+    func existingWorkspace(for window: WindowState) -> FileWorkspace? { workspaces[window.id] }
+
+    /// Restore tab metadata for the overview without opening directories or SSH connections.
+    func previewWorkspace(for window: WindowState, model: AppModel) -> FileWorkspace? {
         if let existing = workspaces[window.id] { return existing }
-        let saved = UserDefaults.standard.data(forKey: Self.tabsKey)
+        guard UserDefaults.standard.data(forKey: Self.tabsKey) != nil else { return nil }
+        return workspace(for: window, model: model, loadImmediately: false)
+    }
+
+    func workspace(for window: WindowState, model: AppModel, loadImmediately: Bool = true) -> FileWorkspace {
+        if let existing = workspaces[window.id] {
+            if loadImmediately { existing.startColumns() }
+            return existing
+        }
+        let defaults = UserDefaults.standard
+        if let original = defaults.data(forKey: Self.tabsKey), defaults.data(forKey: Self.tabsKey + ".beforeIndependentPage") == nil {
+            defaults.set(original, forKey: Self.tabsKey + ".beforeIndependentPage")
+        }
+        let saved = defaults.data(forKey: Self.tabsKey)
             .flatMap { try? JSONDecoder().decode(FileWorkspace.Saved.self, from: $0) }
-        let created = FileWorkspace(saved: saved, model: model, window: window)
+        let created = FileWorkspace(saved: saved, model: model, window: window, loadImmediately: loadImmediately)
         created.onChange = { saved in
             if let data = try? JSONEncoder().encode(saved) {
                 UserDefaults.standard.set(data, forKey: Self.tabsKey)
@@ -870,6 +920,21 @@ enum FileBrowserDialogs {
         alert.addButton(withTitle: String(localized: "Cancel"))
         alert.buttons.first?.hasDestructiveAction = true
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    static func askRename(_ current: String) -> String? {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Rename")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        field.stringValue = current
+        alert.accessoryView = field
+        alert.addButton(withTitle: String(localized: "Rename"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !name.contains("/"), name != ".", name != ".." else { return nil }
+        return name
     }
 
     static func askName(folder: Bool) -> String? {

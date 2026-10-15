@@ -1,19 +1,18 @@
 import AppKit
 import SwiftUI
 
-/// ⌘T. Type to filter, ↑↓ to move, ⏎ to open. ⌘-click selects several hosts;
+/// Type to filter, ↑↓ to move, ⏎ to open. ⌘-click selects several hosts;
 /// ⏎ then opens all of them as one workspace with independent panels. Hosts are grouped by the `config.d` file they came from.
 /// Opened from the Files area, the chosen hosts become remote tabs there instead.
 struct HostPicker: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject var model: AppModel
-    var window: WindowState
+    @ObservedObject var window: WindowState
     @State private var query = ""
     @State private var highlighted: String?
     /// Set only by ↑↓, so hovering never scrolls the list under the mouse.
     @State private var keyboardTarget: String?
     @State private var ticked: [String] = []
-    @State private var localHovered = false
     @FocusState private var searchFocused: Bool
 
     /// Rows in display order: a header per source group, hosts underneath, config order inside a group.
@@ -85,22 +84,32 @@ struct HostPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(forFiles ? String(localized: "Browse Server Files") : String(localized: "Servers"))
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(chrome.text)
+                Spacer()
+                Button { window.hostPickerPresented = false } label: {
+                    Image(systemName: "xmark").font(.system(size: 13, weight: .medium))
+                }
+                .buttonStyle(FamilyButtonStyle())
+                .foregroundStyle(chrome.secondary)
+                .help("Close")
+                .keyboardShortcut(.cancelAction)
+            }
+            .padding(.horizontal, Theme.Space.l)
+            .padding(.top, Theme.Space.l)
+
             searchField
                 .padding(Theme.Space.l)
 
-            if !forFiles {
-                localTerminalRow
-                    .padding(.horizontal, Theme.Space.l)
-
-                Rectangle()
-                    .fill(chrome.hairline)
-                    .frame(height: 1)
-                    .padding(.horizontal, Theme.Space.l)
-                    .padding(.vertical, Theme.Space.s)
-            }
-
             if model.configFailed {
                 Text("Could not read SSH config.")
+                    .font(Theme.Font.rowMeta)
+                    .foregroundStyle(chrome.secondary)
+                    .padding(.horizontal, Theme.Space.l + Theme.Space.m)
+                    .padding(.top, Theme.Space.s)
+                Text("Check SSH Config Access")
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
                     .padding(.horizontal, Theme.Space.l + Theme.Space.m)
@@ -109,9 +118,14 @@ struct HostPicker: View {
             } else if filtered.isEmpty {
                 Group {
                     if model.hosts.isEmpty {
-                        Text("SSH config has no hosts to connect to.")
+                        VStack(alignment: .leading, spacing: Theme.Space.s) {
+                            Text("SSH config has no hosts to connect to.")
+                        }
                     } else {
-                        Text("No matching hosts")
+                        VStack(alignment: .leading, spacing: Theme.Space.s) {
+                            Text("No matching hosts")
+                            Button("Clear search") { query = "" }.buttonStyle(.borderless)
+                        }
                     }
                 }
                 .font(Theme.Font.rowMeta)
@@ -147,19 +161,28 @@ struct HostPicker: View {
                 }
             }
             HStack(spacing: Theme.Space.m) {
-                Text(hintText)
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.secondary)
-                    .lineLimit(1)
+                if !forFiles, ticked.count < 2 {
+                    Button("Return to Existing") {
+                        if let alias = ticked.first ?? highlighted {
+                            model.returnToExistingTerminal(for: alias, in: window)
+                        }
+                    }
+                    .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                    .disabled((ticked.first ?? highlighted).flatMap { model.existingTerminal(for: $0, in: window) } == nil)
+                }
                 Spacer()
                 if ticked.count >= 2 {
                     Button(String(format: forFiles ? String(localized: "Open %lld as Tabs") : String(localized: "Open %lld as Workspace"), ticked.count)) {
                         openTicked()
                     }
                     .keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(FamilyButtonStyle(kind: .primary))
+                } else {
+                    Button(forFiles ? String(localized: "Browse Files") : String(localized: "New Terminal")) { openHighlighted() }
+                        .accessibilityIdentifier("hosts.connect")
+                        .buttonStyle(FamilyButtonStyle(kind: .primary))
+                        .disabled(highlighted == nil || model.configFailed)
                 }
-                Button("Cancel") { window.hostPickerPresented = false }
-                    .keyboardShortcut(.cancelAction)
             }
             .padding(.horizontal, Theme.Space.l)
             .padding(.vertical, Theme.Space.m)
@@ -181,9 +204,10 @@ struct HostPicker: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14))
                 .foregroundStyle(chrome.secondary)
-            TextField("Search hosts", text: $query)
+            TextField("Search name, group or IP", text: $query)
+                .accessibilityIdentifier("hosts.search")
                 .textFieldStyle(.plain)
-                .font(.system(size: 15))
+                .font(Theme.Font.body)
                 .foregroundStyle(chrome.text)
                 .focused($searchFocused)
                 .onAppear { searchFocused = true }
@@ -197,6 +221,7 @@ struct HostPicker: View {
                     return .handled
                 }
                 .onChange(of: query) { _, _ in
+                    ticked = []
                     highlighted = orderedAliases.first
                 }
             if !query.isEmpty {
@@ -206,7 +231,7 @@ struct HostPicker: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(chrome.secondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FamilyButtonStyle())
                 .help("Clear search")
             }
         }
@@ -215,84 +240,57 @@ struct HostPicker: View {
         .frame(height: SheetLayout.searchFieldHeight)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(chrome.elevated)
+                .fill(searchFocused ? chrome.background : chrome.elevated)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
+                .stroke(searchFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
         )
-    }
-
-    /// Fixed first row. Looks like a host row but stays out of the ↑↓ highlight.
-    private var localTerminalRow: some View {
-        Button {
-            model.openLocalTerminal(in: window)
-        } label: {
-            HStack(spacing: Theme.Space.s) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Local Terminal")
-                        .font(Theme.Font.row.weight(.medium))
-                        .foregroundStyle(chrome.text)
-                    Text(verbatim: "~")
-                        .font(Theme.Font.rowMeta)
-                        .foregroundStyle(chrome.secondary)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, Theme.Space.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: SheetLayout.pickerRowHeight)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                    .fill(localHovered ? chrome.accentFill : Color.clear)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { inside in
-            localHovered = inside
-        }
-    }
-
-    private var hintText: String {
-        if ticked.count >= 2 {
-            if forFiles {
-                return String(localized: "⏎ opens the selected hosts as tabs. ⌘-click to select more.")
-            }
-            return String(localized: "⏎ opens the selected hosts in one workspace with independent panels. ⌘-click to select more.")
-        }
-        return String(localized: "↑↓ to move, ⏎ to open, ⌘-click to tick several.")
+        .familyFocusRing(searchFocused)
     }
 
     private func hostRow(_ host: SSHHost) -> some View {
         let isHighlighted = highlighted == host.alias
         let isTicked = ticked.contains(host.alias)
         let openCount = model.openSessionCount(alias: host.alias)
+        let browsedDirectory = forFiles ? model.browsedDirectory(for: host.alias, in: window) : nil
         return HStack(spacing: Theme.Space.s) {
+            Image(systemName: "server.rack")
+                .font(.system(size: 22))
+                .foregroundStyle(isHighlighted || isTicked ? chrome.accent : chrome.secondary)
+                .frame(width: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(host.alias)
                     .font(Theme.Font.row.weight(.medium))
-                    .foregroundStyle(chrome.text)
+                    .foregroundStyle(isHighlighted || isTicked ? chrome.accent : chrome.text)
                 if !host.subtitle.isEmpty {
                     Text(host.subtitle)
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.secondary)
                         .lineLimit(1)
                 }
+                if let browsedDirectory, isHighlighted, !browsedDirectory.isEmpty {
+                    Text(browsedDirectory)
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
             Spacer(minLength: 0)
-            if openCount > 0 {
-                Text(openCount == 1 ? String(localized: "Open") : String(format: String(localized: "Open ×%lld"), openCount))
-                    .font(.system(size: 10, weight: .semibold))
+            if forFiles ? browsedDirectory != nil : openCount > 0 {
+                Text(forFiles ? String(localized: "Browsed") : (openCount == 1 ? String(localized: "Open") : String(format: String(localized: "Open ×%lld"), openCount)))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(chrome.accent)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(chrome.accent.opacity(0.14)))
+                    .background(RoundedRectangle(cornerRadius: Theme.Radius.tag).fill(chrome.accentFill))
             }
         }
         .padding(.horizontal, Theme.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: SheetLayout.pickerRowHeight)
+        .frame(minHeight: SheetLayout.pickerRowHeight)
+        .padding(.vertical, Theme.Space.xs)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 .fill(rowFill(highlighted: isHighlighted, ticked: isTicked))
@@ -302,17 +300,22 @@ struct HostPicker: View {
                 .stroke(isTicked ? chrome.accent : Color.clear, lineWidth: 1.5)
         )
         .contentShape(Rectangle())
-        .accessibilityAddTraits(isTicked ? .isSelected : [])
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("hosts.row." + host.alias)
+        .accessibilityLabel(Text(verbatim: host.alias))
+        .accessibilityValue(Text(verbatim: host.subtitle))
+        .accessibilityAddTraits(isTicked || isHighlighted ? [.isButton, .isSelected] : [.isButton])
+        .accessibilityAction {
+            ticked = []
+            highlighted = host.alias
+        }
+        .onTapGesture(count: 2) { open([host.alias]) }
         .onTapGesture {
             if NSEvent.modifierFlags.contains(.command) {
                 toggleTick(host.alias)
                 highlighted = host.alias
             } else {
-                open([host.alias])
-            }
-        }
-        .onHover { inside in
-            if inside {
+                ticked = []
                 highlighted = host.alias
             }
         }
@@ -320,7 +323,7 @@ struct HostPicker: View {
 
     private func rowFill(highlighted: Bool, ticked: Bool) -> Color {
         if ticked {
-            return chrome.accent.opacity(0.18)
+            return chrome.accentFill
         }
         if highlighted {
             return chrome.accentFill
@@ -360,7 +363,7 @@ struct HostPicker: View {
             openTicked()
             return
         }
-        guard let alias = highlighted ?? orderedAliases.first else { return }
+        guard let alias = ticked.first ?? highlighted ?? orderedAliases.first else { return }
         open([alias])
     }
 

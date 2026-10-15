@@ -237,29 +237,45 @@ struct TerminalLaunch: Equatable {
 
 /// Owns one Ghostty session and the child process behind it. The process can be replaced
 /// (reconnect) while the session, and with it the scrollback on screen, stays the same.
+@MainActor
 final class TerminalProcessHost {
     /// Holds the current process so the session's `@Sendable` closures can follow a replacement.
     private final class ProcessBox: @unchecked Sendable {
         var process = TerminalProcess()
+        private let lock = NSLock()
+        private var viewport: InMemoryTerminalViewport?
+        func record(_ value: InMemoryTerminalViewport) {
+            lock.lock(); viewport = value; lock.unlock()
+        }
+        func size() -> (columns: UInt16, rows: UInt16) {
+            lock.lock(); defer { lock.unlock() }
+            return (viewport?.columns ?? 80, viewport?.rows ?? 24)
+        }
     }
 
     let session: InMemoryTerminalSession
+    let historyRecorder: TerminalHistoryRecorder?
     private let box = ProcessBox()
     private var launch: TerminalLaunch?
     private var startedAt: TimeInterval = 0
+    private var historyReady = false
+    private var hasStarted = false
+    private var pendingInitialInput: Data?
+    private var terminated = false
 
     var process: TerminalProcess { box.process }
 
     /// Exit code and how long the process lived, in seconds.
     var onExit: ((Int32?, TimeInterval) -> Void)?
 
-    init() {
+    init(historyKey: UUID? = nil) {
         let box = self.box
         session = InMemoryTerminalSession(
             write: { data in box.process.write(data) },
             resize: { viewport in
                 // Ignore park/collapse sizes so a hidden tab never reflows the PTY to 1×1.
                 guard viewport.columns >= 2, viewport.rows >= 2 else { return }
+                box.record(viewport)
                 box.process.resize(
                     columns: viewport.columns,
                     rows: viewport.rows,
@@ -269,11 +285,41 @@ final class TerminalProcessHost {
             },
             suppressesPixelOnlyResizes: true
         )
+        if let historyKey { historyRecorder = TerminalHistoryRecorder(key: historyKey, session: session) }
+        else { historyRecorder = nil }
+        historyReady = historyKey == nil
     }
 
     func start(_ launch: TerminalLaunch) {
         self.launch = launch
+        startWhenReady()
+    }
+
+    func prepareHistory(_ restored: @escaping (TerminalHistorySnapshot?) -> Void) {
+        guard let historyRecorder else { restored(nil); return }
+        historyRecorder.prepare { [weak self] snapshot in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                restored(snapshot)
+                self.historyReady = true
+                self.startWhenReady()
+            }
+        }
+    }
+
+    func startWhenReady() {
+        guard !terminated, historyReady, session.hasAttachedSurface, !hasStarted, let launch else { return }
+        hasStarted = true
         startProcess(launch)
+        if let pendingInitialInput {
+            process.write(pendingInitialInput)
+            self.pendingInitialInput = nil
+        }
+    }
+
+    func sendInitialInput(_ text: String) {
+        let data = Data(text.utf8)
+        if hasStarted { process.write(data) } else { pendingInitialInput = data }
     }
 
     /// Prints a dim divider into the same terminal and starts the command again.
@@ -287,14 +333,23 @@ final class TerminalProcessHost {
 
     var lastLaunch: TerminalLaunch? { launch }
 
+    /// The shell reports its current remote directory through the model. Remember the
+    /// next authenticated SSH launch without sending anything to the current process.
+    func updateLaunch(_ next: TerminalLaunch) { launch = next }
+
     func terminate() {
+        terminated = true
         process.terminate()
     }
 
     private func startProcess(_ launch: TerminalLaunch) {
         let process = TerminalProcess()
-        // PTY bytes go straight to Ghostty. No rewriting in between.
-        process.onOutput = { [session] data in session.receive(data) }
+        // The recorder forwards byte-identical data, pausing only at screen-switch
+        // boundaries to read rendered text. Archived data is never replayed.
+        process.onOutput = { [session, historyRecorder] data in
+            if let historyRecorder { historyRecorder.receive(data) }
+            else { session.receive(data) }
+        }
         process.onExit = { [weak self, weak process] code in
             guard let self, let process, process === self.box.process else { return }
             let lived = ProcessInfo.processInfo.systemUptime - self.startedAt
@@ -306,11 +361,14 @@ final class TerminalProcessHost {
         if !launch.shellIntegrationEnvironment.isEmpty {
             environment = ShellIntegrationEnvironment.merged(environment, overrides: launch.shellIntegrationEnvironment)
         }
+        let size = box.size()
         process.start(
             executable: launch.executable,
             args: launch.args,
             environment: environment,
-            directory: launch.directory
+            directory: launch.directory,
+            columns: size.columns,
+            rows: size.rows
         )
     }
 }
@@ -321,6 +379,7 @@ final class TerminalProcessHost {
 @MainActor
 enum SSHTerminalRegistry {
     private static var views: [String: SSHTerminalNSView] = [:]
+    private static var historyTimer: Timer?
     /// Session IDs are never reused, so a closed one must never get a terminal again.
     private static var closedIDs: Set<String> = []
 
@@ -335,20 +394,51 @@ enum SSHTerminalRegistry {
         }
         let created = make()
         views[id] = created
+        if historyTimer == nil {
+            historyTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
+                MainActor.assumeIsolated {
+                    for view in views.values { view.processHost?.historyRecorder?.checkpoint() }
+                }
+            }
+        }
         return created
     }
 
     /// The tab closed. Ends the process and drops the view.
-    static func destroy(_ id: String) {
+    static func destroy(_ id: String, preservingHistory: Bool = false) {
         closedIDs.insert(id)
+        if !preservingHistory, let key = TerminalHistoryStore.key(for: id) {
+            TerminalHistoryStore.shared.remove(key)
+        }
         guard let view = views.removeValue(forKey: id) else { return }
+        view.processHost?.historyRecorder?.cancel(removeArchive: !preservingHistory)
         view.processHost?.terminate()
         view.removeFromSuperview()
     }
 
+    /// Call from applicationShouldTerminate, return terminateLater, then reply after completion.
+    /// No main-thread waits: pending PTY parsing can continue to deliver engine callbacks.
+    static func flushHistory(completion: @escaping @MainActor () -> Void) {
+        let group = DispatchGroup()
+        for view in views.values {
+            guard let recorder = view.processHost?.historyRecorder else { continue }
+            group.enter()
+            recorder.checkpoint(force: true) { group.leave() }
+        }
+        group.notify(queue: .global(qos: .utility)) {
+            TerminalHistoryStore.shared.flush {
+                DispatchQueue.main.async { completion() }
+            }
+        }
+    }
+
+    static func history(for id: String) -> TerminalHistorySnapshot? { views[id]?.restoredHistory }
+
     static func focus(_ id: String) {
         DispatchQueue.main.async {
             guard let view = views[id], let window = view.window else { return }
+            if let state = MainWindowManager.shared.state(for: window),
+               state.presentation.filesVisible && state.presentation.filesWorkspace { return }
             window.makeFirstResponder(view)
         }
     }
@@ -362,6 +452,7 @@ enum SSHTerminalRegistry {
     @discardableResult
     static func paste(_ text: String, into id: String) -> Bool {
         guard let view = views[id] else { return false }
+        guard !view.isShowingHistory else { return false }
         view.window?.makeFirstResponder(view)
         return view.paste(text: text)
     }
@@ -412,16 +503,19 @@ enum TerminalCloseMenu {
 final class SSHTerminalNSView: AppTerminalView {
     var onFocus: (() -> Void)?
     var onClose: (() -> Void)?
+    var onRevealFiles: (() -> Void)?
+    var onToggleHistory: (() -> Void)?
+    var isHistoryVisible: () -> Bool = { false }
     /// Split Right / Split Down from the context menu: another session like this one beside it.
     var onSplit: ((SplitEdge) -> Void)?
     /// Finder files dropped on a split, New Tab, or transfer circle.
     var onFileDrop: (([URL], DropZone) -> Void)?
-    /// Open File Manager from the context menu.
-    var onOpenFiles: (() -> Void)?
     /// The session runs over ssh: the transfer circle uploads instead of copying.
     var dropIsRemote = false
     var appliedDarkAppearance: Int?
-    weak var attachedSurface: TerminalSurface?
+    weak var attachedSurface: TerminalSurface? {
+        didSet { if attachedSurface != nil { processHost?.startWhenReady() } }
+    }
     /// `TerminalTab.sessionID` this terminal was made for. The find bar is keyed by it.
     var sessionID: String?
     /// Strong: the view is the only owner. The session keeps the process alive on its own, so a weak
@@ -441,10 +535,50 @@ final class SSHTerminalNSView: AppTerminalView {
     /// The right button went down to a program that reads the mouse, so the release goes there too.
     private var rightClickToProgram = false
     private var locallyConsumedKeyCode: UInt16?
+    fileprivate var restoredHistory: TerminalHistorySnapshot?
+    fileprivate var historyView: TerminalHistoryView?
+    var isShowingHistory: Bool { historyView != nil }
+
+    /// Keep the native terminal's explicit appearance in sync without rebuilding its surface.
+    /// The surrounding SwiftUI pane continues to inherit the application's appearance.
+    func applyTerminalAppearance(dark: Bool) {
+        historyView?.applyFamilyAppearance()
+        let signature = dark ? 1 : 0
+        guard appliedDarkAppearance != signature else { return }
+        appliedDarkAppearance = signature
+        appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        GhosttyRuntime.controller.setColorScheme(dark ? .dark : .light)
+    }
+
+
+    func restoreHistory(_ snapshot: TerminalHistorySnapshot?) {
+        guard let snapshot, !snapshot.isEmpty else { return }
+        restoredHistory = snapshot
+    }
+
+    @objc private func showRestoredHistory() {
+        guard historyView == nil, let restoredHistory else { return }
+        let history = TerminalHistoryView(snapshot: restoredHistory)
+        history.frame = bounds
+        history.autoresizingMask = [.width, .height]
+        history.onContinue = { [weak self] in self?.dismissHistory() }
+        addSubview(history)
+        historyView = history
+        if window?.firstResponder === self { history.focusText() }
+    }
+
+    private func dismissHistory() {
+        historyView?.removeFromSuperview()
+        historyView = nil
+        window?.makeFirstResponder(self)
+    }
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
         if accepted { onFocus?() }
+        if accepted, let historyView {
+            DispatchQueue.main.async { [weak historyView] in historyView?.focusText() }
+        }
         FocusedTerminal.shared.refreshSoon()
         return accepted
     }
@@ -461,6 +595,7 @@ final class SSHTerminalNSView: AppTerminalView {
     }
 
     override func keyDown(with event: NSEvent) {
+        if let historyView { historyView.focusText(); return }
         locallyConsumedKeyCode = nil
         hidePointerWhileTyping(event)
         if hasMarkedText() {
@@ -806,21 +941,13 @@ final class SSHTerminalNSView: AppTerminalView {
         menu.addItem(makeItem(.find, #selector(findFromMenu(_:))))
         menu.addItem(makeItem(.clearScreen, #selector(clearScreenFromMenu(_:))))
         menu.addItem(.separator())
-        menu.addItem(makeItem(.duplicateRight, #selector(splitRightFromMenu(_:))))
-        menu.addItem(makeItem(.duplicateDown, #selector(splitDownFromMenu(_:))))
-        if onOpenFiles != nil {
-            let files = makeItem(String(localized: "Open File Manager"), #selector(openFilesFromMenu(_:)))
-            SSHTerminalNSView.showChord(AppShortcuts.chord(for: .openFileBrowser), on: files)
-            menu.addItem(files)
-        }
-        menu.addItem(.separator())
-        let close = TerminalCloseMenu.item(
-            title: String(localized: "Close Pane"),
-            action: #selector(closeTerminalFromMenu(_:)),
-            target: self
-        )
-        SSHTerminalNSView.showChord(AppShortcuts.chord(for: .closeTab), on: close)
-        menu.addItem(close)
+        let files = makeItem(String(localized: "Reveal in Files"), #selector(revealFilesFromMenu(_:)))
+        files.isEnabled = onRevealFiles != nil
+        menu.addItem(files)
+        let history = makeItem(String(localized: "History"), #selector(toggleHistoryFromMenu(_:)))
+        history.state = isHistoryVisible() ? .on : .off
+        history.isEnabled = onToggleHistory != nil
+        menu.addItem(history)
         return menu
     }
 
@@ -853,16 +980,15 @@ final class SSHTerminalNSView: AppTerminalView {
         performBindingAction("clear_screen")
     }
 
+    @objc private func revealFilesFromMenu(_: Any?) { onRevealFiles?() }
+    @objc private func toggleHistoryFromMenu(_: Any?) { onToggleHistory?() }
+
     @objc private func splitRightFromMenu(_: Any?) {
         onSplit?(.right)
     }
 
     @objc private func splitDownFromMenu(_: Any?) {
         onSplit?(.bottom)
-    }
-
-    @objc private func openFilesFromMenu(_: Any?) {
-        onOpenFiles?()
     }
 
     @objc private func openLinkFromMenu(_ sender: NSMenuItem) {
@@ -1070,6 +1196,14 @@ final class TerminalLinkBanner: NSView {
 final class TerminalHostView: NSView {
     var sessionID: String?
 
+    /// SwiftUI opacity/accessibility modifiers do not consistently hide an embedded
+    /// AppKit history text view. Hide the native subtree without detaching it or
+    /// changing its last layout size, so the same terminal and process stay alive.
+    func setPresented(_ presented: Bool) {
+        isHidden = !presented
+        setAccessibilityHidden(!presented)
+    }
+
     func attach(_ terminal: SSHTerminalNSView) {
         if terminal.superview === self { return }
         terminal.removeFromSuperview()
@@ -1090,8 +1224,11 @@ struct SSHTerminalView: NSViewRepresentable {
     var alias: String
     /// Set for a local shell. Empty alias plus this path starts the login shell here.
     var directory: String? = nil
+    /// Passed as SSH's authenticated remote command, never as password-prompt stdin.
+    var remoteDirectory: String? = nil
     var environment: [String]
     var dark: Bool
+    var isPresented: Bool = true
     /// Only the window's selected pane grabs the keyboard when its view is first made. Restoring
     /// several terminals at once must not hand focus to whichever finished last.
     var focusesOnCreate: Bool = true
@@ -1103,13 +1240,15 @@ struct SSHTerminalView: NSViewRepresentable {
     var onClose: () -> Void = {}
     var onFocus: () -> Void = {}
     var onSplit: (SplitEdge) -> Void = { _ in }
+    var onRevealFiles: () -> Void = {}
+    var onToggleHistory: () -> Void = {}
+    var isHistoryVisible: () -> Bool = { false }
     var onFileDrop: (([URL], DropZone) -> Void)? = nil
-    var onOpenFiles: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     /// The ssh command for a host, or the login shell for a local directory.
-    static func launch(alias: String, directory: String?, environment: [String]) -> TerminalLaunch {
+    static func launch(alias: String, directory: String?, environment: [String], remoteDirectory: String? = nil) -> TerminalLaunch {
         if alias.isEmpty, let directory, !directory.isEmpty {
             let shell = LocalTerminal.shellExecutable
             return TerminalLaunch(
@@ -1127,7 +1266,7 @@ struct SSHTerminalView: NSViewRepresentable {
         }
         return TerminalLaunch(
             executable: "/usr/bin/ssh",
-            args: SSHCommand.arguments(alias: alias),
+            args: SSHCommand.arguments(alias: alias, remoteDirectory: remoteDirectory),
             environment: environment,
             directory: nil
         )
@@ -1136,6 +1275,7 @@ struct SSHTerminalView: NSViewRepresentable {
     func makeNSView(context: Context) -> TerminalHostView {
         let container = TerminalHostView(frame: .zero)
         container.sessionID = sessionID
+        container.setPresented(isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
             return container
         }
@@ -1143,9 +1283,10 @@ struct SSHTerminalView: NSViewRepresentable {
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
         applyAppearance(terminal, dark: dark)
-        if focusesOnCreate {
-            DispatchQueue.main.async { [weak terminal] in
-                guard let terminal, let window = terminal.window else { return }
+        if focusesOnCreate && isPresented {
+            DispatchQueue.main.async { [weak terminal, weak container] in
+                guard let terminal, let container, !container.isHiddenOrHasHiddenAncestor,
+                      let window = terminal.window else { return }
                 window.makeFirstResponder(terminal)
             }
         }
@@ -1153,10 +1294,16 @@ struct SSHTerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ container: TerminalHostView, context: Context) {
+        container.setPresented(isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
             return
         }
         context.coordinator.terminal = terminal
+        if !alias.isEmpty {
+            terminal.processHost?.updateLaunch(Self.launch(
+                alias: alias, directory: directory, environment: environment, remoteDirectory: remoteDirectory
+            ))
+        }
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
         applyAppearance(terminal, dark: dark)
@@ -1169,18 +1316,19 @@ struct SSHTerminalView: NSViewRepresentable {
 
     /// A brand-new terminal with its own process. Only called once per session.
     private func makeTerminal() -> SSHTerminalNSView {
-        let host = TerminalProcessHost()
+        let host = TerminalProcessHost(historyKey: TerminalHistoryStore.key(for: sessionID))
         let view = SSHTerminalNSView(frame: .zero)
         view.sessionID = sessionID
         view.processHost = host
+        host.prepareHistory { [weak view] snapshot in view?.restoreHistory(snapshot) }
         view.eventRelay.terminal = view
         view.delegate = view.eventRelay
         view.registerForDraggedTypes(SSHTerminalNSView.dropTypes)
         view.controller = GhosttyRuntime.controller
         view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
-        host.start(Self.launch(alias: alias, directory: directory, environment: environment))
+        host.start(Self.launch(alias: alias, directory: directory, environment: environment, remoteDirectory: remoteDirectory))
         if let input = takeInitialInput() {
-            host.process.write(Data(input.utf8))
+            host.sendInitialInput(input)
         }
         return view
     }
@@ -1192,36 +1340,36 @@ struct SSHTerminalView: NSViewRepresentable {
         coordinator.onClose = onClose
         coordinator.onFocus = onFocus
         coordinator.onSplit = onSplit
+        coordinator.onRevealFiles = onRevealFiles
+        coordinator.onToggleHistory = onToggleHistory
+        coordinator.isHistoryVisible = isHistoryVisible
         terminal.onFocus = { [weak coordinator] in coordinator?.onFocus?() }
         terminal.onClose = { [weak coordinator] in coordinator?.onClose?() }
         terminal.onSplit = { [weak coordinator] edge in coordinator?.onSplit?(edge) }
+        terminal.onRevealFiles = { [weak coordinator] in coordinator?.onRevealFiles?() }
+        terminal.onToggleHistory = { [weak coordinator] in coordinator?.onToggleHistory?() }
+        terminal.isHistoryVisible = { [weak coordinator] in coordinator?.isHistoryVisible?() ?? false }
         coordinator.onFileDrop = onFileDrop
         terminal.onFileDrop = { [weak coordinator] urls, zone in coordinator?.onFileDrop?(urls, zone) }
         terminal.dropIsRemote = !alias.isEmpty
-        coordinator.onOpenFiles = onOpenFiles
-        terminal.onOpenFiles = { [weak coordinator] in coordinator?.onOpenFiles?() }
         let onExit = self.onExit
         terminal.processHost?.onExit = { code, lived in
             onExit(code, lived)
         }
     }
 
-    /// Only touches Ghostty when this view's appearance actually flips. SwiftUI calls
-    /// `updateNSView` for every model change, and the controller's config is global.
     private func applyAppearance(_ view: SSHTerminalNSView, dark: Bool) {
-        let signature = dark ? 1 : 0
-        guard view.appliedDarkAppearance != signature else { return }
-        view.appliedDarkAppearance = signature
-        view.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        GhosttyRuntime.controller.setColorScheme(dark ? .dark : .light)
+        view.applyTerminalAppearance(dark: dark)
     }
 
     final class Coordinator: NSObject {
         var onClose: (() -> Void)?
         var onFocus: (() -> Void)?
         var onSplit: ((SplitEdge) -> Void)?
+        var onRevealFiles: (() -> Void)?
+        var onToggleHistory: (() -> Void)?
+        var isHistoryVisible: (() -> Bool)?
         var onFileDrop: (([URL], DropZone) -> Void)?
-        var onOpenFiles: (() -> Void)?
         weak var terminal: SSHTerminalNSView?
     }
 }

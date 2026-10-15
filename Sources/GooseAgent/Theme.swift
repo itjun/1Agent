@@ -1,5 +1,4 @@
 import AppKit
-import GhosttyTheme
 import SwiftUI
 
 enum Theme {
@@ -18,23 +17,23 @@ enum Theme {
         )
     }
 
-    static let sidebarRowTitle = SwiftUI.Font.system(size: 13, weight: .medium)
+    static let sidebarRowTitle = SwiftUI.Font.system(size: 14, weight: .medium)
     static let sidebarRowMeta = Theme.Font.rowMeta
 
     /// Type scale shared by the sidebar, pane headers, and sheets.
     enum Font {
         /// Sidebar section and workspace header labels.
-        static let sidebarSection = SwiftUI.Font.system(size: 11, weight: .semibold)
+        static let sidebarSection = SwiftUI.Font.system(size: 12, weight: .semibold)
         /// One sidebar row (host alias or local path).
-        static let row = SwiftUI.Font.system(size: 13)
+        static let row = SwiftUI.Font.system(size: 14)
         /// Secondary line under a row, or a small status label.
-        static let rowMeta = SwiftUI.Font.system(size: 11)
+        static let rowMeta = SwiftUI.Font.system(size: 12)
         /// Pane title bar above each terminal; monospaced so paths align with the terminal.
         static let paneTitle = SwiftUI.Font.system(size: 12, weight: .medium, design: .monospaced)
         /// Section headline inside settings and sheets.
-        static let sectionTitle = SwiftUI.Font.system(size: 15, weight: .semibold)
+        static let sectionTitle = SwiftUI.Font.system(size: 14, weight: .semibold)
         /// Default body text.
-        static let body = SwiftUI.Font.system(size: 13)
+        static let body = SwiftUI.Font.system(size: 14)
         /// Headline of an empty state ("No open terminals").
         static let emptyTitle = SwiftUI.Font.system(size: 17, weight: .semibold)
         /// Large SF Symbol above an empty-state headline.
@@ -52,9 +51,15 @@ enum Theme {
 
     /// Corner radii, from a selected row up to a card.
     enum Radius {
-        static let row: CGFloat = 6
-        static let control: CGFloat = 8
-        static let card: CGFloat = 10
+        static let tag: CGFloat = 3
+        static let row: CGFloat = 4
+        static let control: CGFloat = 4
+        static let card: CGFloat = 6
+    }
+
+    enum Control {
+        static let height: CGFloat = 32
+        static let compactHeight: CGFloat = 28
     }
 
     /// Geometry of the title bar and status banner above each terminal pane.
@@ -72,7 +77,7 @@ enum Theme {
         /// Kept free on both sides of the lone pane's centered title, so it never runs under the zoom button.
         static let stripTitleInset: CGFloat = 40
         /// Title bar of each pane in a split. Dragging the title text merges panes; the terminal starts right below.
-        static let headerHeight: CGFloat = 22
+        static let headerHeight: CGFloat = 28
         /// Disconnected / reconnecting banner shown under the title bar.
         static let bannerHeight: CGFloat = 28
         /// Icon size next to the pane title (reconnecting / disconnected).
@@ -80,12 +85,12 @@ enum Theme {
         /// Opacity of the warning / danger tint over the banner background.
         static let bannerTintOpacity: Double = 0.14
         /// ⌘F find bar, under the title bar and any banner.
-        static let findBarHeight: CGFloat = 32
+        static let findBarHeight: CGFloat = 36
         /// Query field inside the find bar.
-        static let findFieldHeight: CGFloat = 22
+        static let findFieldHeight: CGFloat = 28
         static let findFieldMaxWidth: CGFloat = 280
         /// Hit area of the previous / next / close buttons in the find bar.
-        static let findButtonSize: CGFloat = 22
+        static let findButtonSize: CGFloat = 28
         /// Magnifying glass and button symbols in the find bar.
         static let findIconSize: CGFloat = 12
         /// Border flashed around a terminal when its bell rings (`bell-features = border`).
@@ -125,83 +130,51 @@ enum Theme {
     }
 }
 
-/// Colors for the whole terminal window. The sidebar, pane headers, and terminal share one set,
-/// derived from whichever theme fills the current appearance slot.
+/// Fixed family chrome. Terminal themes own only the terminal rendering surface.
 struct WindowChrome: Equatable {
     var background: Color
-    /// Sidebar surface: background nudged 3.5% toward the foreground so it reads as its own layer.
     var sidebarBackground: Color
     var elevated: Color
     var text: Color
-    /// Muted text. Opaque mix of foreground into background, kept at ≥ 3.0 contrast with background.
     var secondary: Color
-    /// Fainter than secondary, for hints and timestamps. Kept at ≥ 2.0 contrast with background.
     var tertiary: Color
-    /// Separator lines. Opaque mix of background toward foreground, kept at ≥ 1.25 contrast with background.
     var hairline: Color
-    /// palette[4], pulled toward the foreground until it reaches ≥ 3.0 contrast with background.
     var accent: Color
-    /// Opaque selection fill: background mixed with accent at 16%.
     var accentFill: Color
-    /// palette[1] (broken connection), same contrast guard as accent.
+    var panelHeader: Color
     var danger: Color
-    /// palette[3] (reconnecting), same contrast guard as accent.
     var warning: Color
-    /// palette[2] (healthy), same contrast guard as accent.
     var success: Color
+    var accentHover: Color
+    var accentActive: Color
+    var focus: Color
+    var selection: Color
+    var lineStrong: Color
 
-    /// Text on top of the background must reach this WCAG ratio to stay legible.
-    static let textContrastFloor: Double = 3.0
+    static func resolve(isDark: Bool) -> WindowChrome { WindowChrome(isDark: isDark) }
 
-    @MainActor
-    static func resolve(isDark: Bool) -> WindowChrome {
-        if isDark {
-            return ThemePreview.shared.effectiveDark().chrome()
+    init(isDark: Bool) {
+        func color(_ light: String, _ dark: String) -> Color {
+            RGBColor(ghosttyHex: isDark ? dark : light)!.color
         }
-        return ThemePreview.shared.effectiveLight().chrome()
-    }
-
-    /// System semantic colors remain legible on AppKit's adaptive sidebar glass.
-    var nativeSidebar: WindowChrome {
-        var result = self
-        result.sidebarBackground = .clear
-        result.text = Color(nsColor: .labelColor)
-        result.secondary = Color(nsColor: .secondaryLabelColor)
-        result.tertiary = Color(nsColor: .tertiaryLabelColor)
-        result.hairline = Color(nsColor: .separatorColor)
-        result.accent = Color(nsColor: .controlAccentColor)
-        result.accentFill = Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
-        result.danger = Color(nsColor: .systemRed)
-        result.warning = Color(nsColor: .systemOrange)
-        result.success = Color(nsColor: .systemGreen)
-        return result
-    }
-
-    init(theme: GhosttyThemeDefinition, preferredAccent: String? = nil) {
-        let background = RGBColor(ghosttyHex: theme.background) ?? RGBColor(red: 0.06, green: 0.06, blue: 0.07)
-        let foreground = RGBColor(ghosttyHex: theme.foreground) ?? RGBColor(red: 0.9, green: 0.9, blue: 0.9)
-        let rawAccent = RGBColor(ghosttyHex: preferredAccent ?? theme.palette[4] ?? theme.cursorColor ?? theme.foreground) ?? foreground
-        let rawDanger = RGBColor(ghosttyHex: theme.palette[1] ?? "E2726A") ?? RGBColor(red: 0.86, green: 0.32, blue: 0.28)
-        let rawWarning = RGBColor(ghosttyHex: theme.palette[3] ?? "D9A500") ?? RGBColor(red: 0.85, green: 0.65, blue: 0.0)
-        let rawSuccess = RGBColor(ghosttyHex: theme.palette[2] ?? "4CAF50") ?? RGBColor(red: 0.3, green: 0.69, blue: 0.31)
-        let floor = WindowChrome.textContrastFloor
-        let accent = RGBColor.ensureContrast(rawAccent, against: background, toward: foreground, minimum: floor)
-        // 0.32 toward background matches the old 68% opacity, so themes that already pass look the same.
-        let secondary = RGBColor.ensureContrast(foreground.mixed(with: background, amount: 0.32), against: background, toward: foreground, minimum: floor)
-        let tertiary = RGBColor.ensureContrast(foreground.mixed(with: background, amount: 0.5), against: background, toward: foreground, minimum: 2.0)
-        let hairline = RGBColor.ensureContrast(background.mixed(with: foreground, amount: 0.14), against: background, toward: foreground, minimum: 1.25)
-        self.background = background.color
-        self.sidebarBackground = background.mixed(with: foreground, amount: 0.035).color
-        self.elevated = background.mixed(with: foreground, amount: 0.08).color
-        self.text = foreground.color
-        self.secondary = secondary.color
-        self.tertiary = tertiary.color
-        self.hairline = hairline.color
-        self.accent = accent.color
-        self.accentFill = background.mixed(with: accent, amount: 0.16).color
-        self.danger = RGBColor.ensureContrast(rawDanger, against: background, toward: foreground, minimum: floor).color
-        self.warning = RGBColor.ensureContrast(rawWarning, against: background, toward: foreground, minimum: floor).color
-        self.success = RGBColor.ensureContrast(rawSuccess, against: background, toward: foreground, minimum: floor).color
+        background = color("FFFFFF", "1A1F2B")
+        sidebarBackground = color("F2F3F5", "12161F")
+        elevated = color("F3F4F6", "232A38")
+        text = color("1F2937", "E6EBF3")
+        secondary = color("636A76", "94A1B5")
+        tertiary = secondary
+        hairline = color("E5E7EB", "2C3445")
+        accent = color("0052D9", "4C8DFF")
+        accentFill = color("E8EFFF", "1A2C52")
+        panelHeader = sidebarBackground
+        danger = color("D54941", "F06C63")
+        warning = color("D35A00", "F29A4A")
+        success = color("1A7F52", "56C08D")
+        accentHover = color("366EF4", "6FA3FF")
+        accentActive = color("003CAB", "3A78E8")
+        focus = color("C5D6FF", "22407A")
+        selection = color("C9DAFF", "274A8C")
+        lineStrong = color("9CA3AF", "5A6478")
     }
 }
 
@@ -267,12 +240,22 @@ struct RGBColor {
 }
 
 private struct WindowChromeKey: EnvironmentKey {
-    static let defaultValue = WindowChrome(theme: GhosttyThemeCatalog.theme(named: TerminalThemeChoice.defaultLightName)!)
+    static let defaultValue = WindowChrome(isDark: false)
 }
 
 extension EnvironmentValues {
     var windowChrome: WindowChrome {
         get { self[WindowChromeKey.self] }
         set { self[WindowChromeKey.self] = newValue }
+    }
+}
+
+struct CompactToolbarLabelStyle: LabelStyle {
+    var compact: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon
+            if !compact { configuration.title }
+        }
     }
 }

@@ -72,6 +72,7 @@ final class FocusedTerminal: ObservableObject {
 /// defaults for the same actions are unbound in `TerminalSettings.appOwnedGhosttyTriggers`.
 struct TerminalCommands: Commands {
     @ObservedObject var focus: FocusedTerminal
+    @ObservedObject var model: AppModel
     /// Zooms the selected pane of the main window, or shows all panes again.
     var toggleSplitZoom: () -> Void
     /// Rebuilds the items when a shortcut changes, so the new key equivalents apply without a relaunch.
@@ -80,6 +81,10 @@ struct TerminalCommands: Commands {
     var body: some Commands {
         let _ = shortcutsRevision
         CommandMenu("Terminal") {
+            if let window = model.keyWindow {
+                TerminalWorkspaceMenu(model: model, window: window)
+                Divider()
+            }
             TerminalCommands.item(.increaseFontSize, action: "increase_font_size:1", enabled: focus.isAvailable)
             TerminalCommands.item(.decreaseFontSize, action: "decrease_font_size:1", enabled: focus.isAvailable)
             TerminalCommands.item(.resetFontSize, action: "reset_font_size", enabled: focus.isAvailable)
@@ -155,5 +160,25 @@ struct TerminalCommands: Commands {
             }
         }
         return nil
+    }
+}
+
+/// Independent of the terminal's first responder: available while a TUI owns the mouse,
+/// or while the user is selecting read-only history text.
+struct TerminalWorkspaceMenu: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var window: WindowState
+
+    private var tab: TerminalTab? { model.selectedTab(in: window) }
+    private var available: Bool { !window.presentation.fullFilesWorkspace && tab?.hasTerminal == true }
+
+    var body: some View {
+        Button("Reveal in Files") {
+            if let tab { model.showFiles(for: tab.id, in: window) }
+        }.disabled(!available)
+        Toggle("History", isOn: Binding(
+            get: { window.historyVisible },
+            set: { _ in if let tab { model.toggleTerminalHistory(for: tab.id, in: window) } }
+        )).disabled(!available)
     }
 }

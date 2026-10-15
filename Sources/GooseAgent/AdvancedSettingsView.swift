@@ -248,7 +248,7 @@ struct AdvancedSettingsPage: View {
             }
             .font(.system(size: 13, weight: .medium))
             .foregroundStyle(chrome.accent)
-            .buttonStyle(.plain)
+            .buttonStyle(FamilyButtonStyle())
         }
     }
 }
@@ -303,7 +303,7 @@ struct GhosttyImportPreviewSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Button("Import", action: onImport)
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(FamilyButtonStyle(kind: .primary))
                     .disabled(plan.changesNothing)
             }
             .padding(Theme.Space.l)

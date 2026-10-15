@@ -136,7 +136,7 @@ struct RestorePageDefaultsButton: View {
                     .foregroundStyle(chrome.accent)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FamilyButtonStyle())
         }
     }
 }

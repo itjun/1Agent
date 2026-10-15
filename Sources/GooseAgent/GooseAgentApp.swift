@@ -48,7 +48,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppearanceDriver.shared.reapply()
-        GooseAgentFocusRing.install()
         TerminalDefaults.registerBundledFonts()
         GhosttyRuntime.removeLeftoverConfigFiles()
         GhosttyRuntime.applyTerminalSettings()
@@ -243,7 +242,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Nil when the chord is not a sidebar-switching shortcut. False lets the key through.
     private func switchTerminal(_ chord: KeyChord, in window: WindowState?) -> Bool? {
         let terminalShortcuts = AppShortcutID.allCases.filter { $0.group == .sidebar }
-        guard let id = terminalShortcuts.first(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
+        let switcherChord = AppShortcuts.chord(for: .terminalSwitcher)
+        var reverseSwitcherChord = switcherChord
+        reverseSwitcherChord.modifierRaw = KeyChord.pack(switcherChord.modifiers.union(.shift))
+        let matched = terminalShortcuts.first(where: { AppShortcuts.chord(for: $0) == chord })
+            ?? (chord == reverseSwitcherChord ? .terminalSwitcher : nil)
+        guard let id = matched else { return nil }
         guard let window else { return false }
         if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || window.hostPickerPresented {
             return false
@@ -338,7 +342,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         model.isQuitting = true
         model.persistSessionIfReady()
-        return .terminateNow
+        FileTransferQueue.shared.interruptForTermination()
+        SSHTerminalRegistry.flushHistory { sender.reply(toApplicationShouldTerminate: true) }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -461,12 +467,16 @@ enum CommandLineLaunch {
         return theirs == ours
     }
 
-    /// Absolute paths of the arguments after `-e` that exist right now.
+    /// Absolute paths of the arguments after `-e` that exist right now, plus a bare folder argument
+    /// that already became the working directory.
     static func existingCommandPaths() -> Set<String> {
         let arguments = CommandLine.arguments
-        guard let index = arguments.firstIndex(of: "-e") else { return [] }
-        let base = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         var paths: Set<String> = []
+        if let folder = ExternalOpen.positionalDirectory(in: arguments) {
+            paths.insert(folder)
+        }
+        guard let index = arguments.firstIndex(of: "-e") else { return paths }
+        let base = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         for argument in arguments[(index + 1)...] {
             let url = URL(fileURLWithPath: argument, relativeTo: base).standardizedFileURL
             if FileManager.default.fileExists(atPath: url.path) {
@@ -506,14 +516,23 @@ struct GooseAgentApp: App {
         .commands {
             let _ = shortcutsRevision
             CommandGroup(replacing: .newItem) {
-                Button("New Tab") { appDelegate.model.newTab() }
+                Button("New Terminal") { appDelegate.model.newTab() }
                     .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
                 Button("New Local Terminal") { appDelegate.model.openLocalTerminal() }
                     .keyboardShortcut(AppShortcuts.chord(for: .newLocalTerminal).keyboardShortcut)
-                Button("Open Host…") { appDelegate.model.openHostPicker() }
+                Button("Open Host…") {
+                    appDelegate.model.openHostPicker(purpose: appDelegate.model.keyWindow?.presentation.filesVisible == true ? .files : .terminal)
+                }
                     .keyboardShortcut(AppShortcuts.chord(for: .openHost).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
+                Button("Open Items Overview") {
+                    guard let window = appDelegate.model.keyWindow else { return }
+                    DispatchQueue.main.async {
+                        TerminalSwitcher.shared.open(model: appDelegate.model, window: window,
+                            chord: AppShortcuts.chord(for: .terminalSwitcher), searching: true)
+                    }
+                }
                 Button("Toggle Full Screen") {
                     AppDelegate.toggleFullScreenOfKeyWindow()
                 }
@@ -523,7 +542,7 @@ struct GooseAgentApp: App {
                 Button("Settings") { appDelegate.model.toggleSettings() }
                     .keyboardShortcut(AppShortcuts.chord(for: .settings).keyboardShortcut)
             }
-            TerminalCommands(focus: FocusedTerminal.shared) {
+            TerminalCommands(focus: FocusedTerminal.shared, model: appDelegate.model) {
                 appDelegate.model.toggleSplitZoom(in: appDelegate.model.mainWindow)
             }
         }

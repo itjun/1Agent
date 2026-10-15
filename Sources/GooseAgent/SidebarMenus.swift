@@ -191,12 +191,13 @@ func workspaceLayoutTitle(_ layout: WorkspaceLayout) -> String {
 
 /// Both sidebar rows and pane titles expose the same membership and display operations.
 @MainActor
-func terminalContextMenu(for tab: TerminalTab, model: AppModel, window: WindowState) -> TabContextMenu {
-    let targets = model.sidebarTargets(clicking: tab.id, in: window)
+func terminalContextMenu(for tab: TerminalTab, model: AppModel, window: WindowState,
+                         forPane: Bool = false, onRename: (() -> Void)? = nil) -> TabContextMenu {
+    let targets = forPane ? [tab.id] : model.sidebarTargets(clicking: tab.id, in: window)
     return TabContextMenu(
         showsDuplicate: targets.count == 1,
         canDetach: model.sidebarSplits(targets),
-        canRemove: targets.contains { id in model.workspaces.contains { $0.members.contains(id) } },
+        canRemove: targets.contains { id in model.workspaces.contains { $0.isGrouped && $0.members.contains(id) } },
         canCreateArea: model.sidebarCanCreateArea(targets),
         layouts: WorkspaceBoard.availableLayouts(paneCount: targets.count).map { ($0, workspaceLayoutTitle($0)) },
         workspaces: model.workspacesByNumber.filter { workspace in
@@ -207,9 +208,13 @@ func terminalContextMenu(for tab: TerminalTab, model: AppModel, window: WindowSt
         merge: { model.mergeSidebar(targets, onto: tab.id, as: $0, in: window) },
         detach: { model.splitSidebar(targets, in: window) },
         move: { model.joinWorkspace(targets, $0, beside: nil, after: true) },
-        remove: { model.removeSidebarFromWorkspace(targets, in: window) },
+        remove: {
+            if forPane { model.removePaneFromWorkspace(tab.id, in: window) }
+            else { model.removeSidebarFromWorkspace(targets, in: window) }
+        },
         createArea: { model.createAreaFromSidebar(targets, in: window) },
         close: { model.closeTabs(targets) },
-        copyInfo: { copySessionInfo(tab, model: model) }
+        copyInfo: { copySessionInfo(tab, model: model) },
+        rename: forPane ? nil : onRename
     )
 }

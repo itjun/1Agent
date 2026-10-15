@@ -5,7 +5,7 @@ import SwiftUI
 enum SettingsLayout {
     static let sidebarWidth: CGFloat = 180
     /// One page row in the left navigation.
-    static let navRowHeight: CGFloat = 30
+    static let navRowHeight: CGFloat = 40
     /// One segment of the appearance-mode control.
     static let segmentHeight: CGFloat = 28
     /// Font preview box; fixed so the card does not jump while the size slider moves.
@@ -85,16 +85,11 @@ struct SettingsCard<Content: View, Accessory: View>: View {
                 accessory()
             }
             content()
-                .padding(Theme.Space.l)
+                .padding(.vertical, Theme.Space.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .fill(chrome.elevated)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .stroke(chrome.hairline, lineWidth: 1)
-                )
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(chrome.hairline).frame(height: 1)
+                }
         }
     }
 }
@@ -108,8 +103,6 @@ extension SettingsCard where Accessory == EmptyView {
 struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
     @State private var selectedPage: SettingsPage = .appearance
-    @AppStorage(SidebarMaterial.storageKey) private var sidebarMaterialRaw = SidebarMaterial.defaultValue.rawValue
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
@@ -125,19 +118,12 @@ struct SettingsView: View {
     @ObservedObject private var preview = ThemePreview.shared
     @ObservedObject private var importRequests = GhosttyImportRequests.shared
     @State private var themeQuery = ""
+    @FocusState private var themeSearchFocused: Bool
     @State private var themeFilter: ThemeFilter = .all
     /// User theme waiting for the Move to Trash confirmation.
 
-    private var usesGlass: Bool {
-        selectedMaterial.effective(supportsGlass: SidebarMaterial.supportsGlass,
-                                   reduceTransparency: reduceTransparency) == .liquidGlass
-    }
+    private var sidebarChrome: WindowChrome { chrome }
 
-    private var selectedMaterial: SidebarMaterial {
-        SidebarMaterial(rawValue: sidebarMaterialRaw) ?? .defaultValue
-    }
-
-    private var sidebarChrome: WindowChrome { usesGlass ? chrome.nativeSidebar : chrome }
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -151,7 +137,7 @@ struct SettingsView: View {
         GridItem(.adaptive(minimum: 300), spacing: Theme.Space.m),
     ]
 
-    private static let searchControlHeight: CGFloat = 38
+    private static let searchControlHeight: CGFloat = 32
 
     private var trimmedQuery: String {
         themeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -172,12 +158,13 @@ struct SettingsView: View {
 
     var body: some View {
         NativeSidebarSplit(
-            glass: usesGlass, width: SettingsLayout.sidebarWidth,
+            width: SettingsLayout.sidebarWidth,
             minimumWidth: SettingsLayout.sidebarWidth, maximumWidth: SettingsLayout.sidebarWidth,
             defaultWidth: SettingsLayout.sidebarWidth
         ) {
             settingsNavigation
                 .environment(\.windowChrome, sidebarChrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
         } detail: {
             VStack(spacing: 0) {
                 ScrollView {
@@ -191,6 +178,7 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .environment(\.windowChrome, chrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
             .background(chrome.background.ignoresSafeArea())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -198,7 +186,7 @@ struct SettingsView: View {
         // Extend the native columns themselves into the titlebar. Each hosting root still
         // respects its safe area, keeping navigation and settings below the traffic lights.
         .ignoresSafeArea(edges: .top)
-        .oneagentHideFocusRing()
+
         .onAppear {
             TerminalThemeChoice.migrateIfNeeded()
             if !fontFamilies.contains(fontFamily) {
@@ -239,7 +227,7 @@ struct SettingsView: View {
                             .environment(\.locale, Locale(identifier: "en"))
                         Text(page.title)
                             .font(Theme.Font.row.weight(selected ? .semibold : .regular))
-                            .foregroundStyle(sidebarChrome.text)
+                            .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
                             .lineLimit(1)
                     }
                     .padding(.horizontal, Theme.Space.s)
@@ -251,14 +239,14 @@ struct SettingsView: View {
                     )
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FamilyButtonStyle())
                 .padding(.horizontal, Theme.Space.s)
             }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background((usesGlass ? Color.clear : chrome.sidebarBackground).ignoresSafeArea())
+        .background(chrome.sidebarBackground.ignoresSafeArea())
     }
 
     private var settingsContent: some View {
@@ -284,24 +272,6 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
             SettingsCard("Appearance Mode") {
                 appearanceModeControl
-            }
-
-            SettingsCard("Sidebar Material") {
-                Picker("Sidebar Material", selection: $sidebarMaterialRaw) {
-                    Text("Liquid Glass").tag(SidebarMaterial.liquidGlass.rawValue)
-                    Text("Solid").tag(SidebarMaterial.solid.rawValue)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                if selectedMaterial == .liquidGlass && reduceTransparency {
-                    Text("Reduce Transparency is on. The sidebar uses a solid background.")
-                        .font(Theme.Font.rowMeta)
-                        .foregroundStyle(chrome.secondary)
-                } else if selectedMaterial == .liquidGlass && !SidebarMaterial.supportsGlass {
-                    Text("Liquid Glass requires macOS 26 or later. The sidebar uses a solid background.")
-                        .font(Theme.Font.rowMeta)
-                        .foregroundStyle(chrome.secondary)
-                }
             }
 
             SettingsCard("Terminal Colors") {
@@ -342,7 +312,6 @@ struct SettingsView: View {
     /// Mode and contrast apply at once; the default themes are previewed first, like the
     /// card's own restore button, and saved from the action bar.
     private func restoreAppearancePageDefaults() {
-        sidebarMaterialRaw = SidebarMaterial.defaultValue.rawValue
         appearanceRaw = TerminalAppearance.system.rawValue
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast
@@ -575,7 +544,7 @@ struct SettingsView: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -599,7 +568,7 @@ struct SettingsView: View {
                 .foregroundStyle(disabled ? chrome.tertiary : chrome.accent)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .disabled(disabled)
     }
 
@@ -651,6 +620,7 @@ struct SettingsView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(chrome.secondary)
             TextField("Search themes", text: $themeQuery)
+                .focused($themeSearchFocused)
                 .textFieldStyle(.plain)
                 .font(.system(size: 15))
                 .foregroundStyle(chrome.text)
@@ -661,7 +631,7 @@ struct SettingsView: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(chrome.secondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FamilyButtonStyle())
                 .help("Clear search")
             }
         }
@@ -670,12 +640,13 @@ struct SettingsView: View {
         .frame(height: SettingsView.searchControlHeight)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(chrome.background)
+                .fill(themeSearchFocused ? chrome.background : chrome.elevated)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
+                .stroke(themeSearchFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
         )
+        .familyFocusRing(themeSearchFocused)
     }
 
     /// Same height and border as the search field, so the row reads as one control group.
@@ -697,7 +668,7 @@ struct SettingsView: View {
                         )
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FamilyButtonStyle())
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
@@ -748,7 +719,7 @@ struct SettingsView: View {
                 preview.save()
             }
             .keyboardShortcut("s", modifiers: .command)
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(FamilyButtonStyle(kind: .primary))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
@@ -801,8 +772,9 @@ struct SettingsWindowRoot: View {
     var body: some View {
         SettingsView()
             .environment(\.windowChrome, chrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
             .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-            .oneagentHideFocusRing()
+
             .frame(minWidth: SheetLayout.settings, minHeight: SheetLayout.settingsBodyHeight)
             .onAppear { appearanceDriver.reapply() }
             .onChange(of: appearanceRaw) { _, _ in

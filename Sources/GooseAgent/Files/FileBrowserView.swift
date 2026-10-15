@@ -2,11 +2,20 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+private enum FileBrowserTimestamp {
+    static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }()
+}
+
 /// One tab of the Files area: title bar, breadcrumb and the file table of one folder, on this Mac
 /// or on a host. Look and behavior follow 1Panel's SFTP page.
-struct FileColumnView: View {
+struct FileColumnView<Endpoint: View>: View {
     @ObservedObject var workspace: FileWorkspace
     @ObservedObject var column: FileColumn
+    @ViewBuilder var endpoint: () -> Endpoint
     @Environment(\.windowChrome) private var chrome
     @FocusState private var focused: Bool
     @State private var editingPath = false
@@ -17,14 +26,28 @@ struct FileColumnView: View {
     /// Why the drag over this pane cannot drop here; shown in place of the drop hint.
     @State private var dropRefusal: String?
     @State private var hovered: String?
-    @State private var width: CGFloat = 0
+    @State private var showingFilter = false
+    @FocusState private var filterFocused: Bool
 
     private var window: NSWindow? { NSApp.keyWindow ?? NSApp.mainWindow }
 
     var body: some View {
+        // Read the assigned pane width, not the content's intrinsic width. Long paths must not
+        // make the table believe that optional columns fit inside a narrow endpoint panel.
+        GeometryReader { geometry in
+            content(width: geometry.size.width)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+
+    private func content(width: CGFloat) -> some View {
         VStack(spacing: 0) {
-            titleBar
-            toolbar
+            navigationBar(width: width)
+            if showingFilter || !column.filter.isEmpty {
+                filterField
+                    .padding(.horizontal, Theme.Space.s)
+                    .padding(.bottom, Theme.Space.xs)
+            }
             Rectangle().fill(chrome.hairline).frame(height: 1)
             if let error = column.error {
                 Text(verbatim: error)
@@ -36,8 +59,8 @@ struct FileColumnView: View {
             }
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
-                    header
-                    rows
+                    header(width: width)
+                    rows(width: width)
                 }
                 .overlay(alignment: .top) {
                     if column.loading {
@@ -45,99 +68,109 @@ struct FileColumnView: View {
                     }
                 }
                 .overlay { dropHint }
-                if column.preview != nil {
-                    GeometryReader { geometry in
-                        VStack(spacing: 0) {
-                            Spacer(minLength: 0)
-                            TextPreviewDrawer(column: column)
-                                .frame(height: geometry.size.height * FileBrowserLayout.previewHeightShare)
-                        }
-                    }
-                }
+
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
     }
 
-    // MARK: Title bar
-
-    private var titleBar: some View {
-        HStack(spacing: Theme.Space.s) {
-            Image(systemName: column.isRemote ? "cloud" : "desktopcomputer")
-                .font(.system(size: 13))
-                .foregroundStyle(chrome.text)
-            Text(verbatim: column.title)
-                .font(Theme.Font.body.weight(.semibold))
-                .foregroundStyle(chrome.text)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: Theme.Space.s)
-            HStack(spacing: Theme.Space.xs) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11))
-                    .foregroundStyle(chrome.secondary)
-                TextField(String(localized: "Filter"), text: $column.filter)
-                    .textFieldStyle(.plain)
-                    .font(Theme.Font.body)
-            }
-            .padding(.horizontal, Theme.Space.s)
-            .frame(width: FileBrowserLayout.filterWidth, height: FileBrowserLayout.toolbarButtonSize + 4)
-            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.elevated))
-            Menu {
-                actionItems(for: column.selectedEntries)
+    private var filterField: some View {
+        HStack(spacing: Theme.Space.xs) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12)).foregroundStyle(chrome.secondary)
+            TextField(String(localized: "Filter"), text: $column.filter)
+                .textFieldStyle(.plain).font(Theme.Font.body)
+                .focused($filterFocused)
+                .onExitCommand {
+                    column.filter = ""
+                    showingFilter = false
+                }
+            Button {
+                column.filter = ""
+                showingFilter = false
             } label: {
-                Text("Actions")
-                    .font(Theme.Font.body)
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(chrome.secondary)
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
+            .buttonStyle(FamilyButtonStyle())
+            .help(String(localized: "Clear Filter"))
+            .accessibilityLabel(Text("Clear Filter"))
         }
-        .padding(.horizontal, Theme.Space.m)
-        .frame(height: FileBrowserLayout.titleBarHeight)
+        .padding(.horizontal, Theme.Space.s)
+        .frame(height: FileBrowserLayout.toolbarButtonSize + 4)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(filterFocused ? chrome.background : chrome.elevated))
+        .familyFocusRing(filterFocused)
     }
 
-    // MARK: Toolbar and breadcrumb
+    // MARK: Navigation and actions
 
-    private var toolbar: some View {
-        HStack(spacing: 2) {
-            toolbarButton("chevron.left", help: String(localized: "Back"), enabled: !column.backStack.isEmpty) {
-                column.back()
+    private func navigationBar(width: CGFloat) -> some View {
+        HStack(spacing: width < 250 ? 2 : Theme.Space.xs) {
+            endpoint()
+            if width >= 320 {
+                toolbarButton("chevron.left", help: String(localized: "Back"), enabled: !column.backStack.isEmpty) { column.back() }
             }
-            toolbarButton("chevron.right", help: String(localized: "Forward"), enabled: !column.forwardStack.isEmpty) {
-                column.forward()
+            if width >= 250 {
+                toolbarButton("arrow.up", help: String(localized: "Parent Folder"), enabled: !column.directory.isEmpty && column.directory != "/") {
+                    column.open(FileRules.parent(of: column.directory))
+                }
             }
             toolbarButton("house", help: String(localized: "Home Folder"), enabled: !column.home.isEmpty) {
                 column.goHome()
             }
-            breadcrumb
+            .accessibilityIdentifier("files.home")
+            pathField
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("files.path")
+                .frame(minWidth: 0, maxWidth: .infinity)
+                .padding(.horizontal, width < 250 ? Theme.Space.xs : Theme.Space.s)
+                .frame(height: FileBrowserLayout.toolbarHeight)
+                .background {
+                    if !editingPath {
+                        Color.clear.contentShape(Rectangle()).onTapGesture(perform: startEditing)
+                    }
+                }
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.elevated))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(pathFieldFocused ? chrome.accent : chrome.hairline, lineWidth: 1))
+                .familyFocusRing(pathFieldFocused)
+            toolbarButton("arrow.clockwise", help: String(localized: "Refresh"), enabled: !column.loading) {
+                column.refresh()
+            }
+            toolbarButton("chevron.right", help: String(localized: "Forward"), enabled: !column.forwardStack.isEmpty) { column.forward() }
+            toolbarButton("line.3.horizontal.decrease", help: String(localized: "Filter"), enabled: true) {
+                showingFilter.toggle(); filterFocused = showingFilter
+            }
+
         }
-        .padding(.horizontal, Theme.Space.s)
-        .frame(height: FileBrowserLayout.toolbarHeight)
+        .padding(.horizontal, width < 250 ? Theme.Space.xs : Theme.Space.s)
+        .frame(height: WorkspaceChromeLayout.toolbarHeight)
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 16))
                 .frame(width: FileBrowserLayout.toolbarButtonSize, height: FileBrowserLayout.toolbarButtonSize)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .foregroundStyle(chrome.text)
         .opacity(enabled ? 1 : 0.3)
         .disabled(!enabled)
         .help(help)
+        .accessibilityLabel(Text(verbatim: help))
     }
 
-    private var breadcrumb: some View {
+    private var pathField: some View {
         Group {
             if editingPath {
                 TextField("", text: $pathDraft)
                     .textFieldStyle(.plain)
                     .font(Theme.Font.body)
+                    .accessibilityLabel(Text("Edit Path"))
+                    .accessibilityIdentifier("files.path.editor")
                     .focused($pathFieldFocused)
                     .onSubmit {
                         editingPath = false
@@ -149,45 +182,83 @@ struct FileColumnView: View {
                         if !isFocused { editingPath = false }
                     }
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
-                        crumb(String(localized: "Root"), path: "/", last: column.directory == "/")
-                        ForEach(segments, id: \.path) { segment in
-                            Text(verbatim: "›").foregroundStyle(chrome.secondary)
-                            crumb(segment.name, path: segment.path, last: segment.path == column.directory)
-                        }
+                breadcrumbs
+                .help(column.directory)
+                .contextMenu {
+                    Button(String(localized: "Home Folder")) { column.goHome() }
+                        .disabled(column.home.isEmpty)
+                    Button(String(localized: "Root")) { column.open("/") }
+                    ForEach(segments, id: \.path) { segment in
+                        Button(segment.name) { column.open(segment.path) }
                     }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { startEditing() }
             }
         }
         .padding(.horizontal, Theme.Space.xs)
-        .frame(maxWidth: .infinity, minHeight: FileBrowserLayout.toolbarButtonSize, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control)
-                .fill(editingPath ? chrome.elevated : Color.clear)
-        )
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: FileBrowserLayout.toolbarButtonSize, alignment: .leading)
     }
 
-    private func crumb(_ name: String, path: String, last: Bool) -> some View {
-        Button {
-            if last { startEditing() } else { column.open(path) }
-        } label: {
+    private var breadcrumbs: some View {
+        GeometryReader { geometry in
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.Space.xs) {
+                        pathComponent(String(localized: "Root"), path: "/", current: column.directory == "/") {
+                            column.open("/")
+                        }
+                        ForEach(segments, id: \.path) { segment in
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 8, weight: .medium))
+                                .foregroundStyle(chrome.secondary)
+                                .accessibilityHidden(true)
+                            pathComponent(segment.name, path: segment.path, current: segment.path == column.directory) {
+                                if segment.path == column.directory { startEditing() }
+                                else { column.open(segment.path) }
+                            }
+                        }
+                        Button(action: startEditing) {
+                            Color.clear
+                                .frame(minWidth: 24, maxWidth: .infinity)
+                                .frame(height: FileBrowserLayout.toolbarButtonSize)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(FamilyButtonStyle())
+                        .help("Edit Path")
+                        .accessibilityLabel(Text("Edit Path"))
+                        .accessibilityIdentifier("files.path.edit")
+                        .id("path.end")
+                    }
+                    .frame(minWidth: geometry.size.width, alignment: .leading)
+                }
+                .onChange(of: column.directory, initial: true) { _, _ in
+                    DispatchQueue.main.async { proxy.scrollTo("path.end", anchor: .trailing) }
+                }
+            }
+        }
+        .frame(height: FileBrowserLayout.toolbarButtonSize)
+    }
+
+    private func pathComponent(_ name: String, path: String, current: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             HStack(spacing: Theme.Space.xs) {
                 Image(systemName: "folder.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(FileBrowserLayout.folderColor)
+                    .font(.system(size: 12))
+                    .foregroundStyle(chrome.accent)
                 Text(verbatim: name)
-                    .font(Theme.Font.body.weight(last ? .semibold : .regular))
-                    .lineLimit(1)
+                    .font(Theme.Font.body.weight(current ? .semibold : .regular))
+                    .lineLimit(1).truncationMode(.middle)
+                    .frame(maxWidth: 160)
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .padding(.horizontal, Theme.Space.xs)
+            .frame(height: FileBrowserLayout.toolbarButtonSize)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .foregroundStyle(chrome.text)
+        .fixedSize(horizontal: true, vertical: false)
+        .help(path)
+        .accessibilityLabel(Text(verbatim: name))
+        .accessibilityIdentifier("files.path.component." + path)
     }
 
     private var segments: [(name: String, path: String)] {
@@ -207,28 +278,29 @@ struct FileColumnView: View {
     // MARK: Table
 
     /// Which optional columns fit, dropped from the right as the column narrows.
-    private var visible: (modified: Bool, size: Bool, kind: Bool) {
+    private func visible(in width: CGFloat) -> (modified: Bool, size: Bool, kind: Bool) {
         let gap = Theme.Space.s
         var room = width - Theme.Space.m * 2 - FileBrowserLayout.nameMinWidth
-        let modified = room >= FileBrowserLayout.modifiedWidth + gap
-        if modified { room -= FileBrowserLayout.modifiedWidth + gap }
-        let size = modified && room >= FileBrowserLayout.sizeWidth + gap
+        let size = room >= FileBrowserLayout.sizeWidth + gap
         if size { room -= FileBrowserLayout.sizeWidth + gap }
-        let kind = size && room >= FileBrowserLayout.kindWidth + gap
+        let modified = size && room >= FileBrowserLayout.modifiedWidth + gap
+        if modified { room -= FileBrowserLayout.modifiedWidth + gap }
+        let kind = modified && room >= FileBrowserLayout.kindWidth + gap
         return (modified, size, kind)
     }
 
-    private var header: some View {
-        HStack(spacing: Theme.Space.s) {
+    private func header(width: CGFloat) -> some View {
+        let visible = visible(in: width)
+        return HStack(spacing: Theme.Space.s) {
             sortButton(String(localized: "Name"), key: .name)
-                .frame(minWidth: FileBrowserLayout.nameMinWidth, maxWidth: .infinity, alignment: .leading)
-            if visible.modified {
-                sortButton(String(localized: "Modified"), key: .modified)
-                    .frame(width: FileBrowserLayout.modifiedWidth, alignment: .leading)
-            }
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             if visible.size {
                 sortButton(String(localized: "File Size"), key: .size)
                     .frame(width: FileBrowserLayout.sizeWidth, alignment: .trailing)
+            }
+            if visible.modified {
+                sortButton(String(localized: "Modified"), key: .modified)
+                    .frame(width: FileBrowserLayout.modifiedWidth, alignment: .leading)
             }
             if visible.kind {
                 sortButton(String(localized: "Kind"), key: .kind)
@@ -246,19 +318,19 @@ struct FileColumnView: View {
         } label: {
             let mark = column.sortKey == key ? (column.ascending ? " ↑" : " ↓") : ""
             Text(verbatim: title + mark)
-                .font(Theme.Font.rowMeta)
+                .font(Theme.Font.body)
                 .foregroundStyle(chrome.secondary)
                 .lineLimit(1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
     }
 
-    private var rows: some View {
+    private func rows(width: CGFloat) -> some View {
         let shown = column.shown
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if !column.loading && shown.isEmpty {
+                    if !column.loading && column.error == nil && !column.directory.isEmpty && shown.isEmpty {
                         Text(verbatim: emptyText)
                             .font(Theme.Font.body)
                             .foregroundStyle(chrome.secondary)
@@ -267,11 +339,20 @@ struct FileColumnView: View {
                             .padding(.vertical, Theme.Space.xl)
                     }
                     ForEach(shown) { entry in
-                        row(entry)
+                        row(entry, width: width)
                             .id(entry.path)
                     }
                 }
+                .scrollTargetLayout()
             }
+            .scrollPosition(id: Binding(
+                get: { column.scrollAnchor },
+                set: { anchor in
+                    // A view being removed temporarily reports nil; the browsing position belongs
+                    // to the column, not the lifetime of this ScrollView.
+                    if let anchor { column.scrollAnchor = anchor }
+                }
+            ), anchor: .top)
             .onChange(of: column.selection) { _, selection in
                 guard selection.count == 1, let path = selection.first else { return }
                 proxy.scrollTo(path)
@@ -279,14 +360,29 @@ struct FileColumnView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            workspace.focus(column)
             focused = true
             column.clearSelection()
+        }
+        .contextMenu {
+            directoryActions
         }
         .focusable(interactions: .edit)
         .focusEffectDisabled()
         .focused($focused)
+        .onChange(of: workspace.focusedColumn?.id) { _, id in
+            if id != column.id {
+                focused = false
+            } else if !editingPath && !filterFocused {
+                focused = true
+            }
+        }
         .onKeyPress(phases: .down) { press in handleKey(press) }
-        .contextMenu { actionItems(for: column.selectedEntries) }
+        .background(FilePointerObserver {
+            if workspace.focusedColumn !== column { workspace.focus(column) }
+            focused = true
+        })
+
         .onDrop(of: [.fileURL, .plainText], delegate: FileDropDelegate(
             check: { dropCheck(into: nil) },
             targeted: { dropTargeted = $0 },
@@ -296,33 +392,29 @@ struct FileColumnView: View {
         ))
     }
 
-    private func row(_ entry: FileEntry) -> some View {
+    private func row(_ entry: FileEntry, width: CGFloat) -> some View {
+        let visible = visible(in: width)
         let selected = column.selection.contains(entry.path)
         let dropping = dropFolder == entry.path
         return HStack(spacing: Theme.Space.s) {
             HStack(spacing: Theme.Space.s) {
                 FileIcon(directory: entry.isDirectory)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: entry.name)
-                        .font(Theme.Font.body.weight(selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? chrome.accent : (entry.isHidden ? chrome.secondary : chrome.text))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text(verbatim: entry.mode)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(chrome.secondary)
-                        .lineLimit(1)
-                }
+                Text(verbatim: entry.name)
+                    .font(Theme.Font.body.weight(selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? chrome.accent : entry.isHidden ? chrome.secondary : chrome.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(entry.mode)
             }
-            .frame(minWidth: FileBrowserLayout.nameMinWidth, maxWidth: .infinity, alignment: .leading)
-            if visible.modified {
-                Text(verbatim: entry.modified.map(Self.timeFormatter.string(from:)) ?? "—")
-                    .frame(width: FileBrowserLayout.modifiedWidth, alignment: .leading)
-            }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             if visible.size {
                 Text(verbatim: entry.isDirectory ? "—" : ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file))
                     .monospacedDigit()
                     .frame(width: FileBrowserLayout.sizeWidth, alignment: .trailing)
+            }
+            if visible.modified {
+                Text(verbatim: entry.modified.map(FileBrowserTimestamp.formatter.string(from:)) ?? "—")
+                    .frame(width: FileBrowserLayout.modifiedWidth, alignment: .leading)
             }
             if visible.kind {
                 Text(verbatim: FileColumn.kind(of: entry))
@@ -330,17 +422,27 @@ struct FileColumnView: View {
             }
         }
         .font(Theme.Font.rowMeta)
-        .foregroundStyle(chrome.secondary)
+        .foregroundStyle(selected ? chrome.accent : chrome.secondary)
         .lineLimit(1)
         .padding(.horizontal, Theme.Space.m)
         .frame(height: FileBrowserLayout.rowHeight)
-        .background(selected || dropping ? chrome.accentFill : (hovered == entry.path ? chrome.elevated : Color.clear))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("files.row.\(entry.path)")
+        .background {
+            RoundedRectangle(cornerRadius: Theme.Radius.row)
+                .fill(selected || dropping ? chrome.accentFill : (hovered == entry.path ? chrome.elevated : Color.clear))
+                .padding(.horizontal, Theme.Space.xs)
+        }
         .overlay {
             if dropping {
-                Rectangle().stroke(chrome.accent, lineWidth: 1)
+                RoundedRectangle(cornerRadius: Theme.Radius.row)
+                    .stroke(chrome.accent, lineWidth: 1)
+                    .padding(.horizontal, Theme.Space.xs)
             }
         }
-        .overlay(alignment: .bottom) { Rectangle().fill(chrome.hairline).frame(height: 1) }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(chrome.hairline).frame(height: 1).padding(.horizontal, Theme.Space.m)
+        }
         .contentShape(Rectangle())
         .onHover { inside in
             if inside { hovered = entry.path } else if hovered == entry.path { hovered = nil }
@@ -351,6 +453,12 @@ struct FileColumnView: View {
         .simultaneousGesture(TapGesture().onEnded {
             focused = true
             column.click(entry, modifiers: NSEvent.modifierFlags)
+        })
+
+        // Prepare the row selection before SwiftUI builds its native context menu.
+        .background(FilePointerObserver(contextClicksOnly: true) {
+            workspace.focus(column)
+            column.prepareContextMenu(for: entry)
         })
         .contextMenu { actionItems(for: targets(for: entry)) }
         .onDrag { dragProvider(for: entry) }
@@ -365,18 +473,12 @@ struct FileColumnView: View {
         ))
     }
 
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        return formatter
-    }()
-
     private var emptyText: String {
         if !column.filter.trimmingCharacters(in: .whitespaces).isEmpty {
             return String(localized: "No matching files")
         }
         if !column.showHidden, column.hasHiddenEntries {
-            return String(localized: "Hidden files are collapsed; show them from Actions")
+            return String(localized: "Hidden files are collapsed")
         }
         return String(localized: "This folder is empty")
     }
@@ -423,34 +525,39 @@ struct FileColumnView: View {
     }
 
     @ViewBuilder
-    private func actionItems(for entries: [FileEntry]) -> some View {
-        Button(String(localized: "New Folder")) { workspace.create(folder: true, in: column, window: window) }
-        Button(String(localized: "New File")) { workspace.create(folder: false, in: column, window: window) }
+    private var directoryActions: some View {
+        Button(String(localized: "New Folder")) {
+            workspace.focus(column)
+            workspace.create(folder: true, in: column, window: window)
+        }
+            .disabled(column.directory.isEmpty || column.loading)
+        Button(String(localized: "New File")) {
+            workspace.focus(column)
+            workspace.create(folder: false, in: column, window: window)
+        }
+            .disabled(column.directory.isEmpty || column.loading)
         Divider()
+        Button(column.showHidden ? String(localized: "Hide Hidden Files") : String(localized: "Show Hidden Files")) {
+            workspace.focus(column)
+            column.showHidden.toggle()
+        }
+    }
+
+    @ViewBuilder
+    private func actionItems(for entries: [FileEntry]) -> some View {
         Button(String(localized: "Open Item")) {
             if let entry = entries.first { workspace.open(entry, in: column, window: window) }
         }
         .disabled(entries.count != 1)
-        if workspace.other(than: column) != nil {
-            Button(column.isRemote ? String(localized: "Download to This Mac") : String(localized: "Upload to Host")) {
-                workspace.send(entries, from: column, window: window)
-            }
-            .disabled(entries.isEmpty)
-        }
+        Button(String(localized: "Rename")) {
+            if let entry = entries.first { workspace.rename(entry, in: column, window: window) }
+        }.disabled(entries.count != 1)
+        Button(String(localized: "Copy Path")) { workspace.copyPaths(entries, in: column) }
+        Divider()
         Button(String(localized: "Delete"), role: .destructive) {
             workspace.delete(entries, in: column, window: window)
         }
         .disabled(entries.isEmpty)
-        Divider()
-        Button(String(localized: "Copy Path")) { workspace.copyPaths(entries, in: column) }
-        Button(String(localized: "Open in Terminal")) { workspace.openTerminal(entries, in: column) }
-        Divider()
-        Button(String(localized: "Refresh")) { column.refresh() }
-        Button(column.showHidden ? String(localized: "Hide Hidden Files") : String(localized: "Show Hidden Files")) {
-            column.showHidden.toggle()
-        }
-        Button(String(localized: "Select All")) { column.selectAll() }
-            .disabled(column.shown.isEmpty)
     }
 
     // MARK: Keyboard
@@ -560,14 +667,89 @@ struct FileColumnView: View {
     }
 }
 
-/// Folder in 1Panel's blue; file as a light page with a folded corner.
-private struct FileIcon: View {
-    let directory: Bool
+/// A single shared pair reads selections from the actual endpoints, independent of focus.
+struct FileColumnTransferControls: View {
+    @ObservedObject var workspace: FileWorkspace
+    @ObservedObject var column: FileColumn
+    @ObservedObject var other: FileColumn
+    @Environment(\.windowChrome) private var chrome
+
+    private enum Direction {
+        case upload, download, copy
+
+        var title: String {
+            switch self {
+            case .upload: return String(localized: "Upload")
+            case .download: return String(localized: "Download")
+            case .copy: return String(localized: "Copy to Other Pane")
+            }
+        }
+
+        var format: String {
+            switch self {
+            case .upload: return String(localized: "Upload to %@: %@")
+            case .download: return String(localized: "Download to %@: %@")
+            case .copy: return String(localized: "Copy to %@: %@")
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .upload: return "arrow.right"
+            case .download: return "arrow.left"
+            case .copy: return "doc.on.doc"
+            }
+        }
+    }
 
     var body: some View {
-        Image(systemName: directory ? "folder.fill" : "doc.fill")
+        HStack(spacing: Theme.Space.s) {
+            if column.isRemote != other.isRemote {
+                let local = column.isRemote ? other : column
+                let remote = column.isRemote ? column : other
+                transferButton(from: local, to: remote, direction: .upload)
+                transferButton(from: remote, to: local, direction: .download)
+            } else {
+                transferButton(from: column, to: other, direction: .copy)
+            }
+        }
+    }
+
+    private func transferButton(from source: FileColumn, to target: FileColumn, direction: Direction) -> some View {
+        let enabled = !source.selectedEntries.isEmpty && !source.loading && !target.loading && !target.directory.isEmpty
+        let prominent = direction != .download
+        let hint = String(format: direction.format, target.title, target.directory)
+        return Button {
+            guard enabled else { return }
+            workspace.receive(
+                source.selectedEntries.map { FileTransfer.Item(path: $0.path, isDirectory: $0.isDirectory) },
+                from: source.fileSystem, on: target, into: target.directory,
+                window: NSApp.keyWindow ?? NSApp.mainWindow
+            )
+        } label: {
+            Label(direction.title, systemImage: direction.symbol)
+                .font(Theme.Font.body.weight(.medium))
+                .padding(.horizontal, Theme.Space.m)
+                .frame(height: FileBrowserLayout.toolbarHeight - 4)
+                .foregroundStyle(enabled && prominent ? Color.white : enabled ? chrome.text : chrome.tertiary)
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .fill(enabled && prominent ? chrome.accent : Color.clear))
+        }
+        .buttonStyle(FamilyButtonStyle())
+        .disabled(!enabled)
+        .help(hint)
+    }
+}
+
+/// Blue folders and an uncluttered page outline keep the two lists easy to compare.
+private struct FileIcon: View {
+    let directory: Bool
+    @Environment(\.windowChrome) private var chrome
+
+    var body: some View {
+        Image(systemName: directory ? "folder.fill" : "doc")
             .font(.system(size: directory ? 15 : 16))
-            .foregroundStyle(directory ? FileBrowserLayout.folderColor : Color(white: 0.85))
+            .foregroundStyle(directory ? FileBrowserLayout.folderColor : chrome.text)
             .frame(width: FileBrowserLayout.iconSize, height: FileBrowserLayout.iconSize)
     }
 }
@@ -653,5 +835,44 @@ private struct FileDropDelegate: DropDelegate {
             refused(reason)
             return false
         }
+    }
+}
+
+/// Observe native mouse-downs without consuming them. Scroll-view blank areas and native
+/// controls do not reliably complete an enclosing SwiftUI tap gesture.
+struct FilePointerObserver: NSViewRepresentable {
+    var contextClicksOnly = false
+    var prepare: () -> Void
+    func makeNSView(context: Context) -> Observer { Observer() }
+    func updateNSView(_ view: Observer, context: Context) {
+        view.contextClicksOnly = contextClicksOnly
+        view.prepare = prepare
+    }
+    static func dismantleNSView(_ view: Observer, coordinator: ()) { view.stop() }
+
+    final class Observer: NSView {
+        var contextClicksOnly = false
+        var prepare: (() -> Void)?
+        private var monitor: Any?
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stop()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .leftMouseDown]) { [weak self] event in
+                guard let self, event.window === self.window, !self.isHiddenOrHasHiddenAncestor,
+                      self.visibleRect.contains(self.convert(event.locationInWindow, from: nil)) else { return event }
+                if self.contextClicksOnly && event.type != .rightMouseDown && !event.modifierFlags.contains(.control) {
+                    return event
+                }
+                self.prepare?()
+                return event
+            }
+        }
+        func stop() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+        deinit { if let monitor { NSEvent.removeMonitor(monitor) } }
     }
 }

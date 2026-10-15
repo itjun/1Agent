@@ -19,7 +19,7 @@ private struct InputProbe: NSViewRepresentable {
 }
 
 private final class CanvasGeometryProbe: ObservableObject {
-    @Published var glass = true
+    @Published var revision = 0
     var headers: [Int: NSView] = [:]
 }
 
@@ -39,7 +39,7 @@ private struct HeaderProbe: NSViewRepresentable {
 private struct EmbeddedSplitFixture: View {
     @ObservedObject var probe: CanvasGeometryProbe
     var body: some View {
-        NativeSidebarSplit(glass: probe.glass, width: 260, minimumWidth: 200,
+        NativeSidebarSplit(width: 260, minimumWidth: 200,
                            maximumWidth: 420, defaultWidth: 260) {
             Color.clear.ignoresSafeArea(edges: .top)
         } detail: {
@@ -64,7 +64,7 @@ private struct EmbeddedSplitFixture: View {
 private struct EmbeddedSettingsFixture: View {
     @ObservedObject var probe: CanvasGeometryProbe
     var body: some View {
-        NativeSidebarSplit(glass: probe.glass, width: 180, minimumWidth: 180,
+        NativeSidebarSplit(width: 180, minimumWidth: 180,
                            maximumWidth: 180, defaultWidth: 180) {
             VStack(spacing: 0) {
                 HeaderProbe(probe: probe, index: 0).frame(height: 24)
@@ -83,6 +83,48 @@ private struct EmbeddedSettingsFixture: View {
     }
 }
 
+private final class DockGeometryProbe: ObservableObject {
+    @Published var presentation = WorkspacePresentation()
+    let terminal = Probe()
+    let geometry = CanvasGeometryProbe()
+}
+
+/// Exercise the same native split, toolbar and dock hierarchy at the smallest supported size.
+private struct EmbeddedDockFixture: View {
+    @ObservedObject var probe: DockGeometryProbe
+    var body: some View {
+        GeometryReader { outer in
+            NativeSidebarSplit(collapsed: WorkspaceChromeLayout.temporarilyCollapseSidebar(
+                totalWidth: outer.size.width, sidebarWidth: 310, filesVisible: probe.presentation.filesVisible,
+                filesWorkspace: true),
+                width: 310, minimumWidth: 200, maximumWidth: 420, defaultWidth: 260) {
+                HeaderProbe(probe: probe.geometry, index: 0)
+                    .ignoresSafeArea(edges: .top)
+            } detail: {
+                VStack(spacing: 0) {
+                    HeaderProbe(probe: probe.geometry, index: 1)
+                        .frame(height: WorkspaceChromeLayout.toolbarHeight)
+                    WorkspaceContentSplit(presentation: probe.presentation, onRatioChange: { ratio in
+                        probe.presentation.filesHeightRatio = ratio
+                    }) {
+                        InputProbe(probe: probe.terminal, output: "live terminal")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(HeaderProbe(probe: probe.geometry, index: 4))
+                    } files: {
+                        HStack(spacing: WorkspaceChromeLayout.dividerWidth) {
+                            HeaderProbe(probe: probe.geometry, index: 2)
+                            HeaderProbe(probe: probe.geometry, index: 3)
+                        }
+                    }
+                }
+                .ignoresSafeArea(edges: .top)
+            }
+        }
+        .frame(minWidth: 880, minHeight: 520)
+        .ignoresSafeArea(edges: .top)
+    }
+}
+
 @main
 struct NativeSidebarSplitTests {
     @MainActor static func main() {
@@ -94,7 +136,7 @@ struct NativeSidebarSplitTests {
             detail: InputProbe(probe: probe, output: "output 0")
         )
         // Representables configure before receiving a window/frame.
-        controller.configure(glass: true, width: 310, minimum: 200, maximum: 420,
+        controller.configure(width: 310, minimum: 200, maximum: 420,
                              defaultWidth: 260, onWidthChange: { _ in })
         let window = NSWindow(contentViewController: controller)
         window.styleMask = [.titled, .resizable, .fullSizeContentView]
@@ -106,45 +148,61 @@ struct NativeSidebarSplitTests {
         let originalSidebar = controller.sidebarHost
         let originalDetailItem = controller.splitViewItems[1]
         var reports: [CGFloat] = []
-        func configure(_ glass: Bool, _ width: CGFloat = 260, _ fixed: Bool = false) {
-            controller.configure(glass: glass, width: width, minimum: fixed ? 180 : 200,
+        func configure(_ width: CGFloat = 260, _ fixed: Bool = false) {
+            controller.configure(width: width, minimum: fixed ? 180 : 200,
                                  maximum: fixed ? 180 : 420, defaultWidth: fixed ? 180 : 260,
                                  onWidthChange: { reports.append($0) })
             window.contentView?.layoutSubtreeIfNeeded()
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.03))
         }
-        configure(false)
+        configure()
         let field = probe.field!
         precondition(window.makeFirstResponder(field), "probe must accept keyboard focus")
         let responder = window.firstResponder
-        for (index, glass) in [true, false, true, false].enumerated() {
+        for index in 0..<4 {
             // This is what updateNSViewController does when a stored setting changes.
             controller.detailHost.rootView = InputProbe(probe: probe, output: "output \(index + 1)")
-            configure(glass)
+            configure(260 + CGFloat(index) * 10)
             precondition(probe.created == 1, "SwiftUI must reuse the native input surface")
-            precondition(sidebarProbe.created == 1, "sidebar content must also survive changing split items")
-            precondition(field.stringValue == "output \(index + 1)", "output continues during material changes")
+            precondition(sidebarProbe.created == 1, "sidebar content must also survive layout updates")
+            precondition(field.stringValue == "output \(index + 1)", "output continues during content and width updates")
             precondition(controller.detailHost === originalDetail)
             precondition(controller.sidebarHost === originalSidebar)
             precondition(controller.splitViewItems[1] === originalDetailItem)
             precondition(field.window === window, "detail view must remain attached")
-            precondition(window.firstResponder === responder, "input focus must survive material changes")
-            precondition(controller.splitViewItems[0].behavior == (glass ? .sidebar : .default))
+            precondition(window.firstResponder === responder, "input focus must survive content and width updates")
+            precondition(controller.splitViewItems[0].behavior == .default)
+        }
+        for _ in 0..<3 {
+            controller.configure(width: 310, minimum: 200, maximum: 420,
+                                 defaultWidth: 260, collapsed: true, onWidthChange: { reports.append($0) })
+            window.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.03))
+            precondition(controller.splitViewItems[0].isCollapsed)
+            precondition(controller.detailHost === originalDetail && field.window === window,
+                         "collapsing sidebar must not detach the live terminal surface")
+            controller.configure(width: 310, minimum: 200, maximum: 420,
+                                 defaultWidth: 260, collapsed: false, onWidthChange: { reports.append($0) })
+            window.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.03))
+            precondition(abs(controller.sidebarHost.view.frame.width - 310) < 1,
+                         "temporary collapse restores saved width")
+            precondition(probe.created == 1 && sidebarProbe.created == 1)
         }
         let sidebarField = sidebarProbe.field!
         precondition(window.makeFirstResponder(sidebarField))
         let sidebarResponder = window.firstResponder
-        configure(true)
-        precondition(window.firstResponder === sidebarResponder, "sidebar editing focus survives switching")
-        configure(true, 340)
+        configure()
+        precondition(window.firstResponder === sidebarResponder, "sidebar editing focus survives updates")
+        configure(340)
         precondition(controller.splitView.isVertical, "sidebar must sit beside the content")
         precondition(abs(controller.sidebarHost.view.frame.width - 340) < 1, "restored width")
         controller.splitView.setPosition(300, ofDividerAt: 0)
         window.contentView?.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         precondition(abs((reports.last ?? 0) - 300) < 1, "native divider must publish width")
-        configure(false, 300)
-        precondition(abs(controller.sidebarHost.view.frame.width - 300) < 1, "switch preserves dragged width")
+        configure(300)
+        precondition(abs(controller.sidebarHost.view.frame.width - 300) < 1, "update preserves dragged width")
         window.setContentSize(NSSize(width: 1400, height: 800))
         window.contentView?.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.03))
@@ -153,17 +211,72 @@ struct NativeSidebarSplitTests {
         window.contentView?.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.03))
         precondition(abs(controller.sidebarHost.view.frame.width - 260) < 1, "divider reset restores default width")
-        configure(false, 100)
+        configure(100)
         precondition(abs(controller.sidebarHost.view.frame.width - 200) < 1, "minimum sidebar width")
-        configure(true, 900)
+        configure(900)
         precondition(abs(controller.sidebarHost.view.frame.width - 420) < 1, "maximum sidebar width")
-        configure(true, 180, true)
+        configure(180, true)
         precondition(abs(controller.sidebarHost.view.frame.width - 180) < 1, "fixed settings width")
         precondition(controller.splitViewItems[0].minimumThickness == controller.splitViewItems[0].maximumThickness)
         print("ok: native sidebar behaviors, stable hosts/detail item/input view/focus, width restoration and drag reporting")
         window.close()
         verifyEmbeddedCanvasGeometry()
         verifySettingsTitlebarGeometry()
+        verifyDockGeometry()
+    }
+
+    @MainActor private static func verifyDockGeometry() {
+        let probe = DockGeometryProbe()
+        let host = NSHostingController(rootView: EmbeddedDockFixture(probe: probe))
+        let window = NSWindow(contentViewController: host)
+        window.styleMask = [.titled, .resizable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        for width: CGFloat in [880, 1100, 880] {
+            window.setContentSize(NSSize(width: width, height: 520))
+            for workspaceMode in [false, true] {
+                probe.presentation.filesLayout = workspaceMode ? .sideBySide : .belowTerminal
+            for visible in [false, true, false] {
+                probe.presentation.filesVisible = visible
+                for ratio in [0.25, 0.60, 0.75] {
+                    probe.presentation.filesHeightRatio = ratio
+                    window.contentView?.layoutSubtreeIfNeeded()
+                    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
+                    let content = window.contentView!
+                    let terminal = probe.terminal.field!
+                    let terminalRect = terminal.convert(terminal.bounds, to: content)
+                    let terminalArea = probe.geometry.headers[4]!
+                    let terminalAreaRect = terminalArea.convert(terminalArea.bounds, to: content)
+                    precondition(probe.terminal.created == 1, "dock toggling and resizing cannot recreate a terminal")
+                    precondition(terminal.window === window)
+                    let toolbar = probe.geometry.headers[1]!
+                    let toolbarRect = toolbar.convert(toolbar.bounds, to: content)
+                    let expectedCollapse = visible && width < 915
+                    precondition(abs(toolbarRect.minX - (expectedCollapse ? 0 : 311)) < 2,
+                                 "native geometry must collapse and restore the saved sidebar width")
+                    precondition(terminalRect.width >= 400, "native terminal minimum survives the open dock")
+                    precondition(terminalAreaRect.height >= WorkspaceChromeLayout.minimumTerminalHeight)
+                    precondition(terminalRect.maxY <= content.bounds.maxY + 1)
+                    if visible {
+                        let files = probe.geometry.headers[2]!
+                        let fileRect = files.convert(files.bounds, to: content)
+                        precondition(fileRect.width >= 300)
+                        let remote = probe.geometry.headers[3]!
+                        let remoteRect = remote.convert(remote.bounds, to: content)
+                        precondition(remoteRect.width >= 300, "both transfer ends stay visible and usable")
+                        precondition(abs(remoteRect.maxX - content.bounds.maxX) < 1)
+                        if !workspaceMode {
+                            precondition(fileRect.minY >= terminalAreaRect.maxY + 4,
+                                         "the shared production dock must appear below the terminal, not replace it")
+                            precondition(fileRect.height >= WorkspaceChromeLayout.minimumFilesHeight)
+                        }
+                    }
+                }
+            }
+            }
+        }
+        print("ok: production bottom dock at 880x520 preserves terminal identity, both file panes and sidebar restoration")
+        window.close()
     }
 
     @MainActor private static func verifyEmbeddedCanvasGeometry() {
@@ -173,8 +286,8 @@ struct NativeSidebarSplitTests {
         window.styleMask = [.titled, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        for glass in [true, false, true] {
-            probe.glass = glass
+        for revision in 0..<3 {
+            probe.revision = revision
             for size in [NSSize(width: 1100, height: 720), NSSize(width: 1500, height: 900),
                          NSSize(width: 880, height: 520)] {
                 window.setContentSize(size)
@@ -198,7 +311,7 @@ struct NativeSidebarSplitTests {
                 }
             }
         }
-        print("ok: embedded SwiftUI split keeps all four pane titles visible across resize and material changes")
+        print("ok: embedded SwiftUI split keeps all four pane titles visible across resize and content and width updates")
         window.close()
     }
 
@@ -210,8 +323,8 @@ struct NativeSidebarSplitTests {
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        for glass in [true, false, true] {
-            probe.glass = glass
+        for revision in 0..<3 {
+            probe.revision = revision
             window.setContentSize(NSSize(width: 900, height: 600))
             window.contentView?.layoutSubtreeIfNeeded()
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
@@ -231,7 +344,7 @@ struct NativeSidebarSplitTests {
             precondition(abs(sidebar.maxX - 180) < 0.5, "settings sidebar keeps its fixed width")
             precondition(detail.minX >= sidebar.maxX - 0.5, "settings content stays in the right column")
         }
-        print("ok: settings split extends through titlebar with safe controls and fixed sidebar in both materials")
+        print("ok: settings split extends through titlebar with safe controls and fixed sidebar in repeated updates")
         window.close()
     }
 }

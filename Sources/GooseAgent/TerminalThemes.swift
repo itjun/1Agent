@@ -114,12 +114,15 @@ enum TerminalAppearance: String, CaseIterable, Identifiable {
 final class AppearanceDriver: ObservableObject {
     static let shared = AppearanceDriver()
 
-    @Published private(set) var isDark: Bool
+    @Published private(set) var interfaceIsDark: Bool
+    @Published private(set) var terminalIsDark: Bool
+    var isDark: Bool { interfaceIsDark }
     private let themeWatcher = SystemThemeWatcher()
 
     private init() {
         let mode = TerminalAppearance.stored()
-        isDark = mode.resolvesDark()
+        interfaceIsDark = mode.resolvesDark()
+        terminalIsDark = mode.resolvesDark()
         themeWatcher.start()
     }
 
@@ -130,14 +133,15 @@ final class AppearanceDriver: ObservableObject {
         return .light
     }
 
-    /// While a theme is being previewed, its slot decides light or dark so the preview is visible.
+    /// AppKit chrome follows the saved mode; only terminal surfaces follow a preview slot.
     func reapply() {
         let mode = TerminalAppearance.stored()
-        let dark = ThemePreview.shared.previewingDark ?? mode.resolvesDark()
+        let dark = mode.resolvesDark()
+        let terminalDark = ThemePreview.shared.previewingDark ?? dark
         TerminalAppearance.applyAppKit(isDark: dark)
-        if dark != isDark {
-            isDark = dark
-        }
+        if dark != interfaceIsDark { interfaceIsDark = dark }
+        if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
+        GhosttyRuntime.controller.setColorScheme(terminalDark ? .dark : .light)
     }
 }
 
@@ -214,10 +218,6 @@ struct TerminalThemeChoice: Equatable, Hashable {
         definition.terminalConfiguration()
     }
 
-    func chrome() -> WindowChrome {
-        WindowChrome(theme: definition)
-    }
-
     // MARK: Storage
 
     static func storedLight(defaults: UserDefaults = .standard) -> TerminalThemeChoice {
@@ -255,7 +255,7 @@ struct TerminalThemeChoice: Equatable, Hashable {
     }
 }
 
-/// A theme the user clicked in Settings but has not saved. The window and terminals show it at once;
+/// A theme the user clicked in Settings but has not saved. Terminal surfaces show it at once;
 /// nothing is written to defaults until Save. Cancel, or closing Settings, drops it.
 @MainActor
 final class ThemePreview: ObservableObject {
@@ -264,7 +264,7 @@ final class ThemePreview: ObservableObject {
     @Published private(set) var light: TerminalThemeChoice?
     @Published private(set) var dark: TerminalThemeChoice?
     /// Slot of the theme clicked last. A light theme only shows in light mode (and dark in dark),
-    /// so the app switches to that mode until Save or Cancel; nil means follow the stored mode.
+    /// so terminal surfaces switch until Save or Cancel; nil means follow the stored mode.
     @Published private(set) var previewingDark: Bool?
 
     var isActive: Bool {

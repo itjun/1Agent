@@ -6,6 +6,7 @@ import SwiftUI
 final class TerminalFindState: ObservableObject {
     let sessionID: String
     @Published var query = ""
+    @Published var fieldFocused = false
     /// Changed only through `TerminalFind`, which also keeps `openSessionIDs` in step.
     @Published fileprivate(set) var isOpen = false
     /// Ghostty refused `search:` for the current query.
@@ -92,6 +93,7 @@ final class TerminalFind: ObservableObject {
         setOpen(state, false)
         state.failed = false
         state.wantsFieldFocus = false
+        state.fieldFocused = false
         guard let terminal = state.terminal else { return }
         terminal.performBindingAction("end_search")
         terminal.window?.makeFirstResponder(terminal)
@@ -191,8 +193,9 @@ struct TerminalFindBar: View {
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: Theme.Radius.row)
-                            .strokeBorder(state.failed ? chrome.danger : chrome.hairline, lineWidth: 1)
+                            .strokeBorder(state.failed ? chrome.danger : state.fieldFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
                     }
+                    .familyFocusRing(state.fieldFocused)
                 // Ghostty's `navigate_search:next` starts at the bottom match and walks up into older
                 // output, so ↑ is Find Next and ↓ is Find Previous, as in Ghostty's own find bar.
                 button(
@@ -237,7 +240,7 @@ struct TerminalFindBar: View {
                 .frame(width: Theme.PaneStyle.findButtonSize, height: Theme.PaneStyle.findButtonSize)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .help(help)
         .accessibilityLabel(Text(help))
     }
@@ -272,7 +275,7 @@ struct TerminalFindField: NSViewRepresentable {
         field.usesSingleLineMode = true
         field.cell?.isScrollable = true
         field.cell?.wraps = false
-        field.font = .systemFont(ofSize: NSFont.systemFontSize)
+        field.font = .systemFont(ofSize: 14)
         field.placeholderString = String(localized: "Find in Terminal")
         field.delegate = context.coordinator
         return field
@@ -310,7 +313,12 @@ struct TerminalFindField: NSViewRepresentable {
             TerminalFind.shared.queryChanged(state)
         }
 
+        func controlTextDidBeginEditing(_ notification: Notification) {
+            (notification.object as? TerminalFindTextField)?.findState?.fieldFocused = true
+        }
+
         func controlTextDidEndEditing(_ notification: Notification) {
+            (notification.object as? TerminalFindTextField)?.findState?.fieldFocused = false
             FocusedTerminal.shared.refreshSoon()
         }
 

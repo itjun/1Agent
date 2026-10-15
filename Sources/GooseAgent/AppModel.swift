@@ -25,6 +25,18 @@ enum SidebarBlock: Equatable, Hashable, Codable {
     }
 }
 
+/// One sidebar row is one complete display panel, whether grouped or ungrouped.
+struct TerminalPanelRow: Identifiable, Equatable {
+    var id: UUID { panelID }
+    let panelID: UUID
+    let leafIDs: [UUID]
+    let focusedTabID: UUID
+    let workspaceID: UUID?
+    let block: SidebarBlock
+    let name: String
+    var isSplit: Bool { leafIDs.count > 1 }
+}
+
 struct TerminalTab: Identifiable, Equatable {
     let id: UUID
     var alias: String?
@@ -37,7 +49,7 @@ struct TerminalTab: Identifiable, Equatable {
     /// Waiting for or starting an automatic reconnect.
     var reconnecting: Bool = false
     var content: PaneContent = .terminal
-    /// Remote shell directory last reported through OSC 7. Memory only.
+    /// Remote shell directory last reported through OSC 7, retained across launches.
     var remoteDirectory: String? = nil
 
     var sessionID: String { "\(id.uuidString)#\(generation)" }
@@ -99,6 +111,8 @@ final class AppModel: ObservableObject {
     private var autoReconnectTasks: [UUID: Task<Void, Never>] = [:]
     /// Clears the reconnect counter once a session has stayed up briefly.
     private var stableConnectionTasks: [UUID: Task<Void, Never>] = [:]
+    /// Reserve a cwd synchronously while its shell environment is loading.
+    private var pendingLocalOpens = Set<String>()
 
     static let maxAutoReconnectAttempts = 3
     /// Backoff before automatic attempt 1, 2, 3.
@@ -127,6 +141,83 @@ final class AppModel: ObservableObject {
 
     func window(showing workspaceID: UUID) -> WindowState? {
         windows.first { $0.blocks.contains(.workspace(workspaceID)) }
+            ?? workspaces.first(where: { $0.id == workspaceID })?.members.first.flatMap { window(containing: $0) }
+    }
+
+    // MARK: - Complete terminal panels
+
+    func panelRows(in window: WindowState) -> [TerminalPanelRow] {
+        var seen = Set<UUID>()
+        return window.blocks.flatMap { block in
+            members(of: block, in: window).compactMap { id -> TerminalPanelRow? in
+                guard let tab = tabs.first(where: { $0.id == id }) else { return nil }
+                let workspace = WorkspaceBoard.index(containing: id, in: workspaces).map { workspaces[$0] }
+                let panel = workspace?.panel(containing: id) ?? TerminalPanel(id: id, layout: .leaf(id))
+                guard seen.insert(panel.id).inserted else { return nil }
+                let leaves = WorkspaceBoard.leafIDs(panel.layout)
+                let preferred = window.zoomedPanes[panel.id] ?? window.panelLastFocused[panel.id]
+                let focused = preferred.flatMap { leaves.contains($0) ? $0 : nil } ?? leaves.first ?? id
+                let focusTab = tabs.first(where: { $0.id == focused }) ?? tab
+                return TerminalPanelRow(panelID: panel.id, leafIDs: leaves, focusedTabID: focused,
+                                        workspaceID: workspace?.isGrouped == true ? workspace?.id : nil,
+                                        block: block, name: window.panelTitles[panel.id] ?? sessionTitle(focusTab))
+            }
+        }
+    }
+
+    func panelRows(in block: SidebarBlock, window: WindowState) -> [TerminalPanelRow] {
+        panelRows(in: window).filter { $0.block == block }
+    }
+
+    func panelRow(for tabID: UUID, in window: WindowState) -> TerminalPanelRow? {
+        panelRows(in: window).first { $0.leafIDs.contains(tabID) }
+    }
+
+    func panelTitle(_ panelID: UUID, in window: WindowState) -> String {
+        panelRows(in: window).first { $0.id == panelID }?.name ?? ""
+    }
+
+    func selectPanel(_ panelID: UUID, in window: WindowState) {
+        guard let row = panelRows(in: window).first(where: { $0.id == panelID }) else { return }
+        window.sidebarSelection = Set(row.leafIDs)
+        window.sidebarAnchor = row.focusedTabID
+        selectTab(row.focusedTabID, in: window)
+    }
+
+    func closePanel(_ panelID: UUID, in window: WindowState) {
+        guard let row = panelRows(in: window).first(where: { $0.id == panelID }) else { return }
+        closeTabs(row.leafIDs)
+    }
+
+    func renamePanel(_ panelID: UUID, to name: String, in window: WindowState) {
+        let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        window.panelTitles[panelID] = title.isEmpty ? nil : title
+        persistSession()
+    }
+
+    func movePanel(_ panelID: UUID, to block: SidebarBlock, in window: WindowState,
+                   beside targetPanelID: UUID? = nil, after: Bool = true) {
+        guard let row = panelRows(in: window).first(where: { $0.id == panelID }), panelID != targetPanelID else { return }
+        let target = targetPanelID.flatMap { target in panelRows(in: window).first { $0.id == target }?.leafIDs.first }
+        switch block {
+        case .workspace(let workspaceID):
+            joinWorkspace(row.leafIDs, workspaceID, beside: target, after: after)
+        case .localGroup, .ungrouped:
+            moveToLooseGroup(row.leafIDs, block, in: window, beside: target, after: after)
+        }
+    }
+
+    private func rememberFocus(_ id: UUID, in window: WindowState) {
+        let panelID = WorkspaceBoard.index(containing: id, in: workspaces)
+            .flatMap { workspaces[$0].panel(containing: id)?.id } ?? id
+        window.panelLastFocused[panelID] = id
+        window.terminalMRU.removeAll { $0 == id }
+        window.terminalMRU.insert(id, at: 0)
+    }
+
+    private func completePanelMembers(_ ids: [UUID], in window: WindowState) -> [UUID] {
+        let wanted = Set(ids)
+        return panelRows(in: window).filter { !$0.leafIDs.allSatisfy { !wanted.contains($0) } }.flatMap(\.leafIDs)
     }
 
     /// The main window is closing, which quits the app. The snapshot written here is what the next launch restores.
@@ -197,6 +288,7 @@ final class AppModel: ObservableObject {
         guard let selected = window.selectedTabID, let panel = selectedPanel(in: window),
               WorkspaceBoard.leafIDs(panel.layout).count >= 2 else { return }
         window.zoomedPanes[panel.id] = window.zoomedPanes[panel.id] == selected ? nil : selected
+        persistSession()
         if let tab = tabs.first(where: { $0.id == selected }), tab.hasTerminal, !tab.exited {
             SSHTerminalRegistry.focus(tab.sessionID)
         }
@@ -228,7 +320,7 @@ final class AppModel: ObservableObject {
 
     var standaloneTabs: [TerminalTab] {
         tabs.filter { tab in
-            WorkspaceBoard.index(containing: tab.id, in: workspaces) == nil
+            WorkspaceBoard.index(containing: tab.id, in: workspaces).map { !workspaces[$0].isGrouped } ?? true
         }
     }
 
@@ -294,7 +386,7 @@ final class AppModel: ObservableObject {
     }
 
     var workspacesByNumber: [Workspace] {
-        workspaces.sorted { $0.number < $1.number }
+        workspaces.filter(\.isGrouped).sorted { $0.number < $1.number }
     }
 
     func workspace(for id: UUID) -> Workspace? {
@@ -312,7 +404,22 @@ final class AppModel: ObservableObject {
 
     /// How many terminals of this alias are open right now.
     func openSessionCount(alias: String) -> Int {
-        tabs.filter { $0.alias == alias }.count
+        tabs.filter { $0.alias == alias && $0.hasTerminal && !$0.exited }.count
+    }
+
+    func existingTerminal(for alias: String, in window: WindowState) -> TerminalTab? {
+        let candidates = tabs.filter { $0.alias == alias && $0.hasTerminal && !$0.exited }
+        return window.terminalMRU.compactMap { id in candidates.first { $0.id == id } }.first ?? candidates.last
+    }
+
+    func returnToExistingTerminal(for alias: String, in window: WindowState) {
+        guard let tab = existingTerminal(for: alias, in: window) else { return }
+        window.hostPickerPresented = false
+        selectOnly(tab.id, in: window)
+    }
+
+    func browsedDirectory(for alias: String, in window: WindowState) -> String? {
+        fileWorkspace(for: window).allTabs.first { $0.fileSystem.host == alias }?.directory
     }
 
     /// Palette slot when this host alias appears more than once anywhere.
@@ -334,7 +441,7 @@ final class AppModel: ObservableObject {
     /// Workspaces that no window lists go to the window that holds their first member, else the first window.
     private func syncBlocks() {
         guard !windows.isEmpty else { return }
-        let known = Set(workspaces.map(\.id))
+        let known = Set(workspaces.filter(\.isGrouped).map(\.id))
         var seenWorkspace = Set<UUID>()
         for window in windows {
             var next: [SidebarBlock] = []
@@ -467,16 +574,15 @@ final class AppModel: ObservableObject {
     }
 
     /// ⌘T. Another terminal like the selected one, as its own sidebar row.
-    /// With nothing selected (empty sidebar) it falls back to the host picker.
+    /// With nothing selected, start a local shell in the user's home directory.
     func newTab(in window: WindowState? = nil) {
         guard let target = window ?? keyWindow else { return }
-        // The picker sheet owns the keyboard; do not duplicate behind it.
         if target.hostPickerPresented { return }
-        if let selected = selectedTab(in: target), selected.hasTerminal {
-            duplicateAsTab(selected.id, in: target)
-            return
+        if let tab = selectedTab(in: target) {
+            duplicateAsTab(tab.id, in: target)
+        } else {
+            openLocalTerminal(in: target)
         }
-        openHostPicker(in: target)
     }
 
     /// ⌘O. Reloads the SSH config and shows the host picker. `.files` opens the chosen hosts as
@@ -490,25 +596,29 @@ final class AppModel: ObservableObject {
 
     // MARK: - Selection
 
-    func selectTab(_ id: UUID, in window: WindowState) {
+    func selectTab(_ id: UUID, in window: WindowState, focusTerminal: Bool = true) {
         endZoomIfSwitching(to: id, in: window)
         window.selectedTabID = id
-        window.section = .terminals
+        rememberFocus(id, in: window)
+        if focusTerminal {
+            window.presentation.filesVisible = false
+            window.section = .terminals
+        }
         if window.sidebarAnchor == nil {
             window.sidebarAnchor = id
         }
         persistSession()
         guard let tab = tabs.first(where: { $0.id == id }) else { return }
         TerminalActivity.shared.clearBell(sessionID: tab.sessionID)
-        guard tab.hasTerminal, !tab.exited else { return }
+        guard focusTerminal, tab.hasTerminal, !tab.exited else { return }
         SSHTerminalRegistry.focus(tab.sessionID)
     }
 
     /// A plain click, including a pane header. The sidebar selection becomes this one host.
-    func selectOnly(_ id: UUID, in window: WindowState) {
+    func selectOnly(_ id: UUID, in window: WindowState, focusTerminal: Bool = true) {
         window.sidebarSelection = [id]
         window.sidebarAnchor = id
-        selectTab(id, in: window)
+        selectTab(id, in: window, focusTerminal: focusTerminal)
     }
 
     func isSidebarSelected(_ id: UUID, in window: WindowState) -> Bool {
@@ -518,39 +628,42 @@ final class AppModel: ObservableObject {
         return window.sidebarSelection.contains(id)
     }
 
-    /// Command toggles one host. Shift selects the contiguous sidebar range from the anchor.
-    func clickSidebar(_ id: UUID, command: Bool, shift: Bool, in window: WindowState) {
+    /// Command and Shift select whole sidebar rows; a row may contain several terminal panes.
+    func clickSidebar(_ id: UUID, command: Bool, shift: Bool, in window: WindowState, focusTerminal: Bool = true) {
+        let rows = panelRows(in: window)
+        guard let clicked = rows.first(where: { $0.leafIDs.contains(id) }) else { return }
         if window.sidebarAnchor == nil {
             window.sidebarAnchor = window.selectedTabID
         }
-        let order = sidebarOrder(in: window)
         if shift, let anchor = window.sidebarAnchor,
-           let start = order.firstIndex(of: anchor), let end = order.firstIndex(of: id) {
+           let start = rows.firstIndex(where: { $0.leafIDs.contains(anchor) }), let end = rows.firstIndex(where: { $0.id == clicked.id }) {
             let lower = min(start, end)
             let upper = max(start, end)
-            window.sidebarSelection = Set(order[lower...upper])
-            selectTab(id, in: window)
+            window.sidebarSelection = Set(rows[lower...upper].flatMap(\.leafIDs))
+            selectTab(clicked.focusedTabID, in: window, focusTerminal: focusTerminal)
             return
         }
         if command {
-            var next = window.sidebarSelection
+            var next = Set(completePanelMembers(Array(window.sidebarSelection), in: window))
             if next.isEmpty, let selectedTabID = window.selectedTabID {
-                next.insert(selectedTabID)
+                next.formUnion(rows.first(where: { $0.leafIDs.contains(selectedTabID) })?.leafIDs ?? [selectedTabID])
             }
-            if next.contains(id) {
-                next.remove(id)
+            if !next.isDisjoint(with: clicked.leafIDs) {
+                next.subtract(clicked.leafIDs)
                 if next.isEmpty {
-                    next.insert(id)
+                    next.formUnion(clicked.leafIDs)
                 }
             } else {
-                next.insert(id)
+                next.formUnion(clicked.leafIDs)
             }
             window.sidebarSelection = next
             window.sidebarAnchor = id
-            selectTab(id, in: window)
+            selectTab(clicked.focusedTabID, in: window, focusTerminal: focusTerminal)
             return
         }
-        selectOnly(id, in: window)
+        window.sidebarSelection = Set(clicked.leafIDs)
+        window.sidebarAnchor = clicked.focusedTabID
+        selectTab(clicked.focusedTabID, in: window, focusTerminal: focusTerminal)
     }
 
     /// Detach is available only for sessions currently sharing a display panel.
@@ -563,16 +676,16 @@ final class AppModel: ObservableObject {
     }
 
     func sidebarCanCreateArea(_ ids: [UUID]) -> Bool {
-        !ids.isEmpty && !workspaces.contains { Set($0.members) == Set(ids) }
+        !ids.isEmpty && !workspaces.contains { $0.isGrouped && Set($0.members) == Set(ids) }
     }
 
     /// Right-click on a selected row applies to the whole set. Any other row applies to itself.
     func sidebarTargets(clicking id: UUID, in window: WindowState) -> [UUID] {
         if window.sidebarSelection.contains(id) {
             let chosen = window.sidebarSelection
-            return sidebarOrder(in: window).filter { chosen.contains($0) }
+            return completePanelMembers(Array(chosen), in: window)
         }
-        return [id]
+        return completePanelMembers([id], in: window)
     }
 
     /// The terminal became first responder. Do not ask it to focus again.
@@ -580,6 +693,8 @@ final class AppModel: ObservableObject {
     func notePaneFocused(_ id: UUID, in window: WindowState) {
         endZoomIfSwitching(to: id, in: window)
         window.selectedTabID = id
+        rememberFocus(id, in: window)
+        window.section = .terminals
         if window.sidebarSelection.count <= 1 {
             window.sidebarSelection = [id]
             window.sidebarAnchor = id
@@ -631,6 +746,13 @@ final class AppModel: ObservableObject {
 
         // There is one window now; `window=new` in the URL is accepted and ignored.
         let target = mainWindow
+        if request.destination == .files {
+            let workspace = fileWorkspace(for: target)
+            for alias in aliases { workspace.openRemote(host: alias, at: request.path) }
+            activate(target)
+            showSection(.files, in: target)
+            return
+        }
         if request.reuse {
             openReusing(aliases, in: target, layout: request.layout, name: request.name)
         } else {
@@ -644,7 +766,7 @@ final class AppModel: ObservableObject {
         var existing: [UUID] = []
         var missing: [String] = []
         for alias in aliases {
-            if let tab = tabs.first(where: { $0.alias == alias }) {
+            if let tab = existingTerminal(for: alias, in: target) {
                 existing.append(tab.id)
             } else {
                 missing.append(alias)
@@ -659,7 +781,7 @@ final class AppModel: ObservableObject {
         }
         target.hostPickerPresented = false
         activate(target)
-        target.section = .terminals
+        showSection(.terminals, in: target)
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
@@ -670,7 +792,7 @@ final class AppModel: ObservableObject {
                 tabs.append(tab)
                 created.append(tab.id)
             }
-            let all = aliases.compactMap { alias in tabs.first { $0.alias == alias }?.id }
+            let all = aliases.compactMap { alias in existingTerminal(for: alias, in: target)?.id }
             if all.count >= 2 {
                 createWorkspace(from: all, atBlockIndex: target.blocks.count, in: target)
                 applyRequestedLayout(layout, name: name, to: all)
@@ -716,7 +838,7 @@ final class AppModel: ObservableObject {
         let target = window ?? mainWindow
         target.hostPickerPresented = false
         activate(target)
-        target.section = .terminals
+        showSection(.terminals, in: target)
         // A host 1Panel wrote a moment ago should show its address, not just the alias.
         reloadHosts()
         Task {
@@ -738,6 +860,7 @@ final class AppModel: ObservableObject {
                 target.selectedTabID = only
                 target.sidebarSelection = [only]
                 target.sidebarAnchor = only
+                rememberFocus(only, in: target)
             }
             persistSession()
         }
@@ -745,16 +868,32 @@ final class AppModel: ObservableObject {
 
     /// Opens a local login shell, in the user home directory unless `path` names another folder.
     /// `initialInput` is typed into the new shell once, right after it starts.
-    func openLocalTerminal(at path: String? = nil, initialInput: String? = nil, in window: WindowState? = nil) {
-        let directory = LocalTerminal.launchDirectory(path ?? LocalTerminal.homeDirectory)
+    func openLocalTerminal(at path: String? = nil, initialInput: String? = nil, in window: WindowState? = nil,
+                           reuseExisting: Bool = false) {
+        let requested = path ?? LocalTerminal.homeDirectory
+        guard let directory = ExternalOpen.validatedDirectory(requested) else {
+            reportInvalidDirectory(requested)
+            return
+        }
         guard let target = window ?? keyWindow else { return }
         target.hostPickerPresented = false
         activate(target)
-        target.section = .terminals
+        showSection(.terminals, in: target)
+        let canReuse = reuseExisting && initialInput == nil
+        if canReuse, let existing = reusableLocalTerminal(at: directory, in: target) {
+            selectOnly(existing, in: target)
+            return
+        }
+        if canReuse, !pendingLocalOpens.insert(directory).inserted { return }
         Task {
+            defer { if canReuse { pendingLocalOpens.remove(directory) } }
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
             launchEnvironment = environment
+            if canReuse, let existing = reusableLocalTerminal(at: directory, in: target) {
+                selectOnly(existing, in: target)
+                return
+            }
             let tab = TerminalTab(id: UUID(), alias: nil, directory: directory, generation: 0, exited: false)
             if let initialInput {
                 pendingInitialInput[tab.id] = initialInput
@@ -764,8 +903,27 @@ final class AppModel: ObservableObject {
             target.selectedTabID = tab.id
             target.sidebarSelection = [tab.id]
             target.sidebarAnchor = tab.id
+            rememberFocus(tab.id, in: target)
             persistSession()
         }
+    }
+
+    private func reusableLocalTerminal(at directory: String, in window: WindowState) -> UUID? {
+        let candidates = tabs.filter { $0.isLocal && $0.hasTerminal }.map { tab in
+            LocalTerminalCandidate(id: tab.id, directory: localFolder(of: tab) ?? tab.directory ?? "",
+                                   isRunning: !tab.exited)
+        }
+        return ExternalOpen.reusableLocalTerminal(at: directory, candidates: candidates, mostRecentFirst: window.terminalMRU)
+    }
+
+    private func reportInvalidDirectory(_ path: String) {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Cannot open this directory")
+        alert.informativeText = path
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "OK"))
+        NSApp.activate()
+        alert.runModal()
     }
 
     /// Finder "New 1Agent Tab/Window Here", `open` of a folder or script, and `-e` from the
@@ -777,31 +935,41 @@ final class AppModel: ObservableObject {
         runAfterRestore { [weak self] in
             guard let self else { return }
             NSApp.activate()
-            if asWorkspace && directories.count >= 2 {
+            if asWorkspace && directories.count >= 2 && initialInput == nil {
                 self.openLocalWorkspace(directories)
                 return
             }
             for directory in directories {
-                self.openLocalTerminal(at: directory, initialInput: initialInput)
+                self.openLocalTerminal(at: directory, initialInput: initialInput, reuseExisting: initialInput == nil)
             }
         }
     }
 
     private func openLocalWorkspace(_ directories: [String]) {
+        var validDirectories: [String] = []
+        for directory in directories {
+            guard let valid = ExternalOpen.validatedDirectory(directory) else { reportInvalidDirectory(directory); continue }
+            if !validDirectories.contains(valid) { validDirectories.append(valid) }
+        }
+        guard !validDirectories.isEmpty else { return }
         let target = mainWindow
         target.hostPickerPresented = false
         activate(target)
-        target.section = .terminals
+        showSection(.terminals, in: target)
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
             launchEnvironment = environment
             var created: [UUID] = []
-            for directory in directories {
+            for directory in validDirectories {
+                if let existing = reusableLocalTerminal(at: directory, in: target) {
+                    created.append(existing)
+                    continue
+                }
                 let tab = TerminalTab(
                     id: UUID(),
                     alias: nil,
-                    directory: LocalTerminal.launchDirectory(directory),
+                    directory: directory,
                     generation: 0,
                     exited: false
                 )
@@ -876,6 +1044,7 @@ final class AppModel: ObservableObject {
     func restoreLastSession() {
         let snapshot = SessionSnapshot.load()
         guard let snapshot, !snapshot.tabs.isEmpty else {
+            snapshot?.apply(to: mainWindow, keeping: [])
             mainWindow.frame = snapshot?.restoredFrame()
             MainWindowManager.shared.show(mainWindow, model: self)
             acceptSessionWrites = true
@@ -908,7 +1077,7 @@ final class AppModel: ObservableObject {
                     return nil
                 }
                 if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
-                    return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false)
+                    return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false, remoteDirectory: item.remoteDirectory)
                 }
                 if let directory = item.directory?.trimmingCharacters(in: .whitespacesAndNewlines), !directory.isEmpty {
                     return TerminalTab(
@@ -991,6 +1160,7 @@ final class AppModel: ObservableObject {
         guard tabs[index].isLocal else {
             if tabs[index].remoteDirectory != path {
                 tabs[index].remoteDirectory = path
+                persistSession()
             }
             return
         }
@@ -1003,6 +1173,7 @@ final class AppModel: ObservableObject {
         }
         if tabs[index].directory != resolved {
             tabs[index].directory = resolved
+            persistSession()
         }
     }
 
@@ -1052,7 +1223,7 @@ final class AppModel: ObservableObject {
         tabs[index].exited = false
         if !SSHTerminalRegistry.restart(tabs[index].sessionID, notice: notice) {
             // No live terminal to reuse (should not happen); fall back to a fresh surface.
-            SSHTerminalRegistry.destroy(tabs[index].sessionID)
+            SSHTerminalRegistry.destroy(tabs[index].sessionID, preservingHistory: true)
             tabs[index].generation += 1
         }
         scheduleStableConnection(tabID)
@@ -1155,6 +1326,8 @@ final class AppModel: ObservableObject {
             }
             window.sidebarSelection.remove(id)
             window.zoomedPanes = window.zoomedPanes.filter { $0.value != id }
+            window.panelLastFocused = window.panelLastFocused.filter { $0.value != id }
+            window.terminalMRU.removeAll { $0 == id }
             if window.sidebarAnchor == id {
                 window.sidebarAnchor = nil
             }
@@ -1219,7 +1392,9 @@ final class AppModel: ObservableObject {
             // A source that only shows through the unlisted fallback is written down first,
             // so `place` can find it and put the copy right behind it.
             syncLooseMembers()
-            let copy = TerminalTab(id: UUID(), alias: target.alias, directory: target.directory, generation: 0, exited: false)
+            let remoteDirectory = tabs.first(where: { $0.id == id })?.remoteDirectory
+            let copy = TerminalTab(id: UUID(), alias: target.alias, directory: target.directory, generation: 0, exited: false,
+                                   remoteDirectory: remoteDirectory)
             tabs.append(copy)
             let group = defaultLooseGroup(for: copy)
             var neighbor: UUID? = nil
@@ -1246,7 +1421,8 @@ final class AppModel: ObservableObject {
             }
             launchEnvironment = environment
             guard let window = window(containing: id) else { return }
-            let copy = TerminalTab(id: UUID(), alias: alias, directory: directory, generation: 0, exited: false)
+            let copy = TerminalTab(id: UUID(), alias: alias, directory: directory, generation: 0, exited: false,
+                                   remoteDirectory: tabs[sourceIndex].remoteDirectory)
             tabs.insert(copy, at: sourceIndex + 1)
             let block = window.blocks.first { block in
                 if case .workspace = block { return false }
@@ -1296,6 +1472,7 @@ final class AppModel: ObservableObject {
 
     /// A local shell in `directory`, as its own sidebar row or split beside `id`.
     func openLocalTerminal(at directory: String, placement: PanePlacement, beside id: UUID, in window: WindowState) {
+        guard let validated = ExternalOpen.validatedDirectory(directory) else { reportInvalidDirectory(directory); return }
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
@@ -1303,7 +1480,7 @@ final class AppModel: ObservableObject {
             let tab = TerminalTab(
                 id: UUID(),
                 alias: nil,
-                directory: LocalTerminal.launchDirectory(directory),
+                directory: validated,
                 generation: 0,
                 exited: false
             )
@@ -1311,27 +1488,42 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// An ssh session to `host` that changes to `directory` once the remote shell is up.
+    /// An SSH session whose authenticated remote launch starts in `directory`.
     func openRemoteTerminal(_ host: String, at directory: String, placement: PanePlacement, beside id: UUID, in window: WindowState) {
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else { return }
             launchEnvironment = environment
-            let tab = TerminalTab(id: UUID(), alias: host, generation: 0, exited: false)
-            pendingInitialInput[tab.id] = "cd \(FileRules.shellQuote(directory))\r"
+            let tab = TerminalTab(id: UUID(), alias: host, generation: 0, exited: false, remoteDirectory: directory)
             add(tab, placement: placement, beside: id, in: window)
         }
     }
 
     // MARK: - Files area
 
+    /// Presentation changes never rebuild terminals or the file workspace.
+    func updatePresentation(in window: WindowState, _ update: (inout WorkspacePresentation) -> Void) {
+        var next = window.presentation
+        update(&next)
+        next.filesWidth = WorkspaceChromeLayout.storedFilesWidth(next.filesWidth)
+        next.filesHeightRatio = WorkspaceChromeLayout.storedFilesHeightRatio(next.filesHeightRatio)
+        guard next != window.presentation else { return }
+        window.presentation = next
+        persistSession()
+    }
+
     func showSection(_ section: AppSection, in window: WindowState) {
-        guard window.section != section else { return }
-        window.section = section
-        if section != .terminals {
-            // A hidden terminal must not keep typing focus.
+        window.presentation.filesLayout = .sideBySide
+        window.presentation.filesExpanded = false
+        if section == .files {
+            window.presentation.filesVisible = true
+            // The independent Files page releases input without destroying terminal surfaces.
             MainWindowManager.shared.window(for: window)?.makeFirstResponder(nil)
         }
+        if section == .terminals {
+            window.presentation.filesVisible = false
+        }
+        window.section = section
         if section == .terminals, let id = window.selectedTabID,
            let tab = tabs.first(where: { $0.id == id }), tab.hasTerminal {
             SSHTerminalRegistry.focus(tab.sessionID)
@@ -1339,21 +1531,63 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
+    func hideFiles(in window: WindowState) {
+        window.presentation.filesVisible = false
+        showSection(.terminals, in: window)
+    }
+
+    /// Legacy callers may still pass a dock layout; Files always opens its independent page.
+    func selectFilesLayout(_ layout: FileWorkspaceLayout, in window: WindowState) {
+        let workspace = fileWorkspace(for: window)
+        updatePresentation(in: window) { $0.filesVisible = true; $0.filesLayout = .sideBySide; $0.filesExpanded = false }
+        workspace.prepareTransferPanes()
+        showSection(.files, in: window)
+    }
+
+    /// File chrome may not itself accept typing. Release a terminal responder without
+    /// disturbing a file filter, path editor or file list that already owns the keyboard.
+    func focusFiles(in window: WindowState) {
+        guard window.presentation.filesVisible else { return }
+        if let native = MainWindowManager.shared.window(for: window),
+           native.firstResponder is SSHTerminalNSView {
+            native.makeFirstResponder(nil)
+        }
+        window.section = .files
+    }
+
     func fileWorkspace(for window: WindowState) -> FileWorkspace {
         FileBrowserStore.shared.workspace(for: window, model: self)
     }
 
+    /// Both the native context menu and the application menu target an explicit terminal.
+    func toggleTerminalHistory(for id: UUID, in window: WindowState) {
+        guard !window.presentation.fullFilesWorkspace,
+              tabs.contains(where: { $0.id == id && $0.hasTerminal }) else { return }
+        let wasVisible = window.historyVisible && window.selectedTabID == id
+        selectOnly(id, in: window, focusTerminal: false)
+        window.historyVisible = !wasVisible
+    }
+
     /// The Files area on the host of terminal `id`, in its current folder: that host's tab (a new
     /// one on the right), or a tab on this Mac. Without a terminal it just opens.
-    func showFiles(for id: UUID?, in window: WindowState) {
+    func showFiles(for id: UUID?, in window: WindowState, preserveRemoteDirectory: Bool = false,
+                   layout: FileWorkspaceLayout? = nil) {
+        window.filesSourceTabID = id
+        updatePresentation(in: window) {
+            $0.filesVisible = true
+            $0.filesLayout = .sideBySide
+            $0.filesExpanded = false
+        }
+        let workspace = fileWorkspace(for: window)
         if let id, let tab = tabs.first(where: { $0.id == id }) {
-            let workspace = fileWorkspace(for: window)
             if let alias = tab.alias, !alias.isEmpty {
-                workspace.openRemote(host: alias, at: tab.remoteDirectory)
+                let existing = workspace.allTabs.contains { $0.fileSystem.host == alias }
+                workspace.openRemote(host: alias, at: preserveRemoteDirectory && existing ? nil : tab.remoteDirectory)
             } else {
                 workspace.showLocal(localFolder(of: tab))
             }
         }
+        workspace.prepareTransferPanes()
         showSection(.files, in: window)
     }
 
@@ -1396,10 +1630,10 @@ final class AppModel: ObservableObject {
 
     /// ⌥⌘O: from a terminal to its files, and back.
     func toggleSection(in window: WindowState) {
-        if window.section == .files {
-            showSection(.terminals, in: window)
+        if window.presentation.filesVisible {
+            hideFiles(in: window)
         } else {
-            showFiles(for: window.selectedTabID, in: window)
+            selectFilesLayout(window.presentation.filesLayout, in: window)
         }
     }
 
@@ -1466,7 +1700,7 @@ final class AppModel: ObservableObject {
     /// ⌘1…⌘8 pick a sidebar position and ⌘9 the last terminal (`number` nil). False when there is no such
     /// terminal, so the key can reach the terminal.
     func selectTerminal(number: Int?, in window: WindowState) -> Bool {
-        let order = sidebarOrder(in: window)
+        let order = panelRows(in: window).map(\.focusedTabID)
         var target: UUID?
         if let number {
             target = WorkspaceBoard.terminal(number: number, in: order)
@@ -1480,7 +1714,7 @@ final class AppModel: ObservableObject {
 
     /// ⇧⌘[ / ⇧⌘]: previous or next terminal in sidebar order, across workspaces, wrapping at the ends.
     func selectAdjacentTerminal(forward: Bool, in window: WindowState) -> Bool {
-        let order = sidebarOrder(in: window)
+        let order = panelRows(in: window).map(\.focusedTabID)
         guard let target = WorkspaceBoard.adjacentTerminal(to: window.selectedTabID, forward: forward, in: order) else {
             return false
         }
@@ -1553,12 +1787,21 @@ final class AppModel: ObservableObject {
     }
 
     func removeSidebarFromWorkspace(_ ids: [UUID], in window: WindowState) {
-        let ordered = sidebarOrder(in: window).filter { ids.contains($0) }
-        for id in ordered {
-            let tab = tabs.first { $0.id == id }
-            place([id], intoLoose: defaultLooseGroup(for: tab), in: window, beside: nil, after: true)
+        let ordered = completePanelMembers(ids, in: window)
+        let rows = panelRows(in: window).filter { row in ordered.contains(row.focusedTabID) }
+        for row in rows {
+            let tab = tabs.first { $0.id == row.focusedTabID }
+            place(row.leafIDs, intoLoose: defaultLooseGroup(for: tab), in: window, beside: nil, after: true)
         }
         select(ordered, in: window)
+        persistSession()
+    }
+
+    /// Pane-title menus act on one terminal rather than the complete sidebar row.
+    func removePaneFromWorkspace(_ id: UUID, in window: WindowState) {
+        guard let tab = tabs.first(where: { $0.id == id }) else { return }
+        place([id], intoLoose: defaultLooseGroup(for: tab), in: window, beside: nil, after: true)
+        selectOnly(id, in: window)
         persistSession()
     }
 
@@ -1586,7 +1829,7 @@ final class AppModel: ObservableObject {
     func beginDrag(_ id: UUID, in window: WindowState) {
         guard tabs.contains(where: { $0.id == id && $0.isSession }) else { return }
         window.draggingBlock = nil
-        var ids = sidebarTargets(clicking: id, in: window).filter { candidate in
+        var ids = completePanelMembers(sidebarTargets(clicking: id, in: window), in: window).filter { candidate in
             tabs.contains { $0.id == candidate && $0.isSession }
         }
         if let index = ids.firstIndex(of: id) {
@@ -1613,6 +1856,7 @@ final class AppModel: ObservableObject {
     private func select(_ ids: [UUID], in window: WindowState) {
         guard let first = ids.first else { return }
         window.selectedTabID = first
+        rememberFocus(first, in: window)
         window.sidebarSelection = Set(ids)
         window.sidebarAnchor = first
     }
@@ -1661,7 +1905,19 @@ final class AppModel: ObservableObject {
         var next = detach ? WorkspaceBoard.detach(dragged, in: workspaces) : workspaces
         var anchor = target
         var anchorAfter = after
+        var handled = Set<UUID>()
         for id in dragged {
+            if handled.contains(id) { continue }
+            if !detach, let source = WorkspaceBoard.index(containing: id, in: next),
+               let panel = next[source].panel(containing: id),
+               Set(WorkspaceBoard.leafIDs(panel.layout)).isSubset(of: Set(dragged)) {
+                let targetPanel = anchor.flatMap { leaf in next.first(where: { $0.id == workspaceID })?.panel(containing: leaf)?.id }
+                next = WorkspaceBoard.movePanel(panel.id, to: workspaceID, beside: targetPanel, after: anchorAfter, in: next)
+                handled.formUnion(WorkspaceBoard.leafIDs(panel.layout))
+                anchor = WorkspaceBoard.leafIDs(panel.layout).last
+                anchorAfter = true
+                continue
+            }
             if let anchor {
                 next = WorkspaceBoard.join(id, beside: anchor, after: anchorAfter, to: workspaceID, in: next)
             } else {
@@ -1698,15 +1954,15 @@ final class AppModel: ObservableObject {
 
     /// Creates a workspace with independent panels at the requested sidebar position.
     func createWorkspace(from ids: [UUID], atBlockIndex blockIndex: Int, in window: WindowState) {
-        let dragged = sessionIDs(ids)
+        let dragged = sessionIDs(completePanelMembers(ids, in: window))
         guard !dragged.isEmpty else { return }
         let sources = Set(dragged.compactMap { self.window(containing: $0)?.id })
-        let before = Set(workspaces.map(\.id))
+        let before = Set(workspaces.filter(\.isGrouped).map(\.id))
         let next = WorkspaceBoard.create(dragged, in: workspaces)
         guard next != workspaces else { return }
         workspaces = next
         removeFromLooseGroups(dragged)
-        if let created = workspaces.first(where: { !before.contains($0.id) }) {
+        if let created = workspaces.first(where: { $0.isGrouped && !before.contains($0.id) }) {
             for other in windows {
                 other.blocks.removeAll { $0 == .workspace(created.id) }
             }
@@ -1756,14 +2012,26 @@ final class AppModel: ObservableObject {
     /// Puts standalone terminals into a loose list, pulling them out of any workspace and every other list first.
     private func place(_ ids: [UUID], intoLoose block: SidebarBlock, in window: WindowState, beside target: UUID?, after: Bool) {
         guard block.isLoose else { return }
+        let wanted = Set(ids)
+        var handled = Set<UUID>()
         for id in ids {
-            workspaces = WorkspaceBoard.extract(id, from: workspaces)
+            if handled.contains(id) { continue }
+            if let source = WorkspaceBoard.index(containing: id, in: workspaces),
+               let panel = workspaces[source].panel(containing: id),
+               Set(WorkspaceBoard.leafIDs(panel.layout)).isSubset(of: wanted) {
+                workspaces = WorkspaceBoard.movePanel(panel.id, to: nil, in: workspaces)
+                handled.formUnion(WorkspaceBoard.leafIDs(panel.layout))
+            } else {
+                workspaces = WorkspaceBoard.extract(id, from: workspaces)
+            }
         }
         removeFromLooseGroups(ids)
         var list = window.looseMembers[block] ?? []
         var destination = list.count
         if let target, let index = list.firstIndex(of: target) {
-            destination = after ? index + 1 : index
+            let targetLeaves = panelRow(for: target, in: window)?.leafIDs ?? [target]
+            let indices = list.indices.filter { targetLeaves.contains(list[$0]) }
+            destination = after ? (indices.max() ?? index) + 1 : (indices.min() ?? index)
         }
         list.insert(contentsOf: ids, at: destination)
         window.looseMembers[block] = list
@@ -1787,7 +2055,7 @@ final class AppModel: ObservableObject {
                 listed.insert(id)
             }
         }
-        for workspace in workspaces where !listed.contains(workspace.id) {
+        for workspace in workspaces where workspace.isGrouped && !listed.contains(workspace.id) {
             var blocks = window.blocks
             var index = blocks.count
             if let block, let found = blocks.firstIndex(of: block) {
@@ -1819,9 +2087,11 @@ final class AppModel: ObservableObject {
         let members = workspace.members
         workspaces = WorkspaceBoard.dissolve(workspaceID, in: workspaces)
         if let home {
-            for id in members {
-                let tab = tabs.first { $0.id == id }
-                place([id], intoLoose: defaultLooseGroup(for: tab), in: home, beside: nil, after: true)
+            removeFromLooseGroups(members)
+            for panel in workspace.panels {
+                let ids = WorkspaceBoard.leafIDs(panel.layout)
+                let tab = ids.first.flatMap { id in tabs.first { $0.id == id } }
+                home.looseMembers[defaultLooseGroup(for: tab), default: []] += ids
             }
         }
         persistSession()
@@ -1888,7 +2158,7 @@ final class AppModel: ObservableObject {
                     return SessionSnapshot.Tab(id: tab.id, alias: nil, preview: path)
                 }
                 if let alias = tab.alias, !alias.isEmpty {
-                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil)
+                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory)
                 }
                 guard let directory = tab.directory, !directory.isEmpty else { return nil }
                 return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory)
@@ -1903,7 +2173,13 @@ final class AppModel: ObservableObject {
                     localGroup: window.looseMembers[.localGroup] ?? [],
                     ungrouped: window.looseMembers[.ungrouped] ?? [],
                     selected: window.selectedTabID,
-                    section: window.section
+                    section: window.section,
+                    presentation: window.presentation,
+                    panelLastFocused: window.panelLastFocused,
+                    panelTitles: window.panelTitles,
+                    terminalMRU: window.terminalMRU,
+                    zoomedPanes: window.zoomedPanes,
+                    filesSourceTabID: window.filesSourceTabID
                 )
             },
             keyWindow: mainWindow.id
@@ -1924,6 +2200,7 @@ private struct SessionSnapshot: Codable {
         var id: UUID
         var alias: String?
         var directory: String? = nil
+        var remoteDirectory: String? = nil
         var preview: String? = nil
         /// File panes of an earlier build; such tabs are dropped at launch.
         var files: FileBrowserTarget? = nil
@@ -1954,9 +2231,16 @@ private struct SessionSnapshot: Codable {
         var ungrouped: [UUID]
         var selected: UUID?
         var section: AppSection? = nil
+        var presentation: WorkspacePresentation? = nil
+        var panelLastFocused: [UUID: UUID]? = nil
+        var panelTitles: [UUID: String]? = nil
+        var terminalMRU: [UUID]? = nil
+        var zoomedPanes: [UUID: UUID]? = nil
+        var filesSourceTabID: UUID? = nil
     }
 
     static let storageKey = "session.openTabs"
+    static let currentVersion = 2
 
     enum CodingKeys: String, CodingKey {
         case tabs
@@ -1968,9 +2252,11 @@ private struct SessionSnapshot: Codable {
         case sidebarBlocks
         case localGroup
         case ungrouped
+        case version
     }
 
     var tabs: [Tab]
+    var version: Int = currentVersion
     var workspaces: [Workspace]
     var windows: [Window]?
     var keyWindow: UUID?
@@ -1990,6 +2276,7 @@ private struct SessionSnapshot: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
         tabs = try container.decode([Tab].self, forKey: .tabs)
         selected = try container.decodeIfPresent(UUID.self, forKey: .selected)
         layout = try container.decodeIfPresent(PaneNode.self, forKey: .layout)
@@ -2010,6 +2297,7 @@ private struct SessionSnapshot: Codable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(Self.currentVersion, forKey: .version)
         try container.encode(tabs, forKey: .tabs)
         try container.encode(workspaces, forKey: .workspaces)
         try container.encodeIfPresent(windows, forKey: .windows)
@@ -2072,11 +2360,35 @@ private struct SessionSnapshot: Codable {
         if let selected = key.selected, known.contains(selected) {
             window.selectedTabID = selected
         }
-        window.section = key.section ?? .terminals
+        window.presentation = WorkspacePresentation.restored(key.presentation, legacyFiles: key.section == .files)
+        let panels = self.workspaces.flatMap(\.panels)
+        let panelIDs = Set(panels.map(\.id)).union(known)
+        window.panelLastFocused = (key.panelLastFocused ?? [:]).filter { panelIDs.contains($0.key) && known.contains($0.value) }
+        window.panelTitles = (key.panelTitles ?? [:]).filter { panelIDs.contains($0.key) }
+        window.terminalMRU = (key.terminalMRU ?? []).filter { known.contains($0) }
+        window.zoomedPanes = (key.zoomedPanes ?? [:]).filter { id, leaf in
+            panels.contains { $0.id == id && WorkspaceBoard.leafIDs($0.layout).count > 1 && PaneLayout.contains(leaf, in: $0.layout) }
+        }
+        window.filesSourceTabID = key.filesSourceTabID.flatMap { known.contains($0) ? $0 : nil }
+        window.section = key.section ?? (window.presentation.filesVisible && window.presentation.filesWorkspace ? .files : .terminals)
+        window.presentation.filesLayout = .sideBySide
+        window.presentation.filesExpanded = false
+        window.presentation.filesVisible = window.section == .files
     }
 
     static func load() -> SessionSnapshot? {
         guard let data = UserDefaults.standard.data(forKey: storageKey) else { return nil }
-        return try? JSONDecoder().decode(SessionSnapshot.self, from: data)
+        guard let snapshot = try? JSONDecoder().decode(SessionSnapshot.self, from: data) else {
+            // Preserve unreadable input before a future save replaces it.
+            if UserDefaults.standard.data(forKey: storageKey + ".backup.unreadable") == nil {
+                UserDefaults.standard.set(data, forKey: storageKey + ".backup.unreadable")
+            }
+            return nil
+        }
+        if snapshot.version < currentVersion {
+            let backupKey = storageKey + ".backup.v\(snapshot.version)"
+            if UserDefaults.standard.data(forKey: backupKey) == nil { UserDefaults.standard.set(data, forKey: backupKey) }
+        }
+        return snapshot
     }
 }

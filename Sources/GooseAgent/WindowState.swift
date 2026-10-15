@@ -11,8 +11,17 @@ final class WindowState: ObservableObject, Identifiable {
     /// Standalone terminals of this window's two loose groups, in sidebar order.
     @Published var looseMembers: [SidebarBlock: [UUID]] = [.localGroup: [], .ungrouped: []]
     @Published var selectedTabID: UUID?
-    /// What fills the area right of the sidebar.
+    /// Panel identity is independent of its focused terminal and optional group.
+    @Published var panelLastFocused: [UUID: UUID] = [:]
+    @Published var panelTitles: [UUID: String] = [:]
+    /// Most recently focused first, used by explicit return-to-existing and cwd-only opens.
+    var terminalMRU: [UUID] = []
+    /// Which area owns keyboard commands; both areas may be visible.
     @Published var section: AppSection = .terminals
+    @Published var presentation = WorkspacePresentation()
+    /// The session that last opened Files. Closing the dock does not reset its browsing state.
+    var filesSourceTabID: UUID?
+    /// Filtering is transient and must not change shortcut positions or saved ordering.
     /// Sidebar multi-select. Not written into the session snapshot.
     @Published var sidebarSelection: Set<UUID> = []
     var sidebarAnchor: UUID?
@@ -22,11 +31,12 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var draggingBlock: SidebarBlock?
     @Published var dropHighlight: TabDropHighlight?
     @Published var hostPickerPresented = false
+    @Published var historyVisible = false
     /// What a host chosen in the picker opens. Back to `.terminal` whenever the picker closes.
     @Published var hostPickerPurpose: HostPickerPurpose = .terminal
     /// Where a sidebar row dragged over the Files area or the Files button would land.
     @Published var filesDropTarget: FilesDropTarget?
-    /// Panel ID → the pane drawn alone (⇧⌘↩). Memory only; not in the session snapshot.
+    /// Panel ID → the pane drawn alone (⇧⌘↩), restored with the panel layout.
     @Published var zoomedPanes: [UUID: UUID] = [:]
     /// Last known frame on screen, restored at launch.
     var frame: CGRect?
@@ -114,6 +124,14 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         windows[state.id] = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
+        // AppKit otherwise picks the first sidebar search field when the new
+        // hosting hierarchy becomes key. Restore terminal focus after layout.
+        DispatchQueue.main.async { [weak window, weak model, weak state] in
+            guard let window, let model, let state, !state.presentation.fullFilesWorkspace,
+                  let tab = model.selectedTab(in: state) else { return }
+            window.contentView?.layoutSubtreeIfNeeded()
+            SSHTerminalRegistry.focus(tab.sessionID)
+        }
     }
 
     /// Hides the window. The app and its terminals keep running; the Dock icon or the next open shows it again.

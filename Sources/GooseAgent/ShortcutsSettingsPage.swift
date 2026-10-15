@@ -87,6 +87,7 @@ struct ShortcutsSettingsPage: View {
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @ObservedObject private var recorder = ShortcutRecorder.shared
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
     /// Row that shows a refusal under it ("needs a modifier", "reserved by the system").
     @State private var hintID: AppShortcutID?
     @State private var hintText = ""
@@ -187,7 +188,7 @@ struct ShortcutsSettingsPage: View {
                         .frame(width: SettingsLayout.shortcutResetButtonSize, height: SettingsLayout.shortcutResetButtonSize)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FamilyButtonStyle())
                 .help(String(format: String(localized: "Restore default (%@)"), id.defaultChord.display))
                 .opacity(isDefault ? 0 : 1)
                 .disabled(isDefault)
@@ -238,7 +239,7 @@ struct ShortcutsSettingsPage: View {
                 )
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .help("Click to record a new shortcut")
         .onHover { hovering in
             if hovering {
@@ -319,6 +320,7 @@ struct ShortcutsSettingsPage: View {
                 .font(.system(size: 13))
                 .foregroundStyle(chrome.secondary)
             TextField("Search shortcuts", text: $query)
+                .focused($searchFocused)
                 .textFieldStyle(.plain)
                 .font(Theme.Font.body)
                 .foregroundStyle(chrome.text)
@@ -329,7 +331,7 @@ struct ShortcutsSettingsPage: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(chrome.secondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FamilyButtonStyle())
                 .help("Clear search")
             }
         }
@@ -338,11 +340,12 @@ struct ShortcutsSettingsPage: View {
         .frame(height: SettingsLayout.shortcutSearchHeight)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(chrome.background)
+                .fill(searchFocused ? chrome.background : chrome.elevated)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
+                .stroke(searchFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
         )
+        .familyFocusRing(searchFocused)
     }
 }

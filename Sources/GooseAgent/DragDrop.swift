@@ -252,7 +252,8 @@ final class CanvasDropRelay: ObservableObject {
             case .loose(let block, let beside, let after):
                 model.moveToLooseGroup(ids, block, in: window, beside: beside, after: after)
             case .gap(let index):
-                if ids.count >= 2 {
+                let panels = Set(ids.compactMap { model.panelRow(for: $0, in: window)?.panelID })
+                if panels.count >= 2 {
                     model.createWorkspace(from: ids, atBlockIndex: index, in: window)
                 } else if let only = ids.first {
                     let tab = model.tabs.first { $0.id == only }
@@ -317,7 +318,8 @@ final class CanvasDropRelay: ObservableObject {
         let dragged = Set(draggedIDs(of: payload, model: model))
         let target: SidebarDropTarget
         if let block = blockUnderPointer(windowPoint) {
-            let slot = nearestRowEdge(windowPoint: windowPoint, ids: model.members(of: block, in: window), skipping: dragged)
+            let rows = model.panelRows(in: block, window: window).filter { dragged.isDisjoint(with: $0.leafIDs) }
+            let slot = nearestRowEdge(windowPoint: windowPoint, ids: rows.map(\.focusedTabID), skipping: dragged)
             switch block {
             case .workspace(let id):
                 target = .workspace(id, beside: slot?.id, after: slot?.after ?? true)
@@ -385,9 +387,13 @@ final class CanvasDropRelay: ObservableObject {
     // MARK: Geometry helpers
 
     private func overCanvas(_ windowPoint: NSPoint) -> Bool {
+        let fullFiles = MainActor.assumeIsolated {
+            guard let window = windowBox else { return false }
+            return window.presentation.filesVisible && window.presentation.filesWorkspace
+        }
+        guard !fullFiles else { return false }
         guard let catcher else { return false }
-        let showingTerminals = MainActor.assumeIsolated { windowBox?.section != .files }
-        return showingTerminals && catcher.contains(windowPoint) && catcher.bounds.width > 2
+        return catcher.contains(windowPoint) && catcher.bounds.width > 2
     }
 
     /// The Files button anywhere; a side of the Files area while it is shown.
@@ -396,7 +402,7 @@ final class CanvasDropRelay: ObservableObject {
         if let button = filesButtonAnchor, Self.view(button, contains: windowPoint) {
             return .button
         }
-        guard window.section == .files else { return nil }
+        guard window.presentation.filesVisible else { return nil }
         for (target, box) in filesSideAnchors {
             if let view = box.view, Self.view(view, contains: windowPoint) {
                 return target
@@ -406,14 +412,13 @@ final class CanvasDropRelay: ObservableObject {
     }
 
     private static func view(_ view: NSView, contains windowPoint: NSPoint) -> Bool {
-        guard view.window != nil else { return false }
+        guard view.window != nil, !view.isHiddenOrHasHiddenAncestor else { return false }
         return view.bounds.contains(view.convert(windowPoint, from: nil))
     }
 
     private func sidebarContains(_ windowPoint: NSPoint) -> Bool {
-        guard let sidebarAnchor, sidebarAnchor.window != nil else { return false }
-        let local = sidebarAnchor.convert(windowPoint, from: nil)
-        return sidebarAnchor.bounds.contains(local)
+        guard let sidebarAnchor else { return false }
+        return Self.view(sidebarAnchor, contains: windowPoint)
     }
 
     private func blockUnderPointer(_ windowPoint: NSPoint) -> SidebarBlock? {
@@ -472,8 +477,10 @@ final class CanvasDropRelay: ObservableObject {
         let local = sidebar.convert(windowPoint, from: nil)
         var best: (id: UUID, after: Bool)?
         var bestDistance = CGFloat.greatestFiniteMagnitude
+        var seenViews = Set<ObjectIdentifier>()
         for id in ids where !skipping.contains(id) {
             guard let view = rowAnchors[id]?.view, view.window != nil else { continue }
+            guard seenViews.insert(ObjectIdentifier(view)).inserted else { continue }
             let frame = sidebar.convert(view.bounds, from: view)
             let top = abs(local.y - frame.minY)
             if top < bestDistance {
@@ -791,11 +798,13 @@ struct TabContextMenu {
     var createArea: () -> Void
     var close: () -> Void
     var copyInfo: () -> Void
+    var rename: (() -> Void)? = nil
 }
 
 final class TabDragHandleView: NSView {
     var onClick: (Bool, Bool) -> Void = { _, _ in }
     var onHover: (Bool) -> Void = { _ in }
+    var dragEnabled = true
     var onBegan: () -> Void = {}
     var onMoved: (NSPoint) -> Void = { _ in }
     var onEnded: (NSPoint) -> Void = { _ in }
@@ -965,7 +974,7 @@ final class TabDragHandleView: NSView {
                 stop.pointee = true
                 return
             }
-            if !dragging, hypot(point.x - start.x, point.y - start.y) >= 6 {
+            if self.dragEnabled, !dragging, hypot(point.x - start.x, point.y - start.y) >= 6 {
                 dragging = true
                 if self.freezesWindow {
                     NSCursor.closedHand.push()
@@ -1016,6 +1025,11 @@ final class TabDragHandleView: NSView {
         )
         copyInfo.target = self
         menu.addItem(copyInfo)
+        if actions.rename != nil {
+            let rename = NSMenuItem(title: String(localized: "Rename"), action: #selector(renameFromMenu(_:)), keyEquivalent: "")
+            rename.target = self
+            menu.addItem(rename)
+        }
         menu.addItem(.separator())
         if actions.showsDuplicate {
             menu.addItem(shortcutItem(
@@ -1087,6 +1101,8 @@ final class TabDragHandleView: NSView {
         contextMenuActions?.copyInfo()
     }
 
+    @objc private func renameFromMenu(_: Any?) { contextMenuActions?.rename?() }
+
     @objc private func duplicateRightFromMenu(_: Any?) {
         contextMenuActions?.duplicateRight()
     }
@@ -1132,6 +1148,7 @@ struct TabDragHandle: NSViewRepresentable {
     var onSecondaryClick: (() -> Void)? = nil
     var prepareContextMenu: (() -> TabContextMenu)? = nil
     var freezesWindow = false
+    var dragEnabled = true
 
     func makeNSView(context: Context) -> TabDragHandleView { TabDragHandleView() }
 
@@ -1145,6 +1162,7 @@ struct TabDragHandle: NSViewRepresentable {
         view.onSecondaryClick = onSecondaryClick
         view.prepareContextMenu = prepareContextMenu
         view.freezesWindow = freezesWindow
+        view.dragEnabled = dragEnabled
         view.window?.invalidateCursorRects(for: view)
     }
 }

@@ -12,66 +12,70 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    @AppStorage(SidebarMaterial.storageKey) private var sidebarMaterialRaw = SidebarMaterial.defaultValue.rawValue
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.controlActiveState) private var controlActiveState
     @StateObject private var dropRelay = CanvasDropRelay()
+    @State private var renamingPanelID: UUID?
+    @State private var panelNameDraft = ""
+    @State private var expandedWorkspaceActions: UUID?
+    @FocusState private var panelNameFocused: Bool
     @State private var renamingWorkspaceID: UUID?
     @State private var workspaceNameDraft = ""
     @State private var skipWorkspaceRenameCommit = false
     @State private var hoveredTabID: UUID?
-    @State private var sidebarHovered = false
+    @State private var availableWidth: CGFloat = 0
+    @State private var sidebarRevealed = false
     @FocusState private var workspaceNameFocused: Bool
 
     private var chrome: WindowChrome {
         WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
-    private var usesGlass: Bool {
-        (SidebarMaterial(rawValue: sidebarMaterialRaw) ?? .defaultValue)
-            .effective(supportsGlass: SidebarMaterial.supportsGlass, reduceTransparency: reduceTransparency) == .liquidGlass
-    }
+    private var sidebarChrome: WindowChrome { chrome }
 
-    private var sidebarChrome: WindowChrome { usesGlass ? chrome.nativeSidebar : chrome }
 
     var body: some View {
         let _ = shortcutsRevision
-        NativeSidebarSplit(
-            glass: usesGlass, width: CGFloat(sidebarWidth),
-            minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
-            defaultWidth: SidebarLayout.defaultWidth,
-            onWidthChange: { sidebarWidth = Double($0) }
-        ) {
-            sidebar
-                .environment(\.windowChrome, sidebarChrome)
-                // This root owns a titlebar-height header with the traffic-light inset.
-                .ignoresSafeArea(edges: .top)
-                .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-                .oneagentHideFocusRing()
-        } detail: {
-            ZStack {
-                // Terminals stay in the view tree while Files is shown, so no session is torn down.
-                detail
-                    .opacity(window.section == .terminals ? 1 : 0)
-                    .allowsHitTesting(window.section == .terminals)
-                if window.section == .files {
-                    FilesWorkspaceView(model: model, window: window, relay: dropRelay)
+        GeometryReader { geometry in
+            let collapsed = sidebarIsCollapsed(totalWidth: geometry.size.width)
+            let shownSidebarWidth = sidebarDisplayWidth(totalWidth: geometry.size.width)
+            NativeSidebarSplit(
+                collapsed: collapsed, width: shownSidebarWidth,
+                minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
+                defaultWidth: SidebarLayout.defaultWidth,
+                onWidthChange: {
+                    // A temporary narrow-window fit must not replace the user's saved width.
+                    if shownSidebarWidth >= CGFloat(sidebarWidth) { sidebarWidth = Double($0) }
                 }
+            ) {
+                sidebar
+                    .environment(\.windowChrome, sidebarChrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
+                    .ignoresSafeArea(edges: .top)
+                    .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+
+            } detail: {
+                workspaceSurface(sidebarCollapsed: collapsed)
+                    .environment(\.windowChrome, chrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
+                    .ignoresSafeArea(edges: .top)
+                    .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+
             }
-            .environment(\.windowChrome, chrome)
-            .ignoresSafeArea(edges: .top)
-            .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-            .oneagentHideFocusRing()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
         .frame(minWidth: 880, minHeight: 520)
         .background(chrome.background)
         .environment(\.windowChrome, chrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
         .ignoresSafeArea(edges: .top)
         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
         .onChange(of: appearanceRaw) { _, _ in
             appearanceDriver.reapply()
         }
-        .oneagentHideFocusRing()
+        .onChange(of: window.presentation.sidebarCollapsed) { _, collapsed in
+            if collapsed { sidebarRevealed = false }
+        }
+
         .task { model.reloadHosts() }
         .onAppear {
             window.relay = dropRelay
@@ -86,13 +90,21 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
-        .sheet(isPresented: $window.hostPickerPresented, onDismiss: { window.hostPickerPurpose = .terminal }) {
+        .sheet(isPresented: $window.hostPickerPresented) {
             HostPicker(model: model, window: window)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
                 .environment(\.windowChrome, chrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
                 .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-                .oneagentHideFocusRing()
         }
+        .onChange(of: window.hostPickerPresented) { _, presented in
+            if !presented && !filesMode {
+                if let tab = model.selectedTab(in: window) {
+                    SSHTerminalRegistry.focus(tab.sessionID)
+                }
+            }
+        }
+
     }
 
     private var openHostHelp: String {
@@ -117,123 +129,273 @@ struct RootView: View {
         return selectedSessionBadge
     }
 
-    private var filesButton: some View {
-        let showing = window.section == .files
-        let targeted = window.filesDropTarget == .button
-        return SidebarIconButton(
-            symbol: showing ? "folder.fill" : "folder",
-            help: String(format: String(localized: "Files (%@)"), AppShortcuts.display(for: .openFileBrowser)),
-            accessibilityLabel: "Files",
-            hoverFill: chrome.elevated,
-            tint: showing || targeted ? chrome.accent : nil,
-            highlighted: targeted,
-            action: { model.toggleSection(in: window) }
-        )
-        .background(BoundsAnchor { dropRelay.filesButtonAnchor = $0 })
-        .opacity(sidebarHovered || showing || targeted ? 1 : 0)
-        .allowsHitTesting(sidebarHovered || showing)
+    private var selectedWorkspace: Workspace? {
+        guard let id = window.selectedTabID else { return nil }
+        return model.workspaces.first { $0.members.contains(id) }
     }
 
-    private var windowControls: some View {
-        SidebarIconButton(
-            symbol: "plus",
-            help: openHostHelp,
-            accessibilityLabel: "Open Host…",
-            hoverFill: chrome.elevated,
-            action: { model.openHostPicker(in: window) }
-        )
-        .opacity(sidebarHovered ? 1 : 0)
-        .allowsHitTesting(sidebarHovered)
+    private var selectedIDs: [UUID] {
+        model.sidebarOrder(in: window).filter { window.sidebarSelection.contains($0) }
+    }
+
+    private func sidebarIsCollapsed(totalWidth: CGFloat) -> Bool {
+        window.presentation.sidebarCollapsed || (!sidebarRevealed && WorkspaceChromeLayout.temporarilyCollapseSidebar(
+            totalWidth: totalWidth, sidebarWidth: CGFloat(sidebarWidth), filesVisible: window.presentation.filesVisible,
+            filesWorkspace: true
+        ))
+    }
+
+    private func sidebarDisplayWidth(totalWidth: CGFloat) -> CGFloat {
+        guard sidebarRevealed, filesMode else { return CGFloat(sidebarWidth) }
+        let room = totalWidth - WorkspaceChromeLayout.minimumFilesWidth * 2 - WorkspaceChromeLayout.dividerWidth
+        return min(CGFloat(sidebarWidth), max(SidebarLayout.minWidth, room))
     }
 
     private var sidebar: some View {
         VStack(spacing: 0) {
-            HStack(spacing: Theme.Space.xs) {
-                WindowDragArea()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                filesButton
-                windowControls
+            HStack {
+                Text(verbatim: "1Agent").font(.system(size: 14, weight: .semibold))
+                WindowDragArea().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(.leading, SidebarLayout.trafficLightInset)
-            .padding(.trailing, Theme.Space.s)
-            .frame(height: SidebarLayout.headerHeight)
-            .padding(.bottom, SidebarLayout.headerBottomGap)
+            .frame(height: WorkspaceChromeLayout.toolbarHeight)
+            .background(WindowDragArea())
 
-            if model.sidebarOrder(in: window).isEmpty {
-                Text(emptyHint)
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(sidebarChrome.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Theme.Space.m)
-                    .padding(.top, Theme.Space.s)
-                Spacer()
+            VStack(spacing: 4) {
+                navigationRow("Terminal", symbol: "terminal", active: !filesMode) { model.hideFiles(in: window) }
+                    .accessibilityIdentifier("workspace.terminal")
+                    .help(String(localized: "Switch Terminals and Files") + " (" + AppShortcuts.display(for: .openFileBrowser) + ")")
+                navigationRow("Files", symbol: "folder", active: filesMode) {
+                    model.selectFilesLayout(.sideBySide, in: window)
+                }
+                .background(BoundsAnchor { dropRelay.filesButtonAnchor = $0 })
+                .accessibilityIdentifier("workspace.files")
+                .help(String(localized: "Switch Terminals and Files") + " (" + AppShortcuts.display(for: .openFileBrowser) + ")")
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 14)
+            Divider().padding(.horizontal, 16)
+
+            if filesMode {
+                FilesSidebar(model: model, window: window, workspace: model.fileWorkspace(for: window))
             } else {
-                ScrollView {
-                    VStack(spacing: Theme.Space.xs) {
-                        // Loose groups stay visible while anything is being dragged, so there is
-                        // always a place to drop a terminal that leaves its workspace.
-                        let dragging = model.windows.contains { $0.draggingTabID != nil || $0.draggingBlock != nil }
-                        let visibleBlocks = window.blocks.filter { sidebarBlockVisible($0, dragging: dragging) }
-                        ForEach(visibleBlocks, id: \.self) { block in
-                            if block != visibleBlocks.first {
-                                Rectangle()
-                                    .fill(sidebarChrome.hairline)
-                                    .frame(height: 1)
-                                    .padding(.horizontal, Theme.Space.m)
-                            }
-                            switch block {
-                            case .workspace(let id):
-                                if let workspace = model.workspace(for: id) {
-                                    VStack(spacing: 2) {
-                                        workspaceHeader(workspace)
-                                        ForEach(model.tabs(in: workspace)) { tab in
-                                            tabRow(tab, compact: false, indent: Theme.Space.xs)
-                                        }
-                                    }
-                                    .padding(.vertical, Theme.Space.xs)
-                                    .overlay(blockFill(block))
-                                    .padding(.horizontal, Theme.Space.s)
-                                    .background(SidebarBlockAnchor(block: block, relay: dropRelay))
-                                }
-                            case .localGroup, .ungrouped:
-                                let members = model.looseTabs(in: block, window: window)
-                                if !members.isEmpty || dragging {
-                                    VStack(spacing: 2) {
-                                        sidebarSectionHeader(
-                                            block == .localGroup ? "Local Group" : "Ungrouped",
-                                            block: block,
-                                            isFirst: block == visibleBlocks.first
-                                        )
-                                        ForEach(members) { tab in
-                                            tabRow(tab, compact: false, indent: Theme.Space.xs)
-                                        }
-                                        if members.isEmpty {
-                                            Color.clear
-                                                .frame(maxWidth: .infinity)
-                                                .frame(height: SidebarLayout.rowHeight)
-                                        }
-                                    }
-                                    .overlay(blockFill(block))
-                                    .padding(.horizontal, Theme.Space.s)
-                                    .background(SidebarBlockAnchor(block: block, relay: dropRelay))
-                                }
-                            }
+                HStack(spacing: 6) {
+                    Text("Opened").font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                }
+                .foregroundStyle(sidebarChrome.secondary)
+                .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 10)
+                sidebarList
+                if selectedPanelCount > 1 { selectionActions }
+            }
+            Divider().padding(.horizontal, 16)
+            Button {
+                model.openHostPicker(in: window, purpose: filesMode ? .files : .terminal)
+            } label: {
+                Label("Servers", systemImage: "server.rack")
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(maxWidth: .infinity, alignment: .leading).frame(height: 32)
+            }
+            .buttonStyle(FamilyButtonStyle()).help(openHostHelp).accessibilityIdentifier("hosts.open")
+            .foregroundStyle(sidebarChrome.secondary).padding(.horizontal, 16).padding(.top, 8)
+            HStack(spacing: 6) {
+                Button { model.openLocalTerminal(in: window) } label: {
+                    Label("New Local Terminal", systemImage: "plus")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(maxWidth: .infinity, alignment: .leading).frame(height: 32)
+                }.buttonStyle(FamilyButtonStyle()).help(AppShortcuts.display(for: .newLocalTerminal))
+                Button { SettingsWindowController.shared.show(model: model) } label: {
+                    Image(systemName: "gearshape").frame(width: 28, height: 32)
+                }.buttonStyle(FamilyButtonStyle()).help("Settings").accessibilityLabel(Text("Settings"))
+            }
+            .foregroundStyle(sidebarChrome.secondary).padding(.horizontal, 16).padding(.vertical, 10)
+        }
+        .background(BoundsAnchor { dropRelay.sidebarAnchor = filesMode ? nil : $0 })
+        .background(chrome.panelHeader)
+        .onChange(of: filesMode) { _, _ in clearSidebarDrag() }
+        .onDisappear { dropRelay.sidebarAnchor = nil }
+    }
+
+    private var selectedPanelCount: Int {
+        model.panelRows(in: window).filter { !Set($0.leafIDs).isDisjoint(with: window.sidebarSelection) }.count
+    }
+
+    private func clearSidebarDrag() {
+        dropRelay.rowAnchors.removeAll()
+        dropRelay.blockAnchors.removeAll()
+        model.endDrag(in: window)
+        dropRelay.hidePreview()
+    }
+
+    private func navigationRow(_ title: LocalizedStringKey, symbol: String, active: Bool,
+                               action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol).font(.system(size: 16)).frame(width: 20)
+                Text(title).font(.system(size: 14, weight: active ? .semibold : .regular))
+                Spacer()
+            }
+            .foregroundStyle(active ? sidebarChrome.accent : sidebarChrome.text)
+            .padding(.horizontal, 12).frame(height: 40)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(active ? sidebarChrome.accentFill : Color.clear))
+            .contentShape(Rectangle())
+        }.buttonStyle(FamilyButtonStyle()).accessibilityAddTraits(active ? [.isSelected] : [])
+    }
+
+    private var sidebarList: some View {
+        ScrollView {
+            VStack(spacing: 4) {
+                let dragging = model.windows.contains { $0.draggingTabID != nil || $0.draggingBlock != nil }
+                let visibleBlocks = window.blocks.filter { sidebarBlockVisible($0, dragging: dragging) }
+                if visibleBlocks.isEmpty {
+                    Text("No open terminals")
+                        .font(Theme.Font.rowMeta).foregroundStyle(sidebarChrome.secondary).padding(16)
+                }
+                ForEach(visibleBlocks, id: \.self) { block in
+                    let workspace: Workspace? = { if case .workspace(let id) = block { return model.workspace(for: id) }; return nil }()
+                    VStack(spacing: 3) {
+                        if let workspace, workspace.isGrouped { workspaceHeader(workspace) }
+                        if workspace?.isGrouped != true || dragging ||
+                            !window.presentation.collapsedWorkspaces.contains(workspace!.id) {
+                            ForEach(model.panelRows(in: block, window: window)) { row in panelRow(row) }
+                        }
+                        if model.panelRows(in: block, window: window).isEmpty && dragging {
+                            Color.clear.frame(height: SidebarLayout.rowHeight)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, Theme.Space.xs)
-                    .padding(.bottom, Theme.Space.m)
+                    .overlay(blockFill(block))
+                    .padding(.horizontal, 8)
+                    .background(SidebarBlockAnchor(block: block, relay: dropRelay))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 12)
+        }
+    }
+
+    private var selectionActions: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            Text(String(format: String(localized: "%lld Views Selected"), selectedPanelCount))
+                .font(Theme.Font.rowMeta).foregroundStyle(sidebarChrome.secondary)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Theme.Space.s) { selectionActionButtons }
+                    .fixedSize(horizontal: true, vertical: false)
+                VStack(alignment: .leading, spacing: Theme.Space.s) { selectionActionButtons }
+            }
+            .font(Theme.Font.rowMeta)
+            .buttonStyle(.borderless)
+            .menuStyle(.borderlessButton)
+        }
+        .padding(Theme.Space.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(sidebarChrome.elevated)
+    }
+
+    @ViewBuilder private var selectionActionButtons: some View {
+        Button("New Workspace") { model.createAreaFromSidebar(selectedIDs, in: window) }
+            .disabled(!model.sidebarCanCreateArea(selectedIDs))
+        moveSelectionMenu
+        Menu("Merge Panels") { mergeSelectionItems }
+    }
+
+    private var moveSelectionMenu: some View {
+        Menu("Move to Workspace") {
+            ForEach(model.workspaces.filter { $0.isGrouped && window.blocks.contains(.workspace($0.id)) }) { workspace in
+                Button(workspaceTitle(workspace)) {
+                    model.joinWorkspace(selectedIDs, workspace.id, beside: nil, after: true)
                 }
             }
         }
-        .background(BoundsAnchor { dropRelay.sidebarAnchor = $0 })
-        .background(usesGlass ? Color.clear : chrome.sidebarBackground)
-        .onHover { inside in
-            sidebarHovered = inside
+        .disabled(!model.workspaces.contains { window.blocks.contains(.workspace($0.id)) })
+    }
+
+    @ViewBuilder private var mergeSelectionItems: some View {
+        ForEach(WorkspaceBoard.availableLayouts(paneCount: selectedIDs.count), id: \.self) { layout in
+            Button(workspaceLayoutTitle(layout)) {
+                guard let target = window.selectedTabID.flatMap({ selectedIDs.contains($0) ? $0 : nil }) ?? selectedIDs.first else { return }
+                model.mergeSidebar(selectedIDs, onto: target, as: layout, in: window)
+            }
         }
-        // The relay already ignores anchors that left the window; clearing is a second guard.
-        .onDisappear { dropRelay.sidebarAnchor = nil }
+    }
+
+    private func sessionTitle(_ tab: TerminalTab) -> String {
+        if let title = tab.contentTitle { return title }
+        if tab.isLocal, let directory = tab.directory {
+            let name = (directory as NSString).lastPathComponent
+            return directory == FileManager.default.homeDirectoryForCurrentUser.path || name.isEmpty
+                ? String(localized: "This Mac") : name
+        }
+        return tab.alias ?? String(localized: "New Tab")
+    }
+
+    private var filesMode: Bool { window.presentation.fullFilesWorkspace }
+
+    private func workspaceSurface(sidebarCollapsed: Bool) -> some View {
+        VStack(spacing: 0) {
+            if sidebarCollapsed { windowControls }
+            WorkspaceContentSplit(presentation: window.presentation, onRatioChange: { _ in }) {
+                VStack(spacing: 0) {
+                    detail
+                    if window.historyVisible, let tab = model.selectedTab(in: window) {
+                        Divider()
+                        if let snapshot = SSHTerminalRegistry.history(for: tab.sessionID) {
+                            HistoryDrawer(snapshot: snapshot, onClose: { window.historyVisible = false })
+                                .id(tab.sessionID).frame(height: 220)
+                        } else {
+                            HStack {
+                                Text("No Previous History").foregroundStyle(chrome.secondary)
+                                Spacer()
+                                Button { window.historyVisible = false } label: { Image(systemName: "xmark") }
+                                    .buttonStyle(FamilyButtonStyle())
+                                    .help("Close History").accessibilityLabel(Text("Close History"))
+                                    .accessibilityIdentifier("terminal.history.close")
+                            }
+                            .padding(.horizontal, Theme.Space.m)
+                            .frame(maxWidth: .infinity).frame(height: 80).background(chrome.panelHeader)
+                        }
+                    }
+                }
+            } files: {
+                FilesDockView(model: model, window: window, relay: dropRelay)
+            }
+        }
+        .background(chrome.background)
+    }
+
+    private var windowControls: some View {
+        HStack(spacing: Theme.Space.s) {
+            Button {
+                sidebarRevealed = true
+                model.updatePresentation(in: window) { $0.sidebarCollapsed = false }
+            } label: {
+                Image(systemName: "sidebar.left").frame(width: 24, height: 28)
+            }
+            .help("Toggle Session Sidebar").accessibilityLabel(Text("Toggle Session Sidebar"))
+            .accessibilityIdentifier("workspace.revealSidebar")
+            WindowDragArea().frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .font(Theme.Font.body).buttonStyle(FamilyButtonStyle())
+        .padding(.leading, SidebarLayout.trafficLightInset)
+        .frame(height: Theme.PaneStyle.titlebarHeight)
+        .background(chrome.sidebarBackground).background(WindowDragArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("workspace.windowControls")
+    }
+
+    private func selectSession(_ id: UUID, command: Bool, shift: Bool) {
+        model.clickSidebar(id, command: command, shift: shift, in: window)
+    }
+
+    @ViewBuilder private func workspaceMenuItems(_ workspace: Workspace) -> some View {
+        Button("Rename") { beginWorkspaceRename(workspace) }
+        Button("Add Selected Sessions") {
+            model.joinWorkspace(selectedIDs, workspace.id, beside: nil, after: true)
+        }.disabled(selectedIDs.isEmpty || selectedIDs.allSatisfy { workspace.members.contains($0) })
+        Button("Separate All Panels") { model.splitWorkspacePanels(workspace.id) }
+            .disabled(!model.sidebarSplits(workspace.members))
+        Button("Reconnect") { model.reconnectWorkspace(workspace.id) }
+            .disabled(!model.tabs(in: workspace).contains { $0.isSession && $0.exited })
+        Divider()
+        Button("Dissolve Workspace") { model.dissolveWorkspace(workspace.id) }
     }
 
     private var selectedSessionBadge: String {
@@ -250,87 +412,93 @@ struct RootView: View {
         return tab.alias ?? ""
     }
 
-    private func tabRow(_ tab: TerminalTab, compact: Bool, indent: CGFloat = 0) -> some View {
-        let selected = model.isSidebarSelected(tab.id, in: window)
-        let host = tab.alias.flatMap { model.host($0) }
-        let showsClosed = !compact && tab.showsDisconnected
-        let showsReconnecting = !compact && tab.reconnecting
-        let compactHelp: String
-        if showsReconnecting {
-            compactHelp = String(localized: "Reconnecting…")
-        } else if showsClosed {
-            compactHelp = String(localized: "Connection closed")
-        } else if tab.isLocal, let directory = tab.directory {
-            compactHelp = LocalTerminal.displayPath(directory)
-        } else {
-            compactHelp = host?.sessionBadge ?? ""
-        }
-        let hovered = hoveredTabID == tab.id
-        return HStack(spacing: 6) {
-            DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
-            Text(sidebarTitle(tab))
-                .font(selected ? Theme.Font.row.weight(.medium) : Theme.Font.row)
-                .foregroundStyle(sidebarChrome.text)
-                .lineLimit(1)
-                .truncationMode(tab.isLocal ? .head : .tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            SidebarBellMark(sessionID: tab.sessionID)
-            if showsReconnecting {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(sidebarChrome.warning)
-                    .frame(width: 14, height: 14)
-                    .accessibilityLabel(Text("Reconnecting…"))
-            } else if showsClosed {
-                Image(systemName: "link.slash")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(sidebarChrome.danger)
-                    .frame(width: 14, height: 14)
-                    .accessibilityLabel(Text("Connection closed"))
-            }
-        }
-        .help(tab.isLocal || compact || showsClosed || showsReconnecting ? compactHelp : "")
-        .padding(.leading, Theme.Space.s + indent)
-        .padding(.trailing, Theme.Space.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: SidebarLayout.rowHeight)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                .fill(rowFill(selected: selected, hovered: hovered, tabID: tab.id))
-                .padding(.horizontal, SidebarLayout.rowInset)
-        )
-        .background(RowAnchor(id: tab.id, relay: dropRelay))
-        .overlay {
-            TabDragHandle(
-                onClick: { command, shift in
-                    model.clickSidebar(tab.id, command: command, shift: shift, in: window)
-                },
-                // The handle owns the row's mouse tracking, so hover comes from it, not from SwiftUI.
-                onHover: { inside in
-                    if inside {
-                        hoveredTabID = tab.id
-                    } else if hoveredTabID == tab.id {
-                        hoveredTabID = nil
+    private func panelDisplayTitle(_ row: TerminalPanelRow) -> String {
+        if let title = window.panelTitles[row.panelID] { return title }
+        return model.tabs.first { $0.id == row.focusedTabID }.map(sessionTitle) ?? row.name
+    }
+
+    private func renamePanel(_ row: TerminalPanelRow) {
+        panelNameDraft = panelDisplayTitle(row)
+        renamingPanelID = row.panelID
+        panelNameFocused = true
+    }
+
+    private func commitPanelRename() {
+        if let id = renamingPanelID { model.renamePanel(id, to: panelNameDraft, in: window) }
+        renamingPanelID = nil
+    }
+
+    @ViewBuilder private func panelRow(_ row: TerminalPanelRow) -> some View {
+        if let tab = model.tabs.first(where: { $0.id == row.focusedTabID }) {
+            let selected = window.sidebarSelection.isEmpty
+                ? window.selectedTabID.map { row.leafIDs.contains($0) } ?? false
+                : !Set(row.leafIDs).isDisjoint(with: window.sidebarSelection)
+            let subtitle = tab.isLocal ? LocalTerminal.displayPath(tab.directory ?? "~")
+                : tab.alias.flatMap { model.host($0)?.sessionBadge } ?? tab.alias ?? ""
+            let sessionKind = String(localized: tab.isLocal ? "This Mac" : "Remote")
+            let labeledSubtitle = [sessionKind, subtitle].filter { !$0.isEmpty }.joined(separator: " · ")
+            HStack(spacing: 9) {
+                TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID), isRemote: !tab.isLocal)
+                    .font(.system(size: 15)).frame(width: 20)
+                VStack(alignment: .leading, spacing: 3) {
+                    if renamingPanelID == row.panelID {
+                        TextField("Rename", text: $panelNameDraft).textFieldStyle(.plain)
+                            .focused($panelNameFocused).onSubmit { commitPanelRename() }
+                            .onExitCommand { renamingPanelID = nil }
+                            .onAppear { panelNameFocused = true }
+                    } else {
+                        Text(verbatim: panelDisplayTitle(row)).font(.system(size: 14, weight: selected ? .semibold : .regular))
+                            .lineLimit(1).truncationMode(.middle)
                     }
-                },
-                onBegan: { dropRelay.dragBegan(tab.id) },
-                onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                prepareContextMenu: {
-                    terminalContextMenu(for: tab, model: model, window: window)
+                    Text(verbatim: labeledSubtitle).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
+                        .foregroundStyle(sidebarChrome.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                if row.isSplit {
+                    Text(verbatim: String(row.leafIDs.count)).font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(sidebarChrome.hairline))
                 }
-            )
+                SidebarBellMark(sessionID: tab.sessionID)
+                if tab.reconnecting || tab.showsDisconnected {
+                    Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
+                        .font(.system(size: 12))
+                        .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
+                }
+            }
+            .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
+            .padding(.leading, 11).padding(.trailing, 30).frame(height: 44)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected,
+                hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID)))
+            .background(PanelRowAnchor(ids: row.leafIDs, relay: dropRelay))
+            .overlay {
+                TabDragHandle(
+                    onClick: { command, shift in selectSession(row.focusedTabID, command: command, shift: shift) },
+                    onHover: { hoveredTabID = $0 ? row.panelID : nil },
+                    onBegan: { dropRelay.dragBegan(row.focusedTabID) },
+                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                    prepareContextMenu: nil, dragEnabled: renamingPanelID == nil
+                ).accessibilityHidden(true).allowsHitTesting(renamingPanelID != row.panelID)
+            }
+            .overlay(alignment: .trailing) {
+                Button { renamePanel(row) } label: { Image(systemName: "pencil").frame(width: 20, height: 26) }
+                    .buttonStyle(FamilyButtonStyle()).foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.secondary)
+                    .help("Rename").accessibilityLabel(Text("Rename"))
+                    .padding(.trailing, 5)
+                    .opacity(selected || hoveredTabID == row.panelID ? 1 : 0)
+                    .allowsHitTesting(selected || hoveredTabID == row.panelID)
+            }
+            .help(labeledSubtitle).accessibilityElement(children: .contain)
+            .accessibilityLabel(Text(verbatim: panelDisplayTitle(row)))
+            .accessibilityValue(Text(verbatim: labeledSubtitle))
+            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : [.isButton])
+            .accessibilityAction { model.selectPanel(row.panelID, in: window) }
         }
     }
 
-    /// Loose groups show while anything is being dragged, so there is always a drop target.
     private func sidebarBlockVisible(_ block: SidebarBlock, dragging: Bool) -> Bool {
-        switch block {
-        case .workspace(let id):
-            return model.workspace(for: id) != nil
-        case .localGroup, .ungrouped:
-            return dragging || !model.looseTabs(in: block, window: window).isEmpty
-        }
+        if case .workspace(let id) = block, model.workspace(for: id) == nil { return false }
+        return dragging || !model.panelRows(in: block, window: window).isEmpty
     }
 
     private func sidebarTitle(_ tab: TerminalTab) -> String {
@@ -345,8 +513,8 @@ struct RootView: View {
 
     /// The first header sits right under the sidebar header gap, without the extra section inset.
     private func sidebarSectionHeader(_ title: LocalizedStringKey, block: SidebarBlock, isFirst: Bool) -> some View {
-        Text(title)
-            .font(Theme.Font.sidebarSection)
+        Label(title, systemImage: block == .localGroup ? "desktopcomputer" : "server.rack")
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(sidebarChrome.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.Space.m)
@@ -363,6 +531,12 @@ struct RootView: View {
     }
 
     private func beginWorkspaceRename(_ workspace: Workspace) {
+        if WorkspaceChromeLayout.temporarilyCollapseSidebar(totalWidth: availableWidth,
+            sidebarWidth: CGFloat(sidebarWidth), filesVisible: window.presentation.filesVisible,
+            filesWorkspace: true) {
+            model.hideFiles(in: window)
+        }
+        model.updatePresentation(in: window) { $0.sidebarCollapsed = false }
         workspaceNameDraft = workspaceTitle(workspace)
         skipWorkspaceRenameCommit = false
         workspaceNameFocused = false
@@ -376,19 +550,29 @@ struct RootView: View {
     }
 
     private func workspaceHeader(_ workspace: Workspace) -> some View {
-        let count = workspace.members.count
-        let layouts = WorkspaceBoard.availableLayouts(paneCount: count)
-        let renaming = renamingWorkspaceID == workspace.id
-        return HStack(spacing: Theme.Space.s) {
-            if renaming {
+        VStack(spacing: 0) {
+        HStack(spacing: Theme.Space.xs) {
+            Button {
+                model.updatePresentation(in: window) { state in
+                    if state.collapsedWorkspaces.contains(workspace.id) {
+                        state.collapsedWorkspaces.remove(workspace.id)
+                    } else { state.collapsedWorkspaces.insert(workspace.id) }
+                }
+            } label: {
+                Image(systemName: window.presentation.collapsedWorkspaces.contains(workspace.id)
+                      ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 20, height: SidebarLayout.rowHeight)
+            }
+            .buttonStyle(FamilyButtonStyle())
+            .accessibilityLabel(Text(String(format: String(localized: "Toggle Workspace %@"), workspaceTitle(workspace))))
+
+            if renamingWorkspaceID == workspace.id {
                 TextField("Workspace name", text: $workspaceNameDraft)
                     .textFieldStyle(.plain)
                     .font(Theme.Font.sidebarSection)
-                    .foregroundStyle(sidebarChrome.text)
                     .focused($workspaceNameFocused)
-                    .onAppear {
-                        workspaceNameFocused = true
-                    }
+                    .onAppear { workspaceNameFocused = true }
                     .onSubmit { commitWorkspaceRename() }
                     .onExitCommand {
                         skipWorkspaceRenameCommit = true
@@ -400,53 +584,48 @@ struct RootView: View {
                             DispatchQueue.main.async {
                                 NSApp.keyWindow?.fieldEditor(false, for: nil)?.selectAll(nil)
                             }
-                            return
-                        }
-                        if skipWorkspaceRenameCommit {
-                            skipWorkspaceRenameCommit = false
-                            return
-                        }
-                        commitWorkspaceRename()
+                        } else if skipWorkspaceRenameCommit { skipWorkspaceRenameCommit = false }
+                        else { commitWorkspaceRename() }
                     }
             } else {
-                Text(workspaceTitle(workspace))
-                    .font(Theme.Font.sidebarSection)
-                    .foregroundStyle(sidebarChrome.text)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-            // Pane count. The capsule shows the bare number; the label spells it out.
-            Text(verbatim: String(count))
-                .font(Theme.Font.rowMeta)
-                .foregroundStyle(sidebarChrome.secondary)
-                .padding(.horizontal, Theme.Space.xs)
-                .frame(minWidth: SidebarLayout.badgeHeight)
-                .frame(height: SidebarLayout.badgeHeight)
-                .background(Capsule().fill(sidebarChrome.hairline))
-                .accessibilityLabel(Text(String(format: String(localized: "%lld panes"), count)))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: SidebarLayout.rowHeight)
-        .padding(.horizontal, Theme.Space.m)
-        .contentShape(Rectangle())
-        .overlay {
-            if !renaming {
-                WorkspaceHeaderMenu(
-                    layouts: layouts,
-                    titles: layouts.map { workspaceLayoutTitle($0) },
-                    canReconnect: model.tabs(in: workspace).contains { $0.isSession && $0.exited },
-                    canSeparate: workspace.panels.contains { WorkspaceBoard.leafIDs($0.layout).count > 1 },
-                    onLayout: { model.applyWorkspaceLayout(workspace.id, $0) },
-                    onReconnect: { model.reconnectWorkspace(workspace.id) },
-                    onSeparate: { model.splitWorkspacePanels(workspace.id) },
-                    onRename: { beginWorkspaceRename(workspace) },
-                    onDissolve: { model.dissolveWorkspace(workspace.id) },
-                    onDragBegan: { dropRelay.blockDragBegan(.workspace(workspace.id)) },
-                    onDragMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
-                    onDragEnded: { dropRelay.blockDragEnded(windowPoint: $0) }
-                )
+                HStack(spacing: Theme.Space.xs) {
+                    Text(workspaceTitle(workspace)).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Text(verbatim: String(workspace.panels.count))
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(sidebarChrome.secondary)
+                }
+                .font(Theme.Font.sidebarSection)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay {
+                    BlockDragHandle(
+                        onBegan: { dropRelay.blockDragBegan(.workspace(workspace.id)) },
+                        onMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
+                        onEnded: { dropRelay.blockDragEnded(windowPoint: $0) }
+                    )
+                    .accessibilityHidden(true)
+                }
             }
+            Button { expandedWorkspaceActions = expandedWorkspaceActions == workspace.id ? nil : workspace.id } label: {
+                Image(systemName: "folder.badge.gearshape").frame(width: 20, height: SidebarLayout.rowHeight)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel(Text(String(format: String(localized: "Actions for %@"), workspaceTitle(workspace))))
+        }
+        .foregroundStyle(sidebarChrome.text)
+        .padding(.horizontal, Theme.Space.s)
+        .frame(height: SidebarLayout.rowHeight)
+        if expandedWorkspaceActions == workspace.id {
+            VStack(alignment: .leading, spacing: 8) {
+                workspaceMenuItems(workspace)
+                ForEach(WorkspaceBoard.availableLayouts(paneCount: workspace.members.count), id: \.self) { layout in
+                    Button(workspaceLayoutTitle(layout)) { model.applyWorkspaceLayout(workspace.id, layout) }
+                }
+            }.font(Theme.Font.rowMeta).buttonStyle(FamilyButtonStyle()).padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading).background(chrome.background)
+        }
         }
     }
 
@@ -455,9 +634,6 @@ struct RootView: View {
             return sidebarChrome.accent.opacity(0.28)
         }
         if selected {
-            if usesGlass && controlActiveState != .inactive {
-                return Color(nsColor: .selectedContentBackgroundColor).opacity(0.5)
-            }
             return sidebarChrome.accentFill
         }
         if hovered {
@@ -485,26 +661,41 @@ struct RootView: View {
                 model: model,
                 window: window,
                 dropRelay: dropRelay,
-                dark: appearanceDriver.isDark
+                dark: appearanceDriver.terminalIsDark
             )
             if model.selectedTab(in: window) == nil {
-                TerminalEmptyState(
-                    chrome: chrome,
-                    hint: emptyHint,
-                    localTerminalShortcut: AppShortcuts.display(for: .newLocalTerminal),
-                    openHostShortcut: AppShortcuts.display(for: .openHost),
-                    onLocalTerminal: { model.openLocalTerminal(in: window) },
-                    onOpenHost: { model.openHostPicker(in: window) }
-                )
+                Text("Terminal").font(Theme.Font.emptyTitle).foregroundStyle(chrome.tertiary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
+/// Every leaf maps to the same row rectangle, while drag targets use whole-panel membership.
+private struct PanelRowAnchor: NSViewRepresentable {
+    var ids: [UUID]
+    var relay: CanvasDropRelay
+    func makeNSView(context: Context) -> BoundsAnchorView { BoundsAnchorView() }
+    func updateNSView(_ view: BoundsAnchorView, context: Context) {
+        for id in ids { relay.rowAnchors[id] = AnchorBox(view) }
+    }
+}
+
+/// File navigation owns its host and browsing position independently of the terminal selection.
+private struct FilesSidebar: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var window: WindowState
+    @ObservedObject var workspace: FileWorkspace
+    @Environment(\.windowChrome) private var chrome
+
+    var body: some View {
+        PinnedLocationsSidebar(workspace: workspace) { model.focusFiles(in: window) }
+    }
+}
+
 /// Sidebar geometry. The user drags the divider between `minWidth` and `maxWidth`.
 enum SidebarLayout {
-    static let defaultWidth: CGFloat = 260
+    static let defaultWidth: CGFloat = 236
     static let minWidth: CGFloat = 200
     static let maxWidth: CGFloat = 420
     /// Top strip that holds the window controls and the new-tab button. As tall as the system
@@ -513,7 +704,7 @@ enum SidebarLayout {
     /// Space between the header and the list. A list scroll view flush with the title bar
     /// edge takes over clicks on the header buttons.
     static let headerBottomGap: CGFloat = 12
-    static let rowHeight: CGFloat = 28
+    static let rowHeight: CGFloat = 36
     /// Width the traffic lights take from the window's left edge.
     static let trafficLightInset: CGFloat = 78
     /// Horizontal gap between a row's selection/hover shape and the block edge.
@@ -559,7 +750,7 @@ struct SidebarIconButton: View {
                 )
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyButtonStyle())
         .onHover { hovering = $0 }
         .help(help)
         .accessibilityLabel(Text(accessibilityLabel))
@@ -590,14 +781,14 @@ struct TerminalEmptyState: View {
             HStack(alignment: .top, spacing: Theme.Space.m) {
                 VStack(spacing: Theme.Space.xs) {
                     Button("Local Terminal", action: onLocalTerminal)
-                        .buttonStyle(.bordered)
+                        .buttonStyle(FamilyButtonStyle(kind: .secondary))
                     Text(localTerminalShortcut)
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.tertiary)
                 }
                 VStack(spacing: Theme.Space.xs) {
                     Button("Open Host…", action: onOpenHost)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(FamilyButtonStyle(kind: .primary))
                     Text(openHostShortcut)
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.tertiary)
@@ -620,7 +811,7 @@ enum SheetLayout {
     static let importPreview: CGFloat = 680
     static let importPreviewBodyHeight: CGFloat = 600
     /// Search field at the top of the host picker.
-    static let searchFieldHeight: CGFloat = 38
+    static let searchFieldHeight: CGFloat = 32
     /// One host (or the local terminal) row in the host picker.
     static let pickerRowHeight: CGFloat = 36
     /// File list in the "convert to UTF-8 + LF before upload" alert.
@@ -630,6 +821,7 @@ enum SheetLayout {
 
 /// Geometry of the file pane, after 1Panel's SFTP page.
 enum FileBrowserLayout {
+    static let compactHeaderThreshold: CGFloat = 440
     static let titleBarHeight: CGFloat = 40
     static let toolbarHeight: CGFloat = 36
     static let headerHeight: CGFloat = 36
@@ -641,7 +833,7 @@ enum FileBrowserLayout {
     static let sizeWidth: CGFloat = 72
     static let kindWidth: CGFloat = 64
     static let iconSize: CGFloat = 18
-    static let toolbarButtonSize: CGFloat = 24
+    static let toolbarButtonSize: CGFloat = 28
     static let folderColor = Color(red: 0x4C / 255, green: 0x8D / 255, blue: 0xFF / 255)
     /// Text preview drawer along the bottom of a column.
     static let previewHeightShare: CGFloat = 0.5
@@ -671,7 +863,7 @@ enum SwitcherLayout {
     static let cardPadding: CGFloat = 6
     static let cardCornerRadius: CGFloat = 10
     static let thumbnailCornerRadius: CGFloat = 6
-    static let titleHeight: CGFloat = 18
+    static let titleHeight: CGFloat = 36
     static let titleSpacing: CGFloat = 6
     static let hintHeight: CGFloat = 28
     /// Width over height of a thumbnail.
@@ -706,7 +898,7 @@ enum SwitcherLayout {
     static func grid(count: Int, in area: CGSize) -> Grid {
         let count = max(count, 1)
         let chrome = titleHeight + titleSpacing + 2 * cardPadding
-        let widest = area.width * maxCardWidthShare
+        let widest = min(320, area.width * maxCardWidthShare)
         var best = Grid(columns: 1, cardWidth: 0, scrolls: false)
         for columns in 1 ... count {
             let rows = (count + columns - 1) / columns
@@ -714,7 +906,7 @@ enum SwitcherLayout {
             let rowHeight = (area.height - spacing * CGFloat(rows - 1)) / CGFloat(rows)
             let byHeight = (rowHeight - chrome) * thumbnailAspect + 2 * cardPadding
             let width = min(byWidth, byHeight, widest)
-            if width > best.cardWidth {
+            if width >= best.cardWidth {
                 best = Grid(columns: columns, cardWidth: width, scrolls: false)
             }
         }
@@ -722,7 +914,7 @@ enum SwitcherLayout {
             return best
         }
         let fitting = Int((area.width + spacing) / (minCardWidth + spacing))
-        return Grid(columns: max(1, min(fitting, count)), cardWidth: minCardWidth, scrolls: true)
+        return Grid(columns: max(1, min(fitting, count)), cardWidth: min(minCardWidth, max(1, area.width)), scrolls: true)
     }
 
     /// Font size that fits `textColumns` monospaced glyphs across a thumbnail `width` points wide.
@@ -758,7 +950,7 @@ struct SidebarBellMark: View {
     var body: some View {
         if activity.bellMarks.contains(sessionID) {
             Image(systemName: "bell.fill")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(chrome.warning)
                 .frame(width: 14, height: 14)
                 .accessibilityLabel(Text("Bell Rang"))
