@@ -4,7 +4,7 @@ import Foundation
 /// Copies between this Mac and a host, or within one side. Files go through `cat`, folders
 /// through `tar`, both over the shared ssh connection; progress counts the bytes passed along.
 enum FileTransfer {
-    struct Item: Sendable {
+    struct Item: Codable, Sendable {
         var path: String
         var isDirectory: Bool
     }
@@ -89,11 +89,26 @@ enum FileTransfer {
         var results: [String] = []
         for (item, pick) in zip(items, picks) {
             let destination = FileRules.join(directory, pick.name)
-            if pick.replace {
-                try await target.delete([destination])
+            let cancellation = FileOperationContext.cancellation
+            try cancellation?.check()
+            let revision = pick.replace ? try await target.revision(destination) : nil
+            let staging = FileRules.join(directory, ".oneagent-transfer-" + UUID().uuidString)
+            do {
+                try await copyOne(item, from: source, to: target, destination: staging, counter: counter)
+                try cancellation?.beginCommit()
+                do {
+                    try await target.commitStaged(staging, to: destination, expected: revision)
+                    cancellation?.endCommit()
+                } catch {
+                    cancellation?.endCommit()
+                    throw error
+                }
+                results.append(destination)
+            } catch {
+                // A cancelled SSH must not prevent removing its partial staging item.
+                await FileOperationContext.$cancellation.withValue(nil) { try? await target.delete([staging]) }
+                throw error
             }
-            try await copyOne(item, from: source, to: target, destination: destination, counter: counter)
-            results.append(destination)
         }
         progress(1)
         return results
@@ -105,7 +120,11 @@ enum FileTransfer {
     ) async throws {
         switch (source.host, target.host) {
         case (nil, nil):
-            try await source.copy(item.path, to: destination)
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/cp")
+            process.arguments = ["-pR", item.path, destination]
+            let result = try await ProcessRunner.run(process)
+            guard result.status == 0 else { throw ProcessRunner.failure(result) }
             counter.add(Int(try await size(of: item, on: source)))
         case (nil, let host?):
             let quoted = FileRules.shellQuote(destination)
@@ -208,10 +227,11 @@ enum FileTransfer {
         counter: ByteCounter
     ) async throws {
         signal(SIGPIPE, SIG_IGN)
+        let cancellation = FileOperationContext.cancellation
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    try runPipe(producer: producer, reading: reading, consumer: consumer, writing: writing, counter: counter)
+                    try runPipe(producer: producer, reading: reading, consumer: consumer, writing: writing, counter: counter, cancellation: cancellation)
                     continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
@@ -222,8 +242,13 @@ enum FileTransfer {
 
     private static func runPipe(
         producer: Process?, reading: FileHandle?, consumer: Process?, writing: FileHandle?,
-        counter: ByteCounter
+        counter: ByteCounter, cancellation: FileOperationCancellation?
     ) throws {
+        try cancellation?.check()
+        for process in [producer, consumer].compactMap({ $0 }) { try cancellation?.register(process) }
+        defer {
+            for process in [producer, consumer].compactMap({ $0 }) { cancellation?.unregister(process) }
+        }
         var drains: [(Process, Drain)] = []
         var reader = reading
         var writer = writing
@@ -234,6 +259,7 @@ enum FileTransfer {
             producer.standardError = err
             producer.standardInput = FileHandle.nullDevice
             try producer.run()
+            cancellation?.processStarted(producer)
             drains.append((producer, Drain(err.fileHandleForReading)))
             reader = out.fileHandleForReading
         }
@@ -245,6 +271,7 @@ enum FileTransfer {
             consumer.standardError = err
             do {
                 try consumer.run()
+                cancellation?.processStarted(consumer)
             } catch {
                 producer?.terminate()
                 throw error
@@ -255,7 +282,7 @@ enum FileTransfer {
         guard let reader, let writer else { return }
         var copyError: Error?
         do {
-            try ProcessRunner.copy(reader, to: writer) { counter.add($0) }
+            try ProcessRunner.copy(reader, to: writer, cancellation: cancellation) { counter.add($0) }
         } catch {
             copyError = error
             producer?.terminate()
@@ -269,9 +296,8 @@ enum FileTransfer {
                 throw ProcessRunner.failure(ProcessResult(status: process.terminationStatus, stdout: Data(), stderr: errors))
             }
         }
-        if let copyError {
-            throw FileError.message(copyError.localizedDescription)
-        }
+        try cancellation?.check()
+        if let copyError { throw copyError }
     }
 }
 

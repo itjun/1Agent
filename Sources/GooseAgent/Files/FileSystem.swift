@@ -72,7 +72,10 @@ struct LocalFileSystem: FileSystem {
     }
 
     func existingNames(in directory: String, among names: [String]) async throws -> Set<String> {
-        Set(names.filter { FileManager.default.fileExists(atPath: FileRules.join(directory, $0)) })
+        Set(names.filter { name in
+            var info = stat()
+            return lstat(FileRules.join(directory, name), &info) == 0
+        })
     }
 
     func makeDirectory(_ path: String) async throws {
@@ -87,12 +90,14 @@ struct LocalFileSystem: FileSystem {
     }
 
     func createFile(_ path: String) async throws {
-        guard !FileManager.default.fileExists(atPath: path) else {
-            throw FileError.message(String(format: String(localized: "“%@” already exists"), (path as NSString).lastPathComponent))
+        let descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL, 0o644)
+        guard descriptor >= 0 else {
+            if errno == EEXIST {
+                throw FileError.message(String(format: String(localized: "“%@” already exists"), (path as NSString).lastPathComponent))
+            }
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
         }
-        guard FileManager.default.createFile(atPath: path, contents: Data()) else {
-            throw FileError.message(String(localized: "Could not create the file"))
-        }
+        close(descriptor)
     }
 
     func delete(_ paths: [String]) async throws {
@@ -162,7 +167,8 @@ struct RemoteFileSystem: FileSystem {
     }
 
     func home() async throws -> String {
-        let text = String(decoding: try await run("pwd"), as: UTF8.self)
+        // A shell startup script may change directories; explicitly return to the user's home.
+        let text = String(decoding: try await run("cd && pwd"), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return text.hasPrefix("/") ? text : "/"
     }
@@ -195,7 +201,7 @@ struct RemoteFileSystem: FileSystem {
         let quoted = FileRules.shellQuote(path)
         let name = (path as NSString).lastPathComponent
         let exists = String(format: String(localized: "“%@” already exists"), name)
-        _ = try await run("if [ -e \(quoted) ]; then echo \(FileRules.shellQuote(exists)) >&2; exit 1; fi; : > \(quoted)")
+        _ = try await run("if [ -e \(quoted) ] || [ -L \(quoted) ]; then printf '%s\\n' \(FileRules.shellQuote(exists)) >&2; exit 1; fi; (set -C; : > \(quoted))")
     }
 
     func delete(_ paths: [String]) async throws {

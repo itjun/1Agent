@@ -91,6 +91,8 @@ enum ProcessRunner {
     /// Runs to the end on a background thread, reading both outputs at once so neither pipe fills.
     static func run(_ process: Process, input: Data? = nil) async throws -> ProcessResult {
         signal(SIGPIPE, SIG_IGN)
+        let cancellation = FileOperationContext.cancellation
+        try cancellation?.check()
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let out = Pipe()
@@ -100,11 +102,15 @@ enum ProcessRunner {
                 process.standardError = err
                 process.standardInput = input == nil ? FileHandle.nullDevice : stdin
                 do {
+                    try cancellation?.register(process)
                     try process.run()
+                    cancellation?.processStarted(process)
                 } catch {
+                    cancellation?.unregister(process)
                     continuation.resume(throwing: error)
                     return
                 }
+                defer { cancellation?.unregister(process) }
                 let errors = Drain(err.fileHandleForReading)
                 if let input {
                     try? stdin.fileHandleForWriting.write(contentsOf: input)
@@ -112,16 +118,20 @@ enum ProcessRunner {
                 }
                 let stdout = out.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
-                continuation.resume(returning: ProcessResult(
-                    status: process.terminationStatus, stdout: stdout, stderr: errors.wait()
-                ))
+                let stderr = errors.wait()
+                if cancellation?.shouldAbort == true {
+                    continuation.resume(throwing: CancellationError())
+                } else {
+                    continuation.resume(returning: ProcessResult(status: process.terminationStatus, stdout: stdout, stderr: stderr))
+                }
             }
         }
     }
 
     /// Copies `reader` into `writer` until end of file, reporting each chunk's size.
-    static func copy(_ reader: FileHandle, to writer: FileHandle, progress: (Int) -> Void) throws {
+    static func copy(_ reader: FileHandle, to writer: FileHandle, cancellation: FileOperationCancellation? = nil, progress: (Int) -> Void) throws {
         while true {
+            try cancellation?.check()
             let chunk = try reader.read(upToCount: chunkSize) ?? Data()
             if chunk.isEmpty { break }
             try writer.write(contentsOf: chunk)
