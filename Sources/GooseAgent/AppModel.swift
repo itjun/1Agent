@@ -2139,14 +2139,27 @@ final class AppModel: ObservableObject {
         MainWindowManager.shared.show(window, model: self)
     }
 
-    private func persistSession() {
-        guard acceptSessionWrites else { return }
-        for index in tabs.indices where tabs[index].isLocal {
+    /// Shell integration is optional; the owned local process still exposes its current directory.
+    func refreshLocalWorkingDirectories() {
+        if syncLocalWorkingDirectories() { persistSession() }
+    }
+
+    @discardableResult
+    private func syncLocalWorkingDirectories() -> Bool {
+        var changed = false
+        for index in tabs.indices where tabs[index].isLocal && tabs[index].hasTerminal && !tabs[index].exited {
             guard let live = SSHTerminalRegistry.currentWorkingDirectory(for: tabs[index].sessionID) else { continue }
             if tabs[index].directory != live {
                 tabs[index].directory = live
+                changed = true
             }
         }
+        return changed
+    }
+
+    private func persistSession() {
+        guard acceptSessionWrites else { return }
+        syncLocalWorkingDirectories()
         syncBlocks()
         syncLooseMembers()
         let snapshot = SessionSnapshot(

@@ -380,6 +380,7 @@ final class TerminalProcessHost {
 enum SSHTerminalRegistry {
     private static var views: [String: SSHTerminalNSView] = [:]
     private static var historyTimer: Timer?
+    private static var directoryTimer: Timer?
     /// Session IDs are never reused, so a closed one must never get a terminal again.
     private static var closedIDs: Set<String> = []
 
@@ -394,6 +395,14 @@ enum SSHTerminalRegistry {
         }
         let created = make()
         views[id] = created
+        if directoryTimer == nil {
+            directoryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                MainActor.assumeIsolated {
+                    TerminalActivity.shared.model?.refreshLocalWorkingDirectories()
+                }
+            }
+            directoryTimer?.tolerance = 0.2
+        }
         if historyTimer == nil {
             historyTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
                 MainActor.assumeIsolated {
@@ -411,6 +420,10 @@ enum SSHTerminalRegistry {
             TerminalHistoryStore.shared.remove(key)
         }
         guard let view = views.removeValue(forKey: id) else { return }
+        if views.isEmpty {
+            directoryTimer?.invalidate()
+            directoryTimer = nil
+        }
         view.processHost?.historyRecorder?.cancel(removeArchive: !preservingHistory)
         view.processHost?.terminate()
         view.removeFromSuperview()
