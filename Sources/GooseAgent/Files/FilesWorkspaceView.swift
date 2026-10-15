@@ -30,6 +30,7 @@ struct FilesDockView: View {
             GeometryReader { geometry in
                 VStack(spacing: 0) {
                     FilePairGrid(workspace: workspace, model: model, window: window, relay: relay)
+                        .padding(Theme.Space.s)
                     if let column = workspace.selectedPreviewColumn {
                         Divider()
                         TextPreviewDrawer(column: column)
@@ -65,7 +66,8 @@ private struct FilePairGrid: View {
             ZStack(alignment: .topLeading) {
                 ForEach(workspace.groupIDs, id: \.self) { id in
                     if let frame = frames[id] {
-                        FileEndpointPanel(workspace: workspace, groupID: id, model: model, window: window, relay: relay, tabDrag: tabDrag, width: frame.width)
+                        FileEndpointPanel(workspace: workspace, groupID: id, model: model, window: window, relay: relay, tabDrag: tabDrag, width: max(0, frame.width - Theme.Space.s))
+                            .padding(.horizontal, Theme.Space.xs)
                             .frame(width: frame.width, height: frame.height, alignment: .topLeading)
                             .clipped()
                             .offset(x: frame.minX, y: frame.minY)
@@ -96,7 +98,7 @@ private struct FilePairGrid: View {
             .frame(width: divider.frame.width, height: divider.frame.height)
             .overlay {
                 Rectangle()
-                    .fill(active ? chrome.accent : chrome.hairline)
+                    .fill(active ? chrome.accent : Color.clear)
                     .frame(width: vertical ? lineWidth : divider.frame.width,
                            height: vertical ? divider.frame.height : lineWidth)
                     .allowsHitTesting(false)
@@ -136,45 +138,18 @@ private struct FileEndpointPanel: View {
     @ObservedObject var tabDrag: FileTabDragTracker
     var width: CGFloat
     @Environment(\.windowChrome) private var chrome
+    @State private var filterFocused = false
 
     private var column: FileColumn? { workspace.groups[groupID]?.active }
     private var local: Bool { groupID == workspace.localGroupID }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: Theme.Space.s) {
-                Image(systemName: local ? "desktopcomputer" : "server.rack")
-                    .font(.system(size: 17)).foregroundStyle(chrome.accent)
-                if local {
-                    Text(verbatim: column?.title ?? String(localized: "This Mac"))
-                        .font(Theme.Font.body.weight(.semibold)).lineLimit(1)
-                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .contextMenu {
-                            if let column {
-                                Button("Open in Terminal") { workspace.openTerminal([], in: column) }
-                                    .disabled(column.directory.isEmpty)
-                            }
-                        }
-                        .accessibilityIdentifier("files.localLocation")
-                } else {
-                    remoteLocations
-                }
-                if width >= 320, let column, !column.directory.isEmpty {
-                    Text(String(format: String(localized: "%d items"), column.shown.count))
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                }
-            }
-            .padding(.horizontal, Theme.Space.m)
-            .frame(height: FileBrowserLayout.tabStripHeight)
-            .background(chrome.panelHeader)
-            .background(BoundsAnchor { tabDrag.strips[groupID] = AnchorBox($0) })
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(workspace.focusedColumn?.id == column?.id ? chrome.accent : chrome.hairline).frame(height: 1)
-            }
             if let column {
-                FileColumnView(workspace: workspace, column: column) { EmptyView() }.id(column.id)
+                FileColumnHeader(workspace: workspace, column: column, width: width, onFilterFocusChange: { filterFocused = $0 }) { endpointHeader }
+                FileColumnView(workspace: workspace, column: column, filterFocused: filterFocused).id(column.id)
             } else {
+                endpointHeader.padding(.horizontal, Theme.Space.m)
                 VStack(spacing: Theme.Space.m) {
                     Image(systemName: "server.rack").font(Theme.Font.emptySymbol).foregroundStyle(chrome.tertiary)
                     Text("Choose a server").font(Theme.Font.emptyTitle)
@@ -207,6 +182,31 @@ private struct FileEndpointPanel: View {
         }
     }
 
+    private var endpointHeader: some View {
+        HStack(spacing: Theme.Space.s) {
+            if local {
+                Image(systemName: "desktopcomputer")
+                    .font(.system(size: 14))
+                    .foregroundStyle(chrome.text)
+                Text(verbatim: column?.title ?? String(localized: "This Mac"))
+                    .font(Theme.Font.body.weight(.semibold)).lineLimit(1)
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .familyContextMenu {
+                        guard let column else { return [] }
+                        return [FamilyMenuItem(title: String(localized: "Open in Terminal"), enabled: !column.directory.isEmpty, action: {
+                            workspace.openTerminal([], in: column)
+                        })]
+                    }
+                    .accessibilityIdentifier("files.localLocation")
+            } else {
+                remoteLocations
+            }
+        }
+        .frame(height: FileBrowserLayout.tabStripHeight)
+        .background(BoundsAnchor { tabDrag.strips[groupID] = AnchorBox($0) })
+    }
+
     /// Remote endpoints are visible as a horizontal tab row; the sidebar owns local pins.
     private var remoteLocations: some View {
         ScrollViewReader { proxy in
@@ -237,7 +237,7 @@ private struct FileEndpointPanel: View {
 private struct FileTransferQueueView: View {
     @ObservedObject private var queue = FileTransferQueue.shared
     @Environment(\.windowChrome) private var chrome
-    @State private var expanded = true
+    @State private var expanded = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -248,23 +248,26 @@ private struct FileTransferQueueView: View {
                     Text("Transfers")
                     if queue.activeCount > 0 { Text(verbatim: "\(queue.activeCount)").foregroundStyle(chrome.accent) }
                 }.buttonStyle(FamilyButtonStyle())
+                    .accessibilityIdentifier("files.transferQueue.toggle")
                 Spacer()
-                if queue.jobs.contains(where: { $0.phase == .completed || $0.phase == .cancelled }) {
+                if expanded, queue.jobs.contains(where: { $0.phase == .completed || $0.phase == .cancelled }) {
                     Button("Clear Completed") { queue.clearFinished() }.buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
                 }
             }
             .font(Theme.Font.rowMeta.weight(.medium))
-            .padding(.horizontal, Theme.Space.m).frame(height: 32)
+            .padding(.horizontal, Theme.Space.m).frame(height: FileBrowserLayout.transferBarHeight)
             if expanded, !queue.jobs.isEmpty {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(queue.jobs.reversed()) { job in row(job) }
                     }
-                }.frame(height: min(144, CGFloat(queue.jobs.count) * 48))
+                }.frame(height: min(FileBrowserLayout.transferListMaxHeight, CGFloat(queue.jobs.count) * FileBrowserLayout.transferRowHeight))
+                    .accessibilityIdentifier("files.transferQueue.history")
             }
         }
         .background(chrome.panelHeader)
         .foregroundStyle(chrome.text)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.transferQueue")
     }
 
@@ -294,7 +297,7 @@ private struct FileTransferQueueView: View {
             } else { Image(systemName: "checkmark.circle").foregroundStyle(chrome.success) }
         }
         .buttonStyle(FamilyButtonStyle()).font(Theme.Font.rowMeta)
-        .padding(.horizontal, Theme.Space.m).frame(height: 48)
+        .padding(.horizontal, Theme.Space.m).frame(height: FileBrowserLayout.transferRowHeight)
         .overlay(alignment: .top) { Divider() }
     }
 }

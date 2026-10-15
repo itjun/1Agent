@@ -817,19 +817,48 @@ enum FileBrowserLayout {
     static let compactHeaderThreshold: CGFloat = 440
     static let titleBarHeight: CGFloat = 40
     static let toolbarHeight: CGFloat = 36
+    static let navigationHeight: CGFloat = 40
     static let headerHeight: CGFloat = 36
     static let rowHeight: CGFloat = 40
-    static let filterWidth: CGFloat = 160
-    /// Name, modified, size, kind. The name column takes what is left.
+    static let filterWidth: CGFloat = 132
+    /// Match 1Panel's bounded grid, leaving spare width after the type column.
     static let nameMinWidth: CGFloat = 120
-    static let modifiedWidth: CGFloat = 128
-    static let sizeWidth: CGFloat = 72
-    static let kindWidth: CGFloat = 64
+    static let nameMaxWidth: CGFloat = 240
+    static let modifiedMinWidth: CGFloat = 108
+    static let modifiedWidth: CGFloat = 148
+    static let sizeWidth: CGFloat = 64
+    static let kindWidth: CGFloat = 56
+    struct TableColumns {
+        var name: CGFloat
+        var modified: CGFloat?
+        var size: Bool
+        var kind: Bool
+    }
+    static func tableColumns(in width: CGFloat) -> TableColumns {
+        let gap = Theme.Space.s
+        let available = max(0, width - Theme.Space.m * 2 - gap)
+        let size = available >= nameMinWidth + sizeWidth + gap
+        let modified = size && available >= nameMinWidth + sizeWidth + modifiedMinWidth + 2 * gap
+        let kind = modified && available >= nameMinWidth + sizeWidth + modifiedMinWidth + kindWidth + 3 * gap
+        let reserved = (size ? sizeWidth + gap : 0) + (kind ? kindWidth + gap : 0)
+        if modified {
+            let room = available - reserved - gap
+            let growth = max(0, room - nameMinWidth - modifiedMinWidth)
+            let date = modifiedMinWidth + min(modifiedWidth - modifiedMinWidth, growth / 4)
+            return TableColumns(name: min(nameMaxWidth, room - date), modified: date, size: size, kind: kind)
+        }
+        return TableColumns(name: min(nameMaxWidth, max(0, available - reserved)), size: size, kind: kind)
+    }
     static let iconSize: CGFloat = 18
     static let toolbarButtonSize: CGFloat = 28
+    /// Includes the gaps on both sides, so the entire inter-folder area edits the path.
+    static let pathSeparatorWidth: CGFloat = 20
     static let folderColor = Color(red: 0x4C / 255, green: 0x8D / 255, blue: 0xFF / 255)
     /// Text preview drawer along the bottom of a column.
     static let previewHeightShare: CGFloat = 0.5
+    static let transferBarHeight: CGFloat = 24
+    static let transferRowHeight: CGFloat = 48
+    static let transferListMaxHeight: CGFloat = 144
     static let previewByteLimit = 512 * 1024
     /// Progress toast at the bottom center of the window.
     static let toastWidth: CGFloat = 360
@@ -838,7 +867,7 @@ enum FileBrowserLayout {
     static let toastTopInset: CGFloat = 44
     static let toastLingerSeconds: Double = 2.5
     /// Tab strip above each side of the Files area, as in Xftp.
-    static let tabStripHeight: CGFloat = 32
+    static let tabStripHeight: CGFloat = 40
     static let tabMinWidth: CGFloat = 56
     static let tabMaxWidth: CGFloat = 180
     /// Share of a pane's width and height kept from each edge: dropping a tab inside joins the pane.

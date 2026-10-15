@@ -4,6 +4,7 @@
     "Path" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Path"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "路径"}}}},
     "Decrease" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Decrease"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "减少"}}}},
     "Increase" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Increase"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "增加"}}}},
+    "Send to Other Pane" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Send to Other Pane"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "传到对面"}}}},
     "Close History" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Close History" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭历史" } } } },
     "Loading…" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading…" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "载入中…" } } } },
 

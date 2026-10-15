@@ -122,7 +122,7 @@ final class FileColumn: ObservableObject, Identifiable {
         guard !ext.isEmpty, !entry.name.hasPrefix(".") || entry.name.dropFirst().contains(".") else {
             return String(localized: "File")
         }
-        return ext.uppercased()
+        return ext.lowercased()
     }
 
     // MARK: Navigation

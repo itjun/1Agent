@@ -932,12 +932,50 @@ private struct FilesWorkspaceRoutingTests {
                 try await settle()
             }
         }
+        try await eventually("visible local row for pointer probe") { !elements("files.row.\(localEntry.path)").isEmpty }
         guard let row = elements("files.row.\(localEntry.path)").first else {
             throw TestFailure(description: "The local file row must be visible for the pointer probe")
         }
         let rowFrame = try frame(of: row)
         try await click(NSPoint(x: rowFrame.midX, y: rowFrame.midY))
-        try require(local.selection == [localEntry.path], "The native click probe must select the actual local file row")
+        try require(local.selection == [localEntry.path], "The native click probe must select the actual local file row: \(rowFrame), expected \(localEntry.path), got \(local.selection)")
+
+        local.selection = []
+        try await settle()
+        let contextPoint = window.convertPoint(fromScreen: NSPoint(x: rowFrame.midX, y: rowFrame.midY))
+        for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
+            let event = NSEvent.mouseEvent(with: type, location: contextPoint, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: type == .rightMouseDown ? 1 : 0)!
+            NSApp.sendEvent(event)
+            try await settle()
+        }
+        try require(local.selection == [localEntry.path], "Right-click must select the pointed row: expected \(localEntry.path), got \(local.selection)")
+        try require(!FamilyMenuPresenter.shared.panels.isEmpty, "Right-click must open the family popup")
+        for code: UInt16 in [119, 36] {
+            let key = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                characters: code == 36 ? "\r" : "\u{f72b}", charactersIgnoringModifiers: code == 36 ? "\r" : "\u{f72b}",
+                isARepeat: false, keyCode: code)!
+            NSApp.sendEvent(key)
+            try await settle()
+        }
+        try require(local.selection == Set(local.shown.map(\.path)) && FamilyMenuPresenter.shared.panels.isEmpty,
+                    "End and Enter in the real file menu must select all files and dismiss the popup")
+        local.selection = Set(local.shown.prefix(2).map(\.path))
+        let multiple = local.selection
+        try await settle()
+        for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
+            let right = NSEvent.mouseEvent(with: type, location: contextPoint, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: type == .rightMouseDown ? 1 : 0)!
+            NSApp.sendEvent(right)
+            try await settle()
+        }
+        try require(local.selection == multiple, "Right-clicking a selected file must preserve the multi-selection")
+        FamilyMenuPresenter.shared.dismiss()
+        local.selection = [localEntry.path]
+        print("ok: family context menu targets the pointed file despite unclipped native hosts, and preserves multi-selection")
 
         let paths = try elements("files.path").map(frame).sorted { $0.minX < $1.minX }
         try require(paths.count == 2, "Both file panes must expose a path control")
@@ -953,7 +991,7 @@ private struct FilesWorkspaceRoutingTests {
         NSApp.sendEvent(down)
         try await settle()
         try require(remote.selection == [remoteEntry.path] && local.selection == [localEntry.path],
-                    "After clicking the right blank area, arrow keys must select files on the right and preserve the left selection")
+                    "After clicking the right blank area, arrow keys must select files on the right and preserve the left selection (appActive=\(NSApp.isActive), keyWindow=\(window.isKeyWindow), responder=\(String(describing: window.firstResponder)), local=\(local.selection), remote=\(remote.selection))")
 
         try await click(NSPoint(x: paths[0].midX, y: blankY))
         try require(workspace.focusedColumn === local, "Clicking the left blank area must restore left operation focus")
@@ -993,6 +1031,55 @@ private struct FilesWorkspaceRoutingTests {
         remote.back()
         try await eventually("back after remote Home") { remote.directory == remoteDirectory && !remote.loading }
 
+        let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+            characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
+        for column in [local, remote] {
+            let directory = column.directory
+            let back = column.backStack, forward = column.forwardStack, selection = column.selection
+            // The chevron and its surrounding whitespace share one editing hit region.
+            for position in [CGFloat(0), 0.5, 1] {
+                guard let separator = elements("files.path.separator." + directory).first else {
+                    throw TestFailure(description: "Both file panes must expose the current path's separator")
+                }
+                let separatorFrame = try frame(of: separator)
+                try await click(NSPoint(x: separatorFrame.minX + 1 + position * (separatorFrame.width - 2), y: separatorFrame.midY))
+                guard let editor = window.firstResponder as? NSTextView else {
+                    throw TestFailure(description: "Clicking the separator region must enter path editing: \(column.title), position=\(position)")
+                }
+                try require(editor.string == directory && workspace.focusedColumn === column,
+                            "Separator editing targets its own pane and shows the complete path")
+                try require(column.directory == directory && column.backStack == back && column.forwardStack == forward
+                            && column.selection == selection,
+                            "Separators and gaps must not navigate, change history or change file selection")
+                NSApp.sendEvent(escape)
+                try await settle()
+                try require(elements("files.path.editor").isEmpty, "Escape exits separator editing")
+            }
+        }
+
+        for (index, column) in [local, remote].enumerated() {
+            let other = column === local ? remote : local
+            workspace.focus(other)
+            try await settle()
+            let filters = try elements("files.filter").map(frame).sorted { $0.minX < $1.minX }
+            try require(filters.count == 2, "Wide panes expose an inline filter in each host header")
+            let directory = column.directory, selection = column.selection
+            try await click(NSPoint(x: filters[index].midX, y: filters[index].midY))
+            guard let editor = window.firstResponder as? NSTextView else {
+                throw TestFailure(description: "The first click on the other pane's filter must retain text focus")
+            }
+            editor.insertText("__filter_probe__", replacementRange: editor.selectedRange())
+            try await settle()
+            try require(column.filter == "__filter_probe__" && column.shown.isEmpty && other.filter.isEmpty
+                        && workspace.focusedColumn === column,
+                        "Typing in the header filters only its own pane on the first click")
+            NSApp.sendEvent(escape)
+            try await settle()
+            try require(column.filter.isEmpty && column.directory == directory && column.selection == selection,
+                        "Clearing the filter preserves the folder and file selection")
+        }
+
         guard let ancestor = elements("files.path.component./remote").first else {
             throw TestFailure(description: "The remote path must expose clickable ancestors")
         }
@@ -1028,9 +1115,6 @@ private struct FilesWorkspaceRoutingTests {
         }
         cancelledEditor.selectAll(nil)
         cancelledEditor.insertText("/remote/do-not-navigate", replacementRange: cancelledEditor.selectedRange())
-        let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
-            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
-            characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
         NSApp.sendEvent(escape)
         try await settle()
         try require(remote.directory == typedPath && elements("files.path.editor").isEmpty,
@@ -1044,14 +1128,20 @@ private struct FilesWorkspaceRoutingTests {
         window.contentView = nil
         print("ok: native file-pane clicks move operation focus; blank-area arrow keys follow the clicked pane; path input retains its editor")
         print("ok: local and remote Home buttons target their own user home and preserve Back navigation")
-        print("ok: breadcrumb ancestors navigate directly; blank space and current folder edit; Enter accepts full Unicode paths")
+        print("ok: inline header filters accept the first cross-pane click, filter only their own list and clear without changing directory/selection")
+        print("ok: breadcrumb folders navigate; separators, gaps, blank space and current folder edit; both panes preserve history/selection; Enter accepts full Unicode paths")
     }
 
     @MainActor
     private static func verifyFolderLoadStates(window: NSWindow, workspace: FileWorkspace, folder: String) async throws {
         let column = FileColumn(fileSystem: FolderLoadFixture(folder: folder))
         let emptyLabel = String(localized: "This folder is empty")
-        window.contentView = NSHostingView(rootView: FileColumnView(workspace: workspace, column: column) { Text("Fixture") })
+        window.contentView = NSHostingView(rootView: GeometryReader { geometry in
+            VStack(spacing: 0) {
+                FileColumnHeader(workspace: workspace, column: column, width: geometry.size.width) { Text("Fixture") }
+                FileColumnView(workspace: workspace, column: column)
+            }
+        })
         try await settle()
         try require(!accessibilityLabels(window.contentView!).contains(emptyLabel), "An unrequested folder must not be reported as empty")
         column.start(at: nil)
@@ -1088,9 +1178,9 @@ private struct FilesWorkspaceRoutingTests {
                     let value = accessibilityValue(element, name)
                     return (value as? String) ?? (value as? NSAttributedString)?.string
                 }
-                return id == "files.path" || id == "files.home" || id == "files.row.\(file)" || titles.contains(String(localized: "Refresh")) || titles.contains(String(localized: "Filter"))
+                return id == "files.path" || id == "files.home" || id == "files.row.\(file)" || id == "files.actions" || titles.contains(String(localized: "Filter"))
             }
-            try require(protected.count >= 5, "Home, path, file row, refresh and filter must remain accessible at narrow widths")
+            try require(protected.count >= 5, "Home, path, file row, actions and filter must remain accessible at \(width)-point width")
             let contentFrame = window.convertToScreen(NSRect(origin: .zero, size: window.contentView!.bounds.size))
             for element in protected {
                 let selector = NSSelectorFromString("accessibilityFrame")
@@ -1148,9 +1238,9 @@ private struct FilesWorkspaceRoutingTests {
         try require(UserDefaults.standard.double(forKey: SidebarLayout.widthKey) == 420,
                     "Narrow recovery must preserve the saved sidebar width")
         try require(rootTop - frame(title).midY < 32 && frame(title).maxY <= rootTop,
-                    "File labels start in the first 32-point strip without a global title row")
-        try require(FileBrowserLayout.tabStripHeight == 32 && Theme.PaneStyle.headerHeight == 28,
-                    "File and split-terminal strips retain their approved heights")
+                    "File labels start in the pane header without a global title row")
+        try require(FileBrowserLayout.tabStripHeight == 40 && Theme.PaneStyle.headerHeight == 28,
+                    "Files match the 1Panel header while split terminals retain their height")
         window.setContentSize(NSSize(width: 1440, height: 900))
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
@@ -1158,7 +1248,6 @@ private struct FilesWorkspaceRoutingTests {
                     "A wider window restores the preferred sidebar width")
     }
 
-    @MainActor
     private static func accessibilityBool(_ element: NSObject, _ name: String) -> Bool {
         let selector = NSSelectorFromString(name)
         guard element.responds(to: selector) else { return false }

@@ -299,6 +299,7 @@ struct FileTabButton: View {
 
     private var dragging: Bool { tabDrag.draggingID == column.id }
     private var active: Bool { workspace.groups[groupID]?.activeID == column.id }
+    private var multipleTabs: Bool { (workspace.groups[groupID]?.tabs.count ?? 0) > 1 }
 
     private var title: String {
         if let host = column.fileSystem.host { return host }
@@ -307,11 +308,11 @@ struct FileTabButton: View {
     }
 
     private var fill: Color {
-        if active || dragging { return chrome.accentFill }
+        if dragging || (active && multipleTabs) { return chrome.accentFill }
         return hovering ? chrome.elevated : Color.clear
     }
 
-    private var foreground: Color { active ? chrome.accent : chrome.secondary }
+    private var foreground: Color { active ? (multipleTabs ? chrome.accent : chrome.text) : chrome.secondary }
 
     private var insertionAtTrailingEdge: Bool? {
         guard let zone = tabDrag.zone, zone.reordering, zone.before == column.id,
@@ -324,7 +325,7 @@ struct FileTabButton: View {
     var body: some View {
         HStack(spacing: Theme.Space.xs) {
             Text(verbatim: title)
-                .font(Theme.Font.rowMeta.weight(active ? .semibold : .regular))
+                .font(Theme.Font.body.weight(active ? .semibold : .regular))
                 .lineLimit(1)
                 .truncationMode(.middle)
 
