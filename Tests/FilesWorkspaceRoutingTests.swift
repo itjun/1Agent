@@ -33,14 +33,21 @@ private struct FolderLoadFixture: FileSystem {
 @main
 private struct FilesWorkspaceRoutingTests {
     @MainActor
-    static func main() async {
-        do {
-            try await run()
-            print("FilesWorkspaceRoutingTests passed")
-        } catch {
-            fputs("FilesWorkspaceRoutingTests failed: \(error)\n", stderr)
-            exit(1)
+    static func main() {
+        _ = NSApplication.shared
+        Task { @MainActor in
+            do {
+                try await run()
+                print("FilesWorkspaceRoutingTests passed")
+                exit(0)
+            } catch {
+                fputs("FilesWorkspaceRoutingTests failed: \(error)\n", stderr)
+                exit(1)
+            }
         }
+        // Native tracking enters a nested AppKit loop. Keep a real outer application loop
+        // alive instead of allowing Swift's async-main queue drain to exit between gestures.
+        NSApp.run()
     }
 
     @MainActor
@@ -624,7 +631,7 @@ private struct FilesWorkspaceRoutingTests {
         let sessions = model.tabs.map(\.sessionID)
         func pressHost(_ alias: String) throws {
             guard let sheet = window.childWindows?.first(where: { $0 is FamilyModalWindow }), let content = sheet.contentView else {
-                throw TestFailure(description: "Host picker must be a family dialog")
+                throw TestFailure(description: "Host picker must use the shared family modal")
             }
             let elements = accessibilityElements(content)
             guard let row = elements.first(where: {
@@ -697,7 +704,7 @@ private struct FilesWorkspaceRoutingTests {
         }
         window.setContentSize(NSSize(width: 1440, height: 900))
         try await verifyCompactHeaderGeometry(model: model, state: state, window: window)
-        print("ok: single page entries, no global headers, 32-point file strips and recoverable narrow sidebar")
+        print("ok: single page entries, no global headers, 1Panel file headers and recoverable narrow sidebar")
 
         model.hideFiles(in: state)
         guard let source = model.selectedTab(in: state) else {
