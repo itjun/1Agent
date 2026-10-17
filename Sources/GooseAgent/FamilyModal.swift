@@ -1,10 +1,16 @@
 import AppKit
 import SwiftUI
 
+/// Some responders belong to a selection that can change while a dialog is open.
+protocol FamilyModalFocusRestoring {
+    var canRestoreModalFocus: Bool { get }
+}
+
 /// App-owned modal chrome. No AppKit sheet animation, material, title bar or window shadow.
 /// The full-window child panel keeps pointer input and keyboard focus inside the dialog.
 @MainActor
 final class FamilyModalPresentation: NSObject {
+    static let didCloseNotification = Notification.Name("FamilyModalPresentation.didClose")
     let window = FamilyModalWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
     let backdrop = FamilyModalBackdrop()
     private weak var owner: NSWindow?
@@ -67,7 +73,11 @@ final class FamilyModalPresentation: NSObject {
         window.orderOut(nil)
         if let owner, owner.isVisible {
             owner.makeKeyAndOrderFront(nil)
-            if let previousResponder { owner.makeFirstResponder(previousResponder) }
+            if let previousResponder,
+               (previousResponder as? FamilyModalFocusRestoring)?.canRestoreModalFocus != false {
+                owner.makeFirstResponder(previousResponder)
+            }
+            NotificationCenter.default.post(name: Self.didCloseNotification, object: owner)
         }
         Self.retained.removeValue(forKey: ObjectIdentifier(self))
     }

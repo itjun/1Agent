@@ -163,8 +163,7 @@ struct TerminalCommands: Commands {
     }
 }
 
-/// Independent of the terminal's first responder: available while a TUI owns the mouse,
-/// or while the user is selecting read-only history text.
+/// Independent of the terminal's first responder: available while a TUI owns the mouse.
 struct TerminalWorkspaceMenu: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
@@ -176,9 +175,5 @@ struct TerminalWorkspaceMenu: View {
         Button("Reveal in Files") {
             if let tab { model.showFiles(for: tab.id, in: window) }
         }.disabled(!available)
-        Toggle("History", isOn: Binding(
-            get: { window.historyVisible },
-            set: { _ in if let tab { model.toggleTerminalHistory(for: tab.id, in: window) } }
-        )).disabled(!available)
     }
 }

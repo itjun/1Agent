@@ -155,6 +155,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return nil
         }
         guard let chord = KeyChord.from(event: event) else { return event }
+        if let window, !window.hostPickerPresented,
+           NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+            if chord == AppShortcuts.chord(for: .toggleSidebar) {
+                model.toggleSidebar(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .commandPalette) {
+                model.openCommandPalette(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .agentLauncher) {
+                model.openAgentLauncher(in: window)
+                return nil
+            }
+        }
         if increasesFontSizeByPlusAlias(chord) {
             return nil
         }
@@ -352,8 +367,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.isQuitting = true
         model.persistSessionIfReady()
         FileTransferQueue.shared.interruptForTermination()
-        SSHTerminalRegistry.flushHistory { sender.reply(toApplicationShouldTerminate: true) }
-        return .terminateLater
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -536,6 +550,22 @@ struct GooseAgentApp: App {
                     .keyboardShortcut(AppShortcuts.chord(for: .openHost).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
+                Button(AppShortcutID.toggleSidebar.title) {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    appDelegate.model.toggleSidebar(in: appDelegate.model.mainWindow)
+                }
+                .keyboardShortcut(AppShortcuts.chord(for: .toggleSidebar).keyboardShortcut)
+                Button(AppShortcutID.commandPalette.title) {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    appDelegate.model.openCommandPalette(in: appDelegate.model.mainWindow)
+                }
+                .keyboardShortcut(AppShortcuts.chord(for: .commandPalette).keyboardShortcut)
+                Button(AppShortcutID.agentLauncher.title) {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    appDelegate.model.openAgentLauncher(in: appDelegate.model.mainWindow)
+                }
+                .keyboardShortcut(AppShortcuts.chord(for: .agentLauncher).keyboardShortcut)
+                Divider()
                 Button("Open Items Overview") {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     guard let window = appDelegate.model.keyWindow else { return }

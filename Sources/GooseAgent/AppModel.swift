@@ -51,6 +51,8 @@ struct TerminalTab: Identifiable, Equatable {
     var content: PaneContent = .terminal
     /// Remote shell directory last reported through OSC 7, retained across launches.
     var remoteDirectory: String? = nil
+    /// One-time startup marker for a terminal reopened from the saved app session.
+    var restoration: TerminalRestoration? = nil
 
     var sessionID: String { "\(id.uuidString)#\(generation)" }
 
@@ -107,6 +109,9 @@ final class AppModel: ObservableObject {
     private var openRequestsAwaitingRestore: [() -> Void] = []
     /// Text a new local shell types once, keyed by tab. Memory only; never saved with the session.
     private var pendingInitialInput: [UUID: String] = [:]
+    /// Authenticated remote commands for brand-new Agent panes. Never persisted or repeated.
+    private var pendingRemoteStartupCommands: [UUID: String] = [:]
+    private var pendingLocalStartupCommands: [UUID: String] = [:]
     /// Delayed auto-reconnect work keyed by tab.
     private var autoReconnectTasks: [UUID: Task<Void, Never>] = [:]
     /// Clears the reconnect counter once a session has stayed up briefly.
@@ -879,7 +884,7 @@ final class AppModel: ObservableObject {
 
     /// Opens a local login shell, in the user home directory unless `path` names another folder.
     /// `initialInput` is typed into the new shell once, right after it starts.
-    func openLocalTerminal(at path: String? = nil, initialInput: String? = nil, in window: WindowState? = nil,
+    func openLocalTerminal(at path: String? = nil, initialInput: String? = nil, startupCommand: String? = nil, in window: WindowState? = nil,
                            reuseExisting: Bool = false) {
         let requested = path ?? LocalTerminal.homeDirectory
         guard let directory = ExternalOpen.validatedDirectory(requested) else {
@@ -890,7 +895,7 @@ final class AppModel: ObservableObject {
         target.hostPickerPresented = false
         activate(target)
         showSection(.terminals, in: target)
-        let canReuse = reuseExisting && initialInput == nil
+        let canReuse = reuseExisting && initialInput == nil && startupCommand == nil
         if canReuse, let existing = reusableLocalTerminal(at: directory, in: target) {
             selectOnly(existing, in: target)
             return
@@ -909,6 +914,7 @@ final class AppModel: ObservableObject {
             if let initialInput {
                 pendingInitialInput[tab.id] = initialInput
             }
+            if let startupCommand { pendingLocalStartupCommands[tab.id] = startupCommand }
             tabs.append(tab)
             place([tab.id], intoLoose: .localGroup, in: target, beside: nil, after: true)
             target.selectedTabID = tab.id
@@ -1050,6 +1056,46 @@ final class AppModel: ObservableObject {
         pendingInitialInput.removeValue(forKey: id)
     }
 
+    func takeRemoteStartupCommand(for id: UUID) -> String? {
+        pendingRemoteStartupCommands.removeValue(forKey: id)
+    }
+
+    func takeLocalStartupCommand(for id: UUID) -> String? {
+        pendingLocalStartupCommands.removeValue(forKey: id)
+    }
+
+    /// The focused pane supplies the connection and current directory, including OSC 7
+    /// updates. Opening the launcher itself never changes or writes to that pane.
+    func agentLaunchTarget(in window: WindowState) -> AgentLaunchTarget {
+        guard let tab = selectedTab(in: window) else {
+            return .local(directory: LocalTerminal.homeDirectory)
+        }
+        if let alias = tab.alias, !alias.isEmpty {
+            return .remote(host: alias, directory: tab.remoteDirectory)
+        }
+        return .local(directory: localFolder(of: tab) ?? LocalTerminal.homeDirectory)
+    }
+
+    func launchAgent(_ request: AgentLaunchRequest, at requestedTarget: AgentLaunchTarget, in window: WindowState) throws {
+        let target = try requestedTarget.validated()
+        switch target {
+        case .local(let directory):
+            openLocalTerminal(at: directory, initialInput: request.localInitialInput, in: window, reuseExisting: false)
+        case .remote(let host, let directory):
+            let command = try request.remoteStartupCommand(directory: directory)
+            activate(window)
+            showSection(.terminals, in: window)
+            Task {
+                let environment = await SSHLaunchEnvironment.shared.get()
+                guard !Task.isCancelled else { return }
+                launchEnvironment = environment
+                let tab = TerminalTab(id: UUID(), alias: host, generation: 0, exited: false, remoteDirectory: directory)
+                pendingRemoteStartupCommands[tab.id] = command
+                add(tab, placement: .newTab, beside: window.selectedTabID ?? UUID(), in: window)
+            }
+        }
+    }
+
     /// Reopens the main window and the terminals that were on screen when the app last quit.
     /// The window appears at once; terminals follow as soon as the login environment is known.
     func restoreLastSession() {
@@ -1088,7 +1134,9 @@ final class AppModel: ObservableObject {
                     return nil
                 }
                 if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
-                    return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false, remoteDirectory: item.remoteDirectory)
+                    return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false,
+                                       remoteDirectory: item.remoteDirectory,
+                                       restoration: TerminalRestoration(departedAt: snapshot.departedAt))
                 }
                 if let directory = item.directory?.trimmingCharacters(in: .whitespacesAndNewlines), !directory.isEmpty {
                     return TerminalTab(
@@ -1096,7 +1144,8 @@ final class AppModel: ObservableObject {
                         alias: nil,
                         directory: LocalTerminal.launchDirectory(directory),
                         generation: 0,
-                        exited: false
+                        exited: false,
+                        restoration: TerminalRestoration(departedAt: snapshot.departedAt)
                     )
                 }
                 return nil
@@ -1233,7 +1282,7 @@ final class AppModel: ObservableObject {
         tabs[index].exited = false
         if !SSHTerminalRegistry.restart(tabs[index].sessionID, notice: notice) {
             // No live terminal to reuse (should not happen); fall back to a fresh surface.
-            SSHTerminalRegistry.destroy(tabs[index].sessionID, preservingHistory: true)
+            SSHTerminalRegistry.destroy(tabs[index].sessionID)
             tabs[index].generation += 1
         }
         scheduleStableConnection(tabID)
@@ -1324,6 +1373,8 @@ final class AppModel: ObservableObject {
         cancelAutoReconnect(id)
         cancelStableConnection(id)
         pendingInitialInput[id] = nil
+        pendingRemoteStartupCommands[id] = nil
+        pendingLocalStartupCommands[id] = nil
         TerminalFind.shared.forget(tabs[index].sessionID)
         TerminalActivity.shared.forget(sessionID: tabs[index].sessionID)
         TerminalProgress.shared.forget(sessionID: tabs[index].sessionID)
@@ -1381,7 +1432,7 @@ final class AppModel: ObservableObject {
 
     /// Opens another session of the same host, or another local shell in the same directory, and splits it.
     func duplicate(_ id: UUID, edge: SplitEdge) {
-        guard edge == .right || edge == .bottom else { return }
+        guard edge != .center else { return }
         guard let source = tabs.first(where: { $0.id == id }) else { return }
         guard let target = duplicateTarget(of: source) else { return }
         duplicateSession(id, alias: target.alias, directory: target.directory, edge: edge)
@@ -1567,15 +1618,6 @@ final class AppModel: ObservableObject {
 
     func fileWorkspace(for window: WindowState) -> FileWorkspace {
         FileBrowserStore.shared.workspace(for: window, model: self)
-    }
-
-    /// Both the native context menu and the application menu target an explicit terminal.
-    func toggleTerminalHistory(for id: UUID, in window: WindowState) {
-        guard !window.presentation.fullFilesWorkspace,
-              tabs.contains(where: { $0.id == id && $0.hasTerminal }) else { return }
-        let wasVisible = window.historyVisible && window.selectedTabID == id
-        selectOnly(id, in: window, focusTerminal: false)
-        window.historyVisible = !wasVisible
     }
 
     /// The Files area on the host of terminal `id`, in its current folder: that host's tab (a new
@@ -2205,7 +2247,8 @@ final class AppModel: ObservableObject {
                     filesSourceTabID: window.filesSourceTabID
                 )
             },
-            keyWindow: mainWindow.id
+            keyWindow: mainWindow.id,
+            departedAt: isQuitting ? Date() : nil
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: SessionSnapshot.storageKey)
@@ -2218,7 +2261,7 @@ final class AppModel: ObservableObject {
 }
 
 /// What is written to UserDefaults. Older snapshots had one implicit window; those fields still decode.
-private struct SessionSnapshot: Codable {
+struct SessionSnapshot: Codable {
     struct Tab: Codable {
         var id: UUID
         var alias: String?
@@ -2276,6 +2319,7 @@ private struct SessionSnapshot: Codable {
         case localGroup
         case ungrouped
         case version
+        case departedAt
     }
 
     var tabs: [Tab]
@@ -2283,6 +2327,8 @@ private struct SessionSnapshot: Codable {
     var workspaces: [Workspace]
     var windows: [Window]?
     var keyWindow: UUID?
+    /// Only a graceful app exit records a departure; ordinary saves clear the old value.
+    var departedAt: Date?
     /// Pre-multi-window fields, read only when `windows` is missing.
     var selected: UUID?
     var layout: PaneNode?
@@ -2290,16 +2336,18 @@ private struct SessionSnapshot: Codable {
     var localGroup: [UUID]?
     var ungrouped: [UUID]?
 
-    init(tabs: [Tab], workspaces: [Workspace], windows: [Window], keyWindow: UUID?) {
+    init(tabs: [Tab], workspaces: [Workspace], windows: [Window], keyWindow: UUID?, departedAt: Date? = nil) {
         self.tabs = tabs
         self.workspaces = workspaces
         self.windows = windows
         self.keyWindow = keyWindow
+        self.departedAt = departedAt
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        departedAt = try container.decodeIfPresent(Date.self, forKey: .departedAt)
         tabs = try container.decode([Tab].self, forKey: .tabs)
         selected = try container.decodeIfPresent(UUID.self, forKey: .selected)
         layout = try container.decodeIfPresent(PaneNode.self, forKey: .layout)
@@ -2325,6 +2373,7 @@ private struct SessionSnapshot: Codable {
         try container.encode(workspaces, forKey: .workspaces)
         try container.encodeIfPresent(windows, forKey: .windows)
         try container.encodeIfPresent(keyWindow, forKey: .keyWindow)
+        try container.encodeIfPresent(departedAt, forKey: .departedAt)
     }
 
     /// The window that was key when the snapshot was written, else the first one listed.

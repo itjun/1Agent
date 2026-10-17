@@ -206,6 +206,9 @@ struct TerminalSettings: Equatable {
     /// `=`, `+`, `-`, `0`, `k`, `a`, `f`, `g` and `e` are unicode triggers; a named key like `equal`
     /// would be a different, physical trigger and leave the default in place.
     static let appOwnedGhosttyTriggers = [
+        "super+shift+l",
+        "super+shift+p",
+        "super+shift+a",
         "super+=",
         "super+plus",
         "super+-",

@@ -254,13 +254,13 @@ final class TerminalProcessHost {
     }
 
     let session: InMemoryTerminalSession
-    let historyRecorder: TerminalHistoryRecorder?
     private let box = ProcessBox()
     private var launch: TerminalLaunch?
+    private var initialLaunch: TerminalLaunch?
     private var startedAt: TimeInterval = 0
-    private var historyReady = false
     private var hasStarted = false
     private var pendingInitialInput: Data?
+    private var pendingRestoration: TerminalRestoration?
     private var terminated = false
 
     var process: TerminalProcess { box.process }
@@ -268,7 +268,7 @@ final class TerminalProcessHost {
     /// Exit code and how long the process lived, in seconds.
     var onExit: ((Int32?, TimeInterval) -> Void)?
 
-    init(historyKey: UUID? = nil) {
+    init() {
         let box = self.box
         session = InMemoryTerminalSession(
             write: { data in box.process.write(data) },
@@ -285,32 +285,24 @@ final class TerminalProcessHost {
             },
             suppressesPixelOnlyResizes: true
         )
-        if let historyKey { historyRecorder = TerminalHistoryRecorder(key: historyKey, session: session) }
-        else { historyRecorder = nil }
-        historyReady = historyKey == nil
     }
 
-    func start(_ launch: TerminalLaunch) {
+    func start(_ launch: TerminalLaunch, initialLaunch: TerminalLaunch? = nil, restoration: TerminalRestoration? = nil) {
         self.launch = launch
+        self.initialLaunch = initialLaunch
+        pendingRestoration = restoration
         startWhenReady()
     }
 
-    func prepareHistory(_ restored: @escaping (TerminalHistorySnapshot?) -> Void) {
-        guard let historyRecorder else { restored(nil); return }
-        historyRecorder.prepare { [weak self] snapshot in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                restored(snapshot)
-                self.historyReady = true
-                self.startWhenReady()
-            }
-        }
-    }
-
     func startWhenReady() {
-        guard !terminated, historyReady, session.hasAttachedSurface, !hasStarted, let launch else { return }
+        guard !terminated, session.hasAttachedSurface, !hasStarted, let launch else { return }
         hasStarted = true
-        startProcess(launch)
+        if let restoration = pendingRestoration {
+            pendingRestoration = nil
+            session.receive(restoration.notice())
+        }
+        startProcess(initialLaunch ?? launch)
+        initialLaunch = nil
         if let pendingInitialInput {
             process.write(pendingInitialInput)
             self.pendingInitialInput = nil
@@ -344,12 +336,7 @@ final class TerminalProcessHost {
 
     private func startProcess(_ launch: TerminalLaunch) {
         let process = TerminalProcess()
-        // The recorder forwards byte-identical data, pausing only at screen-switch
-        // boundaries to read rendered text. Archived data is never replayed.
-        process.onOutput = { [session, historyRecorder] data in
-            if let historyRecorder { historyRecorder.receive(data) }
-            else { session.receive(data) }
-        }
+        process.onOutput = { [session] data in session.receive(data) }
         process.onExit = { [weak self, weak process] code in
             guard let self, let process, process === self.box.process else { return }
             let lived = ProcessInfo.processInfo.systemUptime - self.startedAt
@@ -379,7 +366,6 @@ final class TerminalProcessHost {
 @MainActor
 enum SSHTerminalRegistry {
     private static var views: [String: SSHTerminalNSView] = [:]
-    private static var historyTimer: Timer?
     private static var directoryTimer: Timer?
     /// Session IDs are never reused, so a closed one must never get a terminal again.
     private static var closedIDs: Set<String> = []
@@ -403,55 +389,30 @@ enum SSHTerminalRegistry {
             }
             directoryTimer?.tolerance = 0.2
         }
-        if historyTimer == nil {
-            historyTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
-                MainActor.assumeIsolated {
-                    for view in views.values { view.processHost?.historyRecorder?.checkpoint() }
-                }
-            }
-        }
         return created
     }
 
     /// The tab closed. Ends the process and drops the view.
-    static func destroy(_ id: String, preservingHistory: Bool = false) {
+    static func destroy(_ id: String) {
         closedIDs.insert(id)
-        if !preservingHistory, let key = TerminalHistoryStore.key(for: id) {
-            TerminalHistoryStore.shared.remove(key)
-        }
         guard let view = views.removeValue(forKey: id) else { return }
         if views.isEmpty {
             directoryTimer?.invalidate()
             directoryTimer = nil
         }
-        view.processHost?.historyRecorder?.cancel(removeArchive: !preservingHistory)
         view.processHost?.terminate()
         view.removeFromSuperview()
     }
-
-    /// Call from applicationShouldTerminate, return terminateLater, then reply after completion.
-    /// No main-thread waits: pending PTY parsing can continue to deliver engine callbacks.
-    static func flushHistory(completion: @escaping @MainActor () -> Void) {
-        let group = DispatchGroup()
-        for view in views.values {
-            guard let recorder = view.processHost?.historyRecorder else { continue }
-            group.enter()
-            recorder.checkpoint(force: true) { group.leave() }
-        }
-        group.notify(queue: .global(qos: .utility)) {
-            TerminalHistoryStore.shared.flush {
-                DispatchQueue.main.async { completion() }
-            }
-        }
-    }
-
-    static func history(for id: String) -> TerminalHistorySnapshot? { views[id]?.restoredHistory }
 
     static func focus(_ id: String) {
         DispatchQueue.main.async {
             guard let view = views[id], let window = view.window else { return }
             if let state = MainWindowManager.shared.state(for: window),
                state.presentation.filesVisible && state.presentation.filesWorkspace { return }
+            if let host = view.superview as? TerminalHostView {
+                host.requestFocus()
+                return
+            }
             window.makeFirstResponder(view)
         }
     }
@@ -465,7 +426,6 @@ enum SSHTerminalRegistry {
     @discardableResult
     static func paste(_ text: String, into id: String) -> Bool {
         guard let view = views[id] else { return false }
-        guard !view.isShowingHistory else { return false }
         view.window?.makeFirstResponder(view)
         return view.paste(text: text)
     }
@@ -517,8 +477,7 @@ final class SSHTerminalNSView: AppTerminalView {
     var onFocus: (() -> Void)?
     var onClose: (() -> Void)?
     var onRevealFiles: (() -> Void)?
-    var onToggleHistory: (() -> Void)?
-    var isHistoryVisible: () -> Bool = { false }
+    var paneMenuItems: () -> [FamilyMenuItem] = { [] }
     /// Split Right / Split Down from the context menu: another session like this one beside it.
     var onSplit: ((SplitEdge) -> Void)?
     /// Finder files dropped on a split, New Tab, or transfer circle.
@@ -548,14 +507,10 @@ final class SSHTerminalNSView: AppTerminalView {
     /// The right button went down to a program that reads the mouse, so the release goes there too.
     private var rightClickToProgram = false
     private var locallyConsumedKeyCode: UInt16?
-    fileprivate var restoredHistory: TerminalHistorySnapshot?
-    fileprivate var historyView: TerminalHistoryView?
-    var isShowingHistory: Bool { historyView != nil }
 
     /// Keep the native terminal's explicit appearance in sync without rebuilding its surface.
     /// The surrounding SwiftUI pane continues to inherit the application's appearance.
     func applyTerminalAppearance(dark: Bool) {
-        historyView?.applyFamilyAppearance()
         let signature = dark ? 1 : 0
         guard appliedDarkAppearance != signature else { return }
         appliedDarkAppearance = signature
@@ -564,34 +519,9 @@ final class SSHTerminalNSView: AppTerminalView {
     }
 
 
-    func restoreHistory(_ snapshot: TerminalHistorySnapshot?) {
-        guard let snapshot, !snapshot.isEmpty else { return }
-        restoredHistory = snapshot
-    }
-
-    @objc private func showRestoredHistory() {
-        guard historyView == nil, let restoredHistory else { return }
-        let history = TerminalHistoryView(snapshot: restoredHistory)
-        history.frame = bounds
-        history.autoresizingMask = [.width, .height]
-        history.onContinue = { [weak self] in self?.dismissHistory() }
-        addSubview(history)
-        historyView = history
-        if window?.firstResponder === self { history.focusText() }
-    }
-
-    private func dismissHistory() {
-        historyView?.removeFromSuperview()
-        historyView = nil
-        window?.makeFirstResponder(self)
-    }
-
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
         if accepted { onFocus?() }
-        if accepted, let historyView {
-            DispatchQueue.main.async { [weak historyView] in historyView?.focusText() }
-        }
         FocusedTerminal.shared.refreshSoon()
         return accepted
     }
@@ -608,7 +538,6 @@ final class SSHTerminalNSView: AppTerminalView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if let historyView { historyView.focusText(); return }
         locallyConsumedKeyCode = nil
         hidePointerWhileTyping(event)
         if hasMarkedText() {
@@ -957,14 +886,41 @@ final class SSHTerminalNSView: AppTerminalView {
         menu.addItem(makeItem(.find, #selector(findFromMenu(_:))))
         menu.addItem(makeItem(.clearScreen, #selector(clearScreenFromMenu(_:))))
         menu.addItem(.separator())
-        let files = makeItem(String(localized: "Reveal in Files"), #selector(revealFilesFromMenu(_:)))
-        files.isEnabled = onRevealFiles != nil
-        menu.addItem(files)
-        let history = makeItem(String(localized: "History"), #selector(toggleHistoryFromMenu(_:)))
-        history.state = isHistoryVisible() ? .on : .off
-        history.isEnabled = onToggleHistory != nil
-        menu.addItem(history)
+        let paneItems = paneMenuItems()
+        if paneItems.isEmpty {
+            let files = makeItem(String(localized: "Reveal in Files"), #selector(revealFilesFromMenu(_:)))
+            files.isEnabled = onRevealFiles != nil
+            menu.addItem(files)
+        } else {
+            for command in paneItems { menu.addItem(makePaneItem(command)) }
+        }
         return menu
+    }
+
+    /// Keep native menu items targeted at this terminal so AppKit's plugin filter
+    /// and the selection-context-menu path retain the same command model.
+    private func makePaneItem(_ command: FamilyMenuItem) -> NSMenuItem {
+        if command.isSeparator { return .separator() }
+        let item = makeItem(command.title, #selector(performPaneAction(_:)))
+        item.isEnabled = command.enabled
+        item.state = command.checked ? .on : .off
+        item.keyEquivalent = command.key
+        item.keyEquivalentModifierMask = command.modifiers
+        item.representedObject = command
+        if !command.children.isEmpty {
+            let submenu = NSMenu(title: command.title)
+            submenu.autoenablesItems = false
+            submenu.allowsContextMenuPlugIns = false
+            submenu.delegate = self
+            for child in command.children { submenu.addItem(makePaneItem(child)) }
+            item.submenu = submenu
+        }
+        return item
+    }
+
+    @objc private func performPaneAction(_ sender: NSMenuItem) {
+        guard let command = sender.representedObject as? FamilyMenuItem, command.enabled else { return }
+        command.action()
     }
 
     private func makeItem(_ title: String, _ action: Selector) -> NSMenuItem {
@@ -997,7 +953,6 @@ final class SSHTerminalNSView: AppTerminalView {
     }
 
     @objc private func revealFilesFromMenu(_: Any?) { onRevealFiles?() }
-    @objc private func toggleHistoryFromMenu(_: Any?) { onToggleHistory?() }
 
     @objc private func splitRightFromMenu(_: Any?) {
         onSplit?(.right)
@@ -1121,6 +1076,12 @@ final class SSHTerminalNSView: AppTerminalView {
     }
 }
 
+extension SSHTerminalNSView: FamilyModalFocusRestoring {
+    var canRestoreModalFocus: Bool {
+        !isHiddenOrHasHiddenAncestor && (superview as? TerminalHostView)?.canFocus() != false
+    }
+}
+
 private extension NSEvent {
     func addingShiftModifier() -> NSEvent {
         NSEvent.mouseEvent(
@@ -1211,13 +1172,83 @@ final class TerminalLinkBanner: NSView {
 /// destroy containers freely; the terminal inside is only detached, never terminated here.
 final class TerminalHostView: NSView {
     var sessionID: String?
+    /// Read the live selection when the deferred request runs, before SwiftUI has
+    /// necessarily updated every other pane's representable.
+    var canFocus: () -> Bool = { true }
+    private var isFocusTarget = false
+    private var focusPending = false
+    private var focusScheduled = false
+
+    func setFocusTarget(_ selected: Bool) {
+        if selected && !isFocusTarget { focusPending = true }
+        isFocusTarget = selected
+        if !selected { focusPending = false }
+        scheduleFocus()
+    }
+
+    func requestFocus() {
+        guard isFocusTarget else { return }
+        focusPending = true
+        // Registry calls this outside SwiftUI updates. Preserve its queue ordering
+        // for commands such as Find that act on the newly focused terminal next.
+        fulfillFocus()
+        scheduleFocus()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        let center = NotificationCenter.default
+        center.removeObserver(self)
+        if let window {
+            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didEndSheetNotification,
+                         FamilyModalPresentation.didCloseNotification] {
+                center.addObserver(self, selector: #selector(focusOpportunity), name: name, object: window)
+            }
+            if isFocusTarget { focusPending = true }
+        }
+        scheduleFocus()
+    }
+
+    override func layout() {
+        super.layout()
+        scheduleFocus()
+    }
+
+    @objc private func focusOpportunity(_ notification: Notification) { scheduleFocus() }
+
+    private func scheduleFocus() {
+        guard focusPending, !focusScheduled else { return }
+        focusScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.focusScheduled = false
+            self.fulfillFocus()
+        }
+    }
+
+    private func fulfillFocus() {
+        guard focusPending, isFocusTarget else { return }
+        guard canFocus() else { focusPending = false; return }
+        guard !isHiddenOrHasHiddenAncestor, bounds.width > 0, bounds.height > 0,
+              let window, window.isKeyWindow, window.attachedSheet == nil,
+              window.childWindows?.contains(where: { $0 is FamilyModalWindow && $0.isVisible }) != true,
+              let terminal = subviews.first(where: { $0 is SSHTerminalNSView }) as? SSHTerminalNSView else { return }
+        // Consume before onFocus publishes model changes. Later layout/theme/output
+        // updates must leave deliberate focus in Find, Rename, or a file input alone.
+        focusPending = false
+        if window.firstResponder !== terminal, !window.makeFirstResponder(terminal) {
+            focusPending = true
+        }
+    }
 
     /// SwiftUI opacity/accessibility modifiers do not consistently hide an embedded
-    /// AppKit history text view. Hide the native subtree without detaching it or
+    /// AppKit terminal view. Hide the native subtree without detaching it or
     /// changing its last layout size, so the same terminal and process stay alive.
     func setPresented(_ presented: Bool) {
         isHidden = !presented
         setAccessibilityHidden(!presented)
+        if !presented { focusPending = false }
+        scheduleFocus()
     }
 
     func attach(_ terminal: SSHTerminalNSView) {
@@ -1226,6 +1257,7 @@ final class TerminalHostView: NSView {
         terminal.frame = bounds
         terminal.autoresizingMask = [.width, .height]
         addSubview(terminal)
+        scheduleFocus()
     }
 
     func detach(_ terminal: SSHTerminalNSView) {
@@ -1244,21 +1276,24 @@ struct SSHTerminalView: NSViewRepresentable {
     var remoteDirectory: String? = nil
     var environment: [String]
     var dark: Bool
+    var restoration: TerminalRestoration? = nil
     var isPresented: Bool = true
-    /// Only the window's selected pane grabs the keyboard when its view is first made. Restoring
-    /// several terminals at once must not hand focus to whichever finished last.
-    var focusesOnCreate: Bool = true
+    /// Selection is an ongoing focus intent, including views mounted after the open action.
+    var isSelected: Bool = true
+    var canFocus: () -> Bool = { true }
     /// Asked once when the process first starts. Its text goes to the pty, where it waits
     /// until the shell reads it, as if typed ahead.
     var takeInitialInput: () -> String? = { nil }
+    /// Consumed only for a new SSH terminal. Never enters its stdin or its reconnect launch.
+    var takeRemoteStartupCommand: () -> String? = { nil }
+    var takeLocalStartupCommand: () -> String? = { nil }
     /// Exit code and seconds the process lived. Fires again after every in-place reconnect.
     var onExit: (Int32?, TimeInterval) -> Void
     var onClose: () -> Void = {}
     var onFocus: () -> Void = {}
     var onSplit: (SplitEdge) -> Void = { _ in }
     var onRevealFiles: () -> Void = {}
-    var onToggleHistory: () -> Void = {}
-    var isHistoryVisible: () -> Bool = { false }
+    var paneMenuItems: () -> [FamilyMenuItem] = { [] }
     var onFileDrop: (([URL], DropZone) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -1291,7 +1326,9 @@ struct SSHTerminalView: NSViewRepresentable {
     func makeNSView(context: Context) -> TerminalHostView {
         let container = TerminalHostView(frame: .zero)
         container.sessionID = sessionID
+        container.canFocus = canFocus
         container.setPresented(isPresented)
+        container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
             return container
         }
@@ -1299,18 +1336,13 @@ struct SSHTerminalView: NSViewRepresentable {
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
         applyAppearance(terminal, dark: dark)
-        if focusesOnCreate && isPresented {
-            DispatchQueue.main.async { [weak terminal, weak container] in
-                guard let terminal, let container, !container.isHiddenOrHasHiddenAncestor,
-                      let window = terminal.window else { return }
-                window.makeFirstResponder(terminal)
-            }
-        }
         return container
     }
 
     func updateNSView(_ container: TerminalHostView, context: Context) {
+        container.canFocus = canFocus
         container.setPresented(isPresented)
+        container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
             return
         }
@@ -1332,17 +1364,29 @@ struct SSHTerminalView: NSViewRepresentable {
 
     /// A brand-new terminal with its own process. Only called once per session.
     private func makeTerminal() -> SSHTerminalNSView {
-        let host = TerminalProcessHost(historyKey: TerminalHistoryStore.key(for: sessionID))
+        let host = TerminalProcessHost()
         let view = SSHTerminalNSView(frame: .zero)
         view.sessionID = sessionID
         view.processHost = host
-        host.prepareHistory { [weak view] snapshot in view?.restoreHistory(snapshot) }
         view.eventRelay.terminal = view
         view.delegate = view.eventRelay
         view.registerForDraggedTypes(SSHTerminalNSView.dropTypes)
         view.controller = GhosttyRuntime.controller
         view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
-        host.start(Self.launch(alias: alias, directory: directory, environment: environment, remoteDirectory: remoteDirectory))
+        let launch = Self.launch(alias: alias, directory: directory, environment: environment, remoteDirectory: remoteDirectory)
+        var initialLaunch: TerminalLaunch?
+        if !alias.isEmpty, let command = takeRemoteStartupCommand() {
+            var first = launch
+            first.args = SSHCommand.arguments(alias: alias, remoteDirectory: remoteDirectory, startupCommand: command)
+            initialLaunch = first
+        }
+        if alias.isEmpty, let command = takeLocalStartupCommand() {
+            var first = launch
+            first.executable = "/bin/sh"
+            first.args = ["-c", command]
+            initialLaunch = first
+        }
+        host.start(launch, initialLaunch: initialLaunch, restoration: restoration)
         if let input = takeInitialInput() {
             host.sendInitialInput(input)
         }
@@ -1357,14 +1401,12 @@ struct SSHTerminalView: NSViewRepresentable {
         coordinator.onFocus = onFocus
         coordinator.onSplit = onSplit
         coordinator.onRevealFiles = onRevealFiles
-        coordinator.onToggleHistory = onToggleHistory
-        coordinator.isHistoryVisible = isHistoryVisible
+        coordinator.paneMenuItems = paneMenuItems
         terminal.onFocus = { [weak coordinator] in coordinator?.onFocus?() }
         terminal.onClose = { [weak coordinator] in coordinator?.onClose?() }
         terminal.onSplit = { [weak coordinator] edge in coordinator?.onSplit?(edge) }
         terminal.onRevealFiles = { [weak coordinator] in coordinator?.onRevealFiles?() }
-        terminal.onToggleHistory = { [weak coordinator] in coordinator?.onToggleHistory?() }
-        terminal.isHistoryVisible = { [weak coordinator] in coordinator?.isHistoryVisible?() ?? false }
+        terminal.paneMenuItems = { [weak coordinator] in coordinator?.paneMenuItems?() ?? [] }
         coordinator.onFileDrop = onFileDrop
         terminal.onFileDrop = { [weak coordinator] urls, zone in coordinator?.onFileDrop?(urls, zone) }
         terminal.dropIsRemote = !alias.isEmpty
@@ -1383,8 +1425,7 @@ struct SSHTerminalView: NSViewRepresentable {
         var onFocus: (() -> Void)?
         var onSplit: ((SplitEdge) -> Void)?
         var onRevealFiles: (() -> Void)?
-        var onToggleHistory: (() -> Void)?
-        var isHistoryVisible: (() -> Bool)?
+        var paneMenuItems: (() -> [FamilyMenuItem])?
         var onFileDrop: (([URL], DropZone) -> Void)?
         weak var terminal: SSHTerminalNSView?
     }

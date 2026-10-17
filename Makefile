@@ -1,4 +1,4 @@
-.PHONY: gen build install run test test-appearance clean
+.PHONY: gen build install run test test-appearance test-terminal-restoration clean
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -27,6 +27,10 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test:
+	swiftc -o /tmp/oneagent-agent-launch-test Sources/GooseAgent/AgentLaunch.swift Sources/GooseAgent/SSHLaunch.swift Tests/AgentLaunchTests.swift
+	/tmp/oneagent-agent-launch-test
+	swiftc -parse-as-library -o /tmp/oneagent-agent-literal-editor-test Sources/GooseAgent/AgentLiteralEditor.swift Tests/AgentLiteralEditorTests.swift
+	/tmp/oneagent-agent-literal-editor-test
 	swiftc -parse-as-library -o /tmp/oneagent-family-dialog-tests Sources/GooseAgent/Theme.swift Sources/GooseAgent/FocusRing.swift Sources/GooseAgent/SheetLayout.swift Sources/GooseAgent/FamilyModal.swift Sources/GooseAgent/FamilyAlert.swift Tests/FamilyDialogTests.swift
 	/tmp/oneagent-family-dialog-tests
 	swiftc -parse-as-library -o /tmp/oneagent-family-menu-test Sources/GooseAgent/Theme.swift Sources/GooseAgent/FamilyMenu.swift Tests/FamilyMenuTests.swift
@@ -70,12 +74,15 @@ test:
 	swiftc -o /tmp/oneagent-ssh-launch-test Sources/GooseAgent/SSHLaunch.swift Tests/SSHLaunchTests.swift
 	/tmp/oneagent-ssh-launch-test
 	./scripts/test-file-safety.sh
-	bash scripts/test-terminal-history.sh
 	bash scripts/test-upload-check.sh
 
 # Uses the production Debug module. Run make build first.
 test-appearance:
 	bash scripts/test-family-appearance.sh
+
+# Uses the production Debug module and isolated native terminal surfaces. Run make build first.
+test-terminal-restoration:
+	bash scripts/test-terminal-restoration.sh
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

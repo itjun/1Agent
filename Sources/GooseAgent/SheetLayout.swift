@@ -6,6 +6,8 @@ enum SheetLayout {
     static let dialogInset: CGFloat = 32
     static let search: CGFloat = 520
     static let sessionBodyHeight: CGFloat = 580
+    static let commandPaletteHeight: CGFloat = 440
+    static let agentLauncherHeight: CGFloat = 580
     static let settings: CGFloat = 880
     static let settingsBodyHeight: CGFloat = 720
     /// Preview of what "Import from Ghostty" would change, shown over Settings.

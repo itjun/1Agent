@@ -6,8 +6,8 @@ struct WorkspacePresentationTests {
     static func main() throws {
         let fresh = WorkspacePresentation.restored(nil, legacyFiles: false)
         precondition(!fresh.filesVisible && fresh.filesWidth == 360)
-        precondition(!fresh.sidebarCollapsed && fresh.filesWorkspace,
-                     "new windows start with the sidebar and a full file workspace")
+        precondition(fresh.sidebarCollapsed && fresh.filesWorkspace,
+                     "new windows start with a hidden sidebar and a full file workspace")
         let legacy = WorkspacePresentation.restored(nil, legacyFiles: true)
         precondition(legacy.filesVisible && legacy.filesWorkspace && !legacy.filesExpanded,
                      "legacy Files becomes a full file workspace")

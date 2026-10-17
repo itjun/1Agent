@@ -328,7 +328,6 @@ final class TerminalSwitcher: ObservableObject {
         let panes = row.leafIDs.compactMap { id -> SwitcherPane? in
             guard let leaf = model.tabs.first(where: { $0.id == id }) else { return nil }
             let text = SSHTerminalRegistry.viewportText(for: leaf.sessionID)
-                ?? SSHTerminalRegistry.history(for: leaf.sessionID)?.lastScreenText
             var lines = text?.components(separatedBy: "\n")
             while let last = lines?.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
                 lines?.removeLast()

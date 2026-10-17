@@ -94,18 +94,28 @@ private struct FilesWorkspaceRoutingTests {
         defaults.set(try JSONEncoder().encode(transferHistory), forKey: FileTransferQueue.storageKey)
         let model = AppModel()
         let state = model.mainWindow
+        state.presentation.sidebarCollapsed = false // This fixture starts by exercising expanded navigation.
         try require(MainWindowManager.shared.window(for: state) == nil, "The test must not mount the production window")
 
         // Exercise the real RootView: a passing model-only test cannot catch missing chrome.
-        let chromeWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
-                                    styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
-        chromeWindow.contentView = NSHostingView(rootView: RootView(model: model, window: state))
+        let chromeController = NSHostingController(rootView: RootView(model: model, window: state))
+        let chromeWindow = NSWindow(contentViewController: chromeController)
+        chromeWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        chromeWindow.titlebarAppearsTransparent = true
+        chromeWindow.titleVisibility = .hidden
+        chromeWindow.setContentSize(NSSize(width: 1440, height: 900))
         chromeWindow.orderFront(nil)
         try await settle()
         chromeWindow.contentView?.layoutSubtreeIfNeeded()
         let labels = accessibilityLabels(chromeWindow.contentView!)
         try require(labels.contains(String(localized: "Terminal")) && labels.contains(String(localized: "Files")),
                     "The real SwiftUI toolbar must be reachable through the fixture's accessibility tree")
+        if environment["ONEAGENT_TEST_COMPACT_HEADER"] == "1" {
+            try await verifyCompactHeaderGeometry(model: model, state: state, window: chromeWindow)
+            chromeWindow.orderOut(nil)
+            chromeWindow.contentView = nil
+            return
+        }
         try verifySingleFilesEntry(chromeWindow, visible: false)
         try await verifyFamilyFolderPicker(window: chromeWindow, home: home)
         for layout in [FileWorkspaceLayout.belowTerminal, .sideBySide, .belowTerminal] {
@@ -299,7 +309,7 @@ private struct FilesWorkspaceRoutingTests {
         defaults.removePersistentDomain(forName: suiteName)
         print("ok: independent Files navigation; explicit cwd reveal; host picker without terminals; hidden-terminal focus guard")
         print("ok: one real RootView Files entry and one file page; legacy dock normalization; paths and sessions preserved")
-        print("ok: restoration leaves live input available; explicit history follows selected session; switching panels/pages retains native terminal identity and size")
+        print("ok: terminal menus omit history; file reveal targets its pane; switching panels/pages retains native terminal identity and size")
         print("ok: modal host accessibility connects the selection; Files browsing creates no terminal")
         print("ok: isolated defaults/home; fake remote responses; real SSH and network denied by sandbox")
     }
@@ -465,34 +475,11 @@ private struct FilesWorkspaceRoutingTests {
 
     @MainActor
     private static func verifyTerminalAccessibility(model: AppModel, state: WindowState, window: NSWindow) async throws {
-        let emptyHistoryTab = model.tabs[0]
-        try require(SSHTerminalRegistry.history(for: emptyHistoryTab.sessionID) == nil,
-                    "The empty-history fixture must have no saved archive")
-        model.hideFiles(in: state)
-        model.toggleTerminalHistory(for: emptyHistoryTab.id, in: state)
-        window.contentView = NSHostingView(rootView: RootView(model: model, window: state))
-        window.orderFront(nil)
-        try await settle()
-        let emptyElements = accessibilityElements(window.contentView!)
-        guard let emptyClose = emptyElements.first(where: {
-            accessibilityValue($0, "accessibilityIdentifier") as? String == "terminal.history.close"
-        }) else { throw TestFailure(description: "Empty history must expose its own close button") }
-        try require(accessibilityLabels(window.contentView!).contains(String(localized: "No Previous History")),
-                    "A terminal without an archive shows the empty-history message")
-        try require(accessibilityBool(emptyClose, "accessibilityPerformPress"), "Empty history close must be actionable")
-        try await settle()
-        try require(!state.historyVisible, "Empty history closes without changing sessions")
-
-        // Reuse the process-free registry views above. The real Canvas and AppKit
-        // history overlay reproduce the accessibility subtree that leaked offscreen.
+        // Reuse process-free views while checking the production Canvas and menus.
         var terminals: [UUID: SSHTerminalNSView] = [:]
-        let markers = Dictionary(uniqueKeysWithValues: model.tabs.map { ($0.id, "accessibility-fixture-\($0.id)") })
         for tab in model.tabs {
             let terminal = SSHTerminalRegistry.view(for: tab.sessionID) { SSHTerminalNSView(frame: .zero) }!
             try require(terminal.processHost == nil, "Accessibility fixture must not start a terminal process")
-            let marker = markers[tab.id]!
-            terminal.restoreHistory(TerminalHistorySnapshot(mainText: marker, lastScreenText: marker,
-                                                            mainViewportTop: 0, visibleRows: 1, wasAlternateScreen: false))
             terminals[tab.id] = terminal
         }
         model.hideFiles(in: state)
@@ -503,41 +490,20 @@ private struct FilesWorkspaceRoutingTests {
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
 
-        func exposedMarkers() -> Set<String> {
-            let values = accessibilityElements(window.contentView!).compactMap { element -> String? in
-                let value = accessibilityValue(element, "accessibilityValue")
-                return (value as? String) ?? (value as? NSAttributedString)?.string
-            }
-            return Set(markers.values.filter { marker in values.contains(where: { $0.contains(marker) }) })
-        }
-        try require(exposedMarkers().isEmpty, "Restoration must not cover the live terminal with history")
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
         try require(abs(terminalRect.maxY - rootRect.maxY) < 1,
                     "A single terminal starts at the content top without a global header")
-        let historyMenu = terminals[second.id]!.selectionContextMenu()
-        guard let history = historyMenu.items.first(where: { $0.title == String(localized: "History") }) else {
-            throw TestFailure(description: "Terminal context menu must contain history")
+        try require(terminals.values.allSatisfy { terminal in
+            !terminal.selectionContextMenu().items.contains { $0.title == String(localized: "History") }
+        }, "No terminal context menu may expose the removed history feature")
+        let identifiers = accessibilityElements(window.contentView!).compactMap {
+            accessibilityValue($0, "accessibilityIdentifier") as? String
         }
-        try require(history.isEnabled && history.state == .off, "History starts unchecked")
-        try require(NSApp.sendAction(history.action!, to: history.target, from: history), "Native history selector must dispatch")
+        try require(!identifiers.contains { $0.hasPrefix("terminal.paneActions.") || $0.hasPrefix("terminal.history") },
+                    "Terminal headers and workspace must not expose ellipsis or history controls")
+        model.selectOnly(second.id, in: state)
         try await settle()
-        try require(state.selectedTabID == second.id && state.historyVisible,
-                    "The history action selects its own terminal even when another pane was active")
-        try require(terminals[second.id]!.selectionContextMenu().items.first(where: { $0.title == String(localized: "History") })?.state == .on,
-                    "The native history menu reflects the current drawer state")
-        func historyClose(_ view: NSView) -> NSButton? {
-            if let button = view as? NSButton, button.accessibilityIdentifier() == "terminal.history.close" { return button }
-            return view.subviews.compactMap(historyClose).first
-        }
-        try await eventually("mount history close control") { historyClose(window.contentView!) != nil }
-        guard let closeHistory = historyClose(window.contentView!) else {
-            throw TestFailure(description: "History must have its own native close button")
-        }
-        try require(!closeHistory.isHidden && closeHistory.isEnabled, "History close button must be visible and actionable")
-        try require(NSApp.sendAction(closeHistory.action!, to: closeHistory.target, from: closeHistory), "Native history close selector must dispatch")
-        try await settle()
-        try require(!state.historyVisible, "Closing history restores terminal space")
         let filesMenu = terminals[first.id]!.selectionContextMenu()
         guard let reveal = filesMenu.items.first(where: { $0.title == String(localized: "Reveal in Files") }) else {
             throw TestFailure(description: "Terminal context menu must contain file reveal")
@@ -550,29 +516,21 @@ private struct FilesWorkspaceRoutingTests {
         model.hideFiles(in: state)
         model.selectOnly(first.id, in: state)
         try await settle()
-        try require(terminals.values.allSatisfy { !$0.isShowingHistory }, "Restoring archives must keep terminal input available")
-        state.historyVisible = true
-        try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
-        try require(exposedMarkers() == [markers[first.id]!], "Explicit history drawer must show only the focused session")
         let firstSize = terminals[first.id]!.bounds.size
         try require(firstSize.width > 0 && firstSize.height > 0, "The selected native terminal must have a real layout size")
         model.selectOnly(second.id, in: state)
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
-        try require(exposedMarkers() == [markers[second.id]!], "Panel selection must swap the accessible native history")
         try require(terminals[first.id]!.bounds.size == firstSize, "A parked terminal must retain its prior dimensions")
         model.selectFilesLayout(.sideBySide, in: state)
         try await settle()
-        try require(exposedMarkers().isEmpty, "The Files page must expose no terminal history")
         model.hideFiles(in: state)
         try await settle()
-        try require(exposedMarkers() == [markers[second.id]!], "Returning to Terminal must expose only its selected history")
         for tab in model.tabs {
             let current = SSHTerminalRegistry.view(for: tab.sessionID) { preconditionFailure("A terminal was recreated") }
             try require(current === terminals[tab.id], "Page and panel switches must preserve every native terminal")
         }
-        state.historyVisible = false
         window.orderOut(nil)
         window.contentView = nil
     }
@@ -1211,6 +1169,10 @@ private struct FilesWorkspaceRoutingTests {
 
     @MainActor
     private static func verifyCompactHeaderGeometry(model: AppModel, state: WindowState, window: NSWindow) async throws {
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKey()
+        try await eventually("activate compact header fixture") { window.isKeyWindow && NSApp.isActive }
         func element(_ id: String) -> NSObject? {
             accessibilityElements(window.contentView!).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
         }
@@ -1222,6 +1184,12 @@ private struct FilesWorkspaceRoutingTests {
         func split(_ view: NSView) -> NSSplitView? {
             (view as? NSSplitView) ?? view.subviews.compactMap(split).first
         }
+        func verifyShortcutOnlyActions() throws {
+            for id in ["workspace.commandPalette", "workspace.switchSection",
+                       "workspace.launchAgent", "hosts.open"] {
+                try require(element(id) == nil, "Shortcut-only action must not expose a chrome button: \(id)")
+            }
+        }
         let savedWidth = UserDefaults.standard.double(forKey: SidebarLayout.widthKey)
         defer { UserDefaults.standard.set(savedWidth, forKey: SidebarLayout.widthKey) }
         UserDefaults.standard.set(420.0, forKey: SidebarLayout.widthKey)
@@ -1230,20 +1198,19 @@ private struct FilesWorkspaceRoutingTests {
         state.presentation.sidebarCollapsed = true
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
-        guard let restore = element("workspace.revealSidebar") else {
-            throw TestFailure(description: "A collapsed sidebar must expose its restore button")
-        }
+        try verifyShortcutOnlyActions()
         let rootTop = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil)).maxY
-        guard let controls = element("workspace.windowControls"), let local = element("files.localLocation") else {
+        guard let controls = element("workspace.titlebar"), let local = element("files.localLocation") else {
             throw TestFailure(description: "Collapsed chrome and local title must be accessible")
         }
-        try require(abs(frame(controls).height - 32) < 1, "Only a 32-point window control strip remains when collapsed")
-        try require(frame(local).maxY <= rootTop - 32 + 1, "Window controls cannot cover file headers")
-        try require(accessibilityBool(restore, "accessibilityPerformPress"), "Sidebar restore must be actionable")
+        try require(abs(frame(controls).height - 32) < 1, "Only a 32-point window drag strip remains when collapsed")
+        try require(frame(local).maxY <= rootTop - 32 + 1, "The drag strip cannot cover file headers")
+        let collapsedFileY = frame(local).midY
+        model.toggleSidebar(in: state)
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
-        try require(element("workspace.revealSidebar") == nil && !state.presentation.sidebarCollapsed,
-                    "Restoring the sidebar must remove the control strip even in a narrow window")
+        try require(element("workspace.titlebar") != nil && !state.presentation.sidebarCollapsed,
+                    "Restoring the sidebar retains the same title band even in a narrow window")
         guard let native = split(window.contentView!), let title = element("files.localLocation") else {
             throw TestFailure(description: "Restored native sidebar and file header are required")
         }
@@ -1251,8 +1218,10 @@ private struct FilesWorkspaceRoutingTests {
                     "Restored sidebar temporarily fits beside two file panes")
         try require(UserDefaults.standard.double(forKey: SidebarLayout.widthKey) == 420,
                     "Narrow recovery must preserve the saved sidebar width")
-        try require(rootTop - frame(title).midY < 32 && frame(title).maxY <= rootTop,
-                    "File labels start in the pane header without a global title row")
+        try require(abs(frame(title).midY - collapsedFileY) < 1,
+                    "Expanding the sidebar must not shift file headers vertically")
+        try require(abs(frame(element("workspace.titlebar")!).height - 32) < 1,
+                    "Expanded and collapsed states use the same title band height")
         try require(FileBrowserLayout.tabStripHeight == 40 && Theme.PaneStyle.headerHeight == 28,
                     "Files match the 1Panel header while split terminals retain their height")
         window.setContentSize(NSSize(width: 1440, height: 900))
@@ -1260,6 +1229,34 @@ private struct FilesWorkspaceRoutingTests {
         window.contentView?.layoutSubtreeIfNeeded()
         try require(abs(native.arrangedSubviews[0].frame.width - 420) < 2,
                     "A wider window restores the preferred sidebar width")
+        try verifyShortcutOnlyActions()
+        let detailFrame = native.arrangedSubviews[1].frame
+        for _ in 0..<2 {
+            model.toggleSidebar(in: state)
+            try await settle()
+            try verifyShortcutOnlyActions()
+            try require(state.presentation.sidebarCollapsed, "The sidebar action must collapse the sidebar")
+            try require(abs(native.arrangedSubviews[1].frame.height - detailFrame.height) < 1 &&
+                        abs(native.arrangedSubviews[1].frame.minY - detailFrame.minY) < 1,
+                        "Collapsing changes width only, never the content height or vertical origin")
+            model.toggleSection(in: state)
+            try await settle()
+            try require(!state.presentation.fullFilesWorkspace, "Shortcut actions must switch to Terminal")
+            model.toggleSection(in: state)
+            try await settle()
+            try require(state.presentation.fullFilesWorkspace, "Shortcut actions must switch back to Files")
+            model.openAgentLauncher(in: state)
+            try require(state.agentLauncherPresented, "Shortcut actions must open the Agent launcher")
+            state.agentLauncherPresented = false
+            try await settle()
+            model.openCommandPalette(in: state)
+            try require(state.commandPalettePresented, "Shortcut actions must open the command palette")
+            state.commandPalettePresented = false
+            try await settle()
+            model.toggleSidebar(in: state)
+            try require(!state.presentation.sidebarCollapsed, "Shortcut actions must restore the sidebar repeatedly")
+        }
+        print("ok: stable title band preserves content Y, geometry and actions across repeated collapse and restore")
     }
 
     @MainActor

@@ -86,9 +86,14 @@ enum SSHCommand {
     /// The keepalive is fixed on purpose: a dead link is noticed within 90 seconds and then reconnected.
     /// Command-line `-o` wins over `~/.ssh/config`, so these two values always apply.
     /// The connection is shared with the file pane and uploads, which never ask for a password.
-    static func arguments(alias: String, remoteDirectory: String? = nil) -> [String] {
+    static func arguments(alias: String, remoteDirectory: String? = nil, startupCommand: String? = nil) -> [String] {
         var options = ["-tt", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3"]
             + RemoteShell.multiplexOptions()
+        if let startupCommand {
+            // An explicit Agent launch uses this SSH connection's authenticated command
+            // channel. Identity, proxy, hostname and all remaining user config still apply.
+            return options + ["-o", "RemoteCommand=none", "--", alias, startupCommand]
+        }
         guard let remoteDirectory, !remoteDirectory.isEmpty else { return options + ["--", alias] }
         // A directory restore is the explicit launch command. A saved RemoteCommand must not
         // run before it or conflict with it; this changes this invocation, never ~/.ssh/config.

@@ -19,6 +19,10 @@ final class WindowState: ObservableObject, Identifiable {
     /// Which area owns keyboard commands; both areas may be visible.
     @Published var section: AppSection = .terminals
     @Published var presentation = WorkspacePresentation()
+    /// An explicit reveal wins over automatic narrow-window collapse until hidden again.
+    @Published var sidebarRevealed = false
+    @Published var commandPalettePresented = false
+    @Published var agentLauncherPresented = false
     /// The session that last opened Files. Closing the dock does not reset its browsing state.
     var filesSourceTabID: UUID?
     /// Filtering is transient and must not change shortcut positions or saved ordering.
@@ -31,7 +35,6 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var draggingBlock: SidebarBlock?
     @Published var dropHighlight: TabDropHighlight?
     @Published var hostPickerPresented = false
-    @Published var historyVisible = false
     /// What a host chosen in the picker opens. Back to `.terminal` whenever the picker closes.
     @Published var hostPickerPurpose: HostPickerPurpose = .terminal
     /// Where a sidebar row dragged over the Files area or the Files button would land.

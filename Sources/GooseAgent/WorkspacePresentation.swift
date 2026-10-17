@@ -18,7 +18,7 @@ struct WorkspacePresentation: Codable, Equatable {
     var filesHeightRatio: Double = WorkspaceChromeLayout.defaultFilesHeightRatio
     // Retained so older saved layouts and width-based callers can still round-trip.
     var filesWidth: Double = WorkspaceChromeLayout.defaultFilesWidth
-    var sidebarCollapsed = false
+    var sidebarCollapsed = true
     var collapsedWorkspaces: Set<UUID> = []
 
     init() {}
@@ -42,13 +42,13 @@ struct WorkspacePresentation: Codable, Equatable {
             try values.decodeIfPresent(Double.self, forKey: .filesHeightRatio) ?? WorkspaceChromeLayout.defaultFilesHeightRatio)
         filesWidth = WorkspaceChromeLayout.storedFilesWidth(
             try values.decodeIfPresent(Double.self, forKey: .filesWidth) ?? WorkspaceChromeLayout.defaultFilesWidth)
-        sidebarCollapsed = try values.decodeIfPresent(Bool.self, forKey: .sidebarCollapsed) ?? false
+        sidebarCollapsed = try values.decodeIfPresent(Bool.self, forKey: .sidebarCollapsed) ?? true
         collapsedWorkspaces = try values.decodeIfPresent(Set<UUID>.self, forKey: .collapsedWorkspaces) ?? []
         let savedVersion = try values.decodeIfPresent(Int.self, forKey: .presentationVersion) ?? 0
         if savedVersion < 2 {
             filesLayout = .sideBySide
             filesExpanded = false
-            sidebarCollapsed = false
+            if values.contains(.sidebarCollapsed) { sidebarCollapsed = false }
         }
         // The redesigned Files page is independent; old dock placement is migrated, not exposed.
         if savedVersion < 4 { filesLayout = .sideBySide; filesExpanded = false }

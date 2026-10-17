@@ -10,7 +10,7 @@ enum KeyboardShortcutsTests {
 
         storageSemantics(store)
         legacyData(store)
-        removedToggleSidebar(store)
+        restoredToggleSidebar(store)
         conflicts()
         reservedKeys()
         modifierRule()
@@ -68,9 +68,9 @@ enum KeyboardShortcutsTests {
         AppShortcuts.resetAll(store: store)
     }
 
-    /// The sidebar can no longer be hidden. A stored "toggleSidebar" binding must not cost the others.
-    static func removedToggleSidebar(_ store: UserDefaults) {
-        expect(AppShortcutID(rawValue: "toggleSidebar") == nil, "toggle sidebar is no longer a shortcut")
+    /// Restoring the action must honor a previously saved binding without changing other keys.
+    static func restoredToggleSidebar(_ store: UserDefaults) {
+        expect(AppShortcutID(rawValue: "toggleSidebar") == .toggleSidebar, "sidebar action retains its stored identity")
         let json = #"{"toggleSidebar":{"key":"b","modifierRaw":9},"clearScreen":{"key":"l","modifierRaw":9},"find":{"key":"","modifierRaw":0}}"#
         store.set(Data(json.utf8), forKey: AppShortcuts.storageKey)
         expect(AppShortcuts.chord(for: .clearScreen, store: store) == KeyChord(key: "l", modifiers: [.command, .control]), "custom binding next to the old entry survives")
@@ -80,7 +80,8 @@ enum KeyboardShortcutsTests {
         let bindings = AppShortcuts.bindings(store: store)
         expect(bindings.count == AppShortcutID.allCases.count, "bindings list only known shortcuts")
         let oldSidebarChord = KeyChord(key: "b", modifiers: [.command, .control])
-        expect(AppShortcuts.check(oldSidebarChord, for: .selectAll, bindings: bindings) == .accepted, "the old sidebar chord is free again")
+        expect(AppShortcuts.chord(for: .toggleSidebar, store: store) == oldSidebarChord, "custom sidebar binding is restored")
+        expect(AppShortcuts.check(oldSidebarChord, for: .selectAll, bindings: bindings) == .conflict(.toggleSidebar), "restored action reserves its custom chord")
         let oldDefault = KeyChord(key: "s", modifiers: [.command, .control])
         expect(AppShortcuts.check(oldDefault, for: .selectAll, bindings: bindings) == .accepted, "⌃⌘S is free again")
 
@@ -91,6 +92,9 @@ enum KeyboardShortcutsTests {
     }
 
     static func conflicts() {
+        expect(AppShortcutID.toggleSidebar.defaultChord == KeyChord(key: "b", modifiers: .command), "sidebar toggles with Command-B")
+        expect(AppShortcutID.settings.defaultChord == KeyChord(key: ",", modifiers: .command), "settings opens with Command-comma")
+        expect(AppShortcutID.openFileBrowser.defaultChord == KeyChord(key: "o", modifiers: [.command, .option]), "Terminal/Files keeps its independent Option-Command-O shortcut")
         var bindings: [AppShortcutID: KeyChord] = [:]
         for id in AppShortcutID.allCases {
             bindings[id] = id.defaultChord
