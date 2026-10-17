@@ -173,7 +173,7 @@ struct QuickCommandConfirmation: View {
                 .accessibilityIdentifier("quickCommand.run.confirm")
         }
         .task {
-            if captured.host == nil, captured.isLive, let id = captured.sessionID {
+            if captured.isLive, let id = captured.sessionID {
                 ready = await SSHTerminalRegistry.quickCommandReady(id)
             }
             useNewTerminal = !ready

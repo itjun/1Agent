@@ -5,24 +5,28 @@ import Foundation
 enum RemoteShellIntegration {
     struct Prepared {
         let arguments: [String]
+        let forwarding: String
+        let cancelArguments: [String]
     }
 
     static func prepare(arguments: [String], environment: [String], resources: String,
-                        token: String) -> Prepared? {
+                        socket: String, token: String) -> Prepared? {
         guard let separator = arguments.firstIndex(of: "--"), arguments.count > separator + 1 else { return nil }
         let prefix = Array(arguments[..<separator]), alias = arguments[separator + 1]
         let explicit = arguments.count > separator + 2 ? arguments[separator + 2] : nil
         // A custom RemoteCommand (e.g. a tmux attach) must not silently become a login shell.
         if explicit == nil && !hasOrdinaryShell(arguments: prefix + ["--", alias], environment: environment) { return nil }
         guard let command = bootstrap(resources: resources, token: token, startupCommand: explicit) else { return nil }
-        return Prepared(arguments: prefix + ["-o", "RemoteCommand=none", "--", alias, command])
+        let forward = socket + ":" + remoteFolder(token: token) + "/s"
+        return Prepared(arguments: prefix + ["-o", "RemoteCommand=none", "-L", forward, "--", alias, command],
+                        forwarding: forward, cancelArguments: prefix + ["-O", "cancel", "-L", forward, "--", alias])
     }
 
     static func remoteFolder(token: String) -> String { "/tmp/1a-remote-" + token }
 
     static func bootstrap(resources: String, token: String, startupCommand: String?) -> String? {
         guard UUID(uuidString: token) != nil else { return nil }
-        let files = [".zshenv", "ghostty-integration"]
+        let files = [".zshenv", "ghostty-integration", "oneagent-quick-commands"]
         var writes: [String] = []
         for name in files {
             let url = URL(fileURLWithPath: resources).appendingPathComponent("shell-integration/zsh/" + name)
@@ -40,6 +44,9 @@ enum RemoteShellIntegration {
         \(writes.joined(separator: "\n"))
         if [ "${ZDOTDIR+x}" = x ]; then export GHOSTTY_ZSH_ZDOTDIR="$ZDOTDIR"; else unset GHOSTTY_ZSH_ZDOTDIR; fi
         export ZDOTDIR="$d/shell-integration/zsh" GHOSTTY_RESOURCES_DIR="$d" GHOSTTY_SHELL_FEATURES=path
+        export ONEAGENT_QC_SOCKET="$d/s" ONEAGENT_QC_TOKEN=\(quote(token))
+        export ONEAGENT_QC_READ_TIMEOUT=5
+        unset ONEAGENT_QC_OWNER
         \(start)
         """
         return "exec /bin/sh -c " + quote(script)

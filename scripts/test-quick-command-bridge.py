@@ -9,6 +9,8 @@ import re
 import select
 import signal
 import socket
+import subprocess
+import shutil
 import tempfile
 import time
 import uuid
@@ -17,12 +19,21 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
     endpoint = folder + "/s"
     token = str(uuid.uuid4())
+    remote_bootstrap = os.environ.get("ONEAGENT_REMOTE_INTEGRATION_TEST") == "1"
+    bootstrap = None
+    if remote_bootstrap:
+        endpoint = "/tmp/1a-remote-" + token + "/s"
+        pathlib.Path(folder, ".zshrc").write_text("PS1='QC_PROMPT> '\n")
+        bootstrap = subprocess.check_output(["/tmp/oneagent-remote-shell-tests", "--bootstrap", str(ROOT / "Resources"), token], text=True).strip()
     pid, fd = pty.fork()
     if pid == 0:
         os.chdir(folder)
         env = dict(os.environ, HOME=folder, ZDOTDIR=folder, TERM="xterm-256color",
                    ONEAGENT_QC_SOCKET=endpoint, ONEAGENT_QC_TOKEN=token)
         env.pop("ONEAGENT_QC_OWNER", None)
+        if remote_bootstrap:
+            env["SHELL"] = "/bin/zsh"
+            os.execve("/bin/sh", ["sh", "-c", bootstrap], env)
         os.execve("/bin/zsh", ["zsh", "-dfi"], env)
 
     output = bytearray()
@@ -42,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
                 return
         raise AssertionError(bytes(output[-2500:]))
 
-    def request(action="query", script="", directory=os.path.realpath(folder), ident=None, lifetime=1):
+    def request(action="query", script="", directory=os.path.realpath(folder), ident=None, lifetime=1, send_delay=0):
         ident = ident or str(uuid.uuid4())
         payload = "|".join([token, ident, action, str(round(time.time() + lifetime, 3)),
                             base64.b64encode(directory.encode()).decode(), base64.b64encode(script.encode()).decode()]) + "\n"
@@ -50,6 +61,7 @@ with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
             client.settimeout(1.2)
             try:
                 client.connect(endpoint)
+                if send_delay: time.sleep(send_delay)
                 client.sendall(payload.encode())
             except (ConnectionRefusedError, BrokenPipeError):
                 return ""
@@ -62,9 +74,20 @@ with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
 
     try:
         adapter = ROOT / "Resources/shell-integration/zsh/oneagent-quick-commands"
-        os.write(fd, f"PS1='QC_PROMPT> '; source '{adapter}'\n".encode())
+        if not remote_bootstrap:
+            os.write(fd, f"PS1='QC_PROMPT> '; source '{adapter}'\n".encode())
         wait_for(lambda: os.path.exists(endpoint) and b"QC_PROMPT> " in output)
         assert request() == "ready", bytes(output[-2500:])
+        if remote_bootstrap:
+            probe = request("probe", lifetime=-3600, send_delay=0.5).split("|")
+            assert probe[0] == "ready" and abs(float(probe[1]) - time.time()) < 2, "SSH delay or clock skew broke readiness probe"
+            assert b"\x1b]7;kitty-shell-cwd://" in output, "remote login did not report its cwd"
+            child_dir = pathlib.Path(folder, "目录 with spaces")
+            child_dir.mkdir()
+            os.write(fd, f"cd '{child_dir}'\n".encode())
+            wait_for(lambda: str(child_dir).encode() + b"\x07" in output)
+            os.write(fd, f"cd '{folder}'\n".encode())
+            wait_for(lambda: request() == "ready")
         os.write(fd, b"echo preserve-this")
         drain()
         assert request() == "rejected", "pending buffer was accepted"
@@ -146,3 +169,5 @@ with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
         os.kill(pid, signal.SIGHUP)
         os.close(fd)
         os.waitpid(pid, 0)
+        if remote_bootstrap:
+            shutil.rmtree("/tmp/1a-remote-" + token, ignore_errors=True)

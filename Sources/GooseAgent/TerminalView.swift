@@ -265,8 +265,10 @@ final class TerminalProcessHost {
     private var terminated = false
     private(set) var commandBridge: LocalCommandBridge?
     private(set) var remoteWorkingDirectory: String?
+    private(set) var isRemote = false
     var onRemoteDirectory: ((String) -> Void)?
     private var remotePreparation: Task<Void, Never>?
+    private var cancelForwarding: (() -> Void)?
 
     var process: TerminalProcess { box.process }
 
@@ -334,13 +336,16 @@ final class TerminalProcessHost {
         terminated = true
         remotePreparation?.cancel()
         process.terminate()
+        cancelForwarding?(); cancelForwarding = nil
         commandBridge = nil
     }
 
     private func startProcess(_ launch: TerminalLaunch) {
         remotePreparation?.cancel()
+        cancelForwarding?(); cancelForwarding = nil
         commandBridge = nil
         remoteWorkingDirectory = nil
+        isRemote = launch.integratesRemoteShell
         let process = TerminalProcess()
         var tracker = RemoteDirectoryTracker()
         process.onOutput = { [weak self, weak process, session] data in
@@ -369,15 +374,27 @@ final class TerminalProcessHost {
                 environment = environment.filter { !$0.hasPrefix("ONEAGENT_QC_") } + commandBridge.environment
             }
         }
-        if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath {
-            let token = UUID().uuidString
+        if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath, let bridge = LocalCommandBridge(remote: true) {
             let childEnvironment = environment
             remotePreparation = Task { [weak self, weak process] in
                 let prepared = await Task.detached {
                     RemoteShellIntegration.prepare(arguments: launch.args, environment: childEnvironment,
-                                                   resources: resources, token: token)
+                                                   resources: resources, socket: bridge.socketPath, token: bridge.token)
                 }.value
                 guard !Task.isCancelled, let self, let process, self.process === process, !self.terminated else { return }
+                if let prepared {
+                    self.commandBridge = bridge
+                    self.cancelForwarding = {
+                        DispatchQueue.global().async {
+                            let cancel = Process()
+                            cancel.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+                            cancel.arguments = prepared.cancelArguments
+                            cancel.standardInput = FileHandle.nullDevice
+                            cancel.standardOutput = FileHandle.nullDevice; cancel.standardError = FileHandle.nullDevice
+                            try? cancel.run()
+                        }
+                    }
+                }
                 self.spawn(process, launch: launch, arguments: prepared?.arguments ?? launch.args, environment: childEnvironment)
             }
         } else { spawn(process, launch: launch, arguments: launch.args, environment: environment) }
@@ -473,7 +490,7 @@ enum SSHTerminalRegistry {
         guard let id = request.context.sessionID, let view = views[id], !view.hasMarkedText(),
               let host = view.processHost, host.process.shellIsForeground, let bridge = host.commandBridge,
               let directory = request.context.directory,
-              host.process.currentWorkingDirectory == directory else { throw QuickCommandError.unavailable }
+              (host.isRemote ? host.remoteWorkingDirectory : host.process.currentWorkingDirectory) == directory else { throw QuickCommandError.unavailable }
         let process = host.process, revision = host.process.commandInputRevision
         guard process.identity == request.context.processID else { throw QuickCommandError.changedTarget }
         guard await bridge.query(), views[id] === view, host.process === process, !view.hasMarkedText(),

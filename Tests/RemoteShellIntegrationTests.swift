@@ -21,14 +21,16 @@ import Foundation
         let resources = FileManager.default.currentDirectoryPath + "/Resources"
         let token = UUID().uuidString
         let launch = RemoteShellIntegration.prepare(arguments: ["-F", "/dev/null", "--", "fixture", "printf test"],
-                                                  environment: [], resources: resources, token: token)
+                                                  environment: [], resources: resources, socket: "/tmp/fixture-socket", token: token)
+        precondition(launch?.arguments.contains("-L") == true)
+        precondition(launch?.cancelArguments.contains("cancel") == true)
         precondition(launch?.arguments.last?.contains("ZDOTDIR") == true)
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("remote-config-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
         try "Host fixture\n RemoteCommand tmux attach\n".write(to: folder, atomically: true, encoding: .utf8)
         precondition(RemoteShellIntegration.prepare(arguments: ["-F", folder.path, "--", "fixture"], environment: [],
-                                                   resources: resources, token: token) == nil,
+                                                   resources: resources, socket: "/tmp/fixture-socket", token: token) == nil,
                      "explicit SSH RemoteCommand must retain its behavior")
-        print("Remote shell integration: chunked cwd, Unicode, invalid frames, shell startup and custom RemoteCommand passed")
+        print("Remote shell integration: chunked cwd, Unicode, invalid frames, launch forwarding and custom RemoteCommand passed")
     }
 }

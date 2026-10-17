@@ -1,4 +1,4 @@
-# Local, session-only ZLE bridge. Nothing is written to the user's shell configuration.
+# Session-only ZLE bridge, local or forwarded through this SSH session. Nothing is written to the user's shell configuration.
 # Nested shells must not impersonate the owned login shell's endpoint.
 [[ -n $ONEAGENT_QC_SOCKET && -n $ONEAGENT_QC_TOKEN && -z $ONEAGENT_QC_OWNER ]] || return 0
 zmodload zsh/net/socket 2>/dev/null || return 0
@@ -23,17 +23,24 @@ _oneagent_qc_request() {
     local client token request action deadline directory payload line decoded expected
     zsocket -a -t "$1" 2>/dev/null || return 0
     client=$REPLY
-    if ! IFS= read -r -t 0.3 -u "$client" line || (( ${#line} > 100000 )); then
+    if ! IFS= read -r -t ${ONEAGENT_QC_READ_TIMEOUT:-0.3} -u "$client" line || (( ${#line} > 100000 )); then
         exec {client}>&-
         return 0
     fi
     IFS='|' read -r token request action deadline directory payload <<< "$line"
     if [[ $token != $ONEAGENT_QC_TOKEN || $request != [A-Fa-f0-9-]## ||
-          $deadline != <->.<-> ]] || (( EPOCHREALTIME > deadline )); then
+          $deadline != <->.<-> ]] || { [[ $action != probe ]] && (( EPOCHREALTIME > deadline )); }; then
         exec {client}>&-
         return 0
     fi
-    if [[ $action == query ]]; then
+    if [[ $action == probe ]]; then
+        # Readiness only: return this host's clock so execution deadlines tolerate clock skew.
+        if _oneagent_qc_ready; then
+            _oneagent_qc_reply "$client" "$request|ready|$EPOCHREALTIME"
+        else
+            _oneagent_qc_reply "$client" "$request|rejected|$EPOCHREALTIME"
+        fi
+    elif [[ $action == query ]]; then
         if _oneagent_qc_ready; then
             _oneagent_qc_reply "$client" "$request|ready"
         else
@@ -41,8 +48,8 @@ _oneagent_qc_request() {
         fi
     elif [[ $action == run ]] && _oneagent_qc_ready && [[ ${_oneagent_qc_seen[(Ie)$request]} == 0 ]]; then
         # Decoding happens before the final guard; neither payload nor cwd is evaluated here.
-        decoded=$(print -rn -- "$payload" | /usr/bin/base64 -D 2>/dev/null)
-        expected=$(print -rn -- "$directory" | /usr/bin/base64 -D 2>/dev/null)
+        decoded=$(print -rn -- "$payload" | /usr/bin/base64 -d 2>/dev/null)
+        expected=$(print -rn -- "$directory" | /usr/bin/base64 -d 2>/dev/null)
         if [[ -n $decoded && ( $PWD == $expected || ${PWD:A} == $expected ) ]] && (( EPOCHREALTIME <= deadline )) && _oneagent_qc_ready; then
             _oneagent_qc_seen+=($request)
             # Execute inside the guarded widget rather than injecting PTY input.
