@@ -84,8 +84,10 @@
 		A904414E0A56E36983D165D3 /* PreviewSyntax.js in Resources */ = {isa = PBXBuildFile; fileRef = 00BF2C9913789DC6BE4D0051 /* PreviewSyntax.js */; };
 		ACE050FD0C4750DFA68F77C7 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A04B67162E2B0A44E4CF076 /* KeyboardShortcuts.swift */; };
 		AD0B5C92727259945341E0C7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 892504A66F17F43AE42EC04A /* SettingsView.swift */; };
+		AF6BF414FA5B4FD68582CB75 /* QuickCommandPasteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0465AA079B8A127DDAA44D22 /* QuickCommandPasteView.swift */; };
 		B43674A84F457C2C13E9716A /* WorkspacePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF18AD26B40C268A98044CC5 /* WorkspacePresentation.swift */; };
 		B59B42C83A80A64345CEE3CD /* goose-agent-icon-1024.png in Resources */ = {isa = PBXBuildFile; fileRef = B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */; };
+		B744A1ACD2B549995CF0049C /* QuickCommandTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0D4D2DC99D26A068742A81 /* QuickCommandTransfer.swift */; };
 		B86203866620E9ED4A6227F2 /* FamilyControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF8537478DC8E39CE11C226 /* FamilyControls.swift */; };
 		B95805B891CB9A10F703DD10 /* TextPreviewDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */; };
 		BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */; };
@@ -131,6 +133,7 @@
 		01F8B90421D84B96A4DC2D00 /* FocusRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusRing.swift; sourceTree = "<group>"; };
 		02ED72874148F6B85ACA03C5 /* ghostty-source.svg */ = {isa = PBXFileReference; path = "ghostty-source.svg"; sourceTree = "<group>"; };
 		043B43BD36E404CF638EB54F /* TerminalCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCanvas.swift; sourceTree = "<group>"; };
+		0465AA079B8A127DDAA44D22 /* QuickCommandPasteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandPasteView.swift; sourceTree = "<group>"; };
 		05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPicker.swift; sourceTree = "<group>"; };
 		079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandDrag.swift; sourceTree = "<group>"; };
 		0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettingsPage.swift; sourceTree = "<group>"; };
@@ -167,6 +170,7 @@
 		4806CBBE45B7F1353328348D /* FileTypeIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTypeIcon.swift; sourceTree = "<group>"; };
 		497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-UPSTREAM-MIT-LICENSE.txt"; sourceTree = "<group>"; };
 		49B5B6C3942BB433C4B85A1A /* CommandFinishedPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandFinishedPolicy.swift; sourceTree = "<group>"; };
+		4A0D4D2DC99D26A068742A81 /* QuickCommandTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandTransfer.swift; sourceTree = "<group>"; };
 		4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistory.swift; sourceTree = "<group>"; };
 		4D05831F5707DB53D3786F6D /* FileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystem.swift; sourceTree = "<group>"; };
 		4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenu.swift; sourceTree = "<group>"; };
@@ -395,8 +399,10 @@
 				4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */,
 				A9B18799BA36F4789180EC87 /* QuickCommandHistoryView.swift */,
 				384566BABBE38F655397C1D0 /* QuickCommandLibraryView.swift */,
+				0465AA079B8A127DDAA44D22 /* QuickCommandPasteView.swift */,
 				6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */,
 				1CD11169BC693046BBA4B666 /* QuickCommandStore.swift */,
+				4A0D4D2DC99D26A068742A81 /* QuickCommandTransfer.swift */,
 				B3DC1BA41700994472C1F669 /* ServiceProvider.swift */,
 				892504A66F17F43AE42EC04A /* SettingsView.swift */,
 				B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */,
@@ -585,8 +591,10 @@
 				ED5D2B34518AAFC3574D3EBA /* QuickCommandHistory.swift in Sources */,
 				8A9CB1C237B52349AD56633B /* QuickCommandHistoryView.swift in Sources */,
 				886D985B199BDDE9E8CC5DBA /* QuickCommandLibraryView.swift in Sources */,
+				AF6BF414FA5B4FD68582CB75 /* QuickCommandPasteView.swift in Sources */,
 				51FA7F27493E8F39148F39A6 /* QuickCommandSidebar.swift in Sources */,
 				0049A3ADBCF920705C9917A7 /* QuickCommandStore.swift in Sources */,
+				B744A1ACD2B549995CF0049C /* QuickCommandTransfer.swift in Sources */,
 				D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */,
 				68E57E62AE433E59107CCA8E /* SSHConfig.swift in Sources */,
 				402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */,

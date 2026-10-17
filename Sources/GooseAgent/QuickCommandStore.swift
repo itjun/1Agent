@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import Darwin
 
 @MainActor
 final class QuickCommandStore: ObservableObject {
@@ -32,8 +33,26 @@ final class QuickCommandStore: ObservableObject {
         _ = try QuickCommandLibrary.decode(data)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true,
                                                attributes: [.posixPermissions: 0o700])
-        try data.write(to: url, options: [.atomic])
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        // Prepare the complete private file before the commit point. Nothing fallible runs
+        // between a successful rename and publishing the new in-memory snapshot.
+        let temporary = url.deletingLastPathComponent().appendingPathComponent(".commands-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        guard FileManager.default.createFile(atPath: temporary.path, contents: nil,
+                                             attributes: [.posixPermissions: 0o600]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        let handle = try FileHandle(forWritingTo: temporary)
+        do {
+            try handle.write(contentsOf: data)
+            try handle.synchronize()
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw error
+        }
+        guard rename(temporary.path, url.path) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
         commands = next
     }
 }

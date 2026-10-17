@@ -7,6 +7,10 @@ struct QuickCommandSidebar: View {
     @ObservedObject private var store = QuickCommandStore.shared
     @Environment(\.windowChrome) private var chrome
     @State private var search = ""
+    @State private var batchSelecting = false
+    @State private var selectedIDs: Set<UUID> = []
+    @State private var pasteRequest: QuickCommandPasteRequest?
+    @State private var status: String?
     @State private var editing: QuickCommand?
     @State private var inspecting: QuickCommand?
     @State private var libraryPresented = false
@@ -27,7 +31,7 @@ struct QuickCommandSidebar: View {
     private var commands: [QuickCommand] {
         store.commands.filter { $0.matches(context) && (search.isEmpty ||
             ($0.alias + " " + $0.command + " " + $0.group).localizedCaseInsensitiveContains(search)) }
-            .sorted { $0.order == $1.order ? $0.alias < $1.alias : $0.order < $1.order }
+            .sorted(by: Self.displayOrder)
     }
     private var selectedCommand: QuickCommand? { commands.first { $0.id == selectedCommandID } }
 
@@ -50,6 +54,23 @@ struct QuickCommandSidebar: View {
         .accessibilityIdentifier("workspace.toolSidebar")
         .onChange(of: commands.map(\.id)) { _, ids in
             if let selectedCommandID, !ids.contains(selectedCommandID) { self.selectedCommandID = nil }
+        }
+        .onChange(of: context.host) { _, _ in cancelSelection(); status = nil }
+        .onChange(of: context.directory) { _, _ in cancelSelection() }
+        .onChange(of: store.commands.map(\.id)) { _, ids in selectedIDs.formIntersection(ids) }
+        .familySheet(isPresented: optionalBinding($pasteRequest), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
+            if let pasteRequest {
+                QuickCommandPasteView(request: pasteRequest, onClose: { self.pasteRequest = nil }, onSaved: { additions in
+                    self.pasteRequest = nil
+                    search = ""; cancelSelection()
+                    if let first = additions.first {
+                        collapsedSections.remove(first.section)
+                        selectedCommandID = first.id
+                        let target = [first.host ?? String(localized: "This Mac"), first.directory].compactMap { $0 }.joined(separator: ":")
+                        status = String(format: String(localized: "Added %lld commands to %@"), Int64(additions.count), target)
+                    }
+                }).id(pasteRequest.id)
+            }
         }
         .familySheet(isPresented: optionalBinding($editing), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let editing { QuickCommandEditor(item: editing, hosts: model.hosts) { self.editing = nil }.id(editing.id) }
@@ -87,12 +108,20 @@ struct QuickCommandSidebar: View {
                 Spacer(minLength: 4)
                 Button { editing = draft() } label: { Image(systemName: "plus").frame(width: 28, height: 28) }
                     .buttonStyle(FamilyButtonStyle()).help("New Quick Command").accessibilityIdentifier("quickCommands.new")
-                FamilyMenu(items: { [FamilyMenuItem(title: String(localized: "Manage Command Library"), action: { libraryPresented = true })] }) {
+                FamilyMenu(items: {
+                    [FamilyMenuItem(title: String(localized: "Batch Select"), enabled: !commands.isEmpty && !batchSelecting,
+                                    action: { batchSelecting = true; selectedIDs = []; status = nil }),
+                     FamilyMenuItem(title: String(localized: "Paste Quick Commands…"), action: beginPaste),
+                     .separator,
+                     FamilyMenuItem(title: String(localized: "Manage Command Library"), action: { libraryPresented = true })]
+                }) {
                     Image(systemName: "ellipsis").frame(width: 28, height: 28)
-                }
+                }.help("Command Actions").accessibilityIdentifier("quickCommands.actions")
             }
             CommandTextField(text: $search, placeholder: String(localized: "Search aliases or commands"), identifier: "quickCommands.search", symbol: "magnifyingglass")
                 .frame(height: 32)
+            if batchSelecting { batchControls }
+            if let status { Text(verbatim: status).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
             if let message = error ?? store.loadError { Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger) }
             GeometryReader { geometry in
                 let expanded = window.presentation.commandPreviewExpanded
@@ -110,7 +139,7 @@ struct QuickCommandSidebar: View {
             Divider()
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
-                Text("Click to preview. Double-click or drag into a terminal to confirm execution.")
+                Text(batchSelecting ? "Select commands to copy. Double-click and drag execution are paused." : "Click to preview. Double-click or drag into a terminal to confirm execution.")
             }.font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
         }.padding(16)
     }
@@ -134,12 +163,18 @@ struct QuickCommandSidebar: View {
                             }.buttonStyle(.plain)
                             if !collapsedSections.contains(section) {
                                 ForEach(rows) { item in
-                                    CommandListRow(item: item, action: { selectedCommandID = item.id }, menu: { menu(for: item) },
-                                                   allowsDragging: true, isSelected: selectedCommandID == item.id,
+                                    CommandListRow(item: item, action: {
+                                        selectedCommandID = item.id
+                                        if batchSelecting {
+                                            if !selectedIDs.insert(item.id).inserted { selectedIDs.remove(item.id) }
+                                        }
+                                    }, menu: { menu(for: item) }, allowsDragging: !batchSelecting,
+                                                   isSelected: batchSelecting ? selectedIDs.contains(item.id) : selectedCommandID == item.id,
                                                    onDoubleClick: {
+                                        guard !batchSelecting else { return }
                                         selectedCommandID = item.id
                                         model.confirmQuickCommand(item, in: window)
-                                    })
+                                    }, showsSelection: batchSelecting)
                                 }
                             }
                             if commands.contains(where: { $0.section > section }) {
@@ -154,6 +189,8 @@ struct QuickCommandSidebar: View {
                         Text("Add a command for this folder or choose one from shell history.")
                             .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                         Button("New Quick Command") { editing = draft() }.buttonStyle(FamilyButtonStyle())
+                        Button("Paste Quick Commands…", action: beginPaste).buttonStyle(FamilyButtonStyle())
+                            .accessibilityIdentifier("quickCommands.paste.empty")
                     }.padding(.vertical, 12)
                 }
                 Divider()
@@ -163,6 +200,46 @@ struct QuickCommandSidebar: View {
                     .accessibilityIdentifier("quickCommands.library")
             }
         }
+    }
+
+    private static func displayOrder(_ a: QuickCommand, _ b: QuickCommand) -> Bool {
+        if a.section != b.section { return a.section < b.section }
+        if a.order != b.order { return a.order < b.order }
+        if a.alias != b.alias { return a.alias < b.alias }
+        return a.id.uuidString < b.id.uuidString
+    }
+    private var batchControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(verbatim: String(format: String(localized: "%lld Selected"), Int64(selectedIDs.count)))
+                Spacer()
+                Button("Cancel", action: cancelSelection).buttonStyle(FamilyButtonStyle())
+            }
+            HStack {
+                Button("Select All Results") { selectedIDs.formUnion(commands.map(\.id)) }
+                    .buttonStyle(FamilyButtonStyle()).accessibilityIdentifier("quickCommands.selectAll")
+                Spacer(minLength: 4)
+                Button("Copy Selected") {
+                    copyCommands(store.commands.filter { selectedIDs.contains($0.id) }.sorted(by: Self.displayOrder))
+                }.buttonStyle(FamilyButtonStyle()).disabled(selectedIDs.isEmpty)
+                    .accessibilityIdentifier("quickCommands.copySelected")
+            }
+        }.font(Theme.Font.rowMeta)
+    }
+    private func cancelSelection() { batchSelecting = false; selectedIDs = [] }
+    private func copyCommands(_ items: [QuickCommand]) {
+        do {
+            try QuickCommandClipboard.copy(items)
+            error = nil
+            status = String(format: String(localized: "Copied %lld quick commands"), Int64(items.count))
+            cancelSelection()
+        } catch { self.error = error.localizedDescription }
+    }
+    private func beginPaste() {
+        do {
+            pasteRequest = try QuickCommandPasteRequest(transfer: QuickCommandClipboard.read(), context: context)
+            error = nil; status = nil
+        } catch { self.error = error.localizedDescription }
     }
 
     private func previewDivider(height: CGFloat, available: CGFloat, expanded: Bool) -> some View {
@@ -203,7 +280,8 @@ struct QuickCommandSidebar: View {
     }
     private func menu(for item: QuickCommand) -> [FamilyMenuItem] {
         [FamilyMenuItem(title: String(localized: "View Full Command"), action: { inspecting = item }),
-         FamilyMenuItem(title: String(localized: "Copy Command"), action: { CommandClipboard.copy(item.command) }),
+         FamilyMenuItem(title: String(localized: "Copy Quick Command"), action: { copyCommands([item]) }),
+         FamilyMenuItem(title: String(localized: "Copy Command Text"), action: { CommandClipboard.copy(item.command) }),
          .separator,
          FamilyMenuItem(title: String(localized: "Edit"), action: { editing = item }),
          FamilyMenuItem(title: String(localized: "Duplicate Command"), action: { var copy = item; copy.id = UUID(); editing = copy }),
@@ -244,6 +322,7 @@ struct CommandListRow: View {
     var allowsDragging = false
     var isSelected = false
     var onDoubleClick: () -> Void = {}
+    var showsSelection = false
     @Environment(\.windowChrome) private var chrome
     @State private var hovered = false
     var body: some View {
@@ -268,6 +347,9 @@ struct CommandListRow: View {
     private var commandButton: some View {
         Button(action: action) {
             HStack(spacing: 10) {
+                if showsSelection {
+                    Image(systemName: isSelected ? "checkmark.square.fill" : "square").foregroundStyle(chrome.accent)
+                }
                 Image(systemName: item.needsRepair ? "exclamationmark.triangle" : "terminal").foregroundStyle(item.needsRepair ? chrome.warning : chrome.accent)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(verbatim: item.alias).font(Theme.Font.row).lineLimit(1)
@@ -396,7 +478,7 @@ struct CommandCodePreview: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack { Text("Full Command").font(Theme.Font.rowMeta); Spacer()
                 Button { CommandClipboard.copy(text) } label: { Image(systemName: "doc.on.doc") }
-                    .buttonStyle(FamilyButtonStyle()).help("Copy Command")
+                    .buttonStyle(FamilyButtonStyle()).help("Copy Command Text")
             }.foregroundStyle(chrome.secondary)
             ScrollView(wrapsLines ? .vertical : [.horizontal, .vertical]) {
                 Text(verbatim: text).font(.system(size: 13, design: .monospaced)).textSelection(.enabled)

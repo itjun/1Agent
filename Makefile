@@ -27,7 +27,7 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test:
-	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandTransfer.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
 	/tmp/oneagent-quick-command-tests
 	python3 scripts/test-quick-command-bridge.py
 	python3 scripts/test-quick-command-startup.py

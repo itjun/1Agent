@@ -31,7 +31,7 @@ struct QuickCommandLibraryView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 CommandListRow(item: item, action: { inspecting = item }, menu: {
                                     [FamilyMenuItem(title: String(localized: "View Full Command"), action: { inspecting = item }),
-                                     FamilyMenuItem(title: String(localized: "Copy Command"), action: { CommandClipboard.copy(item.command) }),
+                                     FamilyMenuItem(title: String(localized: "Copy Command Text"), action: { CommandClipboard.copy(item.command) }),
                                      FamilyMenuItem(title: String(localized: "Edit"), action: { editing = item }),
                                      FamilyMenuItem(title: String(localized: "Duplicate Command"), action: { var copy = item; copy.id = UUID(); editing = copy }),
                                      FamilyMenuItem(title: String(localized: "Move Up"), action: { move(item, delta: -1) }),

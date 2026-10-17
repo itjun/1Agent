@@ -81,16 +81,7 @@ struct QuickCommandEditor: View {
                 var next = item
                 next.host = host.isEmpty ? nil : host
                 if next.scope == .directory {
-                    var path = directory
-                    if path == "~" || path.hasPrefix("~/") {
-                        let home = try await fileSystem(for: next.host).home()
-                        path = home + String(path.dropFirst())
-                    }
-                    guard QuickCommand.validPath(path) else { throw QuickCommandError.invalidDirectory }
-                    next.directory = QuickCommand.path(path)
-                    if next.host == nil {
-                        guard ExternalOpen.validatedDirectory(path) != nil else { throw QuickCommandError.invalidDirectory }
-                    } else { _ = try await fileSystem(for: next.host).list(path) }
+                    next.directory = try await QuickCommandDirectory.resolve(directory, host: next.host)
                 }
                 next.needsRepair = false
                 try QuickCommandStore.shared.save(next)

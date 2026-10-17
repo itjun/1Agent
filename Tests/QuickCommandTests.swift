@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 @main
 struct QuickCommandTests {
@@ -9,6 +10,7 @@ struct QuickCommandTests {
             print(request.startupCommand(shell: CommandLine.arguments[2]))
             return
         }
+        try transferTests()
         let local = QuickCommandContext(sessionID: "a#0", directory: "/work/project", isLive: true)
         var item = QuickCommand(alias: "Pull", command: "python project.py git pull", directory: "/work/project")
         assert(item.matches(local))
@@ -79,5 +81,93 @@ struct QuickCommandTests {
         var remoteItem = item; remoteItem.host = "remote"
         do { _ = try QuickCommandRunRequest(item: remoteItem, context: local, directory: "/tmp"); fatalError("wrong host accepted") } catch {}
         print("Quick command model, migration, history, storage and layout tests passed")
+    }
+}
+
+extension QuickCommandTests {
+    @MainActor static func transferTests() throws {
+        func rejects(_ action: () throws -> Void) {
+            do { try action(); fatalError("invalid transfer accepted") } catch {}
+        }
+        let original = QuickCommand(alias: "查看仓库", command: "source ./init.sh && python project.py\nprintf '%s\\n' hello",
+                                    group: "sample-project", directory: "/Users/source/sample-project", includesSubdirectories: true)
+        var second = original; second.id = UUID(); second.alias = "拉取代码"
+        let transfer = try QuickCommandTransfer(commands: [original, second])
+        let encoded = try transfer.encoded()
+        assert(!String(decoding: encoded, as: UTF8.self).contains("/Users/source"))
+        let decodedTransfer = try QuickCommandTransfer.decode(encoded)
+        assert(decodedTransfer == transfer)
+        let target = QuickCommandContext(host: "fixture-build") // Unknown remote cwd, as in the screenshot.
+        let request = try QuickCommandPasteRequest(transfer: transfer, context: target)
+        let copies = try request.copies(existing: [original, second])
+        assert(copies.count == 2 && copies[0].id != original.id && copies[1].id != second.id)
+        assert(copies[0].command == original.command && copies[0].group == original.group)
+        assert(copies.map(\.alias) == [original.alias, second.alias])
+        assert(copies.allSatisfy { $0.scope == .host && $0.host == target.host && $0.directory == nil && !$0.includesSubdirectories })
+        assert(copies.allSatisfy { $0.matches(target) && !$0.matches(QuickCommandContext(host: "demo-raven")) })
+        assert(copies[1].order == copies[0].order + 1)
+        assert(original.directory == "/Users/source/sample-project" && original.host == nil)
+        let repeated = try request.copies(existing: [original, second] + copies)
+        assert(repeated[0].alias == original.alias + String(localized: " (Copy)"))
+        assert(repeated[0].id == copies[0].id) // Stable identities within one open dialog.
+        let nextRequest = try QuickCommandPasteRequest(transfer: transfer, context: target)
+        let again = try nextRequest.copies(existing: copies + repeated)
+        assert(again[0].id != copies[0].id)
+        assert(again[0].alias == original.alias + String(format: String(localized: " (Copy %lld)"), Int64(2)))
+        let folder = try request.copies(existing: copies, directory: "/root/sample-project/", includesSubdirectories: true)
+        assert(folder[0].alias == original.alias && folder[0].directory == "/root/sample-project")
+        assert(!folder[0].matches(target))
+        assert(folder[0].matches(QuickCommandContext(host: "fixture-build", directory: "/root/sample-project/sub")))
+        let sameFolder = try request.copies(existing: folder, directory: "/root/sample-project")
+        assert(sameFolder[0].alias != original.alias && !sameFolder[0].includesSubdirectories)
+        let localRequest = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: copies), context: QuickCommandContext())
+        let back = try localRequest.copies(existing: [])
+        assert(back.allSatisfy { $0.scope == .local && $0.host == nil && $0.directory == nil })
+        let other = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: copies), context: QuickCommandContext(host: "other"))
+        let otherCopies = try other.copies(existing: [])
+        assert(otherCopies[0].host == "other")
+        rejects { _ = try request.copies(existing: [], directory: "~/unresolved") }
+        rejects { _ = try QuickCommandTransfer(commands: []) }
+        var version = transfer; version.version = 2
+        rejects { _ = try QuickCommandTransfer.decode(JSONEncoder().encode(version)) }
+        rejects { _ = try QuickCommandTransfer.decode(Data("hello".utf8)) }
+        var bad = original; bad.command += "\u{1b}"
+        rejects { _ = try QuickCommandTransfer(commands: [bad]) }
+        var long = original; long.alias = String(repeating: "长", count: 200)
+        let longRequest = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [long, long, long]), context: target)
+        let longCopies = try longRequest.copies(existing: [])
+        assert(Set(longCopies.map(\.alias)).count == 3 && longCopies.allSatisfy { $0.alias.count <= 200 })
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("1agent-transfer-test-" + UUID().uuidString))
+        defer { pasteboard.releaseGlobally() }
+        try QuickCommandClipboard.copy([original, second], to: pasteboard)
+        assert(pasteboard.string(forType: .string) == transfer.plainText)
+        let snapshot = try QuickCommandClipboard.read(from: pasteboard)
+        pasteboard.clearContents(); pasteboard.setString("plain text", forType: .string)
+        rejects { _ = try QuickCommandClipboard.read(from: pasteboard) }
+        assert(snapshot == transfer) // Opening the dialog pins content even if clipboard changes.
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("command-transfer-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = QuickCommandStore(url: root.appendingPathComponent("commands.json"))
+        try store.replace([original, second])
+        let before = try Data(contentsOf: store.url)
+        _ = try request.copies(existing: store.commands) // Preview/cancel performs no writes.
+        let afterPreview = try Data(contentsOf: store.url)
+        assert(afterPreview == before)
+        try store.replace(store.commands + copies)
+        assert(QuickCommandStore(url: store.url).commands == store.commands)
+        let attributes = try FileManager.default.attributesOfItem(atPath: store.url.path)
+        assert((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
+        let committed = store.commands
+        // Invalid batch is rejected before touching the existing file.
+        rejects { try store.replace(committed + [bad]) }
+        assert(store.commands == committed && QuickCommandStore(url: store.url).commands == committed)
+        // Force failure at the atomic rename, after successfully writing the private temp file.
+        try FileManager.default.removeItem(at: store.url)
+        try FileManager.default.createDirectory(at: store.url, withIntermediateDirectories: false)
+        rejects { try store.replace(committed + again) }
+        assert(store.commands == committed)
+        let remainingFiles = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        assert(remainingFiles == ["commands.json"])
+        print("Quick command transfer: clipboard, rebinding, conflicts, cancellation and atomic storage passed")
     }
 }
