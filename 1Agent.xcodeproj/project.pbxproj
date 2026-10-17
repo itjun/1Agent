@@ -17,6 +17,7 @@
 		176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651A72E339CED37F30858736 /* ShellIntegration.swift */; };
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
+		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
 		26772E9BB33C53E1A17BD65D /* DropZoneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */; };
 		272263DCE7BC9D40856986FB /* TerminalSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */; };
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
@@ -28,6 +29,7 @@
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
+		44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */; };
 		454601CCC7894A948CE872FC /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */; };
 		469C2A9F9A8D0FFAC417BED2 /* shell-integration in Resources */ = {isa = PBXBuildFile; fileRef = 11B7BE5E018ED46FA154243C /* shell-integration */; };
 		4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */ = {isa = PBXBuildFile; fileRef = 02ED72874148F6B85ACA03C5 /* ghostty-source.svg */; };
@@ -57,8 +59,10 @@
 		7FE9ED36921DC4BC56F35F84 /* TerminalHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B4617A2116D310D06C899D /* TerminalHistory.swift */; };
 		814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */; };
 		837075A95F60DAEF5F9564E0 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC2AB74FE4D721374A45471 /* TerminalView.swift */; };
+		84BF3EEB40D32F81D8F361D7 /* FileTypeIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4806CBBE45B7F1353328348D /* FileTypeIcon.swift */; };
 		8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 375997FFA560C71B9DCE5E3D /* SymbolsNerdFontMono-Regular.ttf */; };
 		8B9EA4C7BED737DB4F675B71 /* PreviewSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2531C1F0F126671D179FC3FC /* PreviewSyntax.swift */; };
+		8F03ADD0081CD35647AFFFB3 /* FileIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63A7D5B98C26CE953ED880F3 /* FileIcons.xcassets */; };
 		91ED427A152DC13AE187EE58 /* FamilyModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2105529F1C40033DFD8D8A32 /* FamilyModal.swift */; };
 		94C91BF3EF904694099F9B90 /* TransferToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7ABED304CF69F1423985F54 /* TransferToast.swift */; };
 		97B86305AC381C8700A523A5 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D303E19F85127FB7B052F2ED /* FileBrowserView.swift */; };
@@ -74,6 +78,7 @@
 		B86203866620E9ED4A6227F2 /* FamilyControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF8537478DC8E39CE11C226 /* FamilyControls.swift */; };
 		B95805B891CB9A10F703DD10 /* TextPreviewDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */; };
 		BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */; };
+		BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = BD4E62BE663582C439B996D1 /* FileIconCatalog.json */; };
 		BDE0F6784FE455B5144022E1 /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 0A4845DDBF4FBE86870CF14E /* GhosttyTheme */; };
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
 		C47DE107C61A6FF1CC5E4109 /* FileTransferQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */; };
@@ -112,7 +117,6 @@
 		02ED72874148F6B85ACA03C5 /* ghostty-source.svg */ = {isa = PBXFileReference; path = "ghostty-source.svg"; sourceTree = "<group>"; };
 		043B43BD36E404CF638EB54F /* TerminalCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCanvas.swift; sourceTree = "<group>"; };
 		05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPicker.swift; sourceTree = "<group>"; };
-		06C6EA9F28905A845BEE5013 /* TerminalHistoryRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHistoryRecorder.swift; sourceTree = "<group>"; };
 		0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettingsPage.swift; sourceTree = "<group>"; };
 		11B7BE5E018ED46FA154243C /* shell-integration */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "shell-integration"; path = "Resources/shell-integration"; sourceTree = SOURCE_ROOT; };
 		13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZoneLayout.swift; sourceTree = "<group>"; };
@@ -128,7 +132,6 @@
 		24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommands.swift; sourceTree = "<group>"; };
 		2531C1F0F126671D179FC3FC /* PreviewSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSyntax.swift; sourceTree = "<group>"; };
 		32D91EB1556003521E0650B7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
-		34037BB9C36C1FF7EDE6F689 /* TerminalHistoryEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHistoryEvents.swift; sourceTree = "<group>"; };
 		34E42671B05FC0FE55B2965F /* DragDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragDrop.swift; sourceTree = "<group>"; };
 		361A21A864C230DE8DF8A323 /* TerminalThemes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalThemes.swift; sourceTree = "<group>"; };
 		375997FFA560C71B9DCE5E3D /* SymbolsNerdFontMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SymbolsNerdFontMono-Regular.ttf"; sourceTree = "<group>"; };
@@ -140,6 +143,8 @@
 		4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-rounded.png"; sourceTree = "<group>"; };
 		440DFBB9CC120A82EAE3507C /* SSHConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfig.swift; sourceTree = "<group>"; };
 		4439A8E93DB3E5BDBC1423C2 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		4806CBBE45B7F1353328348D /* FileTypeIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTypeIcon.swift; sourceTree = "<group>"; };
+		497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-UPSTREAM-MIT-LICENSE.txt"; sourceTree = "<group>"; };
 		49B5B6C3942BB433C4B85A1A /* CommandFinishedPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandFinishedPolicy.swift; sourceTree = "<group>"; };
 		4D05831F5707DB53D3786F6D /* FileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystem.swift; sourceTree = "<group>"; };
 		4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenu.swift; sourceTree = "<group>"; };
@@ -148,11 +153,11 @@
 		5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SymbolsNerdFont-LICENSE.txt"; sourceTree = "<group>"; };
 		5A7EE823807020FCAC7AB30D /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
 		616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSwitcher.swift; sourceTree = "<group>"; };
+		63A7D5B98C26CE953ED880F3 /* FileIcons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = FileIcons.xcassets; sourceTree = "<group>"; };
 		64BF08A42C7BDF982C716507 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		651A72E339CED37F30858736 /* ShellIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellIntegration.swift; sourceTree = "<group>"; };
 		66F6C38EE4A145B579647ECD /* PreviewSyntax.LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = PreviewSyntax.LICENSE.txt; sourceTree = "<group>"; };
 		6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 1Agent.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		6B77D3F66D2C54F10C93FBE1 /* TerminalHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHistoryView.swift; sourceTree = "<group>"; };
 		6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBoard.swift; sourceTree = "<group>"; };
 		709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyDefaultsMigration.swift; sourceTree = "<group>"; };
 		71FDA7CC65A4FE2654714778 /* PinnedLocationsSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationsSidebar.swift; sourceTree = "<group>"; };
@@ -170,7 +175,6 @@
 		906AFAE30A9BC239EE0FB97B /* FileWorkspaceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkspaceState.swift; sourceTree = "<group>"; };
 		9287816E82C9C005D220C098 /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
 		97958BC6F31945F5729782D0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		97B4617A2116D310D06C899D /* TerminalHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHistory.swift; sourceTree = "<group>"; };
 		A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTextPreview.swift; sourceTree = "<group>"; };
 		A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMenus.swift; sourceTree = "<group>"; };
 		A4A765B8F209AFF3FB2D170F /* DropZones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZones.swift; sourceTree = "<group>"; };
@@ -184,6 +188,7 @@
 		B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-1024.png"; sourceTree = "<group>"; };
 		B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowFrame.swift; sourceTree = "<group>"; };
 		BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransferQueue.swift; sourceTree = "<group>"; };
+		BD4E62BE663582C439B996D1 /* FileIconCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = FileIconCatalog.json; sourceTree = "<group>"; };
 		BEAD42576853180D4E34F59B /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
 		BF91141EEC0B753F9445733B /* SheetLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLayout.swift; sourceTree = "<group>"; };
 		C2222F4287412ADA926A0AFC /* TextFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFile.swift; sourceTree = "<group>"; };
@@ -191,6 +196,7 @@
 		C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImporter.swift; sourceTree = "<group>"; };
 		C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
 		CDE68855BD120DF7421F24EE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
+		CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-NOTICE.txt"; sourceTree = "<group>"; };
 		D04B9E55BFC942871BBD992B /* FileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransfer.swift; sourceTree = "<group>"; };
 		D303E19F85127FB7B052F2ED /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
 		D78EF3DC9557BC5009929F59 /* ThemePreviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePreviewCard.swift; sourceTree = "<group>"; };
@@ -240,6 +246,7 @@
 				A73E8CF0BB02A346B770159B /* FileTabDrag.swift */,
 				D04B9E55BFC942871BBD992B /* FileTransfer.swift */,
 				BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */,
+				4806CBBE45B7F1353328348D /* FileTypeIcon.swift */,
 				906AFAE30A9BC239EE0FB97B /* FileWorkspaceState.swift */,
 				A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */,
 				1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */,
@@ -290,6 +297,10 @@
 		C38A737F52A5F7635631F469 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				BD4E62BE663582C439B996D1 /* FileIconCatalog.json */,
+				CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */,
+				497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */,
+				63A7D5B98C26CE953ED880F3 /* FileIcons.xcassets */,
 				4439A8E93DB3E5BDBC1423C2 /* Localizable.xcstrings */,
 				00BF2C9913789DC6BE4D0051 /* PreviewSyntax.js */,
 				66F6C38EE4A145B579647ECD /* PreviewSyntax.LICENSE.txt */,
@@ -354,10 +365,6 @@
 				24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */,
 				3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */,
 				C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */,
-				97B4617A2116D310D06C899D /* TerminalHistory.swift */,
-				34037BB9C36C1FF7EDE6F689 /* TerminalHistoryEvents.swift */,
-				06C6EA9F28905A845BEE5013 /* TerminalHistoryRecorder.swift */,
-				6B77D3F66D2C54F10C93FBE1 /* TerminalHistoryView.swift */,
 				80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */,
 				22680FE638056AFBBDA0F764 /* TerminalProcess.swift */,
 				C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */,
@@ -446,6 +453,10 @@
 			files = (
 				1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */,
 				5FB944658C83C93BF52FE910 /* Assets.xcassets in Resources */,
+				BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */,
+				44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */,
+				1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */,
+				8F03ADD0081CD35647AFFFB3 /* FileIcons.xcassets in Resources */,
 				5E9BC7364B06F681F71BADDB /* Localizable.xcstrings in Resources */,
 				15EE643104E39D97BAEDC26A /* PreviewSyntax.LICENSE.txt in Resources */,
 				A904414E0A56E36983D165D3 /* PreviewSyntax.js in Resources */,
@@ -494,6 +505,7 @@
 				D5BE2E38FD6348292FDC0F17 /* FileTabDrag.swift in Sources */,
 				CF4B6D7911791ED91EAC823F /* FileTransfer.swift in Sources */,
 				C47DE107C61A6FF1CC5E4109 /* FileTransferQueue.swift in Sources */,
+				84BF3EEB40D32F81D8F361D7 /* FileTypeIcon.swift in Sources */,
 				6B6B10D6805C16B8850A3A8F /* FileWorkspaceState.swift in Sources */,
 				5777841046D0FEE1F1ECDB15 /* FilesWorkspaceView.swift in Sources */,
 				3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */,
@@ -526,10 +538,6 @@
 				5DEEF6A3D6B4A511C449594D /* TerminalCommands.swift in Sources */,
 				EBF6CF1BD4B5817CD589D2BA /* TerminalEvents.swift in Sources */,
 				DB3CE4CD31111689FAE6C7E6 /* TerminalFind.swift in Sources */,
-				7FE9ED36921DC4BC56F35F84 /* TerminalHistory.swift in Sources */,
-				161C84847992158605036487 /* TerminalHistoryEvents.swift in Sources */,
-				FBD7DCC966E2E2085D332822 /* TerminalHistoryRecorder.swift in Sources */,
-				B0D98680767CEAB9EA3E7C0C /* TerminalHistoryView.swift in Sources */,
 				29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */,
 				292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */,
 				E3CA332263834B7BDAF1871D /* TerminalSettings.swift in Sources */,

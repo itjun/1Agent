@@ -1,0 +1,25 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "filename": "database-light.svg"
+    },
+    {
+      "idiom": "universal",
+      "filename": "database.svg",
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ]
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true
+  }
+}

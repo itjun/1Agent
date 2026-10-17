@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "filename": "excel.svg"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true
+  }
+}

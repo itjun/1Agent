@@ -33,9 +33,11 @@ struct FileWorkspaceSnapshot: Codable {
     var localGroupID: UUID?
     var remoteGroupID: UUID?
     var version: Int = 3
+    /// Separate from layout migrations: adopt type/name ordering once for existing tabs.
+    var sortVersion: Int = 1
 
     private enum CodingKeys: String, CodingKey {
-        case layout, groups, focused, version, localGroupID, remoteGroupID
+        case layout, groups, focused, version, sortVersion, localGroupID, remoteGroupID
         case left, right, activeLeft, activeRight
         case local, remote, activeLocal, activeRemote
     }
@@ -45,6 +47,18 @@ struct FileWorkspaceSnapshot: Codable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         version = try values.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        sortVersion = try values.decodeIfPresent(Int.self, forKey: .sortVersion) ?? 0
+        defer {
+            if sortVersion < 1 {
+                for group in groups.indices {
+                    for tab in groups[group].tabs.indices {
+                        groups[group].tabs[tab].sortKey = .kind
+                        groups[group].tabs[tab].ascending = true
+                    }
+                }
+                sortVersion = 1
+            }
+        }
         if let groups = try values.decodeIfPresent([SavedGroup].self, forKey: .groups) {
             self.groups = groups
             layout = try values.decodeIfPresent(PaneNode.self, forKey: .layout)
@@ -72,6 +86,7 @@ struct FileWorkspaceSnapshot: Codable {
     func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(version, forKey: .version)
+        try values.encode(sortVersion, forKey: .sortVersion)
         try values.encodeIfPresent(layout, forKey: .layout)
         try values.encode(groups, forKey: .groups)
         try values.encodeIfPresent(focused, forKey: .focused)

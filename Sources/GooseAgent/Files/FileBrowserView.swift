@@ -464,7 +464,7 @@ struct FileColumnView: View {
         let dropping = dropFolder == entry.path
         return HStack(spacing: Theme.Space.s) {
             HStack(spacing: Theme.Space.s) {
-                FileIcon(directory: entry.isDirectory)
+                FileIcon(name: entry.name, directory: entry.isDirectory)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(verbatim: entry.name)
                         .font(Theme.Font.body.weight(selected ? .semibold : .regular))
@@ -828,10 +828,10 @@ struct FileColumnTransferControls: View {
     }
 }
 
-/// Blue folders and an uncluttered page outline keep the two lists easy to compare.
+/// Preserve the shared folder shape while distinguishing common file types in both panes.
 private struct FileIcon: View {
+    let name: String
     let directory: Bool
-    @Environment(\.windowChrome) private var chrome
 
     var body: some View {
         if directory {
@@ -839,11 +839,7 @@ private struct FileIcon: View {
                 .frame(width: 14, height: 14)
                 .accessibilityHidden(true)
         } else {
-            Image(systemName: "doc")
-                .font(.system(size: 18))
-                .foregroundStyle(chrome.lineStrong.opacity(0.55))
-                .frame(width: 20, height: 20)
-                .accessibilityHidden(true)
+            FileTypeIcon(name: name)
         }
     }
 }

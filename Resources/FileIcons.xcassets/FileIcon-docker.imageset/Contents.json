@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "filename": "docker.svg"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true
+  }
+}

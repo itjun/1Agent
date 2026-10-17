@@ -1,0 +1,18 @@
+File icon artwork attribution
+
+vscode-icons contributors: https://github.com/vscode-icons/vscode-icons
+Pinned revision: cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f
+Original SVG files are copied unchanged; all source URLs and SHA-256 digests are in the catalog.
+The upstream README distinguishes its MIT-licensed code from its artwork:
+Icons: Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)
+https://creativecommons.org/licenses/by-sa/4.0/
+Branded icons remain subject to their respective copyright/trademark owners' terms.
+This is a third-party collection of recognizable product/language marks, not a claim
+that every asset is an official or current vendor-distributed icon.
+
+Xmind: official website https://xmind.com/ (apple-touch-icon linked from its HTML).
+Source: https://framerusercontent.com/images/8nhu9kTFx3RrJMaoWbJcNSY8hOI.png
+Used unchanged solely to identify .xmind documents. Xmind retains its rights.
+
+The two applications use an identical filename catalog. No user files, application
+associations, or network requests are needed when displaying file rows.

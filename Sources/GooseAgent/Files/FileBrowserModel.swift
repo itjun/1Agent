@@ -33,7 +33,7 @@ final class FileColumn: ObservableObject, Identifiable {
     @Published var selection: Set<String> = [] { didSet { onStateChange?() } }
     @Published var filter = "" { didSet { reconcileScrollAnchor(); onStateChange?() } }
     @Published var showHidden = false { didSet { reconcileScrollAnchor(); onStateChange?() } }
-    @Published var sortKey: SortKey = .name { didSet { onStateChange?() } }
+    @Published var sortKey: SortKey = .kind { didSet { onStateChange?() } }
     @Published var ascending = true { didSet { onStateChange?() } }
     @Published var scrollAnchor: String? { didSet { onStateChange?() } }
     @Published var preview: Preview? { didSet { onStateChange?() } }
@@ -60,7 +60,7 @@ final class FileColumn: ObservableObject, Identifiable {
         filter = state.filter ?? ""
         selection = Set(state.selection ?? [])
         showHidden = state.showHidden ?? false
-        sortKey = state.sortKey ?? .name
+        sortKey = state.sortKey ?? .kind
         ascending = state.ascending ?? true
         readingEncoding = state.readingEncoding
         backStack = state.backStack ?? []
@@ -104,6 +104,11 @@ final class FileColumn: ObservableObject, Identifiable {
                 order = a.size == b.size ? .orderedSame : a.size < b.size ? .orderedAscending : .orderedDescending
             case .kind:
                 order = Self.kind(of: a).localizedStandardCompare(Self.kind(of: b))
+            }
+            // Type direction affects groups only; names within a type (including folders)
+            // always stay in natural ascending order.
+            if sortKey == .kind, order == .orderedSame {
+                return a.name.localizedStandardCompare(b.name) == .orderedAscending
             }
             let stable = order == .orderedSame ? a.name.localizedStandardCompare(b.name) : order
             return stable == (ascending ? .orderedAscending : .orderedDescending)

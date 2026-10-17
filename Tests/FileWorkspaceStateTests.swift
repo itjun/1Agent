@@ -44,9 +44,30 @@ struct FileWorkspaceStateTests {
         require(restored.backStack == tab.backStack && restored.forwardStack == tab.forwardStack && restored.scrollAnchor == tab.scrollAnchor,
                 "navigation history and the visible-row anchor roundtrip")
 
+        // An existing snapshot has no sort migration marker. Only its sorting should change.
+        var legacyValues = try JSONSerialization.jsonObject(with: JSONEncoder().encode(saved)) as! [String: Any]
+        legacyValues.removeValue(forKey: "sortVersion")
+        let migratedSort = try JSONDecoder().decode(FileWorkspaceSnapshot.self, from: JSONSerialization.data(withJSONObject: legacyValues))
+        var expected = saved
+        expected.groups[0].tabs[0].sortKey = .kind
+        expected.groups[0].tabs[0].ascending = true
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        require(try encoder.encode(migratedSort) == encoder.encode(expected),
+                "sort migration preserves every saved field except sort key and direction")
+        var manualSort = migratedSort
+        manualSort.groups[0].tabs[0].sortKey = .size
+        manualSort.groups[0].tabs[0].ascending = false
+        let restoredManualSort = try JSONDecoder().decode(FileWorkspaceSnapshot.self, from: encoder.encode(manualSort))
+        require(try encoder.encode(restoredManualSort) == encoder.encode(manualSort),
+                "later manual sorting survives relaunch without repeating the migration")
+
         let legacy = Data(#"{"local":[{"path":"/Users/test"}],"remote":[{"host":"old-host","path":"/opt/app"}],"activeLocal":0,"activeRemote":0}"#.utf8)
         let old = try JSONDecoder().decode(FileWorkspaceSnapshot.self, from: legacy).fixedColumns()
         require(old.local.first?.path == "/Users/test" && old.remote.first?.path == "/opt/app", "old local/remote format migrates")
+        require(old.local.first?.sortKey == .kind && old.remote.first?.sortKey == .kind
+                && old.local.first?.ascending == true && old.remote.first?.ascending == true,
+                "legacy local and remote tabs both adopt type/name ordering")
         print("File workspace state tests passed")
     }
 }
