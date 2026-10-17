@@ -2,6 +2,12 @@ import AppKit
 
 /// Shared entry points for buttons, menus and keyboard commands.
 extension AppModel {
+    func toggleToolSidebar(in window: WindowState) {
+        guard window.section == .terminals else { return }
+        updatePresentation(in: window) { $0.toolSidebarOpen.toggle() }
+        if let tab = selectedTab(in: window) { SSHTerminalRegistry.focus(tab.sessionID) }
+    }
+
     func sidebarIsCollapsed(in window: WindowState, totalWidth: CGFloat? = nil) -> Bool {
         let width = totalWidth ?? MainWindowManager.shared.window(for: window)?.contentView?.bounds.width ?? 1100
         let savedWidth = UserDefaults.standard.object(forKey: SidebarLayout.widthKey) as? Double

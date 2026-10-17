@@ -23,6 +23,27 @@ protocol FileSystem: Sendable {
 extension FileSystem {
     var isRemote: Bool { host != nil }
 
+    /// A bounded snapshot of the file tail; never flushes a shell's in-memory history.
+    func readTail(_ path: String, limit: Int) async throws -> (data: Data, truncated: Bool) {
+        let cap = max(1, min(limit, 4 * 1024 * 1024))
+        if let host {
+            let quoted = FileRules.shellQuote(path)
+            let data = try await RemoteShell.run(alias: host, command: "test -f \(quoted) && tail -c \(cap + 1) -- \(quoted)")
+            return (Data(data.suffix(cap)), data.count > cap)
+        }
+        return try await Task.detached(priority: .userInitiated) {
+            let url = URL(fileURLWithPath: path)
+            guard try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
+                throw FileError.message(String(localized: "Select a regular history file."))
+            }
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            let size = try handle.seekToEnd()
+            try handle.seek(toOffset: size > UInt64(cap) ? size - UInt64(cap) : 0)
+            return (try handle.read(upToCount: cap) ?? Data(), size > UInt64(cap))
+        }.value
+    }
+
     static func sorted(_ entries: [FileEntry]) -> [FileEntry] {
         entries.sorted { a, b in
             if a.isDirectory != b.isDirectory { return a.isDirectory }

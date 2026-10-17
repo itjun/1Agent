@@ -161,6 +161,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 model.toggleSidebar(in: window)
                 return nil
             }
+            if chord == AppShortcuts.chord(for: .toggleToolSidebar) {
+                model.toggleToolSidebar(in: window)
+                return nil
+            }
             if chord == AppShortcuts.chord(for: .commandPalette) {
                 model.openCommandPalette(in: window)
                 return nil
@@ -555,6 +559,11 @@ struct GooseAgentApp: App {
                     appDelegate.model.toggleSidebar(in: appDelegate.model.mainWindow)
                 }
                 .keyboardShortcut(AppShortcuts.chord(for: .toggleSidebar).keyboardShortcut)
+                Button(AppShortcutID.toggleToolSidebar.title) {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    appDelegate.model.toggleToolSidebar(in: appDelegate.model.mainWindow)
+                }
+                .keyboardShortcut(AppShortcuts.chord(for: .toggleToolSidebar).keyboardShortcut)
                 Button(AppShortcutID.commandPalette.title) {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     appDelegate.model.openCommandPalette(in: appDelegate.model.mainWindow)

@@ -48,6 +48,8 @@ enum LocalTerminal {
 /// exactly once, on the main queue. All entry points are safe to call from
 /// any thread.
 final class TerminalProcess: @unchecked Sendable {
+    /// Changes even when reconnect reuses the same terminal surface/session ID.
+    let identity = UUID()
     private(set) var shellPid: pid_t = 0
     private var masterFD: Int32 = -1
     private var readSource: DispatchSourceRead?
@@ -59,6 +61,17 @@ final class TerminalProcess: @unchecked Sendable {
     private let writeQueue = DispatchQueue(label: "com.itjun.1agent.terminal-process.write")
     private let stateLock = NSLock()
     private var exitReported = false
+    private var inputRevision: UInt64 = 0
+
+    var commandInputRevision: UInt64 {
+        stateLock.lock(); defer { stateLock.unlock() }; return inputRevision
+    }
+    var shellIsForeground: Bool {
+        stateLock.lock(); defer { stateLock.unlock() }
+        guard masterFD >= 0, shellPid > 0 else { return false }
+        let foreground = tcgetpgrp(masterFD)
+        return foreground > 0 && foreground == getpgid(shellPid)
+    }
 
     /// Called on the IO queue with each chunk read from the PTY.
     var onOutput: ((Data) -> Void)?
@@ -154,6 +167,7 @@ final class TerminalProcess: @unchecked Sendable {
 
     /// Queues bytes for the child. Never blocks the caller.
     func write(_ data: Data) {
+        stateLock.lock(); inputRevision &+= 1; stateLock.unlock()
         writeQueue.async { [weak self] in
             self?.writeSynchronously(data)
         }

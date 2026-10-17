@@ -77,7 +77,9 @@ struct TerminalCanvas: View {
                         onSplit: { edge in model.duplicate(tab.id, edge: edge) },
                         onRevealFiles: { model.showFiles(for: tab.id, in: window) },
                         paneMenuItems: { TerminalPaneActions.items(tab: tab, model: model, window: window, includingFind: false) },
-                        onFileDrop: { urls, zone in model.openDropped(urls, zone: zone, on: tab.id, in: window) }
+                        onFileDrop: { urls, zone in model.openDropped(urls, zone: zone, on: tab.id, in: window) },
+                        canDropQuickCommand: { model.commandForDrop($0, on: tab.id, in: window) != nil },
+                        onQuickCommandDrop: { model.confirmDroppedQuickCommand($0, on: tab.id, in: window) }
                     )
                     .id(tab.sessionID)
                     .frame(

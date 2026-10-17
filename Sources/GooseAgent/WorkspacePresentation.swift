@@ -9,7 +9,7 @@ enum FileWorkspaceLayout: String, Codable, CaseIterable {
 /// Window chrome only. Session identities, sidebar ordering and pane trees stay in their
 /// existing models. Files can occupy the full workspace or a resizable dock below the terminal.
 struct WorkspacePresentation: Codable, Equatable {
-    private static let currentVersion = 4
+    private static let currentVersion = 6
     private var presentationVersion = currentVersion
     var filesVisible = false
     var filesExpanded = false
@@ -19,13 +19,19 @@ struct WorkspacePresentation: Codable, Equatable {
     // Retained so older saved layouts and width-based callers can still round-trip.
     var filesWidth: Double = WorkspaceChromeLayout.defaultFilesWidth
     var sidebarCollapsed = true
+    var toolSidebarOpen = false
+    var toolSidebarWidth: Double = 350
+    var toolSidebarTab = "commands"
+    var commandPreviewExpanded = true
+    var commandPreviewHeight: Double = CommandPreviewLayout.defaultHeight
     var collapsedWorkspaces: Set<UUID> = []
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case presentationVersion, filesVisible, filesExpanded, filesLayout, filesWorkspace, filesWidth, filesHeightRatio
-        case sidebarCollapsed, collapsedWorkspaces
+        case sidebarCollapsed, collapsedWorkspaces, toolSidebarOpen, toolSidebarWidth, toolSidebarTab
+        case commandPreviewExpanded, commandPreviewHeight
     }
 
     init(from decoder: Decoder) throws {
@@ -43,6 +49,13 @@ struct WorkspacePresentation: Codable, Equatable {
         filesWidth = WorkspaceChromeLayout.storedFilesWidth(
             try values.decodeIfPresent(Double.self, forKey: .filesWidth) ?? WorkspaceChromeLayout.defaultFilesWidth)
         sidebarCollapsed = try values.decodeIfPresent(Bool.self, forKey: .sidebarCollapsed) ?? true
+        toolSidebarOpen = try values.decodeIfPresent(Bool.self, forKey: .toolSidebarOpen) ?? false
+        toolSidebarWidth = ToolSidebarLayout.storedWidth(try values.decodeIfPresent(Double.self, forKey: .toolSidebarWidth) ?? 350)
+        let toolTab = try values.decodeIfPresent(String.self, forKey: .toolSidebarTab) ?? "commands"
+        toolSidebarTab = ["commands", "info", "files"].contains(toolTab) ? toolTab : "commands"
+        commandPreviewExpanded = try values.decodeIfPresent(Bool.self, forKey: .commandPreviewExpanded) ?? true
+        commandPreviewHeight = CommandPreviewLayout.storedHeight(
+            try values.decodeIfPresent(Double.self, forKey: .commandPreviewHeight) ?? CommandPreviewLayout.defaultHeight)
         collapsedWorkspaces = try values.decodeIfPresent(Set<UUID>.self, forKey: .collapsedWorkspaces) ?? []
         let savedVersion = try values.decodeIfPresent(Int.self, forKey: .presentationVersion) ?? 0
         if savedVersion < 2 {
@@ -64,6 +77,11 @@ struct WorkspacePresentation: Codable, Equatable {
         try values.encode(filesWidth, forKey: .filesWidth)
         try values.encode(filesHeightRatio, forKey: .filesHeightRatio)
         try values.encode(sidebarCollapsed, forKey: .sidebarCollapsed)
+        try values.encode(toolSidebarOpen, forKey: .toolSidebarOpen)
+        try values.encode(toolSidebarWidth, forKey: .toolSidebarWidth)
+        try values.encode(toolSidebarTab, forKey: .toolSidebarTab)
+        try values.encode(commandPreviewExpanded, forKey: .commandPreviewExpanded)
+        try values.encode(CommandPreviewLayout.storedHeight(commandPreviewHeight), forKey: .commandPreviewHeight)
         try values.encode(collapsedWorkspaces, forKey: .collapsedWorkspaces)
     }
 
@@ -72,12 +90,41 @@ struct WorkspacePresentation: Codable, Equatable {
         if saved == nil { result.filesVisible = legacyFiles }
         result.filesWidth = WorkspaceChromeLayout.storedFilesWidth(result.filesWidth)
         result.filesHeightRatio = WorkspaceChromeLayout.storedFilesHeightRatio(result.filesHeightRatio)
+        result.commandPreviewHeight = CommandPreviewLayout.storedHeight(result.commandPreviewHeight)
         return result
     }
 
     var filesWorkspace: Bool { filesLayout == .sideBySide }
     var fullFilesWorkspace: Bool { filesVisible && filesLayout == .sideBySide }
     var filesDockVisible: Bool { filesVisible && filesLayout == .belowTerminal }
+}
+
+enum CommandPreviewLayout {
+    static let defaultHeight: Double = 320
+    static let minimumHeight: Double = 160
+    static let maximumHeight: Double = 1200
+    static let collapsedHeight: CGFloat = 32
+    static let dividerHeight: CGFloat = 9
+    static let minimumListHeight: CGFloat = 120
+
+    static func storedHeight(_ height: Double) -> Double {
+        height.isFinite ? min(maximumHeight, max(minimumHeight, height)) : defaultHeight
+    }
+
+    /// Fitting a short window never changes the user's stored height.
+    static func visibleHeight(available: CGFloat, expanded: Bool, preferred: Double) -> CGFloat {
+        if !expanded { return min(collapsedHeight, max(0, available - dividerHeight)) }
+        let maximum = max(0, available - minimumListHeight - dividerHeight)
+        return min(CGFloat(storedHeight(preferred)), maximum)
+    }
+}
+
+enum ToolSidebarLayout {
+    static func storedWidth(_ width: Double) -> Double { width.isFinite ? min(480, max(300, width)) : 350 }
+    static func visibleWidth(detailWidth: CGFloat, open: Bool, filesMode: Bool, preferred: Double) -> CGFloat {
+        guard open, !filesMode, detailWidth >= 701 else { return 0 }
+        return min(CGFloat(storedWidth(preferred)), detailWidth - 401)
+    }
 }
 
 enum WorkspaceChromeLayout {

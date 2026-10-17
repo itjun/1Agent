@@ -1,0 +1,128 @@
+# Local, session-only ZLE bridge. Nothing is written to the user's shell configuration.
+# Nested shells must not impersonate the owned login shell's endpoint.
+[[ -n $ONEAGENT_QC_SOCKET && -n $ONEAGENT_QC_TOKEN && -z $ONEAGENT_QC_OWNER ]] || return 0
+zmodload zsh/net/socket 2>/dev/null || return 0
+zmodload zsh/datetime 2>/dev/null || return 0
+
+_oneagent_qc_ready() {
+    [[ $_oneagent_qc_searching != 1 && $CONTEXT == start && -z $BUFFER && $KEYMAP != isearch && $KEYMAP != menuselect &&
+       $KEYMAP != command && $KEYMAP != visual && $KEYMAP != viopp &&
+       ${PENDING:-0} == 0 && ${KEYS_QUEUED_COUNT:-0} == 0 && ${REGION_ACTIVE:-0} == 0 &&
+       $ZSH_SUBSHELL == 0 ]]
+}
+
+_oneagent_qc_reply() {
+    setopt localtraps
+    trap '' PIPE
+    print -r -u "$1" -- "$2" 2>/dev/null
+}
+
+_oneagent_qc_request() {
+    emulate -L zsh
+    setopt extendedglob
+    local client token request action deadline directory payload line decoded expected
+    zsocket -a -t "$1" 2>/dev/null || return 0
+    client=$REPLY
+    if ! IFS= read -r -t 0.3 -u "$client" line || (( ${#line} > 100000 )); then
+        exec {client}>&-
+        return 0
+    fi
+    IFS='|' read -r token request action deadline directory payload <<< "$line"
+    if [[ $token != $ONEAGENT_QC_TOKEN || $request != [A-Fa-f0-9-]## ||
+          $deadline != <->.<-> ]] || (( EPOCHREALTIME > deadline )); then
+        exec {client}>&-
+        return 0
+    fi
+    if [[ $action == query ]]; then
+        if _oneagent_qc_ready; then
+            _oneagent_qc_reply "$client" "$request|ready"
+        else
+            _oneagent_qc_reply "$client" "$request|rejected"
+        fi
+    elif [[ $action == run ]] && _oneagent_qc_ready && [[ ${_oneagent_qc_seen[(Ie)$request]} == 0 ]]; then
+        # Decoding happens before the final guard; neither payload nor cwd is evaluated here.
+        decoded=$(print -rn -- "$payload" | /usr/bin/base64 -D 2>/dev/null)
+        expected=$(print -rn -- "$directory" | /usr/bin/base64 -D 2>/dev/null)
+        if [[ -n $decoded && ( $PWD == $expected || ${PWD:A} == $expected ) ]] && (( EPOCHREALTIME <= deadline )) && _oneagent_qc_ready; then
+            _oneagent_qc_seen+=($request)
+            # Execute inside the guarded widget rather than injecting PTY input.
+            # zsh 5.9's fd polling loop does not wake for accept-line / zle -U.
+            # Restore the pre-ZLE terminal mode for interactive commands and put
+            # ZLE's mode back in an always block, including after Ctrl-C.
+            # Job-control refreshes can redraw ZLE over a widget's output when
+            # its child exits. Keep these children in the shell's process group;
+            # the scoped INT trap below lets Ctrl-C stop the command, not ZLE.
+            unsetopt monitor notify
+            setopt localtraps
+            trap ':' INT
+            local editing_tty=$(command stty -g < /dev/tty)
+            {
+                _oneagent_qc_reply "$client" "$request|accepted"
+                exec {client}>&-
+                zle -I
+                print -r -- "$decoded"
+                print -s -- "$decoded"
+                command stty "$_oneagent_qc_cooked_tty" < /dev/tty
+                # Do not expose the widget's listener fd as $1 to sourced scripts.
+                ( trap - INT; builtin set --; builtin eval -- "$decoded" )
+            } always {
+                TRY_BLOCK_INTERRUPT=0
+                TRY_BLOCK_ERROR=0
+                print
+                command stty "$editing_tty" < /dev/tty
+                zle -R
+            }
+            return 0
+        fi
+        _oneagent_qc_reply "$client" "$request|rejected"
+    else
+        _oneagent_qc_reply "$client" "$request|rejected"
+    fi
+    exec {client}>&-
+}
+
+# Continuation readers restrict fd widgets; unregister until the main prompt.
+# Incremental search has its own guard and remains unavailable on ambiguous aborts.
+_oneagent_qc_line_init() {
+    _oneagent_qc_searching=0
+    if [[ $CONTEXT == start ]]; then
+        zle -F -w "$_oneagent_qc_listener" _oneagent_qc_request
+    else
+        zle -F "$_oneagent_qc_listener" 2>/dev/null
+    fi
+}
+_oneagent_qc_line_finish() { zle -F "$_oneagent_qc_listener" 2>/dev/null }
+_oneagent_qc_search_begin() { _oneagent_qc_searching=1 }
+_oneagent_qc_search_end() { _oneagent_qc_searching=0 }
+
+_oneagent_qc_precmd() {
+    _oneagent_qc_cooked_tty=$(command stty -g < /dev/tty)
+}
+
+_oneagent_qc_cleanup() {
+    [[ $ONEAGENT_QC_OWNER == $$ && $ZSH_SUBSHELL == 0 ]] || return 0
+    zle -F "$_oneagent_qc_listener" 2>/dev/null
+    exec {_oneagent_qc_listener}>&-
+    command rm -f -- "$ONEAGENT_QC_SOCKET"
+}
+
+() {
+    local old_umask=$(umask)
+    umask 077
+    zsocket -l "$ONEAGENT_QC_SOCKET" 2>/dev/null
+    local result=$? listener=$REPLY
+    umask "$old_umask"
+    (( result == 0 )) || return 0
+    typeset -g _oneagent_qc_listener=$listener
+    typeset -ga _oneagent_qc_seen=()
+    export ONEAGENT_QC_OWNER=$$
+    typeset -g _oneagent_qc_cooked_tty=$(command stty -g < /dev/tty)
+    zle -N _oneagent_qc_request
+    autoload -Uz add-zle-hook-widget
+    add-zle-hook-widget line-init _oneagent_qc_line_init
+    add-zle-hook-widget line-finish _oneagent_qc_line_finish
+    add-zle-hook-widget isearch-update _oneagent_qc_search_begin
+    add-zle-hook-widget isearch-exit _oneagent_qc_search_end
+    precmd_functions+=(_oneagent_qc_precmd)
+    zshexit_functions+=(_oneagent_qc_cleanup)
+}

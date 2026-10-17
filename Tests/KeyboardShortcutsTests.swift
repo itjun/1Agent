@@ -92,6 +92,7 @@ enum KeyboardShortcutsTests {
     }
 
     static func conflicts() {
+        expect(AppShortcutID.toggleToolSidebar.defaultChord == KeyChord(key: "b", modifiers: [.command, .shift]), "tool sidebar uses Command-Shift-B")
         expect(AppShortcutID.toggleSidebar.defaultChord == KeyChord(key: "b", modifiers: .command), "sidebar toggles with Command-B")
         expect(AppShortcutID.settings.defaultChord == KeyChord(key: ",", modifiers: .command), "settings opens with Command-comma")
         expect(AppShortcutID.openFileBrowser.defaultChord == KeyChord(key: "o", modifiers: [.command, .option]), "Terminal/Files keeps its independent Option-Command-O shortcut")
@@ -99,6 +100,7 @@ enum KeyboardShortcutsTests {
         for id in AppShortcutID.allCases {
             bindings[id] = id.defaultChord
         }
+        expect(AppShortcuts.check(AppShortcutID.toggleToolSidebar.defaultChord, for: .find, bindings: bindings) == .conflict(.toggleToolSidebar), "tool sidebar participates in shortcut conflict checking")
         for id in AppShortcutID.allCases {
             for other in AppShortcutID.allCases where other != id {
                 expect(id.defaultChord != other.defaultChord, "defaults of \(id.rawValue) and \(other.rawValue) differ")

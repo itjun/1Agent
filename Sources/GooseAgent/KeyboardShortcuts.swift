@@ -19,6 +19,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case selectLastTerminal
     case terminalSwitcher
     case toggleSidebar
+    case toggleToolSidebar
     case commandPalette
     case agentLauncher
     case duplicateRight
@@ -61,7 +62,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
             return .app
         case .previousTerminal, .nextTerminal,
              .selectTerminal1, .selectTerminal2, .selectTerminal3, .selectTerminal4,
-             .selectTerminal5, .selectTerminal6, .selectTerminal7, .selectTerminal8, .selectLastTerminal, .terminalSwitcher, .toggleSidebar:
+             .selectTerminal5, .selectTerminal6, .selectTerminal7, .selectTerminal8, .selectLastTerminal, .terminalSwitcher, .toggleSidebar, .toggleToolSidebar:
             return .sidebar
         case .duplicateRight, .duplicateDown, .openFileBrowser, .toggleSplitZoom, .closeTab, .nextPane, .previousPane,
              .paneLeft, .paneRight, .paneUp, .paneDown,
@@ -90,6 +91,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .selectLastTerminal: return String(localized: "Go to Last Terminal")
         case .terminalSwitcher: return String(localized: "Terminal Switcher")
         case .toggleSidebar: return String(localized: "Toggle Session Sidebar")
+        case .toggleToolSidebar: return String(localized: "Toggle Tool Sidebar")
         case .commandPalette: return String(localized: "Command Palette")
         case .agentLauncher: return String(localized: "Launch Agent…")
         case .duplicateRight: return String(localized: "Split Right")
@@ -146,6 +148,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .selectLastTerminal: return KeyChord(key: "9", modifiers: .command)
         case .terminalSwitcher: return KeyChord(key: "\t", modifiers: .control)
         case .toggleSidebar: return KeyChord(key: "b", modifiers: .command)
+        case .toggleToolSidebar: return KeyChord(key: "b", modifiers: [.command, .shift])
         case .commandPalette: return KeyChord(key: "p", modifiers: [.command, .shift])
         case .agentLauncher: return KeyChord(key: "a", modifiers: [.command, .shift])
         case .duplicateRight: return KeyChord(key: "d", modifiers: .command)

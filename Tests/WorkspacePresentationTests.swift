@@ -18,6 +18,8 @@ struct WorkspacePresentationTests {
         saved.filesLayout = .sideBySide
         saved.filesWidth = 512
         saved.filesHeightRatio = 0.7
+        saved.commandPreviewHeight = 496
+        saved.commandPreviewExpanded = false
         saved.collapsedWorkspaces = [UUID(), UUID()]
         let data = try JSONEncoder().encode(saved)
         let decoded = try JSONDecoder().decode(WorkspacePresentation.self, from: data)
@@ -69,11 +71,41 @@ struct WorkspacePresentationTests {
                         && migratedWorkspace.collapsedWorkspaces == [collapsedGroup],
                      "the version-two chrome migration keeps saved widths and workspace identities")
         let migratedJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(migratedWorkspace)) as! [String: Any]
-        precondition(migratedJSON["presentationVersion"] as? Int == 4)
+        precondition(migratedJSON["presentationVersion"] as? Int == 6)
         precondition(migratedJSON["filesWorkspace"] == nil)
         precondition(migratedJSON["filesLayout"] as? String == "sideBySide")
         let minimalSnapshot = try JSONDecoder().decode(WorkspacePresentation.self, from: Data("{}".utf8))
         precondition(minimalSnapshot == fresh, "snapshots missing new fields use safe defaults")
+        let previousPreview = try JSONDecoder().decode(WorkspacePresentation.self,
+            from: Data(#"{"presentationVersion":5,"toolSidebarOpen":true,"toolSidebarWidth":410}"#.utf8))
+        precondition(previousPreview.commandPreviewExpanded && previousPreview.commandPreviewHeight == 320)
+        precondition(previousPreview.toolSidebarOpen && previousPreview.toolSidebarWidth == 410,
+                     "adding preview preferences must preserve the existing sidebar")
+        for (stored, expected) in [(-200.0, 160.0), (496, 496), (9000, 1200)] {
+            let payload = Data("{\"presentationVersion\":6,\"commandPreviewHeight\":\(stored),\"commandPreviewExpanded\":false}".utf8)
+            let state = try JSONDecoder().decode(WorkspacePresentation.self, from: payload)
+            precondition(state.commandPreviewHeight == expected && !state.commandPreviewExpanded)
+        }
+        for invalid in [Double.nan, .infinity, -.infinity] {
+            precondition(CommandPreviewLayout.storedHeight(invalid) == 320)
+            var corrupt = fresh
+            corrupt.commandPreviewHeight = invalid
+            let repaired = try JSONDecoder().decode(WorkspacePresentation.self, from: JSONEncoder().encode(corrupt))
+            precondition(repaired.commandPreviewHeight == 320)
+        }
+        for available: CGFloat in [200, 300, 500, 900, 1800] {
+            for preferred in [160.0, 320, 496, 1200] {
+                let height = CommandPreviewLayout.visibleHeight(available: available, expanded: true, preferred: preferred)
+                precondition(height >= 0 && height <= preferred)
+                precondition(available - height - CommandPreviewLayout.dividerHeight >= CommandPreviewLayout.minimumListHeight,
+                             "resizing the preview must leave room for commands")
+                precondition(CommandPreviewLayout.visibleHeight(available: available, expanded: false, preferred: preferred) == 32)
+            }
+        }
+        // Temporary fitting and collapse do not replace the preferred expanded size.
+        _ = CommandPreviewLayout.visibleHeight(available: 250, expanded: true, preferred: saved.commandPreviewHeight)
+        _ = CommandPreviewLayout.visibleHeight(available: 900, expanded: false, preferred: saved.commandPreviewHeight)
+        precondition(CommandPreviewLayout.visibleHeight(available: 900, expanded: true, preferred: saved.commandPreviewHeight) == 496)
         var alongside = migratedDock
         alongside.filesLayout = .belowTerminal
         alongside.sidebarCollapsed = true

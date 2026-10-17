@@ -1,6 +1,10 @@
 import Foundation
 
 enum SheetLayout {
+    static let quickCommand: CGFloat = 640
+    static let quickCommandHeight: CGFloat = 650
+    static let commandLibrary: CGFloat = 820
+    static let commandLibraryHeight: CGFloat = 680
     static let folderPicker: CGFloat = 600
     static let confirmation: CGFloat = 420
     static let dialogInset: CGFloat = 32

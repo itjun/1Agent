@@ -23,6 +23,8 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var sidebarRevealed = false
     @Published var commandPalettePresented = false
     @Published var agentLauncherPresented = false
+    /// Transient: dropping a command only opens confirmation, never restores a run.
+    @Published var quickCommandConfirmation: QuickCommandConfirmationTarget?
     /// The session that last opened Files. Closing the dock does not reset its browsing state.
     var filesSourceTabID: UUID?
     /// Filtering is transient and must not change shortcut positions or saved ordering.

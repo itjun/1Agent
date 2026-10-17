@@ -386,6 +386,10 @@ _ghostty_deferred_init() {
         precmd_functions=(${precmd_functions:#_ghostty_deferred_init})
     fi
 
+    if [[ -n $ONEAGENT_QC_SOCKET ]]; then
+        builtin source "${GHOSTTY_RESOURCES_DIR}/shell-integration/zsh/oneagent-quick-commands"
+    fi
+
     # Unfunction _ghostty_deferred_init to save memory. Don't unfunction
     # ghostty-integration though because decent public functions aren't supposed to
     # to unfunction themselves when invoked. Unfunctioning is done by calling code.

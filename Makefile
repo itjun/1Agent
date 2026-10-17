@@ -1,4 +1,4 @@
-.PHONY: gen build install run test test-appearance test-terminal-restoration clean
+.PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop clean
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -27,6 +27,10 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test:
+	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
+	/tmp/oneagent-quick-command-tests
+	python3 scripts/test-quick-command-bridge.py
+	python3 scripts/test-quick-command-startup.py
 	swiftc -o /tmp/oneagent-agent-launch-test Sources/GooseAgent/AgentLaunch.swift Sources/GooseAgent/SSHLaunch.swift Tests/AgentLaunchTests.swift
 	/tmp/oneagent-agent-launch-test
 	swiftc -parse-as-library -o /tmp/oneagent-agent-literal-editor-test Sources/GooseAgent/AgentLiteralEditor.swift Tests/AgentLiteralEditorTests.swift
@@ -83,6 +87,10 @@ test-appearance:
 # Uses the production Debug module and isolated native terminal surfaces. Run make build first.
 test-terminal-restoration:
 	bash scripts/test-terminal-restoration.sh
+
+# Uses the production Debug module with isolated preferences and no shell/network access.
+test-quick-command-drop:
+	bash scripts/test-quick-command-drop.sh
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

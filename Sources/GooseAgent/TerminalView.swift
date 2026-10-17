@@ -262,6 +262,7 @@ final class TerminalProcessHost {
     private var pendingInitialInput: Data?
     private var pendingRestoration: TerminalRestoration?
     private var terminated = false
+    private(set) var commandBridge: LocalCommandBridge?
 
     var process: TerminalProcess { box.process }
 
@@ -332,9 +333,11 @@ final class TerminalProcessHost {
     func terminate() {
         terminated = true
         process.terminate()
+        commandBridge = nil
     }
 
     private func startProcess(_ launch: TerminalLaunch) {
+        commandBridge = nil
         let process = TerminalProcess()
         process.onOutput = { [session] data in session.receive(data) }
         process.onExit = { [weak self, weak process] code in
@@ -347,6 +350,10 @@ final class TerminalProcessHost {
         var environment = sshChildEnvironment(launch.environment)
         if !launch.shellIntegrationEnvironment.isEmpty {
             environment = ShellIntegrationEnvironment.merged(environment, overrides: launch.shellIntegrationEnvironment)
+            commandBridge = LocalCommandBridge()
+            if let commandBridge {
+                environment = environment.filter { !$0.hasPrefix("ONEAGENT_QC_") } + commandBridge.environment
+            }
         }
         let size = box.size()
         process.start(
@@ -422,6 +429,32 @@ enum SSHTerminalRegistry {
         views[id]?.processHost?.process.currentWorkingDirectory
     }
 
+    static func processIdentity(for id: String) -> UUID? {
+        views[id]?.processHost?.process.identity
+    }
+
+    static func quickCommandReady(_ id: String) async -> Bool {
+        guard let view = views[id], !view.hasMarkedText(), let host = view.processHost,
+              host.process.shellIsForeground, let bridge = host.commandBridge else { return false }
+        let process = host.process, revision = host.process.commandInputRevision
+        guard await bridge.query() else { return false }
+        return views[id] === view && host.process === process && !view.hasMarkedText() && host.process.shellIsForeground
+            && host.process.commandInputRevision == revision
+    }
+
+    static func runQuickCommand(_ request: QuickCommandRunRequest, contextIsCurrent: () -> Bool) async throws {
+        guard let id = request.context.sessionID, let view = views[id], !view.hasMarkedText(),
+              let host = view.processHost, host.process.shellIsForeground, let bridge = host.commandBridge,
+              let directory = request.context.directory,
+              host.process.currentWorkingDirectory == directory else { throw QuickCommandError.unavailable }
+        let process = host.process, revision = host.process.commandInputRevision
+        guard process.identity == request.context.processID else { throw QuickCommandError.changedTarget }
+        guard await bridge.query(), views[id] === view, host.process === process, !view.hasMarkedText(),
+              host.process.commandInputRevision == revision, host.process.shellIsForeground else { throw QuickCommandError.unavailable }
+        guard contextIsCurrent() else { throw QuickCommandError.changedTarget }
+        try await bridge.run(id: request.id, script: request.currentShellCommand, expectedDirectory: directory)
+    }
+
     /// Text typed at the prompt as a paste. False when the view is gone.
     @discardableResult
     static func paste(_ text: String, into id: String) -> Bool {
@@ -482,6 +515,8 @@ final class SSHTerminalNSView: AppTerminalView {
     var onSplit: ((SplitEdge) -> Void)?
     /// Finder files dropped on a split, New Tab, or transfer circle.
     var onFileDrop: (([URL], DropZone) -> Void)?
+    var canDropQuickCommand: (UUID) -> Bool = { _ in false }
+    var onQuickCommandDrop: (UUID) -> Bool = { _ in false }
     /// The session runs over ssh: the transfer circle uploads instead of copying.
     var dropIsRemote = false
     var appliedDarkAppearance: Int?
@@ -604,6 +639,23 @@ final class SSHTerminalNSView: AppTerminalView {
             border: NSColor(chrome.hairline),
             in: bounds
         )
+    }
+
+    /// Internal command drags never enter the terminal's text/file paste path.
+    func acceptsQuickCommand(_ id: UUID) -> Bool {
+        guard let sessionID, TerminalActivity.shared.isOnScreen(sessionID: sessionID) else { return false }
+        return canDropQuickCommand(id)
+    }
+
+    func highlightQuickCommand(_ id: UUID?) {
+        showDropHighlight(id.map { acceptsQuickCommand($0) } ?? false)
+    }
+
+    @discardableResult
+    func dropQuickCommand(_ id: UUID) -> Bool {
+        highlightQuickCommand(nil)
+        guard acceptsQuickCommand(id) else { return false }
+        return onQuickCommandDrop(id)
     }
 
     // MARK: Dropping files
@@ -1295,6 +1347,8 @@ struct SSHTerminalView: NSViewRepresentable {
     var onRevealFiles: () -> Void = {}
     var paneMenuItems: () -> [FamilyMenuItem] = { [] }
     var onFileDrop: (([URL], DropZone) -> Void)? = nil
+    var canDropQuickCommand: (UUID) -> Bool = { _ in false }
+    var onQuickCommandDrop: (UUID) -> Bool = { _ in false }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -1409,6 +1463,10 @@ struct SSHTerminalView: NSViewRepresentable {
         terminal.paneMenuItems = { [weak coordinator] in coordinator?.paneMenuItems?() ?? [] }
         coordinator.onFileDrop = onFileDrop
         terminal.onFileDrop = { [weak coordinator] urls, zone in coordinator?.onFileDrop?(urls, zone) }
+        coordinator.canDropQuickCommand = canDropQuickCommand
+        coordinator.onQuickCommandDrop = onQuickCommandDrop
+        terminal.canDropQuickCommand = { [weak coordinator] in coordinator?.canDropQuickCommand?($0) ?? false }
+        terminal.onQuickCommandDrop = { [weak coordinator] in coordinator?.onQuickCommandDrop?($0) ?? false }
         terminal.dropIsRemote = !alias.isEmpty
         let onExit = self.onExit
         terminal.processHost?.onExit = { code, lived in
@@ -1427,6 +1485,8 @@ struct SSHTerminalView: NSViewRepresentable {
         var onRevealFiles: (() -> Void)?
         var paneMenuItems: (() -> [FamilyMenuItem])?
         var onFileDrop: (([URL], DropZone) -> Void)?
+        var canDropQuickCommand: ((UUID) -> Bool)?
+        var onQuickCommandDrop: ((UUID) -> Bool)?
         weak var terminal: SSHTerminalNSView?
     }
 }

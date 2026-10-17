@@ -1064,6 +1064,24 @@ final class AppModel: ObservableObject {
         pendingLocalStartupCommands.removeValue(forKey: id)
     }
 
+    func launchQuickCommand(_ request: QuickCommandRunRequest, in window: WindowState) async throws {
+        guard quickCommandContext(in: window) == request.context else { throw QuickCommandError.changedTarget }
+        if let host = request.context.host {
+            guard QuickCommand.validHost(host) else { throw QuickCommandError.invalidHost }
+            let environment = await SSHLaunchEnvironment.shared.get()
+            guard quickCommandContext(in: window) == request.context else { throw QuickCommandError.changedTarget }
+            launchEnvironment = environment
+            let tab = TerminalTab(id: UUID(), alias: host, generation: 0, exited: false, remoteDirectory: request.directory)
+            pendingRemoteStartupCommands[tab.id] = request.startupCommand()
+            activate(window)
+            showSection(.terminals, in: window)
+            add(tab, placement: .newTab, beside: window.selectedTabID ?? UUID(), in: window)
+        } else {
+            guard ExternalOpen.validatedDirectory(request.directory) != nil else { throw QuickCommandError.invalidDirectory }
+            openLocalTerminal(at: request.directory, startupCommand: request.startupCommand(shell: LocalTerminal.shellExecutable), in: window)
+        }
+    }
+
     /// The focused pane supplies the connection and current directory, including OSC 7
     /// updates. Opening the launcher itself never changes or writes to that pane.
     func agentLaunchTarget(in window: WindowState) -> AgentLaunchTarget {

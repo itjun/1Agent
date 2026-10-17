@@ -25,6 +25,8 @@ struct RootView: View {
     @State private var hoveredTabID: UUID?
     @State private var availableWidth: CGFloat = 0
     @State private var sidebarHovered = false
+    @State private var toolSidebarHovered = false
+    @State private var toolSidebarDragStart: Double?
     @State private var draggingTitle: UUID?
     @FocusState private var workspaceNameFocused: Bool
 
@@ -99,6 +101,13 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
+        .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
+            if let confirmation = window.quickCommandConfirmation {
+                QuickCommandConfirmation(confirmation: confirmation, model: model, window: window) {
+                    window.quickCommandConfirmation = nil
+                }.id(confirmation.id)
+            }
+        }
         .familySheet(isPresented: $window.commandPalettePresented, width: SheetLayout.search, height: SheetLayout.commandPaletteHeight) {
             TerminalCommandPalette(model: model, window: window) { window.commandPalettePresented = false }
                 .environment(\.windowChrome, chrome)
@@ -335,12 +344,38 @@ struct RootView: View {
     }
 
     private var workspaceWithTools: some View {
-        workspaceSurface
+        GeometryReader { geometry in
+            let width = ToolSidebarLayout.visibleWidth(detailWidth: geometry.size.width,
+                open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+            ZStack(alignment: .topLeading) {
+                workspaceSurface.frame(width: max(0, geometry.size.width - (width > 0 ? width + 1 : 0)))
+                if width > 0 {
+                    QuickCommandSidebar(model: model, window: window)
+                        .frame(width: width, height: geometry.size.height)
+                        .background(SidebarHoverTracking { toolSidebarHovered = $0 })
+                        .offset(x: geometry.size.width - width)
+                        .onDisappear { toolSidebarHovered = false }
+                    Rectangle().fill(chrome.hairline).frame(width: 1, height: geometry.size.height)
+                        .overlay {
+                            Color.clear.frame(width: 7).contentShape(Rectangle())
+                                .gesture(DragGesture(minimumDistance: 1).onChanged { value in
+                                    if toolSidebarDragStart == nil { toolSidebarDragStart = Double(width) }
+                                    let next = ToolSidebarLayout.storedWidth((toolSidebarDragStart ?? Double(width)) - value.translation.width)
+                                    model.updatePresentation(in: window) { $0.toolSidebarWidth = next }
+                                }.onEnded { _ in toolSidebarDragStart = nil })
+                        }
+                        .offset(x: geometry.size.width - width - 1)
+                        .accessibilityLabel(Text("Resize Tool Sidebar"))
+                }
+            }
+        }
     }
 
     private func workspaceTitlebar(collapsed: Bool, sidebarWidth: CGFloat, size: CGSize) -> some View {
         let inset = collapsed ? 0 : sidebarWidth + 1
-        let detailWidth = max(1, size.width - inset)
+        let toolWidth = ToolSidebarLayout.visibleWidth(detailWidth: size.width - inset,
+            open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+        let detailWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + 1 : 0))
         let terminalHeight = size.height - Theme.PaneStyle.titlebarHeight
         let frames = TerminalCanvas.paneFrames(model.displayRoot(in: window), zoomed: model.zoomedPane(in: window),
             in: CGRect(x: 0, y: 0, width: detailWidth, height: terminalHeight))
@@ -381,6 +416,25 @@ struct RootView: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("workspace.sidebarHeader")
+            if !filesMode {
+                HoverRevealingRegion { hovering in
+                    HStack {
+                        Spacer(minLength: 0)
+                        Button { model.toggleToolSidebar(in: window) } label: {
+                            Image(systemName: "sidebar.right").frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
+                        .help(shortcutHelp(.toggleToolSidebar))
+                        .accessibilityLabel(Text(toolWidth > 0 ? "Hide Tool Sidebar" : "Show Tool Sidebar"))
+                        .accessibilityIdentifier("workspace.toggleToolSidebar")
+                        .opacity(hovering || toolSidebarHovered ? 1 : 0)
+                        .allowsHitTesting(hovering || toolSidebarHovered)
+                    }
+                    .padding(.trailing, 8)
+                    .frame(width: max(48, toolWidth), height: Theme.PaneStyle.titlebarHeight)
+                }
+                .offset(x: size.width - max(48, toolWidth))
+            }
         }
         .frame(height: Theme.PaneStyle.titlebarHeight)
         .background(WindowDragArea())
