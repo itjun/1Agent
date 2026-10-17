@@ -17,7 +17,7 @@ enum TerminalFocusTests {
         Task { @MainActor in
             do {
                 try await run()
-                print("TerminalFocusTests passed: delayed mounting/layout, modal dismissal, current selection, hidden panes, keyboard focus preservation and explicit refocus")
+                print("TerminalFocusTests passed: delayed mounting/layout, modal dismissal, current selection, hidden panes, keyboard focus preservation, explicit refocus and live input indicators")
                 exit(0)
             } catch {
                 fputs("TerminalFocusTests failed: \(error)\n", stderr)
@@ -59,6 +59,7 @@ enum TerminalFocusTests {
         try await hiddenAndFilesCancellation()
         try await successfulFocusIsConsumed()
         try await focusWhenWindowBecomesKey()
+        try await inputIndicatorLifecycle()
     }
 
     @MainActor
@@ -347,6 +348,75 @@ enum TerminalFocusTests {
     }
 
     @MainActor
+    private static func inputIndicatorLifecycle() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let focus = FocusedTerminal.shared
+        let state = WindowState()
+        var firstTab = TerminalTab(id: UUID(), alias: "test-a", generation: 0, exited: false)
+        let secondTab = TerminalTab(id: UUID(), alias: "test-b", generation: 0, exited: false)
+        let first = try makeTerminal()
+        let second = try makeTerminal()
+        first.sessionID = firstTab.sessionID
+        second.sessionID = secondTab.sessionID
+        first.frame = NSRect(x: 0, y: 60, width: 410, height: 460)
+        second.frame = NSRect(x: 410, y: 60, width: 410, height: 460)
+        fixture.root.addSubview(first)
+        fixture.root.addSubview(second)
+        state.selectedTabID = firstTab.id
+        fixture.window.makeFirstResponder(first)
+        try await eventually("The input indicator must identify the native first responder") {
+            focus.receivesInput(firstTab, in: state)
+        }
+
+        // Styling may not become an input target, move the terminal, or resize its contents.
+        let originalBounds = first.bounds
+        first.setFocusRail(color: .systemBlue)
+        first.layoutSubtreeIfNeeded()
+        let rail = first.subviews.first { $0 is TerminalOverlayView && !$0.isHidden }
+        try require(rail != nil && rail?.hitTest(.zero) == nil,
+                    "The focus rail must pass mouse selection, hover and drag events through")
+        try require(first.bounds == originalBounds && fixture.window.firstResponder === first,
+                    "Focus styling must not change the terminal geometry or first responder")
+        first.setFocusRail(color: nil)
+        try require(rail?.isHidden == true, "Zooming or leaving a split must remove its rail")
+
+        firstTab.reconnecting = true
+        try require(!focus.receivesInput(firstTab, in: state), "Reconnecting terminals cannot advertise current input")
+        firstTab.reconnecting = false
+        firstTab.exited = true
+        try require(!focus.receivesInput(firstTab, in: state), "Disconnected terminals cannot advertise current input")
+        firstTab.exited = false
+        state.section = .files
+        try require(!focus.receivesInput(firstTab, in: state), "File mode cannot advertise terminal input")
+        state.section = .terminals
+
+        fixture.window.makeFirstResponder(fixture.editor)
+        try await eventually("Search/editor focus must clear the input marker without clearing selection") {
+            focus.inputSessionID == nil
+        }
+        try require(state.selectedTabID == firstTab.id, "A passive focus marker must preserve selected terminal")
+        fixture.window.makeFirstResponder(first)
+        try await eventually("Returning to a terminal must restore its input marker") {
+            focus.inputSessionID == first.sessionID
+        }
+        state.selectedTabID = secondTab.id
+        fixture.window.makeFirstResponder(second)
+        try await eventually("Switching between two terminals must publish the new session even while availability remains true") {
+            focus.receivesInput(secondTab, in: state) && !focus.receivesInput(firstTab, in: state)
+        }
+        let modal = fixture.modal()
+        try await eventually("An open dialog must clear all terminal input markers") { focus.inputSessionID == nil }
+        modal.close()
+        try await eventually("Dismissing the dialog restores the actual input destination") { focus.receivesInput(secondTab, in: state) }
+        NSApp.deactivate()
+        try await eventually("Switching applications must clear the input marker") { focus.inputSessionID == nil }
+        // macOS may refuse a background test executable's request to reactivate
+        // itself. Verify foreground return using the installed app, not a fake
+        // activation notification while NSApp.isActive is still false.
+    }
+
+    @MainActor
     private static func settle() async {
         try? await Task.sleep(for: .milliseconds(60))
     }
@@ -355,7 +425,7 @@ enum TerminalFocusTests {
     private static func eventually(_ message: String, condition: () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(3)
         while !condition(), Date() < deadline { await settle() }
-        try require(condition(), message)
+        try require(condition(), "\(message) [active=\(NSApp.isActive), key=\(String(describing: NSApp.keyWindow)), responder=\(String(describing: NSApp.keyWindow?.firstResponder)), input=\(String(describing: FocusedTerminal.shared.inputSessionID))]")
     }
 
     private static func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {

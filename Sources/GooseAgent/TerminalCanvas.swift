@@ -8,6 +8,8 @@ struct TerminalCanvas: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @ObservedObject private var find = TerminalFind.shared
+    @ObservedObject private var inputFocus = FocusedTerminal.shared
+    @AppStorage(TerminalSettings.paddingXKey) private var terminalPaddingX = TerminalSettings.defaults.paddingX
     var dropRelay: CanvasDropRelay
     var dark: Bool
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
@@ -55,6 +57,10 @@ struct TerminalCanvas: View {
                         restoration: tab.restoration,
                         isPresented: visible && !window.presentation.fullFilesWorkspace,
                         isSelected: window.selectedTabID == tab.id && window.section == .terminals,
+                        focusRailColor: isSplit && visible && window.selectedTabID == tab.id
+                            && !window.presentation.fullFilesWorkspace
+                            && CGFloat(terminalPaddingX) >= Theme.PaneStyle.focusRailInset + Theme.PaneStyle.focusRailWidth
+                            ? NSColor(inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary.opacity(0.5)) : nil,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
                                 !window.presentation.fullFilesWorkspace
@@ -122,7 +128,8 @@ struct TerminalCanvas: View {
                         paneChrome(tab, frame: frame, headerHeight: Self.headerHeight(for: frame), isSplit: isSplit, isZoomed: zoomed == tab.id)
                     }
                 }
-                if isSplit, let selected = window.selectedTabID, let frame = frames[selected] {
+                if isSplit, let selected = window.selectedTabID, let frame = frames[selected],
+                   model.tabs.first(where: { $0.id == selected })?.hasTerminal != true {
                     Rectangle()
                         .strokeBorder(chrome.accent.opacity(window.section == .terminals ? 0.75 : 0.3), lineWidth: 1)
                         .frame(width: frame.width, height: frame.height)
@@ -235,7 +242,8 @@ struct TerminalCanvas: View {
 
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
-        let focused = window.selectedTabID == tab.id
+        let selected = window.selectedTabID == tab.id
+        let focused = tab.hasTerminal ? inputFocus.receivesInput(tab, in: window) : selected
         if isSplit && headerHeight > 0 {
             ZStack {
                 chrome.panelHeader
@@ -251,7 +259,7 @@ struct TerminalCanvas: View {
                     DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
                     Text(paneTitle(tab))
                         .font(Theme.Font.paneTitle)
-                        .fontWeight(focused ? .semibold : .medium)
+                        .fontWeight(selected ? .semibold : .medium)
                         .foregroundStyle(hostTitleColor(focused: focused))
                         .lineLimit(1)
                     if tab.reconnecting {
@@ -281,7 +289,13 @@ struct TerminalCanvas: View {
                     )
                     .help(String(localized: "Click the title for actions. Drag it to move the pane."))
                 }
-                .padding(.horizontal, Theme.Space.s)
+                .padding(.horizontal, tab.hasTerminal ? TerminalInputIndicator.reservedWidth(for: frame.width) : Theme.Space.s)
+
+                HStack {
+                    Spacer(minLength: 0)
+                    TerminalInputIndicator(active: focused && tab.hasTerminal, paneWidth: frame.width, sessionID: tab.sessionID)
+                }
+                .allowsHitTesting(false)
 
             }
             .frame(width: frame.width, height: headerHeight)

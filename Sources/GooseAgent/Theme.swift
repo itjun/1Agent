@@ -78,6 +78,16 @@ enum Theme {
         static let stripTitleInset: CGFloat = 40
         /// Title bar of each pane in a split. Dragging the title text merges panes; the terminal starts right below.
         static let headerHeight: CGFloat = 28
+        static let focusRailWidth: CGFloat = 3
+        static let focusRailHeight: CGFloat = 56
+        static let focusRailInset: CGFloat = 2
+        static let focusRailTopInset: CGFloat = 8
+        static let inputLabelMinimumWidth: CGFloat = 360
+        static let inputIconMinimumWidth: CGFloat = 160
+        static let inputLabelWidth: CGFloat = 88
+        static let inputIconWidth: CGFloat = 24
+        static let inputTrailingInset: CGFloat = 12
+        static let titlebarAccessoryInset: CGFloat = 44
         /// Disconnected / reconnecting banner shown under the title bar.
         static let bannerHeight: CGFloat = 28
         /// Icon size next to the pane title (reconnecting / disconnected).

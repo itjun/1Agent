@@ -7,6 +7,7 @@ struct RootView: View {
     @ObservedObject var window: WindowState
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @ObservedObject private var themePreview = ThemePreview.shared
+    @ObservedObject private var inputFocus = FocusedTerminal.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
@@ -457,9 +458,19 @@ struct RootView: View {
             } else {
                 ForEach(topTabs) { tab in
                     if let frame = frames[tab.id] {
+                        let trailingInset: CGFloat = toolWidth == 0 && frame.maxX >= detailWidth - 1
+                            ? Theme.PaneStyle.titlebarAccessoryInset : 0
+                        let leadingInset: CGFloat = collapsed && frame.minX < 1 ? SidebarLayout.trafficLightInset + 56 : 0
+                        let titleWidth = max(0, frame.width - leadingInset - trailingInset)
                         paneTitleMenu(tab)
-                            .padding(.leading, collapsed && frame.minX < 1 ? SidebarLayout.trafficLightInset + 56 : 0)
+                            .padding(.horizontal, tab.hasTerminal ? TerminalInputIndicator.reservedWidth(for: titleWidth) : 0)
+                            .padding(.leading, leadingInset)
                             .frame(width: frame.width, height: Theme.PaneStyle.titlebarHeight)
+                            .overlay(alignment: .trailing) {
+                                TerminalInputIndicator(active: inputFocus.receivesInput(tab, in: window),
+                                    paneWidth: titleWidth, sessionID: tab.sessionID)
+                                    .padding(.trailing, trailingInset)
+                            }
                             .overlay(alignment: .bottom) {
                                 PaneProgressBar(sessionID: tab.sessionID).allowsHitTesting(false)
                             }
@@ -509,7 +520,10 @@ struct RootView: View {
         FamilyMenu(items: { draggingTitle == nil ? TerminalPaneActions.titleItems(tab: tab, model: model, window: window) : [] }) {
             Text(verbatim: sessionTitle(tab))
                 .font(Theme.Font.paneTitle)
-                .foregroundStyle(window.selectedTabID == tab.id ? chrome.text : chrome.secondary)
+                .fontWeight(window.selectedTabID == tab.id ? .semibold : .medium)
+                .foregroundStyle(tab.hasTerminal
+                    ? (inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary)
+                    : (window.selectedTabID == tab.id ? chrome.text : chrome.secondary))
                 .lineLimit(1).truncationMode(.middle)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: 360, maxHeight: .infinity)

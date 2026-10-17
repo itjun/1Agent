@@ -9,6 +9,9 @@ final class FocusedTerminal: ObservableObject {
     @Published private(set) var isAvailable = false
     /// A focused terminal, or a pane's find field with the keyboard.
     @Published private(set) var canFind = false
+    /// Live keyboard destination for pane chrome. Unlike menu availability, never
+    /// retain this while the app is inactive or a search field/dialog owns input.
+    @Published private(set) var inputSessionID: String?
 
     private var observers: [NSObjectProtocol] = []
 
@@ -18,6 +21,9 @@ final class FocusedTerminal: ObservableObject {
             NSWindow.didBecomeKeyNotification,
             NSWindow.didResignKeyNotification,
             NSApplication.didBecomeActiveNotification,
+            NSApplication.didResignActiveNotification,
+            NSWindow.willBeginSheetNotification,
+            NSWindow.didEndSheetNotification,
         ]
         for name in names {
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { _ in
@@ -45,6 +51,13 @@ final class FocusedTerminal: ObservableObject {
     }
 
     func refresh() {
+        let terminal = Self.current
+        let receivesInput = NSApp.isActive && terminal?.window?.isKeyWindow == true
+            && terminal?.window?.attachedSheet == nil
+            && terminal?.isHiddenOrHasHiddenAncestor == false
+            && !(terminal?.window?.childWindows?.contains { $0 is FamilyModalWindow && $0.isVisible } ?? false)
+        let sessionID = receivesInput ? terminal?.sessionID : nil
+        if inputSessionID != sessionID { inputSessionID = sessionID }
         // While another app is active there is no key window. Keeping the last state means the menu
         // does not depend on when the key window comes back after the app is activated again.
         if !NSApp.isActive {
@@ -58,6 +71,12 @@ final class FocusedTerminal: ObservableObject {
         if findable != canFind {
             canFind = findable
         }
+    }
+
+    func receivesInput(_ tab: TerminalTab, in window: WindowState) -> Bool {
+        inputSessionID == tab.sessionID && window.selectedTabID == tab.id
+            && window.section == .terminals && !window.presentation.fullFilesWorkspace
+            && tab.hasTerminal && !tab.reconnecting && !tab.showsDisconnected
     }
 
     /// Runs a Ghostty binding action such as `increase_font_size:1` on the focused terminal.
