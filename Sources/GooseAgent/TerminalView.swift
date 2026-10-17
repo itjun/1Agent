@@ -233,6 +233,7 @@ struct TerminalLaunch: Equatable {
     var directory: String?
     /// Local shells only: `ShellIntegrationEnvironment` variables, applied after `sshChildEnvironment`.
     var shellIntegrationEnvironment: [String] = []
+    var integratesRemoteShell = false
 }
 
 /// Owns one Ghostty session and the child process behind it. The process can be replaced
@@ -263,6 +264,9 @@ final class TerminalProcessHost {
     private var pendingRestoration: TerminalRestoration?
     private var terminated = false
     private(set) var commandBridge: LocalCommandBridge?
+    private(set) var remoteWorkingDirectory: String?
+    var onRemoteDirectory: ((String) -> Void)?
+    private var remotePreparation: Task<Void, Never>?
 
     var process: TerminalProcess { box.process }
 
@@ -304,15 +308,11 @@ final class TerminalProcessHost {
         }
         startProcess(initialLaunch ?? launch)
         initialLaunch = nil
-        if let pendingInitialInput {
-            process.write(pendingInitialInput)
-            self.pendingInitialInput = nil
-        }
     }
 
     func sendInitialInput(_ text: String) {
         let data = Data(text.utf8)
-        if hasStarted { process.write(data) } else { pendingInitialInput = data }
+        if process.shellPid > 0 { process.write(data) } else { pendingInitialInput = data }
     }
 
     /// Prints a dim divider into the same terminal and starts the command again.
@@ -332,14 +332,28 @@ final class TerminalProcessHost {
 
     func terminate() {
         terminated = true
+        remotePreparation?.cancel()
         process.terminate()
         commandBridge = nil
     }
 
     private func startProcess(_ launch: TerminalLaunch) {
+        remotePreparation?.cancel()
         commandBridge = nil
+        remoteWorkingDirectory = nil
         let process = TerminalProcess()
-        process.onOutput = { [session] data in session.receive(data) }
+        var tracker = RemoteDirectoryTracker()
+        process.onOutput = { [weak self, weak process, session] data in
+            session.receive(data)
+            guard launch.integratesRemoteShell else { return }
+            for path in tracker.receive(data) {
+                Task { @MainActor [weak self, weak process] in
+                    guard let self, let process, self.process === process else { return }
+                    self.remoteWorkingDirectory = path
+                    self.onRemoteDirectory?(path)
+                }
+            }
+        }
         process.onExit = { [weak self, weak process] code in
             guard let self, let process, process === self.box.process else { return }
             let lived = ProcessInfo.processInfo.systemUptime - self.startedAt
@@ -355,15 +369,28 @@ final class TerminalProcessHost {
                 environment = environment.filter { !$0.hasPrefix("ONEAGENT_QC_") } + commandBridge.environment
             }
         }
+        if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath {
+            let token = UUID().uuidString
+            let childEnvironment = environment
+            remotePreparation = Task { [weak self, weak process] in
+                let prepared = await Task.detached {
+                    RemoteShellIntegration.prepare(arguments: launch.args, environment: childEnvironment,
+                                                   resources: resources, token: token)
+                }.value
+                guard !Task.isCancelled, let self, let process, self.process === process, !self.terminated else { return }
+                self.spawn(process, launch: launch, arguments: prepared?.arguments ?? launch.args, environment: childEnvironment)
+            }
+        } else { spawn(process, launch: launch, arguments: launch.args, environment: environment) }
+    }
+
+    private func spawn(_ process: TerminalProcess, launch: TerminalLaunch, arguments: [String], environment: [String]) {
         let size = box.size()
-        process.start(
-            executable: launch.executable,
-            args: launch.args,
-            environment: environment,
-            directory: launch.directory,
-            columns: size.columns,
-            rows: size.rows
-        )
+        process.start(executable: launch.executable, args: arguments, environment: environment, directory: launch.directory,
+                      columns: size.columns, rows: size.rows)
+        if let pendingInitialInput {
+            process.write(pendingInitialInput)
+            self.pendingInitialInput = nil
+        }
     }
 }
 
@@ -1373,7 +1400,8 @@ struct SSHTerminalView: NSViewRepresentable {
             executable: "/usr/bin/ssh",
             args: SSHCommand.arguments(alias: alias, remoteDirectory: remoteDirectory),
             environment: environment,
-            directory: nil
+            directory: nil,
+            integratesRemoteShell: true
         )
     }
 
@@ -1423,6 +1451,7 @@ struct SSHTerminalView: NSViewRepresentable {
         view.sessionID = sessionID
         view.processHost = host
         view.eventRelay.terminal = view
+        host.onRemoteDirectory = { [weak view] path in view?.eventRelay.terminalDidChangeWorkingDirectory(path) }
         view.delegate = view.eventRelay
         view.registerForDraggedTypes(SSHTerminalNSView.dropTypes)
         view.controller = GhosttyRuntime.controller

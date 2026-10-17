@@ -27,6 +27,8 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test:
+	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
+	/tmp/oneagent-remote-shell-tests
 	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandTransfer.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
 	/tmp/oneagent-quick-command-tests
 	python3 scripts/test-quick-command-bridge.py
@@ -98,3 +100,7 @@ test-sidebar-groups:
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj
+
+# Production transport replay with isolated preferences and no SSH/network access.
+test-remote-directory:
+	bash scripts/test-remote-directory.sh

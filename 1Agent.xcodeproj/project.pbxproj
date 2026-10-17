@@ -12,6 +12,7 @@
 		06029F6A3874C4F968989D46 /* GhosttyConfigImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */; };
 		0C4038B602AAF8717BC418C2 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DC1BA41700994472C1F669 /* ServiceProvider.swift */; };
 		0DE73A8B2336FE70C87E605A /* goose-agent-icon-rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */; };
+		124D4B870522C607E44761C4 /* RemoteShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ED45FA3719FB04737F90722 /* RemoteShellIntegration.swift */; };
 		14211F306FED1B2D11F4BC58 /* FileBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9287816E82C9C005D220C098 /* FileBrowserModel.swift */; };
 		15EE643104E39D97BAEDC26A /* PreviewSyntax.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 66F6C38EE4A145B579647ECD /* PreviewSyntax.LICENSE.txt */; };
 		176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651A72E339CED37F30858736 /* ShellIntegration.swift */; };
@@ -189,6 +190,7 @@
 		6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 1Agent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandSidebar.swift; sourceTree = "<group>"; };
 		6D6EEC2E8F3559B717E5EA4E /* WorkspaceActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceActions.swift; sourceTree = "<group>"; };
+		6ED45FA3719FB04737F90722 /* RemoteShellIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShellIntegration.swift; sourceTree = "<group>"; };
 		6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBoard.swift; sourceTree = "<group>"; };
 		709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyDefaultsMigration.swift; sourceTree = "<group>"; };
 		71FDA7CC65A4FE2654714778 /* PinnedLocationsSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationsSidebar.swift; sourceTree = "<group>"; };
@@ -403,6 +405,7 @@
 				6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */,
 				1CD11169BC693046BBA4B666 /* QuickCommandStore.swift */,
 				4A0D4D2DC99D26A068742A81 /* QuickCommandTransfer.swift */,
+				6ED45FA3719FB04737F90722 /* RemoteShellIntegration.swift */,
 				B3DC1BA41700994472C1F669 /* ServiceProvider.swift */,
 				892504A66F17F43AE42EC04A /* SettingsView.swift */,
 				B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */,
@@ -596,6 +599,7 @@
 				0049A3ADBCF920705C9917A7 /* QuickCommandStore.swift in Sources */,
 				B744A1ACD2B549995CF0049C /* QuickCommandTransfer.swift in Sources */,
 				D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */,
+				124D4B870522C607E44761C4 /* RemoteShellIntegration.swift in Sources */,
 				68E57E62AE433E59107CCA8E /* SSHConfig.swift in Sources */,
 				402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */,
 				0C4038B602AAF8717BC418C2 /* ServiceProvider.swift in Sources */,
