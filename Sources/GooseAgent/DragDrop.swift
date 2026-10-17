@@ -110,6 +110,8 @@ final class CanvasDropRelay: ObservableObject {
                     }
                     return String(format: String(localized: "Workspace %lld"), workspace.number)
                 } ?? String(localized: "Workspace")
+            case .mixedGroup:
+                dragTitle = String(localized: "Mixed")
             case .localGroup:
                 dragTitle = String(localized: "Local Group")
             case .ungrouped:
@@ -255,16 +257,15 @@ final class CanvasDropRelay: ObservableObject {
                 let panels = Set(ids.compactMap { model.panelRow(for: $0, in: window)?.panelID })
                 if panels.count >= 2 {
                     model.createWorkspace(from: ids, atBlockIndex: index, in: window)
-                } else if let only = ids.first {
-                    let tab = model.tabs.first { $0.id == only }
-                    let block: SidebarBlock = tab?.isLocal == true ? .localGroup : .ungrouped
+                } else if !ids.isEmpty {
+                    let block = model.looseBlock(for: model.connectionGroup(for: ids))
                     model.moveToLooseGroup(ids, block, in: window, beside: nil, after: true)
                 }
             case .block(let block):
                 switch block {
                 case .workspace(let workspaceID):
                     model.joinWorkspace(ids, workspaceID, beside: nil, after: true, detach: draggingFromPane)
-                case .localGroup, .ungrouped:
+                case .localGroup, .ungrouped, .mixedGroup:
                     model.moveToLooseGroup(ids, block, in: window, beside: nil, after: true)
                 }
             }
@@ -323,7 +324,8 @@ final class CanvasDropRelay: ObservableObject {
             switch block {
             case .workspace(let id):
                 target = .workspace(id, beside: slot?.id, after: slot?.after ?? true)
-            case .localGroup, .ungrouped:
+            case .localGroup, .ungrouped, .mixedGroup:
+                guard model.canMoveToLooseGroup(Array(dragged), block, in: window) else { return nil }
                 target = .loose(block, beside: slot?.id, after: slot?.after ?? true)
             }
         } else {

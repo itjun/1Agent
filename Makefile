@@ -1,4 +1,4 @@
-.PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop clean
+.PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop test-sidebar-groups clean
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -91,6 +91,10 @@ test-terminal-restoration:
 # Uses the production Debug module with isolated preferences and no shell/network access.
 test-quick-command-drop:
 	bash scripts/test-quick-command-drop.sh
+
+# Production model and persisted sidebar grouping, using isolated storage and no SSH/shells.
+test-sidebar-groups:
+	bash scripts/test-sidebar-groups.sh
 
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj

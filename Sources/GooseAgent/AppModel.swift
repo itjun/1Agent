@@ -9,18 +9,18 @@ enum TabDropHighlight: Equatable {
     case block(SidebarBlock)
 }
 
-/// Top-level sidebar blocks. Workspaces, Local Group, and Ungrouped can be reordered.
-/// Local Group and Ungrouped are loose groups: plain lists the user fills however they like.
-/// Every window has its own two loose groups; a workspace is shown in exactly one window.
+/// Stored sidebar blocks. Loose panels are normalized by connection type; named
+/// workspaces stay intact and appear in the category of all their members.
 enum SidebarBlock: Equatable, Hashable, Codable {
     case workspace(UUID)
     case localGroup
     case ungrouped
+    case mixedGroup
 
     var isLoose: Bool {
         switch self {
         case .workspace: return false
-        case .localGroup, .ungrouped: return true
+        case .localGroup, .ungrouped, .mixedGroup: return true
         }
     }
 }
@@ -153,7 +153,7 @@ final class AppModel: ObservableObject {
 
     func panelRows(in window: WindowState) -> [TerminalPanelRow] {
         var seen = Set<UUID>()
-        return window.blocks.flatMap { block in
+        return sidebarBlocks(in: window).flatMap { block in
             members(of: block, in: window).compactMap { id -> TerminalPanelRow? in
                 guard let tab = tabs.first(where: { $0.id == id }) else { return nil }
                 let workspace = WorkspaceBoard.index(containing: id, in: workspaces).map { workspaces[$0] }
@@ -207,7 +207,7 @@ final class AppModel: ObservableObject {
         switch block {
         case .workspace(let workspaceID):
             joinWorkspace(row.leafIDs, workspaceID, beside: target, after: after)
-        case .localGroup, .ungrouped:
+        case .localGroup, .ungrouped, .mixedGroup:
             moveToLooseGroup(row.leafIDs, block, in: window, beside: target, after: after)
         }
     }
@@ -256,6 +256,9 @@ final class AppModel: ObservableObject {
 
     /// The session's location remains live even when its panel has a custom name.
     func sessionSubtitle(_ tab: TerminalTab) -> String {
+        if case .preview(let path) = tab.content {
+            return [String(localized: "This Mac"), LocalTerminal.displayPath(path)].joined(separator: " · ")
+        }
         if tab.isLocal {
             return [String(localized: "This Mac"), LocalTerminal.displayPath(tab.directory ?? "~")]
                 .joined(separator: " · ")
@@ -340,45 +343,74 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// The loose group a standalone terminal falls into when nobody has placed it yet.
+    func connectionGroup(for ids: [UUID]) -> SidebarConnectionGroup {
+        let wanted = Set(ids)
+        let members = tabs.filter { wanted.contains($0.id) }
+        let remote = members.contains { $0.content.isTerminal && !($0.alias ?? "").isEmpty }
+        let local = members.contains { !$0.content.isTerminal || ($0.alias ?? "").isEmpty }
+        return remote ? (local ? .mixed : .remote) : .local
+    }
+
+    func connectionGroup(for block: SidebarBlock) -> SidebarConnectionGroup {
+        switch block {
+        case .localGroup: .local
+        case .ungrouped: .remote
+        case .mixedGroup: .mixed
+        case .workspace(let id): connectionGroup(for: workspace(for: id)?.members ?? [])
+        }
+    }
+
+    func looseBlock(for group: SidebarConnectionGroup) -> SidebarBlock {
+        switch group {
+        case .local: .localGroup
+        case .remote: .ungrouped
+        case .mixed: .mixedGroup
+        }
+    }
+
     private func defaultLooseGroup(for tab: TerminalTab?) -> SidebarBlock {
-        guard let tab else { return .ungrouped }
-        switch tab.content {
-        case .terminal:
-            return tab.isLocal ? .localGroup : .ungrouped
-        case .preview:
-            return .localGroup
+        looseBlock(for: connectionGroup(for: tab.map { [$0.id] } ?? []))
+    }
+
+    /// Fixed category order, preserving user order inside each category.
+    func sidebarBlocks(in window: WindowState) -> [SidebarBlock] {
+        var blocks = window.blocks
+        for block in [SidebarBlock.localGroup, .ungrouped, .mixedGroup] where !blocks.contains(block) {
+            blocks.append(block)
+        }
+        return SidebarConnectionGroup.allCases.flatMap { group in
+            blocks.filter { connectionGroup(for: $0) == group }
         }
     }
 
-    /// Standalone terminals that no window lists. They show in the first window's default groups
-    /// so nothing can disappear; `syncLooseMembers` then writes them down.
-    private func unlistedStandalone() -> [TerminalTab] {
-        var listed = Set<UUID>()
-        for window in windows {
-            for list in window.looseMembers.values {
-                listed.formUnion(list)
-            }
-        }
-        return standaloneTabs.filter { !listed.contains($0.id) }
-    }
-
-    /// Members of a loose group in sidebar order.
+    /// Read legacy lists without trusting their labels. A complete split always moves as one row.
     func looseTabs(in block: SidebarBlock, window: WindowState) -> [TerminalTab] {
         guard block.isLoose else { return [] }
         let standalone = standaloneTabs
-        var result: [TerminalTab] = []
-        for id in window.looseMembers[block] ?? [] {
-            if let tab = standalone.first(where: { $0.id == id }) {
-                result.append(tab)
-            }
+        let byID = Dictionary(uniqueKeysWithValues: standalone.map { ($0.id, $0) })
+        let blocks = window.blocks + [SidebarBlock.localGroup, .ungrouped, .mixedGroup].filter { !window.blocks.contains($0) }
+        let stored = blocks.filter(\.isLoose).flatMap { window.looseMembers[$0] ?? [] }
+        var seen = Set<UUID>()
+        return (stored + standalone.map(\.id)).compactMap { id in
+            guard seen.insert(id).inserted, let tab = byID[id] else { return nil }
+            let panel = WorkspaceBoard.index(containing: id, in: workspaces)
+                .flatMap { workspaces[$0].panel(containing: id) }
+            let ids = panel.map { WorkspaceBoard.leafIDs($0.layout) } ?? [id]
+            return looseBlock(for: connectionGroup(for: ids)) == block ? tab : nil
         }
-        if window.id == windows.first?.id {
-            for tab in unlistedStandalone() where defaultLooseGroup(for: tab) == block {
-                result.append(tab)
-            }
+    }
+
+    func visiblePanelRows(in window: WindowState) -> [TerminalPanelRow] {
+        panelRows(in: window).filter { row in
+            !window.presentation.collapsedConnectionGroups.contains(connectionGroup(for: row.block)) &&
+                !(row.workspaceID.map { window.presentation.collapsedWorkspaces.contains($0) } ?? false)
         }
-        return result
+    }
+
+    private func revealSidebarRow(for id: UUID, in window: WindowState) {
+        guard let row = panelRow(for: id, in: window) else { return }
+        window.presentation.collapsedConnectionGroups.remove(connectionGroup(for: row.block))
+        if let workspaceID = row.workspaceID { window.presentation.collapsedWorkspaces.remove(workspaceID) }
     }
 
     /// Sidebar members of any block, in sidebar order.
@@ -387,18 +419,14 @@ final class AppModel: ObservableObject {
         case .workspace(let id):
             guard let workspace = workspace(for: id) else { return [] }
             return workspace.members
-        case .localGroup, .ungrouped:
+        case .localGroup, .ungrouped, .mixedGroup:
             return looseTabs(in: block, window: window).map(\.id)
         }
     }
 
-    /// Sidebar order of one window: block order, then each block's independent member order.
+    /// Selection, shortcuts and the sidebar share exactly the same panel order.
     func sidebarOrder(in window: WindowState) -> [UUID] {
-        var ids: [UUID] = []
-        for block in window.blocks {
-            ids.append(contentsOf: members(of: block, in: window))
-        }
-        return ids
+        panelRows(in: window).flatMap(\.leafIDs)
     }
 
     var workspacesByNumber: [Workspace] {
@@ -453,7 +481,7 @@ final class AppModel: ObservableObject {
 
     // MARK: - Sync
 
-    /// Every live workspace shows in exactly one window; Local Group and Ungrouped exist in every window.
+    /// Every live workspace shows in exactly one window; the three loose connection groups always exist.
     /// Workspaces that no window lists go to the window that holds their first member, else the first window.
     private func syncBlocks() {
         guard !windows.isEmpty else { return }
@@ -463,6 +491,7 @@ final class AppModel: ObservableObject {
             var next: [SidebarBlock] = []
             var hasLocal = false
             var hasRemote = false
+            var hasMixed = false
             for block in window.blocks {
                 switch block {
                 case .workspace(let id):
@@ -471,6 +500,10 @@ final class AppModel: ObservableObject {
                 case .localGroup:
                     guard !hasLocal else { continue }
                     hasLocal = true
+                    next.append(block)
+                case .mixedGroup:
+                    guard !hasMixed else { continue }
+                    hasMixed = true
                     next.append(block)
                 case .ungrouped:
                     guard !hasRemote else { continue }
@@ -484,6 +517,7 @@ final class AppModel: ObservableObject {
             if !hasRemote {
                 next.append(.ungrouped)
             }
+            if !hasMixed { next.append(.mixedGroup) }
             if next != window.blocks {
                 window.blocks = next
             }
@@ -506,9 +540,11 @@ final class AppModel: ObservableObject {
     private func syncLooseMembers() {
         for window in windows {
             var next: [SidebarBlock: [UUID]] = [:]
-            for block in [SidebarBlock.localGroup, .ungrouped] {
+            for block in [SidebarBlock.localGroup, .ungrouped, .mixedGroup] {
                 next[block] = looseTabs(in: block, window: window).map(\.id)
             }
+            let blocks = sidebarBlocks(in: window)
+            if blocks != window.blocks { window.blocks = blocks }
             if next != window.looseMembers {
                 window.looseMembers = next
             }
@@ -615,6 +651,7 @@ final class AppModel: ObservableObject {
     func selectTab(_ id: UUID, in window: WindowState, focusTerminal: Bool = true) {
         endZoomIfSwitching(to: id, in: window)
         window.selectedTabID = id
+        revealSidebarRow(for: id, in: window)
         rememberFocus(id, in: window)
         if focusTerminal {
             window.presentation.filesVisible = false
@@ -646,7 +683,7 @@ final class AppModel: ObservableObject {
 
     /// Command and Shift select whole sidebar rows; a row may contain several terminal panes.
     func clickSidebar(_ id: UUID, command: Bool, shift: Bool, in window: WindowState, focusTerminal: Bool = true) {
-        let rows = panelRows(in: window)
+        let rows = visiblePanelRows(in: window)
         guard let clicked = rows.first(where: { $0.leafIDs.contains(id) }) else { return }
         if window.sidebarAnchor == nil {
             window.sidebarAnchor = window.selectedTabID
@@ -876,6 +913,7 @@ final class AppModel: ObservableObject {
                 target.selectedTabID = only
                 target.sidebarSelection = [only]
                 target.sidebarAnchor = only
+                revealSidebarRow(for: only, in: target)
                 rememberFocus(only, in: target)
             }
             persistSession()
@@ -920,6 +958,7 @@ final class AppModel: ObservableObject {
             target.selectedTabID = tab.id
             target.sidebarSelection = [tab.id]
             target.sidebarAnchor = tab.id
+            revealSidebarRow(for: tab.id, in: target)
             rememberFocus(tab.id, in: target)
             persistSession()
         }
@@ -1926,6 +1965,7 @@ final class AppModel: ObservableObject {
     private func select(_ ids: [UUID], in window: WindowState) {
         guard let first = ids.first else { return }
         window.selectedTabID = first
+        revealSidebarRow(for: first, in: window)
         rememberFocus(first, in: window)
         window.sidebarSelection = Set(ids)
         window.sidebarAnchor = first
@@ -2008,11 +2048,20 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
+    func canMoveToLooseGroup(_ ids: [UUID], _ block: SidebarBlock, in window: WindowState) -> Bool {
+        guard block.isLoose else { return false }
+        let wanted = Set(ids)
+        let rows = panelRows(in: window).filter { !wanted.isDisjoint(with: $0.leafIDs) }
+        return !rows.isEmpty && rows.allSatisfy {
+            connectionGroup(for: $0.leafIDs.filter { wanted.contains($0) }) == connectionGroup(for: block)
+        }
+    }
+
     /// Dragged terminals leave their workspaces and become standalone rows of `block` in `window`,
     /// beside `target` when it is in that group, otherwise at the end.
     func moveToLooseGroup(_ ids: [UUID], _ block: SidebarBlock, in window: WindowState, beside target: UUID?, after: Bool) {
         let dragged = sessionIDs(ids).filter { $0 != target }
-        guard block.isLoose, !dragged.isEmpty else { return }
+        guard !dragged.isEmpty, canMoveToLooseGroup(dragged, block, in: window) else { return }
         let sources = Set(dragged.compactMap { self.window(containing: $0)?.id })
         place(dragged, intoLoose: block, in: window, beside: target, after: after)
         select(dragged, in: window)
@@ -2062,7 +2111,7 @@ final class AppModel: ObservableObject {
             } else {
                 joinWorkspace(ids, workspaceID, beside: nil, after: true)
             }
-        case .localGroup, .ungrouped:
+        case .localGroup, .ungrouped, .mixedGroup:
             moveToLooseGroup(ids, targetBlock, in: target, beside: nil, after: true)
         }
     }
@@ -2255,6 +2304,7 @@ final class AppModel: ObservableObject {
                     blocks: window.blocks,
                     localGroup: window.looseMembers[.localGroup] ?? [],
                     ungrouped: window.looseMembers[.ungrouped] ?? [],
+                    mixedGroup: window.looseMembers[.mixedGroup] ?? [],
                     selected: window.selectedTabID,
                     section: window.section,
                     presentation: window.presentation,
@@ -2313,6 +2363,7 @@ struct SessionSnapshot: Codable {
         var blocks: [SidebarBlock]
         var localGroup: [UUID]
         var ungrouped: [UUID]
+        var mixedGroup: [UUID]? = nil
         var selected: UUID?
         var section: AppSection? = nil
         var presentation: WorkspacePresentation? = nil
@@ -2410,7 +2461,7 @@ struct SessionSnapshot: Codable {
 
     /// Fills the main window from the snapshot. A pre-multi-window snapshot has one implicit window.
     /// Several windows (an older multi-window session) are merged into one: workspace blocks in
-    /// order, Local Group and Ungrouped once at the end, loose lists joined, frame from the key window.
+    /// order, connection groups once at the end, loose lists joined, frame from the key window.
     @MainActor
     func apply(to window: WindowState, keeping known: Set<UUID>) {
         guard let windows, let key = keyWindowEntry else {
@@ -2430,22 +2481,26 @@ struct SessionSnapshot: Codable {
             window.looseMembers = [
                 .localGroup: key.localGroup.filter { known.contains($0) },
                 .ungrouped: key.ungrouped.filter { known.contains($0) },
+                .mixedGroup: (key.mixedGroup ?? []).filter { known.contains($0) },
             ]
         } else {
             var blocks: [SidebarBlock] = []
             var localGroup: [UUID] = []
             var ungrouped: [UUID] = []
+            var mixedGroup: [UUID] = []
             for item in windows {
                 for block in item.blocks where !block.isLoose && !blocks.contains(block) {
                     blocks.append(block)
                 }
                 localGroup += item.localGroup.filter { known.contains($0) && !localGroup.contains($0) }
                 ungrouped += item.ungrouped.filter { known.contains($0) && !ungrouped.contains($0) }
+                mixedGroup += (item.mixedGroup ?? []).filter { known.contains($0) && !mixedGroup.contains($0) }
             }
             blocks.append(.localGroup)
             blocks.append(.ungrouped)
+            blocks.append(.mixedGroup)
             window.blocks = blocks
-            window.looseMembers = [.localGroup: localGroup, .ungrouped: ungrouped]
+            window.looseMembers = [.localGroup: localGroup, .ungrouped: ungrouped, .mixedGroup: mixedGroup]
         }
         if let selected = key.selected, known.contains(selected) {
             window.selectedTabID = selected

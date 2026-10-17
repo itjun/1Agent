@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Expanded" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Expanded"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已展开"}}}},
+    "Collapsed" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Collapsed"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已收起"}}}},
+    "Toggle %@ Group" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Toggle %@ Group"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "展开或收起%@分组"}}}},
     "Expand Command Preview" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Expand Command Preview"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "展开预览"}}}},
     "Collapse Command Preview" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Collapse Command Preview"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "收起预览"}}}},
     "Drag up or down to resize the preview" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag up or down to resize the preview"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上下拖动以调整预览高度"}}}},

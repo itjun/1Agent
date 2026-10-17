@@ -248,33 +248,97 @@ struct RootView: View {
     }
 
     private var sidebarList: some View {
-        ScrollView {
-            VStack(spacing: 4) {
-                let dragging = model.windows.contains { $0.draggingTabID != nil || $0.draggingBlock != nil }
-                let visibleBlocks = window.blocks.filter { sidebarBlockVisible($0, dragging: dragging) }
-                if visibleBlocks.isEmpty {
-                    Text("No open terminals")
-                        .font(Theme.Font.rowMeta).foregroundStyle(sidebarChrome.secondary).padding(16)
-                }
-                ForEach(visibleBlocks, id: \.self) { block in
-                    let workspace: Workspace? = { if case .workspace(let id) = block { return model.workspace(for: id) }; return nil }()
-                    VStack(spacing: 3) {
-                        if let workspace, workspace.isGrouped { workspaceHeader(workspace) }
-                        if workspace?.isGrouped != true || dragging ||
-                            !window.presentation.collapsedWorkspaces.contains(workspace!.id) {
-                            ForEach(model.panelRows(in: block, window: window)) { row in panelRow(row) }
-                        }
-                        if model.panelRows(in: block, window: window).isEmpty && dragging {
-                            Color.clear.frame(height: SidebarLayout.rowHeight)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 4) {
+                    let rows = model.panelRows(in: window)
+                    let blocks = model.sidebarBlocks(in: window)
+                    if rows.isEmpty {
+                        Text("No open terminals")
+                            .font(Theme.Font.rowMeta).foregroundStyle(sidebarChrome.secondary).padding(16)
+                    }
+                    ForEach(SidebarConnectionGroup.allCases, id: \.self) { group in
+                        let groupRows = rows.filter { model.connectionGroup(for: $0.block) == group }
+                        if !groupRows.isEmpty {
+                            VStack(spacing: 3) {
+                                connectionGroupHeader(group, count: groupRows.count)
+                                if !window.presentation.collapsedConnectionGroups.contains(group) {
+                                    ForEach(blocks.filter { block in groupRows.contains { $0.block == block } }, id: \.self) { block in
+                                        sidebarBlock(block, rows: groupRows.filter { $0.block == block })
+                                    }
+                                }
+                            }
+                            .padding(.top, 4)
                         }
                     }
-                    .overlay(blockFill(block))
-                    .padding(.horizontal, 8)
-                    .background(SidebarBlockAnchor(block: block, relay: dropRelay))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 12)
+            }
+            .onChange(of: window.selectedTabID) { _, id in
+                if let id, let row = model.panelRow(for: id, in: window) {
+                    DispatchQueue.main.async { proxy.scrollTo(row.panelID) }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 12)
         }
+    }
+
+    private func sidebarBlock(_ block: SidebarBlock, rows: [TerminalPanelRow]) -> some View {
+        let workspace: Workspace? = { if case .workspace(let id) = block { return model.workspace(for: id) }; return nil }()
+        let dragging = window.draggingTabID != nil || window.draggingBlock != nil
+        return VStack(spacing: 3) {
+            if let workspace, workspace.isGrouped { workspaceHeader(workspace) }
+            if workspace?.isGrouped != true || dragging ||
+                !window.presentation.collapsedWorkspaces.contains(workspace!.id) {
+                ForEach(rows) { row in
+                    panelRow(row).id(row.panelID)
+                }
+            }
+        }
+        .overlay(blockFill(block))
+        .padding(.horizontal, 8)
+        .background(SidebarBlockAnchor(block: block, relay: dropRelay))
+    }
+
+    private func connectionGroupHeader(_ group: SidebarConnectionGroup, count: Int) -> some View {
+        let collapsed = window.presentation.collapsedConnectionGroups.contains(group)
+        return HStack(spacing: 2) {
+            Button {
+                model.updatePresentation(in: window) { state in
+                    if !state.collapsedConnectionGroups.insert(group).inserted {
+                        state.collapsedConnectionGroups.remove(group)
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 10, weight: .semibold)).frame(width: 12)
+                    Image(systemName: group.symbol).font(.system(size: 12)).frame(width: 16)
+                    Text(verbatim: group.title).font(.system(size: 12, weight: .semibold))
+                    Text(verbatim: String(count)).font(Theme.Font.rowMeta).monospacedDigit()
+                    Spacer(minLength: 0)
+                }
+                .frame(height: 28).contentShape(Rectangle())
+            }
+            .buttonStyle(FamilyButtonStyle())
+            .accessibilityIdentifier("sidebar.group.\(group.rawValue)")
+            .accessibilityLabel(Text(String(format: String(localized: "Toggle %@ Group"), group.title)))
+            .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
+            if group != .mixed {
+                Button {
+                    if group == .local { model.openLocalTerminal(in: window) }
+                    else { model.openHostPicker(in: window) }
+                } label: {
+                    Image(systemName: "plus").font(.system(size: 12, weight: .medium))
+                        .frame(width: 24, height: 28).contentShape(Rectangle())
+                }
+                .buttonStyle(FamilyButtonStyle())
+                .accessibilityIdentifier("sidebar.group.\(group.rawValue).add")
+                .accessibilityLabel(Text(group == .local ? "New Local Terminal" : "Open Host…"))
+                .help(shortcutHelp(group == .local ? .newLocalTerminal : .openHost))
+            }
+        }
+        .foregroundStyle(sidebarChrome.secondary)
+        .padding(.leading, 14).padding(.trailing, 10)
     }
 
     private var selectionActions: some View {
@@ -559,7 +623,7 @@ struct RootView: View {
                 : !Set(row.leafIDs).isDisjoint(with: window.sidebarSelection)
             let labeledSubtitle = model.sessionSubtitle(tab)
             HStack(spacing: 9) {
-                TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID), isRemote: !tab.isLocal)
+                TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID), isRemote: model.connectionGroup(for: [tab.id]) == .remote)
                     .font(.system(size: 15)).frame(width: 20)
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
@@ -616,14 +680,10 @@ struct RootView: View {
             .help(labeledSubtitle).accessibilityElement(children: .contain)
             .accessibilityLabel(Text(verbatim: panelDisplayTitle(row)))
             .accessibilityValue(Text(verbatim: labeledSubtitle))
+            .accessibilityIdentifier("sidebar.panel.\(row.panelID.uuidString)")
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : [.isButton])
             .accessibilityAction { model.selectPanel(row.panelID, in: window) }
         }
-    }
-
-    private func sidebarBlockVisible(_ block: SidebarBlock, dragging: Bool) -> Bool {
-        if case .workspace(let id) = block, model.workspace(for: id) == nil { return false }
-        return dragging || !model.panelRows(in: block, window: window).isEmpty
     }
 
     private func sidebarTitle(_ tab: TerminalTab) -> String {
@@ -634,25 +694,6 @@ struct RootView: View {
             return LocalTerminal.displayPath(directory)
         }
         return tab.alias ?? String(localized: "New Tab")
-    }
-
-    /// The first header sits right under the sidebar header gap, without the extra section inset.
-    private func sidebarSectionHeader(_ title: LocalizedStringKey, block: SidebarBlock, isFirst: Bool) -> some View {
-        Label(title, systemImage: block == .localGroup ? "desktopcomputer" : "server.rack")
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(sidebarChrome.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, Theme.Space.m)
-            .padding(.top, isFirst ? 0 : SidebarLayout.sectionTopInset)
-            .padding(.bottom, Theme.Space.xs)
-            .contentShape(Rectangle())
-            .overlay {
-                BlockDragHandle(
-                    onBegan: { dropRelay.blockDragBegan(block) },
-                    onMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
-                    onEnded: { dropRelay.blockDragEnded(windowPoint: $0) }
-                )
-            }
     }
 
     private func beginWorkspaceRename(_ workspace: Workspace) {

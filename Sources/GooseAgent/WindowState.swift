@@ -6,10 +6,10 @@ import SwiftUI
 @MainActor
 final class WindowState: ObservableObject, Identifiable {
     let id: UUID
-    /// Sidebar block order for this window. Local Group and Ungrouped are always present.
-    @Published var blocks: [SidebarBlock] = [.localGroup, .ungrouped]
-    /// Standalone terminals of this window's two loose groups, in sidebar order.
-    @Published var looseMembers: [SidebarBlock: [UUID]] = [.localGroup: [], .ungrouped: []]
+    /// Sidebar block order for this window. The three connection groups are always present.
+    @Published var blocks: [SidebarBlock] = [.localGroup, .ungrouped, .mixedGroup]
+    /// Standalone terminals of this window's connection groups, in sidebar order.
+    @Published var looseMembers: [SidebarBlock: [UUID]] = [.localGroup: [], .ungrouped: [], .mixedGroup: []]
     @Published var selectedTabID: UUID?
     /// Panel identity is independent of its focused terminal and optional group.
     @Published var panelLastFocused: [UUID: UUID] = [:]

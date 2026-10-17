@@ -1,6 +1,27 @@
 import Foundation
 import CoreGraphics
 
+/// Fixed connection categories; classification never follows the focused split pane.
+enum SidebarConnectionGroup: String, Codable, CaseIterable {
+    case local, remote, mixed
+
+    var title: String {
+        switch self {
+        case .local: String(localized: "This Mac")
+        case .remote: String(localized: "Remote")
+        case .mixed: String(localized: "Mixed")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .local: "desktopcomputer"
+        case .remote: "server.rack"
+        case .mixed: "square.grid.2x2"
+        }
+    }
+}
+
 enum FileWorkspaceLayout: String, Codable, CaseIterable {
     case sideBySide
     case belowTerminal
@@ -25,13 +46,14 @@ struct WorkspacePresentation: Codable, Equatable {
     var commandPreviewExpanded = true
     var commandPreviewHeight: Double = CommandPreviewLayout.defaultHeight
     var collapsedWorkspaces: Set<UUID> = []
+    var collapsedConnectionGroups: Set<SidebarConnectionGroup> = []
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case presentationVersion, filesVisible, filesExpanded, filesLayout, filesWorkspace, filesWidth, filesHeightRatio
         case sidebarCollapsed, collapsedWorkspaces, toolSidebarOpen, toolSidebarWidth, toolSidebarTab
-        case commandPreviewExpanded, commandPreviewHeight
+        case commandPreviewExpanded, commandPreviewHeight, collapsedConnectionGroups
     }
 
     init(from decoder: Decoder) throws {
@@ -57,6 +79,7 @@ struct WorkspacePresentation: Codable, Equatable {
         commandPreviewHeight = CommandPreviewLayout.storedHeight(
             try values.decodeIfPresent(Double.self, forKey: .commandPreviewHeight) ?? CommandPreviewLayout.defaultHeight)
         collapsedWorkspaces = try values.decodeIfPresent(Set<UUID>.self, forKey: .collapsedWorkspaces) ?? []
+        collapsedConnectionGroups = try values.decodeIfPresent(Set<SidebarConnectionGroup>.self, forKey: .collapsedConnectionGroups) ?? []
         let savedVersion = try values.decodeIfPresent(Int.self, forKey: .presentationVersion) ?? 0
         if savedVersion < 2 {
             filesLayout = .sideBySide
@@ -83,6 +106,7 @@ struct WorkspacePresentation: Codable, Equatable {
         try values.encode(commandPreviewExpanded, forKey: .commandPreviewExpanded)
         try values.encode(CommandPreviewLayout.storedHeight(commandPreviewHeight), forKey: .commandPreviewHeight)
         try values.encode(collapsedWorkspaces, forKey: .collapsedWorkspaces)
+        try values.encode(collapsedConnectionGroups, forKey: .collapsedConnectionGroups)
     }
 
     static func restored(_ saved: Self?, legacyFiles: Bool) -> Self {
