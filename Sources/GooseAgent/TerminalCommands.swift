@@ -191,7 +191,7 @@ struct TerminalWorkspaceMenu: View {
     private var available: Bool { !window.presentation.fullFilesWorkspace && tab?.hasTerminal == true }
 
     var body: some View {
-        Button("Reveal in Files") {
+        Button("Open Files") {
             if let tab { model.showFiles(for: tab.id, in: window) }
         }.disabled(!available)
     }

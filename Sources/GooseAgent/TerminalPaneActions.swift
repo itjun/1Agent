@@ -81,7 +81,7 @@ enum TerminalPaneActions {
             items.append(FamilyMenuItem(title: String(localized: "Open In…"), children: editors))
         }
         items += [
-            FamilyMenuItem(title: String(localized: "Reveal in Files"), action: {
+            FamilyMenuItem(title: String(localized: "Open Files"), action: {
                 guard currentTab(tab.id, model: model) != nil else { return }
                 model.showFiles(for: tab.id, in: window)
             }),

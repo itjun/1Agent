@@ -505,7 +505,7 @@ private struct FilesWorkspaceRoutingTests {
         model.selectOnly(second.id, in: state)
         try await settle()
         let filesMenu = terminals[first.id]!.selectionContextMenu()
-        guard let reveal = filesMenu.items.first(where: { $0.title == String(localized: "Reveal in Files") }) else {
+        guard let reveal = filesMenu.items.first(where: { $0.title == String(localized: "Open Files") }) else {
             throw TestFailure(description: "Terminal context menu must contain file reveal")
         }
         try require(NSApp.sendAction(reveal.action!, to: reveal.target, from: reveal), "Native reveal selector must dispatch")

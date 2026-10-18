@@ -1013,7 +1013,7 @@ final class SSHTerminalNSView: AppTerminalView {
         menu.addItem(.separator())
         let paneItems = paneMenuItems()
         if paneItems.isEmpty {
-            let files = makeItem(String(localized: "Reveal in Files"), #selector(revealFilesFromMenu(_:)))
+            let files = makeItem(String(localized: "Open Files"), #selector(revealFilesFromMenu(_:)))
             files.isEnabled = onRevealFiles != nil
             menu.addItem(files)
         } else {

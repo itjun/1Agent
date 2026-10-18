@@ -4603,22 +4603,6 @@
         }
       }
     },
-    "Reveal in Files" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reveal in Files"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在文件中显示"
-          }
-        }
-      }
-    },
     "Save Correction" : {
       "localizations" : {
         "en" : {

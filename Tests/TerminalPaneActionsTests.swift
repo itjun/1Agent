@@ -75,7 +75,7 @@ enum TerminalPaneActionsTests {
         nativeMenu.addItem(NSMenuItem(title: "External plugin fixture", action: nil, keyEquivalent: ""))
         let commands = FamilyMenuItem.commands(from: nativeMenu)
         expect(!commands.contains { $0.title == "External plugin fixture" }, "conversion invokes the native menu delegate")
-        for title in [AppShortcutID.find.title, String(localized: "Reveal in Files"),
+        for title in [AppShortcutID.find.title, String(localized: "Open Files"),
                       AppShortcutID.commandPalette.title, AppShortcutID.closeTab.title] {
             expect(commands.filter { $0.title == title }.count == 1, "merged commands contain exactly one \(title)")
         }
@@ -113,7 +113,7 @@ enum TerminalPaneActionsTests {
         let presentation = window.presentation
         let section = window.section
         item("Copy Path", in: commands)!.action()
-        item("Reveal in Files", in: commands)!.action()
+        item("Open Files", in: commands)!.action()
         zoom.action()
         split.children.forEach { $0.action() }
         expect(window.selectedTabID == selected && window.presentation == presentation && window.section == section,
@@ -154,7 +154,7 @@ enum TerminalPaneActionsTests {
 
         terminal.paneMenuItems = { [] }
         let fallback = FamilyMenuItem.commands(from: terminal.selectionContextMenu())
-        item("Reveal in Files", in: fallback)!.action()
+        item("Open Files", in: fallback)!.action()
         expect(fallbackFilesActions == 1, "terminals without pane metadata retain their original Files callback")
         expect(terminal.processHost == nil, "menu construction and dispatch do not start a terminal process")
     }
