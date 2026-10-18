@@ -438,7 +438,7 @@ struct CommandTextField: View {
     var body: some View {
         HStack(spacing: 0) {
             if let symbol { Image(systemName: symbol).foregroundStyle(chrome.secondary).padding(.leading, 10) }
-            AgentLiteralField(text: $text, placeholder: placeholder, textColor: NSColor(chrome.text),
+            CommandLiteralField(text: $text, placeholder: placeholder, textColor: NSColor(chrome.text),
                           backgroundColor: NSColor(chrome.elevated), identifier: identifier,
                           font: .systemFont(ofSize: 13), fillsProposedHeight: true)
         }

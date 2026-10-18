@@ -12,6 +12,7 @@
 		06029F6A3874C4F968989D46 /* GhosttyConfigImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */; };
 		0C4038B602AAF8717BC418C2 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DC1BA41700994472C1F669 /* ServiceProvider.swift */; };
 		0DE73A8B2336FE70C87E605A /* goose-agent-icon-rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */; };
+		0F3FE3B884B9BD0A7FA3D3E6 /* CommandLiteralEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69BF0E61C0197A6DD8782185 /* CommandLiteralEditor.swift */; };
 		124D4B870522C607E44761C4 /* RemoteShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ED45FA3719FB04737F90722 /* RemoteShellIntegration.swift */; };
 		14211F306FED1B2D11F4BC58 /* FileBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9287816E82C9C005D220C098 /* FileBrowserModel.swift */; };
 		15EE643104E39D97BAEDC26A /* PreviewSyntax.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 66F6C38EE4A145B579647ECD /* PreviewSyntax.LICENSE.txt */; };
@@ -35,7 +36,6 @@
 		44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */; };
 		454601CCC7894A948CE872FC /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */; };
 		469C2A9F9A8D0FFAC417BED2 /* shell-integration in Resources */ = {isa = PBXBuildFile; fileRef = 11B7BE5E018ED46FA154243C /* shell-integration */; };
-		4958D034BC8C94D1295FC849 /* AgentLiteralEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C1FC06E84A15AB09F51A83 /* AgentLiteralEditor.swift */; };
 		4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */ = {isa = PBXBuildFile; fileRef = 02ED72874148F6B85ACA03C5 /* ghostty-source.svg */; };
 		51FA7F27493E8F39148F39A6 /* QuickCommandSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */; };
 		5239E4B061DE3741F2558E6C /* AdvancedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */; };
@@ -186,6 +186,7 @@
 		651A72E339CED37F30858736 /* ShellIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellIntegration.swift; sourceTree = "<group>"; };
 		66F6C38EE4A145B579647ECD /* PreviewSyntax.LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = PreviewSyntax.LICENSE.txt; sourceTree = "<group>"; };
 		68F8FB8424C9121A1D861F18 /* TerminalCommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommandPalette.swift; sourceTree = "<group>"; };
+		69BF0E61C0197A6DD8782185 /* CommandLiteralEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLiteralEditor.swift; sourceTree = "<group>"; };
 		6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 1Agent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandSidebar.swift; sourceTree = "<group>"; };
 		6D6EEC2E8F3559B717E5EA4E /* WorkspaceActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceActions.swift; sourceTree = "<group>"; };
@@ -198,7 +199,6 @@
 		7CF8537478DC8E39CE11C226 /* FamilyControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyControls.swift; sourceTree = "<group>"; };
 		7DC2AB74FE4D721374A45471 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPanelIcon.swift; sourceTree = "<group>"; };
-		81C1FC06E84A15AB09F51A83 /* AgentLiteralEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLiteralEditor.swift; sourceTree = "<group>"; };
 		82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEscape.swift; sourceTree = "<group>"; };
 		8904A001DE23C1175D7692D4 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		892504A66F17F43AE42EC04A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -360,12 +360,12 @@
 			isa = PBXGroup;
 			children = (
 				DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */,
-				81C1FC06E84A15AB09F51A83 /* AgentLiteralEditor.swift */,
 				8904A001DE23C1175D7692D4 /* AppIcon.icon */,
 				CDE68855BD120DF7421F24EE /* AppLanguage.swift */,
 				32D91EB1556003521E0650B7 /* AppModel.swift */,
 				64BF08A42C7BDF982C716507 /* Assets.xcassets */,
 				49B5B6C3942BB433C4B85A1A /* CommandFinishedPolicy.swift */,
+				69BF0E61C0197A6DD8782185 /* CommandLiteralEditor.swift */,
 				2077428E1F778214E2AA9D80 /* ContentView.swift */,
 				34E42671B05FC0FE55B2965F /* DragDrop.swift */,
 				13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */,
@@ -537,10 +537,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				5239E4B061DE3741F2558E6C /* AdvancedSettingsView.swift in Sources */,
-				4958D034BC8C94D1295FC849 /* AgentLiteralEditor.swift in Sources */,
 				04696D0CA687AB607C42CE64 /* AppLanguage.swift in Sources */,
 				CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */,
 				5C951E0FE24055E131A2123A /* CommandFinishedPolicy.swift in Sources */,
+				0F3FE3B884B9BD0A7FA3D3E6 /* CommandLiteralEditor.swift in Sources */,
 				6633572CB49A2155FA32EFF2 /* ContentView.swift in Sources */,
 				EECABD4DC9B3EB672205AFE6 /* DragDrop.swift in Sources */,
 				60DF178EEEA08306D7385297 /* DropTransfer.swift in Sources */,

@@ -2,12 +2,12 @@ import AppKit
 import SwiftUI
 
 @main
-enum AgentLiteralEditorTests {
+enum CommandLiteralEditorTests {
     @MainActor static func main() {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
-        let editor = AgentLiteralTextView(frame: NSRect(x: 0, y: 80, width: 500, height: 120))
+        let editor = CommandLiteralTextView(frame: NSRect(x: 0, y: 80, width: 500, height: 120))
         window.contentView?.addSubview(editor)
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(editor)
@@ -32,10 +32,10 @@ enum AgentLiteralEditorTests {
         require(editor.selectedRange() == NSRange(location: 2, length: 0), "shorter model updates safely clamp selection")
         require(editor.allowsUndo && !editor.isRichText, "argument editor is plain text with undo")
 
-        let field = AgentLiteralTextField(frame: NSRect(x: 0, y: 20, width: 500, height: 32))
+        let field = CommandLiteralTextField(frame: NSRect(x: 0, y: 20, width: 500, height: 32))
         window.contentView?.addSubview(field)
         window.makeFirstResponder(field)
-        guard let fieldEditor = field.currentEditor() as? AgentLiteralTextView else {
+        guard let fieldEditor = field.currentEditor() as? CommandLiteralTextView else {
             fatalError("command field must use its own literal field editor")
         }
         type(literal, into: fieldEditor)

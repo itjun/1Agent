@@ -36,8 +36,8 @@ test:
 	/tmp/oneagent-quick-command-tests
 	python3 scripts/test-quick-command-bridge.py
 	python3 scripts/test-quick-command-startup.py
-	swiftc -parse-as-library -o /tmp/oneagent-agent-literal-editor-test Sources/GooseAgent/AgentLiteralEditor.swift Tests/AgentLiteralEditorTests.swift
-	/tmp/oneagent-agent-literal-editor-test
+	swiftc -parse-as-library -o /tmp/oneagent-command-literal-editor-test Sources/GooseAgent/CommandLiteralEditor.swift Tests/CommandLiteralEditorTests.swift
+	/tmp/oneagent-command-literal-editor-test
 	swiftc -parse-as-library -o /tmp/oneagent-family-dialog-tests Sources/GooseAgent/Theme.swift Sources/GooseAgent/FocusRing.swift Sources/GooseAgent/SheetLayout.swift Sources/GooseAgent/FamilyModal.swift Sources/GooseAgent/FamilyAlert.swift Tests/FamilyDialogTests.swift
 	/tmp/oneagent-family-dialog-tests
 	swiftc -parse-as-library -o /tmp/oneagent-family-menu-test Sources/GooseAgent/Theme.swift Sources/GooseAgent/FamilyMenu.swift Tests/FamilyMenuTests.swift

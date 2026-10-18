@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Command text must reach argv byte-for-byte. The controls below own their editors;
 /// disabling macOS prose substitutions never changes the user's shared field editor.
-final class AgentLiteralTextView: NSTextView {
+final class CommandLiteralTextView: NSTextView {
     private var ownedStorage: NSTextStorage?
 
     override init(frame frameRect: NSRect, textContainer container: NSTextContainer? = nil) {
@@ -71,7 +71,7 @@ final class AgentLiteralTextView: NSTextView {
     }
 }
 
-struct AgentLiteralEditor: NSViewRepresentable {
+struct CommandLiteralEditor: NSViewRepresentable {
     @Binding var text: String
     var textColor: NSColor
     var backgroundColor: NSColor
@@ -84,7 +84,7 @@ struct AgentLiteralEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
-        let editor = AgentLiteralTextView(frame: .zero)
+        let editor = CommandLiteralTextView(frame: .zero)
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]
@@ -103,7 +103,7 @@ struct AgentLiteralEditor: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.text = $text
-        guard let editor = scroll.documentView as? AgentLiteralTextView else { return }
+        guard let editor = scroll.documentView as? CommandLiteralTextView else { return }
         editor.updateFromModel(text)
         editor.textColor = textColor
         editor.insertionPointColor = textColor
@@ -121,10 +121,10 @@ struct AgentLiteralEditor: NSViewRepresentable {
     }
 }
 
-final class AgentLiteralTextField: NSTextField {
+final class CommandLiteralTextField: NSTextField {
     override init(frame: NSRect) {
         super.init(frame: frame)
-        cell = AgentLiteralFieldCell(textCell: "")
+        cell = CommandLiteralFieldCell(textCell: "")
         isBezeled = false
         isEditable = true
         isSelectable = true
@@ -137,7 +137,7 @@ final class AgentLiteralTextField: NSTextField {
 
     func updateFromModel(_ text: String) {
         guard stringValue != text else { return }
-        let editor = currentEditor() as? AgentLiteralTextView
+        let editor = currentEditor() as? CommandLiteralTextView
         guard editor?.hasMarkedText() != true else { return }
         let ranges = editor?.selectedRanges
         stringValue = text
@@ -148,8 +148,8 @@ final class AgentLiteralTextField: NSTextField {
     }
 }
 
-private final class AgentLiteralFieldCell: NSTextFieldCell {
-    private let literalEditor = AgentLiteralTextView(frame: .zero)
+private final class CommandLiteralFieldCell: NSTextFieldCell {
+    private let literalEditor = CommandLiteralTextView(frame: .zero)
 
     override func fieldEditor(for controlView: NSView) -> NSTextView? {
         literalEditor.isFieldEditor = true
@@ -163,7 +163,7 @@ private final class AgentLiteralFieldCell: NSTextFieldCell {
     }
 }
 
-struct AgentLiteralField: NSViewRepresentable {
+struct CommandLiteralField: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String
     var textColor: NSColor
@@ -174,15 +174,15 @@ struct AgentLiteralField: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
-    func makeNSView(context: Context) -> AgentLiteralTextField {
-        let field = AgentLiteralTextField(frame: .zero)
+    func makeNSView(context: Context) -> CommandLiteralTextField {
+        let field = CommandLiteralTextField(frame: .zero)
         field.delegate = context.coordinator
         field.setAccessibilityIdentifier(identifier)
         updateNSView(field, context: context)
         return field
     }
 
-    func updateNSView(_ field: AgentLiteralTextField, context: Context) {
+    func updateNSView(_ field: CommandLiteralTextField, context: Context) {
         context.coordinator.text = $text
         field.updateFromModel(text)
         field.placeholderString = placeholder
@@ -196,7 +196,7 @@ struct AgentLiteralField: NSViewRepresentable {
         }
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: AgentLiteralTextField, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: CommandLiteralTextField, context: Context) -> CGSize? {
         guard fillsProposedHeight, let width = proposal.width, let height = proposal.height else { return nil }
         return CGSize(width: width, height: height)
     }

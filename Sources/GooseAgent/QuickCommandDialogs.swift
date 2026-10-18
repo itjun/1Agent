@@ -24,7 +24,7 @@ struct QuickCommandEditor: View {
                     field("Alias", text: $item.alias, id: "quickCommand.alias")
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Command").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                        AgentLiteralEditor(text: $item.command, textColor: NSColor(chrome.text), backgroundColor: NSColor(chrome.elevated), identifier: "quickCommand.script")
+                        CommandLiteralEditor(text: $item.command, textColor: NSColor(chrome.text), backgroundColor: NSColor(chrome.elevated), identifier: "quickCommand.script")
                             .frame(height: 130).overlay(RoundedRectangle(cornerRadius: 4).stroke(chrome.hairline))
                     }
                     field("Group (optional)", text: $item.group, id: "quickCommand.group")

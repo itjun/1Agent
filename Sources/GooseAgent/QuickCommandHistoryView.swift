@@ -123,7 +123,7 @@ struct QuickCommandHistoryView: View {
                     ForEach($drafts) { $draft in
                         VStack(alignment: .leading, spacing: 6) {
                             CommandTextField(text: $draft.alias, placeholder: String(localized: "Alias"), identifier: "quickCommands.history.alias." + draft.id.uuidString).frame(height: 32)
-                            AgentLiteralEditor(text: $draft.command, textColor: NSColor(chrome.text), backgroundColor: NSColor(chrome.elevated), identifier: "quickCommands.history.script." + draft.id.uuidString)
+                            CommandLiteralEditor(text: $draft.command, textColor: NSColor(chrome.text), backgroundColor: NSColor(chrome.elevated), identifier: "quickCommands.history.script." + draft.id.uuidString)
                                 .frame(height: 85).overlay(RoundedRectangle(cornerRadius: 4).stroke(chrome.hairline))
                         }
                     }
