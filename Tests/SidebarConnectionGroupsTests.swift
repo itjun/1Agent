@@ -68,7 +68,8 @@ import SwiftUI
         let groups = rows.map { model.connectionGroup(for: $0.block) }
         try check(groups == [.local, .local, .local, .remote, .remote, .mixed, .mixed, .mixed], "Fixed category order and panel counts")
         try check(Set(rows.flatMap(\.leafIDs)).count == 9 && rows.count == 8, "Every terminal appears exactly once; split counts once")
-        try checkLocalReopen(model: model, window: window, local: l1)
+        try checkSidebarMenus(model: model, window: window, local: l1, remote: r1,
+                              splitLeaf: ml, workspace: grouped)
         try check(model.panelRow(for: preview, in: window)?.block == .localGroup, "Preview is local")
         try check(model.sessionSubtitle(model.tabs.first { $0.id == preview }!).hasPrefix(String(localized: "This Mac")), "Preview subtitle agrees with Local category")
         try check(model.panelRow(for: r1, in: window)?.block == .ungrouped, "Legacy wrong local placement is repaired")
@@ -169,11 +170,70 @@ import SwiftUI
         try await wait { model.tabs.count == 11 }
         try check(!window.presentation.collapsedConnectionGroups.contains(.remote), "New remote terminal reveals Remote")
         print("Verified legacy migration, preview, mixed focus, workspace integrity, order, selection, drag constraints, merge/detach, persistence, and new-terminal reveal")
+        // A context action remains bound to its original row after keyboard selection changes.
+        let target = model.panelRow(for: l2, in: window)!
+        window.sidebarSelection = [l2]
+        let close = SidebarActions.panelItems(target, model: model, window: window, onRename: {}).last!
+        model.selectOnly(r1, in: window, focusTerminal: false)
+        close.action()
+        try check(!model.tabs.contains { $0.id == l2 } && model.tabs.contains { $0.id == r1 },
+                  "Close must target the clicked row, not the subsequently focused terminal")
+        print("Verified sidebar menus and frozen action targets")
     }
 
-    @MainActor static func checkLocalReopen(model: AppModel, window: WindowState, local: UUID) throws {
+    @MainActor static func checkSidebarMenus(model: AppModel, window: WindowState, local: UUID,
+                                             remote: UUID, splitLeaf: UUID, workspace: Workspace) throws {
         let selection = window.sidebarSelection, focused = window.selectedTabID
         defer { window.sidebarSelection = selection; window.selectedTabID = focused }
+        func items(_ id: UUID) -> [FamilyMenuItem] {
+            SidebarActions.panelItems(model.panelRow(for: id, in: window)!, model: model, window: window, onRename: {})
+        }
+        func named(_ key: String.LocalizationValue, in items: [FamilyMenuItem]) -> FamilyMenuItem? {
+            items.first { $0.title == String(localized: key) }
+        }
+        func checkSeparators(_ items: [FamilyMenuItem]) throws {
+            try check(items.first?.isSeparator != true && items.last?.isSeparator != true, "No edge separator")
+            for pair in zip(items, items.dropFirst()) {
+                try check(!(pair.0.isSeparator && pair.1.isSeparator), "No consecutive separators")
+            }
+            for item in items where !item.children.isEmpty { try checkSeparators(item.children) }
+        }
+        window.sidebarSelection = [remote]
+        let localItems = items(local)
+        try check(window.sidebarSelection == [remote] && window.selectedTabID == focused, "Right-click does not move focus or selection")
+        try check(named("New Terminal Here", in: localItems) != nil, "Local row opens another terminal at cwd")
+        try check(named("Reconnect", in: localItems) == nil, "Local row cannot use SSH reconnect")
+        try check(named("Move out of Workspace", in: localItems) == nil, "Loose panel does not offer removal")
+        let remoteItems = items(remote)
+        try check(named("New Connection", in: remoteItems) != nil, "Remote connection action exists")
+        try check(named("Reveal in Finder", in: remoteItems) == nil, "Remote row cannot reveal a local path")
+        let copy = named("Copy Info", in: remoteItems)!
+        try check(named("Copy Path", in: copy.children)?.enabled == false, "Unknown remote cwd is disabled")
+        let split = items(splitLeaf)
+        try check(named("Arrange Panel", in: split) != nil && named("Detach Panels", in: split)?.enabled == true,
+                  "Split row operates on all its panes")
+        try check(split.first?.children.isEmpty == false, "Single-terminal actions are nested for a split")
+        let splitIDs = model.panelRow(for: splitLeaf, in: window)!.leafIDs
+        window.sidebarSelection = Set(splitIDs + [remote])
+        let batch = items(splitLeaf)
+        try check(named("Rename…", in: batch) == nil && named("New Connection", in: batch) == nil, "Batch omits single-target operations")
+        try check(named("Merge Panels", in: batch) != nil, "Batch supports merge")
+        for menu in [localItems, remoteItems, split, batch] { try checkSeparators(menu) }
+        // Reconnect/reopen availability is based on actual connection state, not directory or focus.
+        var remoteTab = model.tabs.first { $0.id == remote }!
+        remoteTab.exited = false
+        try check(named("Reconnect", in: SidebarActions.terminalItems(remoteTab, model: model, window: window))?.enabled == false,
+                  "Connected terminal cannot be restarted by reconnect")
+        remoteTab.exited = true
+        try check(named("Reconnect", in: SidebarActions.terminalItems(remoteTab, model: model, window: window))?.enabled == true,
+                  "Disconnected terminal can reconnect")
+        remoteTab.reconnecting = true
+        try check(named("Reconnecting…", in: SidebarActions.terminalItems(remoteTab, model: model, window: window))?.enabled == false,
+                  "Automatic reconnect cannot be started twice")
+        var localTab = model.tabs.first { $0.id == local }!
+        localTab.exited = true
+        try check(named("Reopen Terminal", in: SidebarActions.terminalItems(localTab, model: model, window: window)) != nil,
+                  "Exited local shell can reopen")
         let original = model.tabs.first { $0.id == local }!
         let originalRows = model.panelRows(in: window).map(\.panelID)
         model.markClosed(local, lived: 10)

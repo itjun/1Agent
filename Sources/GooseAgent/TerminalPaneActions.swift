@@ -63,7 +63,7 @@ enum TerminalPaneActions {
         return URL(fileURLWithPath: path, isDirectory: true)
     }
 
-    private static func externalItems(tab: TerminalTab, model: AppModel) -> [FamilyMenuItem] {
+    static func externalItems(tab: TerminalTab, model: AppModel) -> [FamilyMenuItem] {
         guard externalDirectory(of: tab) != nil else { return [] }
         let editors = [("Cursor", "com.todesktop.230313mzl4w4u92"),
                        ("Visual Studio Code", "com.microsoft.VSCode"),

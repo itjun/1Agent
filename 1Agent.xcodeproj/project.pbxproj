@@ -125,6 +125,7 @@
 		FC241887E9142971AEC50108 /* TerminalSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */; };
 		FCB11DE661B12CD801D7A781 /* QuickCommandDialogs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47519C98F67FEF8BFC1D299C /* QuickCommandDialogs.swift */; };
 		FD76232C7697FDD3965267B8 /* UploadCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB25B10A2B15E7127307F842 /* UploadCheck.swift */; };
+		FF4027301CF818E6FC6374CD /* SidebarActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -164,6 +165,7 @@
 		3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewDrawer.swift; sourceTree = "<group>"; };
 		4085933113D9936B6D98C8FC /* RemoteShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShell.swift; sourceTree = "<group>"; };
 		4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-rounded.png"; sourceTree = "<group>"; };
+		423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarActions.swift; sourceTree = "<group>"; };
 		440DFBB9CC120A82EAE3507C /* SSHConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfig.swift; sourceTree = "<group>"; };
 		4439A8E93DB3E5BDBC1423C2 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		4593F1AFD8A1C705239302B9 /* LocalCommandBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCommandBridge.swift; sourceTree = "<group>"; };
@@ -413,6 +415,7 @@
 				82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */,
 				651A72E339CED37F30858736 /* ShellIntegration.swift */,
 				0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */,
+				423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */,
 				A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */,
 				440DFBB9CC120A82EAE3507C /* SSHConfig.swift */,
 				BEAD42576853180D4E34F59B /* SSHLaunch.swift */,
@@ -609,6 +612,7 @@
 				BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */,
 				176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */,
 				68550A509D3C43DB75677D1A /* ShortcutsSettingsPage.swift in Sources */,
+				FF4027301CF818E6FC6374CD /* SidebarActions.swift in Sources */,
 				814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */,
 				38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */,
 				21AF7290436D16AF9D2BA8A0 /* TerminalCommandPalette.swift in Sources */,

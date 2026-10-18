@@ -666,7 +666,11 @@ struct RootView: View {
                     onBegan: { dropRelay.dragBegan(row.focusedTabID) },
                     onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                     onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    prepareContextMenu: nil, dragEnabled: renamingPanelID == nil
+                    onSecondaryClick: {
+                        SidebarActions.show(SidebarActions.panelItems(row, model: model, window: window,
+                            onRename: { renamePanel(row) }), in: window)
+                    },
+                    dragEnabled: renamingPanelID == nil
                 ).accessibilityHidden(true).allowsHitTesting(renamingPanelID != row.panelID)
             }
             .overlay(alignment: .trailing) {

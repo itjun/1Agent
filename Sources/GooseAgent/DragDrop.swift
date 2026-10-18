@@ -994,14 +994,15 @@ final class TabDragHandleView: NSView {
         if freezesWindow {
             window?.isMovable = false
         }
-    }
-
-    override func rightMouseUp(with event: NSEvent) {
+        // Match native context menus: open on press, and do not reopen on release.
         if let onSecondaryClick {
             onSecondaryClick()
             restoreWindowMovementIfPointerLeft()
-            return
         }
+    }
+
+    override func rightMouseUp(with event: NSEvent) {
+        if onSecondaryClick != nil { return }
         if let prepareContextMenu {
             let actions = prepareContextMenu()
             contextMenuActions = actions
