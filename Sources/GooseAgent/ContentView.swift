@@ -17,7 +17,6 @@ struct RootView: View {
     @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
     @State private var renamingPanelID: UUID?
     @State private var panelNameDraft = ""
-    @State private var expandedWorkspaceActions: UUID?
     @FocusState private var panelNameFocused: Bool
     @State private var renamingWorkspaceID: UUID?
     @State private var workspaceNameDraft = ""
@@ -570,19 +569,6 @@ struct RootView: View {
         model.clickSidebar(id, command: command, shift: shift, in: window)
     }
 
-    @ViewBuilder private func workspaceMenuItems(_ workspace: Workspace) -> some View {
-        Button("Rename") { beginWorkspaceRename(workspace) }
-        Button("Add Selected Sessions") {
-            model.joinWorkspace(selectedIDs, workspace.id, beside: nil, after: true)
-        }.disabled(selectedIDs.isEmpty || selectedIDs.allSatisfy { workspace.members.contains($0) })
-        Button("Separate All Panels") { model.splitWorkspacePanels(workspace.id) }
-            .disabled(!model.sidebarSplits(workspace.members))
-        Button("Reconnect") { model.reconnectWorkspace(workspace.id) }
-            .disabled(!model.tabs(in: workspace).contains { $0.isSession && $0.exited })
-        Divider()
-        Button("Dissolve Workspace") { model.dissolveWorkspace(workspace.id) }
-    }
-
     private var selectedSessionBadge: String {
         guard let tab = model.selectedTab(in: window) else { return "" }
         if let title = tab.contentTitle {
@@ -771,12 +757,15 @@ struct RootView: View {
                     BlockDragHandle(
                         onBegan: { dropRelay.blockDragBegan(.workspace(workspace.id)) },
                         onMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
-                        onEnded: { dropRelay.blockDragEnded(windowPoint: $0) }
+                        onEnded: { dropRelay.blockDragEnded(windowPoint: $0) },
+                        onSecondaryClick: {
+                            SidebarActions.show(workspaceContextItems(workspace), in: window)
+                        }
                     )
                     .accessibilityHidden(true)
                 }
             }
-            Button { expandedWorkspaceActions = expandedWorkspaceActions == workspace.id ? nil : workspace.id } label: {
+            FamilyMenu(items: { workspaceContextItems(workspace) }) {
                 Image(systemName: "folder.badge.gearshape").frame(width: 20, height: SidebarLayout.rowHeight)
             }
             .menuStyle(.borderlessButton)
@@ -787,16 +776,12 @@ struct RootView: View {
         .foregroundStyle(sidebarChrome.text)
         .padding(.horizontal, Theme.Space.s)
         .frame(height: SidebarLayout.rowHeight)
-        if expandedWorkspaceActions == workspace.id {
-            VStack(alignment: .leading, spacing: 8) {
-                workspaceMenuItems(workspace)
-                ForEach(WorkspaceBoard.availableLayouts(paneCount: workspace.members.count), id: \.self) { layout in
-                    Button(workspaceLayoutTitle(layout)) { model.applyWorkspaceLayout(workspace.id, layout) }
-                }
-            }.font(Theme.Font.rowMeta).buttonStyle(FamilyButtonStyle()).padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading).background(chrome.background)
         }
-        }
+    }
+
+    private func workspaceContextItems(_ workspace: Workspace) -> [FamilyMenuItem] {
+        SidebarActions.workspaceItems(workspace, model: model, window: window,
+            onRename: { beginWorkspaceRename(workspace) })
     }
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {

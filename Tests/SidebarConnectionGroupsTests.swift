@@ -218,7 +218,28 @@ import SwiftUI
         let batch = items(splitLeaf)
         try check(named("Rename…", in: batch) == nil && named("New Connection", in: batch) == nil, "Batch omits single-target operations")
         try check(named("Merge Panels", in: batch) != nil, "Batch supports merge")
-        for menu in [localItems, remoteItems, split, batch] { try checkSeparators(menu) }
+        let workspaceItems = SidebarActions.workspaceItems(workspace, model: model, window: window, onRename: {})
+        try check(named("Add Selected Panels", in: workspaceItems)?.enabled == true, "Workspace can adopt selected panels")
+        try check(named("Dissolve Workspace…", in: workspaceItems)?.destructive == false, "Dissolve does not terminate sessions")
+        try check(named("Close All Terminals…", in: workspaceItems)?.destructive == true, "Closing workspace is explicitly destructive")
+        for menu in [localItems, remoteItems, split, batch, workspaceItems] { try checkSeparators(menu) }
+        if let output = ProcessInfo.processInfo.environment["ONEAGENT_SIDEBAR_MENU_OUTPUT"],
+           let owner = MainWindowManager.shared.window(for: window) {
+            try FileManager.default.createDirectory(atPath: output, withIntermediateDirectories: true)
+            for (name, menu) in [("local", localItems), ("remote", remoteItems), ("split", split),
+                                 ("batch", batch), ("workspace", workspaceItems)] {
+                FamilyMenuPresenter.shared.show(menu, at: NSPoint(x: owner.frame.minX + 30, y: owner.frame.maxY - 60), owner: owner)
+                let panel = FamilyMenuPresenter.shared.panels.first!
+                let view = panel.contentView!
+                view.layoutSubtreeIfNeeded()
+                let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+                view.cacheDisplay(in: view.bounds, to: bitmap)
+                try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
+                try check(panel.frame.width >= 180 && panel.frame.height > 100, "Native menu has usable dimensions")
+                FamilyMenuPresenter.shared.dismiss()
+            }
+            print("Rendered five production context menus to \(output)")
+        }
         // Reconnect/reopen availability is based on actual connection state, not directory or focus.
         var remoteTab = model.tabs.first { $0.id == remote }!
         remoteTab.exited = false

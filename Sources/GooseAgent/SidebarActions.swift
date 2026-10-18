@@ -123,6 +123,49 @@ enum SidebarActions {
         return items
     }
 
+    static func workspaceItems(_ workspace: Workspace, model: AppModel, window: WindowState,
+                               onRename: @escaping () -> Void) -> [FamilyMenuItem] {
+        let selected = model.panelRows(in: window).filter {
+            !Set($0.leafIDs).isDisjoint(with: window.sidebarSelection)
+        }.flatMap(\.leafIDs).filter { !workspace.members.contains($0) }
+        let ids = workspace.members
+        return [
+            FamilyMenuItem(title: String(localized: "Rename…"), action: onRename),
+            FamilyMenuItem(title: String(localized: "Add Selected Panels"), enabled: !selected.isEmpty, action: {
+                guard model.workspace(for: workspace.id) != nil else { return }
+                model.joinWorkspace(selected, workspace.id, beside: nil, after: true)
+            }),
+            .separator,
+            FamilyMenuItem(title: String(localized: "Merge and Arrange"), enabled: ids.count > 1,
+                children: layoutItems(count: ids.count) { model.applyWorkspaceLayout(workspace.id, $0) }),
+            FamilyMenuItem(title: String(localized: "Detach Panels"), enabled: model.sidebarSplits(ids), action: {
+                model.splitWorkspacePanels(workspace.id)
+            }),
+            .separator,
+            FamilyMenuItem(title: String(localized: "Reconnect Disconnected Terminals"),
+                enabled: model.tabs(in: workspace).contains { $0.hasTerminal && !$0.isLocal && $0.exited && !$0.reconnecting }, action: {
+                    for id in ids {
+                        guard let current = currentTab(id, model: model), !current.isLocal,
+                              current.exited, !current.reconnecting else { continue }
+                        model.reconnect(id)
+                    }
+                }),
+            .separator,
+            FamilyMenuItem(title: String(localized: "Dissolve Workspace…"), action: {
+                guard model.workspace(for: workspace.id) != nil else { return }
+                confirm(title: String(localized: "Dissolve Workspace?"),
+                    detail: String(localized: "Terminals will stay open and existing split layouts will be preserved."),
+                    button: String(localized: "Dissolve Workspace Now"), window: window) {
+                        model.dissolveWorkspace(workspace.id)
+                    }
+            }),
+            .separator,
+            FamilyMenuItem(title: String(localized: "Close All Terminals…"), destructive: true, action: {
+                close(ids, model: model, window: window, confirm: true)
+            }),
+        ]
+    }
+
     private static func membershipItems(_ ids: [UUID], model: AppModel, window: WindowState) -> [FamilyMenuItem] {
         var items = [FamilyMenuItem(title: String(localized: "Create Workspace"), enabled: model.sidebarCanCreateArea(ids), action: {
             model.createAreaFromSidebar(ids, in: window)

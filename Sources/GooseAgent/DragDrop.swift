@@ -1200,6 +1200,7 @@ struct BlockDragHandle: NSViewRepresentable {
     var onBegan: () -> Void
     var onMoved: (NSPoint) -> Void
     var onEnded: (NSPoint) -> Void
+    var onSecondaryClick: (() -> Void)? = nil
 
     func makeNSView(context: Context) -> BlockDragHandleView {
         BlockDragHandleView()
@@ -1209,6 +1210,7 @@ struct BlockDragHandle: NSViewRepresentable {
         view.onBegan = onBegan
         view.onMoved = onMoved
         view.onEnded = onEnded
+        view.onSecondaryClick = onSecondaryClick
     }
 }
 
@@ -1216,6 +1218,13 @@ final class BlockDragHandleView: NSView {
     var onBegan: () -> Void = {}
     var onMoved: (NSPoint) -> Void = { _ in }
     var onEnded: (NSPoint) -> Void = { _ in }
+    var onSecondaryClick: (() -> Void)?
+
+    override func rightMouseDown(with event: NSEvent) { onSecondaryClick?() }
+
+    override func rightMouseUp(with event: NSEvent) {}
+
+    override func scrollWheel(with event: NSEvent) { nextResponder?.scrollWheel(with: event) }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         bounds.contains(convert(point, from: superview)) ? self : nil
