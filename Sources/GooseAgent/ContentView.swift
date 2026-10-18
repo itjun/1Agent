@@ -460,16 +460,10 @@ struct RootView: View {
                         let trailingInset: CGFloat = toolWidth == 0 && frame.maxX >= detailWidth - 1
                             ? Theme.PaneStyle.titlebarAccessoryInset : 0
                         let leadingInset: CGFloat = collapsed && frame.minX < 1 ? SidebarLayout.trafficLightInset + 56 : 0
-                        let titleWidth = max(0, frame.width - leadingInset - trailingInset)
                         paneTitleMenu(tab)
-                            .padding(.horizontal, tab.hasTerminal ? TerminalInputIndicator.reservedWidth(for: titleWidth) : 0)
                             .padding(.leading, leadingInset)
+                            .padding(.trailing, trailingInset)
                             .frame(width: frame.width, height: Theme.PaneStyle.titlebarHeight)
-                            .overlay(alignment: .trailing) {
-                                TerminalInputIndicator(active: inputFocus.receivesInput(tab, in: window),
-                                    paneWidth: titleWidth, sessionID: tab.sessionID)
-                                    .padding(.trailing, trailingInset)
-                            }
                             .overlay(alignment: .bottom) {
                                 PaneProgressBar(sessionID: tab.sessionID).allowsHitTesting(false)
                             }

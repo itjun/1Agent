@@ -21,7 +21,6 @@
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
 		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
 		21AF7290436D16AF9D2BA8A0 /* TerminalCommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68F8FB8424C9121A1D861F18 /* TerminalCommandPalette.swift */; };
-		22E27F1C02818E47DCFB036C /* TerminalInputIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA290C8D537A0F4A215C6136 /* TerminalInputIndicator.swift */; };
 		26772E9BB33C53E1A17BD65D /* DropZoneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */; };
 		272263DCE7BC9D40856986FB /* TerminalSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */; };
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
@@ -249,7 +248,6 @@
 		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
-		FA290C8D537A0F4A215C6136 /* TerminalInputIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInputIndicator.swift; sourceTree = "<group>"; };
 		FC199BA5503EE914D1E884FD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -426,7 +424,6 @@
 				24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */,
 				3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */,
 				C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */,
-				FA290C8D537A0F4A215C6136 /* TerminalInputIndicator.swift */,
 				1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */,
 				80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */,
 				22680FE638056AFBBDA0F764 /* TerminalProcess.swift */,
@@ -622,7 +619,6 @@
 				5DEEF6A3D6B4A511C449594D /* TerminalCommands.swift in Sources */,
 				EBF6CF1BD4B5817CD589D2BA /* TerminalEvents.swift in Sources */,
 				DB3CE4CD31111689FAE6C7E6 /* TerminalFind.swift in Sources */,
-				22E27F1C02818E47DCFB036C /* TerminalInputIndicator.swift in Sources */,
 				18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */,
 				29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */,
 				292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */,

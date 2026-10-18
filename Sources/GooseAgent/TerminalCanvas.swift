@@ -289,14 +289,7 @@ struct TerminalCanvas: View {
                     )
                     .help(String(localized: "Click the title for actions. Drag it to move the pane."))
                 }
-                .padding(.horizontal, tab.hasTerminal ? TerminalInputIndicator.reservedWidth(for: frame.width) : Theme.Space.s)
-
-                HStack {
-                    Spacer(minLength: 0)
-                    TerminalInputIndicator(active: focused && tab.hasTerminal, paneWidth: frame.width, sessionID: tab.sessionID)
-                }
-                .allowsHitTesting(false)
-
+                .padding(.horizontal, Theme.Space.s)
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)
