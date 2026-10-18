@@ -27,7 +27,6 @@ struct RootView: View {
     @State private var sidebarHovered = false
     @State private var toolSidebarHovered = false
     @State private var toolSidebarDragStart: Double?
-    @State private var draggingTitle: UUID?
     @FocusState private var workspaceNameFocused: Bool
 
     private var chrome: WindowChrome {
@@ -517,39 +516,34 @@ struct RootView: View {
     }
 
     private func paneTitleMenu(_ tab: TerminalTab) -> some View {
-        FamilyMenu(items: { draggingTitle == nil ? TerminalPaneActions.titleItems(tab: tab, model: model, window: window) : [] }) {
-            Text(verbatim: sessionTitle(tab))
-                .font(Theme.Font.paneTitle)
-                .fontWeight(window.selectedTabID == tab.id ? .semibold : .medium)
-                .foregroundStyle(tab.hasTerminal
-                    ? (inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary)
-                    : (window.selectedTabID == tab.id ? chrome.text : chrome.secondary))
-                .lineLimit(1).truncationMode(.middle)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: 360, maxHeight: .infinity)
-        }
-        .simultaneousGesture(DragGesture(minimumDistance: 6, coordinateSpace: .global)
-            .onChanged { value in
-                guard let point = titleDragPoint(value.location) else { return }
-                if draggingTitle != tab.id {
-                    draggingTitle = tab.id
-                    dropRelay.dragBegan(tab.id, fromPane: true)
-                }
-                dropRelay.dragMoved(windowPoint: point)
+        Text(verbatim: sessionTitle(tab))
+            .font(Theme.Font.paneTitle)
+            .fontWeight(window.selectedTabID == tab.id ? .semibold : .medium)
+            .foregroundStyle(tab.hasTerminal
+                ? (inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary)
+                : (window.selectedTabID == tab.id ? chrome.text : chrome.secondary))
+            .lineLimit(1).truncationMode(.middle)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: 360, maxHeight: .infinity)
+            .allowsHitTesting(false)
+            .overlay {
+                // Use the same native event tracking as lower split headers: it owns
+                // the press before AppKit can turn a titlebar drag into a window drag.
+                TabDragHandle(
+                    onClick: { _, _ in TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) },
+                    onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
+                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                    onSecondaryClick: { TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) },
+                    freezesWindow: true
+                )
             }
-            .onEnded { value in
-                if let point = titleDragPoint(value.location) { dropRelay.dragEnded(windowPoint: point) }
-                DispatchQueue.main.async { draggingTitle = nil }
-            })
-        .help("Click the title for actions. Drag it to move the pane.")
-        .accessibilityLabel(Text(verbatim: sessionTitle(tab)))
-        .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
-    }
-
-    private func titleDragPoint(_ point: CGPoint) -> NSPoint? {
-        guard let content = MainWindowManager.shared.window(for: window)?.contentView else { return nil }
-        let y = content.isFlipped ? point.y : content.bounds.height - point.y
-        return content.convert(NSPoint(x: point.x, y: y), to: nil)
+            .help("Click the title for actions. Drag it to move the pane.")
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) }
+            .accessibilityLabel(Text(verbatim: sessionTitle(tab)))
+            .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
     }
 
     private func shortcutHelp(_ id: AppShortcutID) -> String {
