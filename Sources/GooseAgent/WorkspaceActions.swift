@@ -29,13 +29,7 @@ extension AppModel {
     }
 
     func openCommandPalette(in window: WindowState) {
-        guard !window.hostPickerPresented, !window.agentLauncherPresented else { return }
-        window.commandPalettePresented = true
-    }
-
-    func openAgentLauncher(in window: WindowState) {
         guard !window.hostPickerPresented else { return }
-        window.commandPalettePresented = false
-        window.agentLauncherPresented = true
+        window.commandPalettePresented = true
     }
 }

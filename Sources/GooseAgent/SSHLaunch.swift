@@ -90,7 +90,7 @@ enum SSHCommand {
         var options = ["-tt", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3"]
             + RemoteShell.multiplexOptions()
         if let startupCommand {
-            // An explicit Agent launch uses this SSH connection's authenticated command
+            // A quick command uses this SSH connection's authenticated command
             // channel. Identity, proxy, hostname and all remaining user config still apply.
             return options + ["-o", "RemoteCommand=none", "--", alias, startupCommand]
         }

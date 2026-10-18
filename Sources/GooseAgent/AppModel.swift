@@ -109,7 +109,7 @@ final class AppModel: ObservableObject {
     private var openRequestsAwaitingRestore: [() -> Void] = []
     /// Text a new local shell types once, keyed by tab. Memory only; never saved with the session.
     private var pendingInitialInput: [UUID: String] = [:]
-    /// Authenticated remote commands for brand-new Agent panes. Never persisted or repeated.
+    /// One-time remote commands for quick-command terminals. Never persisted or repeated.
     private var pendingRemoteStartupCommands: [UUID: String] = [:]
     private var pendingLocalStartupCommands: [UUID: String] = [:]
     /// Delayed auto-reconnect work keyed by tab.
@@ -1118,38 +1118,6 @@ final class AppModel: ObservableObject {
         } else {
             guard ExternalOpen.validatedDirectory(request.directory) != nil else { throw QuickCommandError.invalidDirectory }
             openLocalTerminal(at: request.directory, startupCommand: request.startupCommand(shell: LocalTerminal.shellExecutable), in: window)
-        }
-    }
-
-    /// The focused pane supplies the connection and current directory, including OSC 7
-    /// updates. Opening the launcher itself never changes or writes to that pane.
-    func agentLaunchTarget(in window: WindowState) -> AgentLaunchTarget {
-        guard let tab = selectedTab(in: window) else {
-            return .local(directory: LocalTerminal.homeDirectory)
-        }
-        if let alias = tab.alias, !alias.isEmpty {
-            return .remote(host: alias, directory: tab.remoteDirectory)
-        }
-        return .local(directory: localFolder(of: tab) ?? LocalTerminal.homeDirectory)
-    }
-
-    func launchAgent(_ request: AgentLaunchRequest, at requestedTarget: AgentLaunchTarget, in window: WindowState) throws {
-        let target = try requestedTarget.validated()
-        switch target {
-        case .local(let directory):
-            openLocalTerminal(at: directory, initialInput: request.localInitialInput, in: window, reuseExisting: false)
-        case .remote(let host, let directory):
-            let command = try request.remoteStartupCommand(directory: directory)
-            activate(window)
-            showSection(.terminals, in: window)
-            Task {
-                let environment = await SSHLaunchEnvironment.shared.get()
-                guard !Task.isCancelled else { return }
-                launchEnvironment = environment
-                let tab = TerminalTab(id: UUID(), alias: host, generation: 0, exited: false, remoteDirectory: directory)
-                pendingRemoteStartupCommands[tab.id] = command
-                add(tab, placement: .newTab, beside: window.selectedTabID ?? UUID(), in: window)
-            }
         }
     }
 

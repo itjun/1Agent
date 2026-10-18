@@ -25,7 +25,6 @@ enum TerminalPaneActions {
                 .separator,
                 command(.newLocalTerminal) { model.openLocalTerminal(in: window) },
                 command(.openHost) { model.openHostPicker(in: window, purpose: window.presentation.fullFilesWorkspace ? .files : .terminal) },
-                command(.agentLauncher) { model.openAgentLauncher(in: window) },
                 command(.settings) { SettingsWindowController.shared.show(model: model) },
             ]),
             FamilyMenuItem(title: String(localized: "Switch Tab"), enabled: !tabItems.isEmpty, children: tabItems),

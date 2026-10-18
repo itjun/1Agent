@@ -113,12 +113,6 @@ struct RootView: View {
                 .tint(chrome.accent)
                 .preferredColorScheme(appearanceDriver.interfaceColorScheme)
         }
-        .familySheet(isPresented: $window.agentLauncherPresented, width: SheetLayout.folderPicker, height: SheetLayout.agentLauncherHeight) {
-            AgentLauncher(model: model, window: window) { window.agentLauncherPresented = false }
-                .environment(\.windowChrome, chrome)
-                .tint(chrome.accent)
-                .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-        }
         .familySheet(isPresented: $window.hostPickerPresented, width: SheetLayout.search, height: SheetLayout.sessionBodyHeight) {
             HostPicker(model: model, window: window)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)

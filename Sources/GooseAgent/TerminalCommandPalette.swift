@@ -44,7 +44,7 @@ struct TerminalCommandPalette: View {
             if commands.isEmpty {
                 VStack(alignment: .leading, spacing: Theme.Space.s) {
                     Text("No matching commands").font(Theme.Font.sectionTitle).foregroundStyle(chrome.text)
-                    Text("Try “split”, “files”, or “Agent”.").foregroundStyle(chrome.secondary)
+                    Text("Try “split”, “files”, or “host”.").foregroundStyle(chrome.secondary)
                     Button("Clear search") { query = "" }.buttonStyle(.borderless)
                 }
                 .font(Theme.Font.body)
@@ -145,8 +145,6 @@ struct TerminalCommandPalette: View {
             return (model.panelRow(for: targetID, in: window)?.leafIDs.count ?? 0) > 1
         case .switchTerminal:
             return !model.panelRows(in: window).isEmpty
-        case .agent:
-            return targetID == nil || target != nil
         case .newLocal, .openHost, .sidebar:
             return true
         }
@@ -174,22 +172,19 @@ struct TerminalCommandPalette: View {
         guard isAvailable(command) else { return }
         let capturedID = targetID
         // Dismiss synchronously through the shared modal before restoring focus or presenting the
-        // host/agent picker. Merely changing the binding leaves the modal key until a later update.
+        // host picker. Merely changing the binding leaves the modal key until a later update.
         (NSApp.keyWindow as? FamilyModalWindow)?.cancelOperation(nil)
         onClose()
         DispatchQueue.main.async {
             let current = capturedID.flatMap { id in
                 model.sidebarOrder(in: window).contains(id) ? model.tabs.first { $0.id == id && $0.hasTerminal } : nil
             }
-            if (command.requiresTerminal || (command == .agent && capturedID != nil)) && current == nil { return }
+            if command.requiresTerminal && current == nil { return }
             switch command {
             case .newLocal:
                 model.openLocalTerminal(in: window)
             case .openHost:
                 model.openHostPicker(in: window)
-            case .agent:
-                if let current { model.selectOnly(current.id, in: window, focusTerminal: false) }
-                model.openAgentLauncher(in: window)
             case .sidebar:
                 model.toggleSidebar(in: window)
             case .switchTerminal:
@@ -224,14 +219,13 @@ struct TerminalCommandPalette: View {
 }
 
 enum TerminalPaletteCommand: String, CaseIterable, Identifiable {
-    case newLocal, agent, openHost, switchTerminal, sidebar
+    case newLocal, openHost, switchTerminal, sidebar
     case splitRight, splitBelow, splitLeft, splitAbove, files, find, zoom
 
     var id: Self { self }
     var title: String {
         switch self {
         case .newLocal: return AppShortcutID.newLocalTerminal.title
-        case .agent: return AppShortcutID.agentLauncher.title
         case .openHost: return AppShortcutID.openHost.title
         case .switchTerminal: return AppShortcutID.terminalSwitcher.title
         case .sidebar: return AppShortcutID.toggleSidebar.title
@@ -248,7 +242,6 @@ enum TerminalPaletteCommand: String, CaseIterable, Identifiable {
     var shortcut: AppShortcutID? {
         switch self {
         case .newLocal: return .newLocalTerminal
-        case .agent: return .agentLauncher
         case .openHost: return .openHost
         case .switchTerminal: return .terminalSwitcher
         case .sidebar: return .toggleSidebar
@@ -263,7 +256,6 @@ enum TerminalPaletteCommand: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .newLocal: return "plus.rectangle"
-        case .agent: return "sparkles"
         case .openHost: return "server.rack"
         case .switchTerminal: return "rectangle.3.group"
         case .sidebar: return "sidebar.left"
@@ -279,7 +271,7 @@ enum TerminalPaletteCommand: String, CaseIterable, Identifiable {
 
     var requiresTerminal: Bool {
         switch self {
-        case .newLocal, .agent, .openHost, .switchTerminal, .sidebar: return false
+        case .newLocal, .openHost, .switchTerminal, .sidebar: return false
         default: return true
         }
     }
@@ -299,7 +291,6 @@ enum TerminalPaletteCommand: String, CaseIterable, Identifiable {
         let aliases: String
         switch self {
         case .newLocal: aliases = "new local terminal shell 新建 本地 终端"
-        case .agent: aliases = "launch agent codex claude gemini cursor opencode 启动 智能体"
         case .openHost: aliases = "open host server ssh remote 连接 主机 服务器 远程"
         case .switchTerminal: aliases = "terminal switcher switch jump tabs panels 切换 终端 标签 面板"
         case .sidebar: aliases = "toggle sidebar collapse expand show hide 侧栏 侧边栏 收起 展开 隐藏 显示"

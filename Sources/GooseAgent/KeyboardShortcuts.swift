@@ -21,7 +21,6 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case toggleSidebar
     case toggleToolSidebar
     case commandPalette
-    case agentLauncher
     case duplicateRight
     case duplicateDown
     case openFileBrowser
@@ -58,7 +57,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
 
     var group: AppShortcutGroup {
         switch self {
-        case .newTab, .newLocalTerminal, .openHost, .toggleFullScreen, .settings, .commandPalette, .agentLauncher:
+        case .newTab, .newLocalTerminal, .openHost, .toggleFullScreen, .settings, .commandPalette:
             return .app
         case .previousTerminal, .nextTerminal,
              .selectTerminal1, .selectTerminal2, .selectTerminal3, .selectTerminal4,
@@ -93,7 +92,6 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .toggleSidebar: return String(localized: "Toggle Session Sidebar")
         case .toggleToolSidebar: return String(localized: "Toggle Tool Sidebar")
         case .commandPalette: return String(localized: "Command Palette")
-        case .agentLauncher: return String(localized: "Launch Agent…")
         case .duplicateRight: return String(localized: "Split Right")
         case .duplicateDown: return String(localized: "Split Down")
         case .openFileBrowser: return String(localized: "Switch Terminals and Files")
@@ -150,7 +148,6 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .toggleSidebar: return KeyChord(key: "b", modifiers: .command)
         case .toggleToolSidebar: return KeyChord(key: "b", modifiers: [.command, .shift])
         case .commandPalette: return KeyChord(key: "p", modifiers: [.command, .shift])
-        case .agentLauncher: return KeyChord(key: "a", modifiers: [.command, .shift])
         case .duplicateRight: return KeyChord(key: "d", modifiers: .command)
         case .duplicateDown: return KeyChord(key: "d", modifiers: [.command, .shift])
         case .openFileBrowser: return KeyChord(key: "o", modifiers: [.command, .option])

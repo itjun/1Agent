@@ -169,10 +169,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 model.openCommandPalette(in: window)
                 return nil
             }
-            if chord == AppShortcuts.chord(for: .agentLauncher) {
-                model.openAgentLauncher(in: window)
-                return nil
-            }
         }
         if increasesFontSizeByPlusAlias(chord) {
             return nil
@@ -569,11 +565,6 @@ struct GooseAgentApp: App {
                     appDelegate.model.openCommandPalette(in: appDelegate.model.mainWindow)
                 }
                 .keyboardShortcut(AppShortcuts.chord(for: .commandPalette).keyboardShortcut)
-                Button(AppShortcutID.agentLauncher.title) {
-                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    appDelegate.model.openAgentLauncher(in: appDelegate.model.mainWindow)
-                }
-                .keyboardShortcut(AppShortcuts.chord(for: .agentLauncher).keyboardShortcut)
                 Divider()
                 Button("Open Items Overview") {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }

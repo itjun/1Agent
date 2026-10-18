@@ -22,7 +22,6 @@ final class WindowState: ObservableObject, Identifiable {
     /// An explicit reveal wins over automatic narrow-window collapse until hidden again.
     @Published var sidebarRevealed = false
     @Published var commandPalettePresented = false
-    @Published var agentLauncherPresented = false
     /// Transient: dropping a command only opens confirmation, never restores a run.
     @Published var quickCommandConfirmation: QuickCommandConfirmationTarget?
     /// The session that last opened Files. Closing the dock does not reset its browsing state.

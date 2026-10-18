@@ -1186,7 +1186,7 @@ private struct FilesWorkspaceRoutingTests {
         }
         func verifyShortcutOnlyActions() throws {
             for id in ["workspace.commandPalette", "workspace.switchSection",
-                       "workspace.launchAgent", "hosts.open"] {
+                       "hosts.open"] {
                 try require(element(id) == nil, "Shortcut-only action must not expose a chrome button: \(id)")
             }
         }
@@ -1245,10 +1245,6 @@ private struct FilesWorkspaceRoutingTests {
             model.toggleSection(in: state)
             try await settle()
             try require(state.presentation.fullFilesWorkspace, "Shortcut actions must switch back to Files")
-            model.openAgentLauncher(in: state)
-            try require(state.agentLauncherPresented, "Shortcut actions must open the Agent launcher")
-            state.agentLauncherPresented = false
-            try await settle()
             model.openCommandPalette(in: state)
             try require(state.commandPalettePresented, "Shortcut actions must open the command palette")
             state.commandPalettePresented = false
