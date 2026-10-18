@@ -500,8 +500,8 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        try require(abs(terminalRect.maxY - rootRect.maxY) < 1,
-                    "A single terminal starts at the content top without a global header")
+        try require(abs(rootRect.maxY - terminalRect.maxY - Theme.PaneStyle.titlebarHeight) < 1,
+                    "A single terminal starts directly below the shared title band, without a duplicate pane header")
         try require(terminals.values.allSatisfy { terminal in
             !terminal.selectionContextMenu().items.contains { $0.title == String(localized: "History") }
         }, "No terminal context menu may expose the removed history feature")
@@ -636,13 +636,13 @@ private struct FilesWorkspaceRoutingTests {
             try await settle()
             window.contentView?.layoutSubtreeIfNeeded()
             let elements = accessibilityElements(window.contentView!)
-            let titles = [String(localized: "Settings"), String(localized: "New Local Terminal")]
-            for title in titles {
-                let buttons = elements.filter {
-                    accessibilityValue($0, "accessibilityRole") as? String == "AXButton" &&
-                    (accessibilityValue($0, "accessibilityLabel") as? String == title || accessibilityValue($0, "accessibilityTitle") as? String == title)
+            let sidebarVisible = !model.sidebarIsCollapsed(in: state, totalWidth: window.contentView!.bounds.width)
+            for id in ["workspace.terminal", "workspace.files"] {
+                let entries = elements.filter {
+                    accessibilityValue($0, "accessibilityIdentifier") as? String == id
                 }
-                try require(buttons.count == 1, "Page must expose exactly one entry for \(title)")
+                try require(entries.count == (sidebarVisible ? 1 : 0),
+                            "Page navigation must follow sidebar visibility without duplicate entries: \(id)")
             }
             let ids = Set(files ? ["folder.badge.plus", "doc.badge.plus", "trash", "doc.on.clipboard"] :
                             ["terminal.history", "terminal.revealFiles"])
@@ -670,7 +670,7 @@ private struct FilesWorkspaceRoutingTests {
         }
         window.setContentSize(NSSize(width: 1440, height: 900))
         try await verifyCompactHeaderGeometry(model: model, state: state, window: window)
-        print("ok: single page entries, no global headers, 1Panel file headers and recoverable narrow sidebar")
+        print("ok: single page entries, one shared title band, 1Panel file headers and recoverable narrow sidebar")
 
         model.hideFiles(in: state)
         guard let source = model.selectedTab(in: state) else {
