@@ -64,9 +64,12 @@ struct PinnedLocationsSidebar: View {
                         Text("Only local folders can be pinned.").font(.system(size: 12)).foregroundStyle(chrome.danger)
                             .padding(.horizontal, 10)
                     }
-                }.padding(.horizontal, 8).padding(.bottom, 12)
+                }
+                .padding(.horizontal, 8).padding(.bottom, 12)
+                // Reordering belongs to the folder rows. The viewport's empty space
+                // remains inside the sidebar, so releasing there preserves the pins.
+                .background(BoundsAnchor { dragArea.list = $0 })
             }
-            .background(BoundsAnchor { dragArea.list = $0 })
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())

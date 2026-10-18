@@ -116,6 +116,14 @@ private struct FilesWorkspaceRoutingTests {
             chromeWindow.contentView = nil
             return
         }
+        if environment["ONEAGENT_TEST_PINNED_DRAG"] == "1" {
+            model.selectFilesLayout(.sideBySide, in: state)
+            try await settle()
+            try await verifyPinnedFolderDrag(window: chromeWindow, workspace: model.fileWorkspace(for: state))
+            chromeWindow.orderOut(nil)
+            chromeWindow.contentView = nil
+            return
+        }
         try verifySingleFilesEntry(chromeWindow, visible: false)
         try await verifyFamilyFolderPicker(window: chromeWindow, home: home)
         for layout in [FileWorkspaceLayout.belowTerminal, .sideBySide, .belowTerminal] {
@@ -1444,8 +1452,10 @@ private struct FilesWorkspaceRoutingTests {
         try gesture(a, through: [outside, center(a)])
         try require(pins.items == before, "Returning to the original row must preserve pins and order")
         for y in [bounds.minY + 10, bounds.maxY - 10] {
-            try gesture(a, through: [NSPoint(x: bounds.midX, y: y)])
-            try require(pins.items == before, "Sidebar header and footer drops must not unpin")
+            let point = NSPoint(x: bounds.midX, y: y)
+            try gesture(a, through: [point])
+            try require(Set(pins.items.map(\.id)) == Set(before.map(\.id)), "Sidebar header and footer drops must not unpin")
+            try require(pins.items == before, "Sidebar header and footer drops must preserve the pinned folder order")
         }
         let aboveA = NSPoint(x: center(a).x, y: center(a).y + 4)
         try gesture(b, through: [aboveA])
