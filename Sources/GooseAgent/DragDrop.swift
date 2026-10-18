@@ -935,6 +935,10 @@ final class TabDragHandleView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control), let onSecondaryClick {
+            onSecondaryClick()
+            return
+        }
         guard let window else { return }
         // The pane title sits in the transparent titlebar. Keep the window still
         // for the whole press so this drag merges panes instead of moving the window.
@@ -1235,6 +1239,10 @@ final class BlockDragHandleView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control), let onSecondaryClick {
+            onSecondaryClick()
+            return
+        }
         guard let window else { return }
         let start = event.locationInWindow
         var dragging = false
