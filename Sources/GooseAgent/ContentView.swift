@@ -440,7 +440,7 @@ struct RootView: View {
         return ZStack(alignment: .topLeading) {
             chrome.panelHeader
             if filesMode || topTabs.isEmpty {
-                FamilyMenu(items: { TerminalPaneActions.titleItems(tab: nil, model: model, window: window) }) {
+                FamilyMenu(items: { TerminalPaneActions.titleItems(model: model, window: window) }) {
                     Text(filesMode ? "Files" : "Terminal")
                         .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)
                         .padding(.horizontal, 8).frame(height: Theme.PaneStyle.titlebarHeight)
@@ -518,18 +518,18 @@ struct RootView: View {
                 // Use the same native event tracking as lower split headers: it owns
                 // the press before AppKit can turn a titlebar drag into a window drag.
                 TabDragHandle(
-                    onClick: { _, _ in TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) },
+                    onClick: { _, _ in TerminalPaneActions.showTitleContext(model: model, window: window) },
                     onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
                     onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                     onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    onSecondaryClick: { TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) },
+                    onSecondaryClick: { TerminalPaneActions.showTitleContext(model: model, window: window) },
                     freezesWindow: true
                 )
             }
-            .help("Click the title for actions. Drag it to move the pane.")
+            .help("Click the title to switch tabs. Drag it to move the pane.")
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction { TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) }
+            .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window) }
             .accessibilityLabel(Text(verbatim: sessionTitle(tab)))
             .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
     }

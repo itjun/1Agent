@@ -1,12 +1,12 @@
 import AppKit
 
-/// Shared directory and layout commands for terminal and pane-title context menus.
+/// Terminal context actions and the separate pane-title tab picker.
 /// Actions keep the pane identity that opened the menu; they never act on whichever
 /// terminal happens to own the keyboard when the popup dismisses.
 @MainActor
 enum TerminalPaneActions {
-    /// A title is the single entry to navigation, tabs and commands for that pane.
-    static func titleItems(tab: TerminalTab?, model: AppModel, window: WindowState) -> [FamilyMenuItem] {
+    /// Titles only switch tabs; terminal actions live in the terminal's context menu.
+    static func titleItems(model: AppModel, window: WindowState) -> [FamilyMenuItem] {
         let tabs = model.sidebarOrder(in: window).compactMap { id in model.tabs.first { $0.id == id } }
         let tabItems = tabs.map { target in
             FamilyMenuItem(title: title(of: target), checked: target.id == window.selectedTabID, action: {
@@ -14,32 +14,9 @@ enum TerminalPaneActions {
                 model.selectOnly(target.id, in: window)
             })
         }
-        var result: [FamilyMenuItem] = [
-            FamilyMenuItem(title: String(localized: "Functions"), children: [
-                FamilyMenuItem(title: String(localized: "Terminal"), checked: !window.presentation.fullFilesWorkspace, action: {
-                    model.hideFiles(in: window)
-                }),
-                FamilyMenuItem(title: String(localized: "Files"), checked: window.presentation.fullFilesWorkspace, action: {
-                    model.selectFilesLayout(.sideBySide, in: window)
-                }),
-                .separator,
-                command(.newLocalTerminal) { model.openLocalTerminal(in: window) },
-                command(.openHost) { model.openHostPicker(in: window, purpose: window.presentation.fullFilesWorkspace ? .files : .terminal) },
-                command(.settings) { SettingsWindowController.shared.show(model: model) },
-            ]),
+        return [
             FamilyMenuItem(title: String(localized: "Switch Tab"), enabled: !tabItems.isEmpty, children: tabItems),
         ]
-        if let tab, tab.hasTerminal {
-            result += [.separator] + items(tab: tab, model: model, window: window)
-        }
-        result += [.separator, command(.commandPalette) { model.openCommandPalette(in: window) }]
-        if let tab {
-            result.append(command(.closeTab) {
-                guard model.sidebarOrder(in: window).contains(tab.id) else { return }
-                model.closeTab(tab.id)
-            })
-        }
-        return result
     }
 
     static func title(of tab: TerminalTab) -> String {
@@ -48,11 +25,11 @@ enum TerminalPaneActions {
         return workingDirectory(of: tab).map(LocalTerminal.displayPath) ?? String(localized: "This Mac")
     }
 
-    static func showTitleContext(tab: TerminalTab, model: AppModel, window: WindowState) {
+    static func showTitleContext(model: AppModel, window: WindowState) {
         guard let owner = MainWindowManager.shared.window(for: window) else { return }
         let point = NSEvent.mouseLocation
         DispatchQueue.main.async {
-            FamilyMenuPresenter.shared.show(titleItems(tab: tab, model: model, window: window), at: point, owner: owner)
+            FamilyMenuPresenter.shared.show(titleItems(model: model, window: window), at: point, owner: owner)
         }
     }
 
@@ -128,6 +105,18 @@ enum TerminalPaneActions {
                 command(.find) { find(tabID: tab.id, model: model, window: window) },
             ]
         }
+        items += [
+            .separator,
+            command(.commandPalette) {
+                guard currentTab(tab.id, model: model) != nil else { return }
+                model.selectOnly(tab.id, in: window, focusTerminal: false)
+                model.openCommandPalette(in: window)
+            },
+            command(.closeTab) {
+                guard model.sidebarOrder(in: window).contains(tab.id) else { return }
+                model.closeTab(tab.id)
+            },
+        ]
         return items
     }
 

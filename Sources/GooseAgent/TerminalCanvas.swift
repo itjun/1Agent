@@ -279,15 +279,15 @@ struct TerminalCanvas: View {
                 .frame(maxHeight: .infinity)
                 .overlay {
                     TabDragHandle(
-                        onClick: { _, _ in TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) },
+                        onClick: { _, _ in TerminalPaneActions.showTitleContext(model: model, window: window) },
                         onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
                         onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                         onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                        onSecondaryClick: { TerminalPaneActions.showTitleContext(tab: tab, model: model, window: window) },
+                        onSecondaryClick: { TerminalPaneActions.showTitleContext(model: model, window: window) },
                         prepareContextMenu: nil,
                         freezesWindow: true
                     )
-                    .help(String(localized: "Click the title for actions. Drag it to move the pane."))
+                    .help(String(localized: "Click the title to switch tabs. Drag it to move the pane."))
                 }
                 .padding(.horizontal, Theme.Space.s)
             }

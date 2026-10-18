@@ -46,7 +46,7 @@ enum TerminalPaneActionsTests {
         let customItems = TerminalPaneActions.items(tab: local, model: model, window: window)
         let right = item("Split View", in: customItems)!.children.first { $0.title == AppShortcutID.duplicateRight.title }!
         expect(right.key == custom.key && right.modifiers == custom.menuModifierMask, "menu shortcuts follow the user's saved binding")
-        expect(!customItems.contains { $0.title == AppShortcutID.closeTab.title }, "the pane action menu does not add a close action")
+        expect(customItems.contains { $0.title == AppShortcutID.closeTab.title }, "terminal context actions include closing their captured pane")
 
         // A popup can outlive its pane. A stale Find action must not touch a sibling's
         // selection or look up whichever terminal happens to be focused afterward.
@@ -75,7 +75,8 @@ enum TerminalPaneActionsTests {
         nativeMenu.addItem(NSMenuItem(title: "External plugin fixture", action: nil, keyEquivalent: ""))
         let commands = FamilyMenuItem.commands(from: nativeMenu)
         expect(!commands.contains { $0.title == "External plugin fixture" }, "conversion invokes the native menu delegate")
-        for title in [AppShortcutID.find.title, String(localized: "Reveal in Files")] {
+        for title in [AppShortcutID.find.title, String(localized: "Reveal in Files"),
+                      AppShortcutID.commandPalette.title, AppShortcutID.closeTab.title] {
             expect(commands.filter { $0.title == title }.count == 1, "merged commands contain exactly one \(title)")
         }
         expect(item("Copy", in: commands)?.enabled == false, "Copy remains disabled without a terminal selection")
@@ -205,23 +206,22 @@ enum TerminalPaneActionsTests {
         let first = window.selectedTabID!
         model.open(.preview(path: "/tmp/title-second"), placement: .newTab, beside: first, in: window)
         let second = window.selectedTabID!
-        let menu = TerminalPaneActions.titleItems(tab: model.tabs.first { $0.id == first }, model: model, window: window)
+        let menu = TerminalPaneActions.titleItems(model: model, window: window)
         let tabs = item("Switch Tab", in: menu)!
         expect(tabs.children.count == 2 && tabs.children[1].checked, "title menu lists this window's tabs with the active checkmark")
         tabs.children[0].action()
         expect(window.selectedTabID == first, "title-menu tab selection targets the selected menu entry")
+        let context = TerminalPaneActions.items(tab: model.tabs.first { $0.id == first }!, model: model, window: window)
         model.selectOnly(second, in: window, focusTerminal: false)
-        menu.first { $0.title == AppShortcutID.closeTab.title }!.action()
+        context.first { $0.title == AppShortcutID.closeTab.title }!.action()
         expect(!model.tabs.contains { $0.id == first } && model.tabs.contains { $0.id == second },
-               "Close from a title menu retains its captured pane rather than closing the newly focused tab")
+               "Close from a terminal context menu retains its captured pane rather than closing the newly focused tab")
         let staleSelection = window.selectedTabID
         tabs.children[0].action()
         expect(window.selectedTabID == staleSelection, "closed tab entries cannot resurrect a stale selection")
-        let functions = item("Functions", in: menu)!
-        item("Files", in: functions.children)!.action()
-        expect(window.presentation.fullFilesWorkspace, "title menu can switch to files")
-        item("Terminal", in: functions.children)!.action()
-        expect(!window.presentation.fullFilesWorkspace, "title menu can switch back to terminal")
+        expect(menu.count == 1 && menu.first?.title == String(localized: "Switch Tab"), "pane titles only expose tab navigation")
+        model.open(.preview(path: "/tmp/title-third"), placement: .newTab, beside: second, in: window)
+        expect(window.selectedTabID != second, "keyboard navigation starts on a different tab")
         let local = TerminalTab(id: UUID(), alias: nil, directory: "/tmp/path with spaces", generation: 0, exited: false)
         var remote = TerminalTab(id: UUID(), alias: "fixture", directory: local.directory, generation: 0, exited: false)
         remote.remoteDirectory = "/srv/project"
@@ -234,7 +234,7 @@ enum TerminalPaneActionsTests {
         let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
                              styleMask: [.titled], backing: .buffered, defer: false)
         let presenter = FamilyMenuPresenter.shared
-        presenter.show(TerminalPaneActions.titleItems(tab: local, model: model, window: window),
+        presenter.show(TerminalPaneActions.titleItems(model: model, window: window),
                        at: NSPoint(x: 600, y: 700), owner: owner)
         expect(presenter.panels.count == 1, "the production title menu creates a popup")
         if let path = ProcessInfo.processInfo.environment["ONEAGENT_MENU_SNAPSHOT"],
@@ -243,14 +243,14 @@ enum TerminalPaneActionsTests {
             view.cacheDisplay(in: view.bounds, to: bitmap)
             try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
         }
-        for keyCode: UInt16 in [115, 124, 125, 36] {
+        for keyCode: UInt16 in [115, 124, 115, 36] {
             let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
                                         windowNumber: owner.windowNumber, context: nil, characters: "",
                                         charactersIgnoringModifiers: "", isARepeat: false, keyCode: keyCode)!
             expect(presenter.handleKey(event), "title popup handles navigation keys")
         }
-        expect(window.presentation.fullFilesWorkspace && presenter.panels.isEmpty,
-               "keyboard selection dispatches Functions > Files and dismisses every popup")
+        expect(window.selectedTabID == second && presenter.panels.isEmpty,
+               "keyboard selection dispatches Switch Tab and dismisses every popup")
         owner.orderOut(nil)
 
     }
