@@ -63,9 +63,10 @@ struct TerminalCanvas: View {
                         takeRemoteStartupCommand: { model.takeRemoteStartupCommand(for: tab.id) },
                         takeLocalStartupCommand: { model.takeLocalStartupCommand(for: tab.id) },
                         onExit: { code, lived in
-                            // A local shell exit closes the tab. ssh uses 255 when the connection itself fails.
+                            // Keep exited local shells available for the sidebar's Reopen action.
+                            // ssh uses 255 when the connection itself fails.
                             if tab.isLocal {
-                                model.closeTab(tab.id)
+                                model.markClosed(tab.id, lived: lived)
                             } else if let code, code != 255 {
                                 model.closeTab(tab.id)
                             } else {
@@ -262,7 +263,7 @@ struct TerminalCanvas: View {
                         Image(systemName: "link.slash")
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
                             .foregroundStyle(chrome.danger)
-                            .accessibilityLabel(Text("Connection closed"))
+                            .accessibilityLabel(Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")))
                     }
                 }
                 .allowsHitTesting(false)
@@ -314,7 +315,7 @@ struct TerminalCanvas: View {
                         Image(systemName: "link.slash")
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
                             .foregroundStyle(chrome.danger)
-                            .accessibilityLabel(Text("Connection closed"))
+                            .accessibilityLabel(Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")))
                     }
                 }
                 .allowsHitTesting(false)
@@ -385,7 +386,7 @@ struct TerminalCanvas: View {
         return banner + find
     }
 
-    /// Strip under the title bar for a lost SSH link. Only the Reconnect button takes clicks;
+    /// Strip under the title bar for an exited terminal. Only its recovery button takes clicks;
     /// the rest lets the terminal keep its text selection.
     private func connectionBanner(_ tab: TerminalTab) -> some View {
         let tint: Color
@@ -403,7 +404,7 @@ struct TerminalCanvas: View {
             }
         } else {
             tint = chrome.danger
-            message = String(localized: "Connection closed")
+            message = tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")
         }
         return HStack(spacing: Theme.Space.s) {
             Text(message)
@@ -414,9 +415,10 @@ struct TerminalCanvas: View {
             Spacer(minLength: 0)
             if tab.showsDisconnected {
                 Button {
-                    model.reconnect(tab.id)
+                    if tab.isLocal { model.reopenLocalTerminal(tab.id) }
+                    else { model.reconnect(tab.id) }
                 } label: {
-                    Text("Reconnect")
+                    Text(tab.isLocal ? String(localized: "Reopen Terminal") : String(localized: "Reconnect"))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(chrome.background)
                         .padding(.horizontal, Theme.Space.m)

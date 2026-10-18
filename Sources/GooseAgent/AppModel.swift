@@ -1247,6 +1247,21 @@ final class AppModel: ObservableObject {
 
     // MARK: - Reconnect
 
+    /// Reopen an exited local shell in place, preserving the panel and its current directory.
+    func reopenLocalTerminal(_ tabID: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }),
+              tabs[index].hasTerminal, tabs[index].isLocal, tabs[index].exited else { return }
+        if let directory = TerminalPaneActions.workingDirectory(of: tabs[index]) {
+            tabs[index].directory = directory
+        }
+        SSHTerminalRegistry.destroy(tabs[index].sessionID)
+        tabs[index].generation += 1
+        tabs[index].exited = false
+        tabs[index].restoration = nil
+        persistSession()
+        if let window = window(containing: tabID) { selectOnly(tabID, in: window) }
+    }
+
     func reconnect(_ tabID: UUID) {
         beginReconnect(tabID, automatic: false)
         if let window = window(containing: tabID) {

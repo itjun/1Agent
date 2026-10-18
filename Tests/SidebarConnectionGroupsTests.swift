@@ -68,6 +68,7 @@ import SwiftUI
         let groups = rows.map { model.connectionGroup(for: $0.block) }
         try check(groups == [.local, .local, .local, .remote, .remote, .mixed, .mixed, .mixed], "Fixed category order and panel counts")
         try check(Set(rows.flatMap(\.leafIDs)).count == 9 && rows.count == 8, "Every terminal appears exactly once; split counts once")
+        try checkLocalReopen(model: model, window: window, local: l1)
         try check(model.panelRow(for: preview, in: window)?.block == .localGroup, "Preview is local")
         try check(model.sessionSubtitle(model.tabs.first { $0.id == preview }!).hasPrefix(String(localized: "This Mac")), "Preview subtitle agrees with Local category")
         try check(model.panelRow(for: r1, in: window)?.block == .ungrouped, "Legacy wrong local placement is repaired")
@@ -168,6 +169,21 @@ import SwiftUI
         try await wait { model.tabs.count == 11 }
         try check(!window.presentation.collapsedConnectionGroups.contains(.remote), "New remote terminal reveals Remote")
         print("Verified legacy migration, preview, mixed focus, workspace integrity, order, selection, drag constraints, merge/detach, persistence, and new-terminal reveal")
+    }
+
+    @MainActor static func checkLocalReopen(model: AppModel, window: WindowState, local: UUID) throws {
+        let selection = window.sidebarSelection, focused = window.selectedTabID
+        defer { window.sidebarSelection = selection; window.selectedTabID = focused }
+        let original = model.tabs.first { $0.id == local }!
+        let originalRows = model.panelRows(in: window).map(\.panelID)
+        model.markClosed(local, lived: 10)
+        model.reopenLocalTerminal(local)
+        let reopened = model.tabs.first { $0.id == local }!
+        try check(!reopened.exited && reopened.generation == original.generation + 1 && reopened.directory == original.directory,
+                  "Reopen starts a fresh shell at the same directory and identity")
+        try check(model.panelRows(in: window).map(\.panelID) == originalRows, "Reopen preserves sidebar panels and order")
+        model.reopenLocalTerminal(local)
+        try check(model.tabs.first { $0.id == local }!.generation == reopened.generation, "Reopen cannot restart a running shell")
     }
 
     @MainActor static func wait(_ predicate: () -> Bool) async throws {
