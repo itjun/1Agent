@@ -64,7 +64,7 @@ struct QuickCommandHistoryView: View {
             .onChange(of: host) { _, value in result = nil; selected = []; scope = value.isEmpty ? .local : .host }
             HStack {
                 CommandTextField(text: $path, placeholder: String(localized: "History file path"), identifier: "quickCommands.history.path").frame(height: 32)
-                Button("Read History", action: load).buttonStyle(FamilyButtonStyle()).disabled(busy)
+                Button("Read History", action: load).buttonStyle(FamilyButtonStyle(kind: .secondary)).disabled(busy)
                     .accessibilityIdentifier("quickCommands.history.read")
             }
             Text("Reads a saved history snapshot only. Unsaved shell history may be absent; execution directories are not inferred.")
