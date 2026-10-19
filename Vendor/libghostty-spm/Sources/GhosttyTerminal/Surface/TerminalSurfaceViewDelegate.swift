@@ -13,6 +13,12 @@ import GhosttyKit
 public protocol TerminalSurfaceViewDelegate: AnyObject {}
 
 @MainActor
+public protocol TerminalSurfaceSecureInputDelegate: TerminalSurfaceViewDelegate {
+    /// Nil toggles the host's current request for this surface.
+    func terminalDidRequestSecureInput(_ enabled: Bool?)
+}
+
+@MainActor
 public protocol TerminalSurfaceTitleDelegate: TerminalSurfaceViewDelegate {
     func terminalDidChangeTitle(_ title: String)
 }

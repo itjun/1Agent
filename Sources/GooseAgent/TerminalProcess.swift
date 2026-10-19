@@ -73,6 +73,14 @@ final class TerminalProcess: @unchecked Sendable {
         return foreground > 0 && foreground == getpgid(shellPid)
     }
 
+    var isPasswordInput: Bool {
+        stateLock.lock(); defer { stateLock.unlock() }
+        guard masterFD >= 0 else { return false }
+        var attributes = termios()
+        guard tcgetattr(masterFD, &attributes) == 0 else { return false }
+        return attributes.c_lflag & tcflag_t(ECHO) == 0 && attributes.c_lflag & tcflag_t(ICANON) != 0
+    }
+
     /// Called on the IO queue with each chunk read from the PTY.
     var onOutput: ((Data) -> Void)?
     /// Called on the IO queue once the PTY reaches EOF, after its last output

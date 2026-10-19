@@ -28,6 +28,15 @@ final class TerminalCallbackBridge {
 
     func handleAction(_ action: ghostty_action_s) {
         switch action.tag {
+        case GHOSTTY_ACTION_SECURE_INPUT:
+            let enabled: Bool?
+            switch action.action.secure_input {
+            case GHOSTTY_SECURE_INPUT_ON: enabled = true
+            case GHOSTTY_SECURE_INPUT_OFF: enabled = false
+            default: enabled = nil
+            }
+            (delegate as? any TerminalSurfaceSecureInputDelegate)?.terminalDidRequestSecureInput(enabled)
+
         case GHOSTTY_ACTION_SET_TITLE:
             if let cStr = action.action.set_title.title {
                 let title = String(cString: cStr)

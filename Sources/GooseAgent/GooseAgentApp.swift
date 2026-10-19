@@ -61,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.watchSSHConfig()
         model.restoreLastSession()
         QuickTerminalController.shared.start(model: model)
+        TerminalSecureInput.shared.start()
         NSApp.servicesProvider = ServiceProvider(model: model)
         NSUpdateDynamicServices()
         DistributedNotificationCenter.default().addObserver(
@@ -370,6 +371,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !model.isQuitting else { return .terminateLater }
         model.isQuitting = true
+        TerminalSecureInput.shared.stop()
         model.persistSessionIfReady()
         FileTransferQueue.shared.interruptForTermination()
         Task { @MainActor in
@@ -569,6 +571,10 @@ struct GooseAgentApp: App {
             CommandGroup(after: .sidebar) {
                 Button("Toggle Quick Terminal") { QuickTerminalController.shared.toggle() }
                     .keyboardShortcut(AppShortcuts.chord(for: .quickTerminal).keyboardShortcut)
+                Toggle("Secure Keyboard Input", isOn: Binding(
+                    get: { TerminalSecureInput.shared.manual },
+                    set: { TerminalSecureInput.shared.manual = $0 }
+                ))
                 Button(AppShortcutID.toggleSidebar.title) {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     if let state = appDelegate.model.keyWindow { appDelegate.model.toggleSidebar(in: state) }

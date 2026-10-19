@@ -8,6 +8,7 @@ struct SystemIntegrationSettingsPage: View {
     @State private var showsAutomation = false
     @AppStorage(TerminalAutomation.enabledKey) private var automationEnabled = true
     @ObservedObject private var quickTerminal = QuickTerminalController.shared
+    @ObservedObject private var secureInput = TerminalSecureInput.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -104,6 +105,8 @@ struct SystemIntegrationSettingsPage: View {
                             .font(Theme.Font.rowMeta).foregroundStyle(chrome.warning)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    Toggle("Secure Keyboard Input", isOn: $secureInput.manual)
+                        .help("Secure input is released when the terminal loses focus.")
 
                 }
                 .padding(.top, Theme.Space.m)

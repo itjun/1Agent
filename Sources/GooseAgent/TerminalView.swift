@@ -486,6 +486,7 @@ enum SSHTerminalRegistry {
     /// The tab closed. Ends the process and drops the view.
     static func destroy(_ id: String) {
         closedIDs.insert(id)
+        TerminalSecureInput.shared.forget(id)
         guard let view = views.removeValue(forKey: id) else { return }
         if views.isEmpty {
             directoryTimer?.invalidate()

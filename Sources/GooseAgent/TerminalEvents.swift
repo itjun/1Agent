@@ -7,6 +7,7 @@ import UserNotifications
 /// window shows still reports; a SwiftUI coordinator is gone once its container is torn down.
 @MainActor
 final class TerminalEventRelay: TerminalSurfaceLifecycleDelegate,
+    TerminalSurfaceSecureInputDelegate,
     TerminalSurfaceClipboardConfirmationDelegate,
     TerminalSurfaceDesktopNotificationDelegate,
     TerminalSurfaceCommandFinishedDelegate,
@@ -18,7 +19,10 @@ final class TerminalEventRelay: TerminalSurfaceLifecycleDelegate,
     TerminalSurfacePwdDelegate {
     weak var terminal: SSHTerminalNSView?
 
-
+    func terminalDidRequestSecureInput(_ enabled: Bool?) {
+        guard let id = terminal?.sessionID else { return }
+        TerminalSecureInput.shared.request(enabled, for: id)
+    }
 
     func terminalDidAttachSurface(_ surface: TerminalSurface) {
         terminal?.attachedSurface = surface
