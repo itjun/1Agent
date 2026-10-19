@@ -222,8 +222,8 @@ final class FileTabHandleView: NSView {
     func requestClose() {
         guard let window, window.attachedSheet == nil && !(NSApp.keyWindow is FamilyModalWindow) else { return }
         let alert = FamilyAlert()
-        alert.messageText = String(format: String(localized: "Close file tab “%@”?"), accessibilityLabel() ?? "")
-        alert.addButton(withTitle: String(localized: "Close Tab"))
+        alert.messageText = String(localized: "Close")
+        alert.addButton(withTitle: String(localized: "Close"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         let close = onClose
         alert.beginSheetModal(for: window) { response in
