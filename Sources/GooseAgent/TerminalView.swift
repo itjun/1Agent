@@ -1495,17 +1495,15 @@ struct SSHTerminalView: NSViewRepresentable {
     static func launch(alias: String, directory: String?, environment: [String], remoteDirectory: String? = nil) -> TerminalLaunch {
         if alias.isEmpty, let directory, !directory.isEmpty {
             let shell = LocalTerminal.shellExecutable
+            let settings = TerminalSettings.load()
+            let integration = ShellIntegrationEnvironment.variables(settings: settings, shellPath: shell,
+                                                                      resourcesPath: Bundle.main.resourcePath, environment: environment)
             return TerminalLaunch(
                 executable: shell,
-                args: ["-l"],
+                args: ShellIntegrationEnvironment.launchArguments(settings: settings, shellPath: shell, variables: integration),
                 environment: environment,
                 directory: LocalTerminal.launchDirectory(directory),
-                shellIntegrationEnvironment: ShellIntegrationEnvironment.variables(
-                    settings: TerminalSettings.load(),
-                    shellPath: shell,
-                    resourcesPath: Bundle.main.resourcePath,
-                    environment: environment
-                )
+                shellIntegrationEnvironment: integration
             )
         }
         return TerminalLaunch(

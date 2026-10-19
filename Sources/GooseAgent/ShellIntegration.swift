@@ -1,7 +1,7 @@
 import Foundation
 
-/// Variables that make a local zsh load Ghostty's shell integration from the app bundle, following
-/// Ghostty's `src/termio/shell_integration.zig`. Only zsh is injected. SSH launches never use this,
+/// Variables that make local shells load bundled integration, following Ghostty's
+/// `src/termio/shell_integration.zig`. SSH launches use their own authenticated bootstrap,
 /// and `TERM` stays `xterm-256color`: the scripts do not look at it.
 enum ShellIntegrationEnvironment {
     /// Features the bundled scripts can act on here. `ssh-env` and `ssh-terminfo` would wrap `ssh`
@@ -15,10 +15,29 @@ enum ShellIntegrationEnvironment {
         resourcesPath: String?,
         environment: [String]
     ) -> [String] {
-        if !ShellIntegrationEnvironment.injectsZsh(settings.shellIntegration, shellPath: shellPath) {
-            return []
+        guard let resourcesPath, let shell = integrationShell(settings.shellIntegration, shellPath: shellPath) else { return [] }
+        if shell != "zsh" {
+            let integration = resourcesPath + "/shell-integration"
+            var result = ["GHOSTTY_RESOURCES_DIR=\(resourcesPath)"]
+            if shell == "bash" {
+                guard FileManager.default.fileExists(atPath: integration + "/bash/ghostty.bash") else { return [] }
+                result += ["ENV=\(integration)/bash/ghostty.bash", "GHOSTTY_BASH_INJECT=1"]
+                if let value = value(of: "ENV", in: environment) { result.append("GHOSTTY_BASH_ENV=\(value)") }
+                if value(of: "HISTFILE", in: environment) == nil {
+                    let home = value(of: "HOME", in: environment) ?? FileManager.default.homeDirectoryForCurrentUser.path
+                    result += ["HISTFILE=\(home)/.bash_history", "GHOSTTY_BASH_UNEXPORT_HISTFILE=1"]
+                }
+            } else {
+                let files = ["fish": "fish/vendor_conf.d/ghostty-shell-integration.fish", "elvish": "elvish/lib/ghostty-integration.elv", "nushell": "nushell/vendor/autoload/ghostty.nu"]
+                guard let file = files[shell], FileManager.default.fileExists(atPath: integration + "/" + file) else { return [] }
+                let original = value(of: "XDG_DATA_DIRS", in: environment) ?? "/usr/local/share:/usr/share"
+                result += ["GHOSTTY_SHELL_INTEGRATION_XDG_DIR=\(integration)", "XDG_DATA_DIRS=\(integration)" + (original.isEmpty ? "" : ":" + original)]
+            }
+            // Empty is an explicit override: do not inherit enabled features from a parent
+            // terminal. Nushell also requires this environment field to exist for its wrappers.
+            result.append("GHOSTTY_SHELL_FEATURES=\(features(settings.shellIntegrationFeatures, cursorBlink: settings.cursorBlink) ?? "")")
+            return result
         }
-        guard let resourcesPath else { return [] }
         let zshDirectory = resourcesPath + "/shell-integration/zsh"
         if !FileManager.default.fileExists(atPath: zshDirectory + "/.zshenv") {
             return []
@@ -30,13 +49,31 @@ enum ShellIntegrationEnvironment {
         }
         result.append("ZDOTDIR=\(zshDirectory)")
         result.append("GHOSTTY_RESOURCES_DIR=\(resourcesPath)")
-        if let features = ShellIntegrationEnvironment.features(
-            settings.shellIntegrationFeatures,
-            cursorBlink: settings.cursorBlink
-        ) {
-            result.append("GHOSTTY_SHELL_FEATURES=\(features)")
-        }
+        result.append("GHOSTTY_SHELL_FEATURES=\(features(settings.shellIntegrationFeatures, cursorBlink: settings.cursorBlink) ?? "")")
         return result
+    }
+
+    static func integrationShell(_ mode: TerminalSettings.ShellIntegration, shellPath: String) -> String? {
+        switch mode {
+        case .none: return nil
+        case .detect:
+            let name = (shellPath as NSString).lastPathComponent
+            // Apple's legacy Bash disables the ENV startup mechanism. Match upstream detection.
+            if shellPath == "/bin/bash" { return nil }
+            return ["bash", "zsh", "fish", "elvish"].contains(name) ? name : name == "nu" ? "nushell" : nil
+        case .zsh: return "zsh"
+        case .bash: return "bash"
+        case .fish: return "fish"
+        case .elvish: return "elvish"
+        case .nushell: return "nushell"
+        }
+    }
+
+    static func launchArguments(settings: TerminalSettings, shellPath: String, variables: [String]) -> [String] {
+        let shell = integrationShell(settings.shellIntegration, shellPath: shellPath)
+        if !variables.isEmpty, shell == "bash" { return ["--posix", "-l"] }
+        if !variables.isEmpty, shell == "nushell" { return ["--login", "--execute", "use ghostty *"] }
+        return (shellPath as NSString).lastPathComponent == "nu" ? ["--login"] : ["-l"]
     }
 
     static func injectsZsh(_ mode: TerminalSettings.ShellIntegration, shellPath: String) -> Bool {
@@ -53,7 +90,7 @@ enum ShellIntegrationEnvironment {
     }
 
     /// Ghostty's format: enabled names in alphabetical order, `cursor` carrying `:blink` or `:steady`.
-    /// Nil when nothing is enabled; Ghostty leaves the variable unset then.
+    /// Nil when nothing is enabled. The injector still clears any inherited feature value.
     static func features(_ enabled: Set<String>, cursorBlink: Bool) -> String? {
         var parts: [String] = []
         for name in ShellIntegrationEnvironment.supportedFeatures where enabled.contains(name) {
