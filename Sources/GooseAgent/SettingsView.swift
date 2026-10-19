@@ -27,6 +27,13 @@ enum SettingsLayout {
     static let shortcutResetButtonSize: CGFloat = 22
     /// Search field above the shortcut cards, the height of a regular push button row.
     static let shortcutSearchHeight: CGFloat = 32
+    static let integrationTitleSize: CGFloat = 26
+    static let integrationStatusSize: CGFloat = 10
+    static let integrationAppColumn: CGFloat = 150
+    static let integrationChoiceColumn: CGFloat = 112
+    static let integrationHeaderHeight: CGFloat = 38
+    static let integrationRowHeight: CGFloat = 58
+    static let integrationIconSize: CGFloat = 22
 }
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
@@ -35,6 +42,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     case font
     case terminal
     case shortcuts
+    case systemIntegration
     case advanced
 
     var id: Self { self }
@@ -46,6 +54,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         case .font: "Font"
         case .terminal: "Terminal"
         case .shortcuts: "Keyboard Shortcuts"
+        case .systemIntegration: "System Integration"
         case .advanced: "Advanced"
         }
     }
@@ -57,6 +66,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         case .font: "textformat"
         case .terminal: "terminal"
         case .shortcuts: "command"
+        case .systemIntegration: "link"
         case .advanced: "wrench.and.screwdriver"
         }
     }
@@ -245,6 +255,7 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(FamilyButtonStyle())
+                .accessibilityIdentifier("settings.navigation.\(page.rawValue)")
                 .padding(.horizontal, Theme.Space.s)
             }
             Spacer(minLength: 0)
@@ -267,6 +278,8 @@ struct SettingsView: View {
                 TerminalSettingsPage()
             case .shortcuts:
                 ShortcutsSettingsPage()
+            case .systemIntegration:
+                SystemIntegrationSettingsPage()
             case .advanced:
                 AdvancedSettingsPage()
             }
