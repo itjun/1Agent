@@ -12,6 +12,7 @@ struct QuickCommandDragHandle: NSViewRepresentable {
     func makeNSView(context: Context) -> QuickCommandDragHandleView { QuickCommandDragHandleView() }
     func updateNSView(_ view: QuickCommandDragHandleView, context: Context) {
         view.commandID = item.id
+        view.section = item.section
         view.title = item.alias
         view.chrome = chrome
         view.onClick = onClick
@@ -21,6 +22,7 @@ struct QuickCommandDragHandle: NSViewRepresentable {
 
 final class QuickCommandDragHandleView: NSView {
     var commandID: UUID?
+    var section = 0
     var title = ""
     var chrome = WindowChrome(isDark: false)
     var onClick: () -> Void = {}
@@ -43,6 +45,19 @@ final class QuickCommandDragHandleView: NSView {
         return nil
     }
 
+    static func reorderTarget(at point: NSPoint, in window: NSWindow, sourceID: UUID, section: Int) -> QuickCommandReorderTargetView? {
+        func find(in view: NSView) -> QuickCommandReorderTargetView? {
+            guard !view.isHiddenOrHasHiddenAncestor else { return nil }
+            if let row = view as? QuickCommandReorderTargetView, row.commandID != sourceID, row.section == section,
+               row.bounds.intersection(row.visibleRect).contains(row.convert(point, from: nil)) { return row }
+            for child in view.subviews {
+                if let row = find(in: child) { return row }
+            }
+            return nil
+        }
+        return window.contentView.flatMap { find(in: $0) }
+    }
+
     override func mouseDown(with event: NSEvent) {
         guard let window, let id = commandID else { return }
         let wasMovable = window.isMovable
@@ -51,9 +66,11 @@ final class QuickCommandDragHandleView: NSView {
         let clickCount = event.clickCount
         var dragging = false
         var target: SSHTerminalNSView?
+        var reorderTarget: QuickCommandReorderTargetView?
         var preview: NSPanel?
         defer {
             target?.highlightQuickCommand(nil)
+            reorderTarget?.insertionAfter = nil
             preview?.close()
             NSCursor.arrow.set()
             window.isMovable = wasMovable
@@ -67,7 +84,11 @@ final class QuickCommandDragHandleView: NSView {
             if event.type == .leftMouseUp {
                 if dragging {
                     // Re-resolve at release; a pane or its command can change mid-drag.
-                    Self.terminal(at: event.locationInWindow, in: window)?.dropQuickCommand(id)
+                    if let row = Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section) {
+                        row.move(id, after: row.isAfter(event.locationInWindow))
+                    } else {
+                        Self.terminal(at: event.locationInWindow, in: window)?.dropQuickCommand(id)
+                    }
                 } else if clickCount == 2 {
                     self.onDoubleClick()
                 } else if clickCount == 1 {
@@ -93,14 +114,52 @@ final class QuickCommandDragHandleView: NSView {
                 preview = panel
             }
             guard dragging else { return }
-            let candidate = Self.terminal(at: event.locationInWindow, in: window)
+            let row = Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section)
+            if row !== reorderTarget { reorderTarget?.insertionAfter = nil; reorderTarget = row }
+            row?.insertionAfter = row?.isAfter(event.locationInWindow)
+            let candidate = row == nil ? Self.terminal(at: event.locationInWindow, in: window) : nil
             if candidate !== target { target?.highlightQuickCommand(nil); target = candidate }
             let accepted = target?.acceptsQuickCommand(id) == true
             target?.highlightQuickCommand(accepted ? id : nil)
             let screen = window.convertPoint(toScreen: event.locationInWindow)
             preview?.setFrameOrigin(NSPoint(x: screen.x + 12, y: screen.y - 36))
             preview?.orderFrontRegardless()
-            (accepted ? NSCursor.dragCopy : NSCursor.operationNotAllowed).set()
+            (row != nil ? NSCursor.closedHand : accepted ? NSCursor.dragCopy : NSCursor.operationNotAllowed).set()
         }
+    }
+}
+
+/// A transparent native destination covers the whole row, including its padding.
+/// It draws feedback without changing SwiftUI row identities during event tracking.
+struct QuickCommandReorderTarget: NSViewRepresentable {
+    let item: QuickCommand
+    let chrome: WindowChrome
+    let onMove: (UUID, UUID, Bool) -> Void
+    func makeNSView(context: Context) -> QuickCommandReorderTargetView { QuickCommandReorderTargetView() }
+    func updateNSView(_ view: QuickCommandReorderTargetView, context: Context) {
+        view.commandID = item.id
+        view.section = item.section
+        view.accent = NSColor(chrome.accent)
+        view.onMove = onMove
+    }
+}
+
+final class QuickCommandReorderTargetView: NSView {
+    var commandID: UUID?
+    var section = 0
+    var accent = NSColor.controlAccentColor
+    var onMove: (UUID, UUID, Bool) -> Void = { _, _, _ in }
+    var insertionAfter: Bool? { didSet { if insertionAfter != oldValue { needsDisplay = true } } }
+    override var isFlipped: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    func isAfter(_ point: NSPoint) -> Bool { convert(point, from: nil).y >= bounds.midY }
+    func move(_ sourceID: UUID, after: Bool) {
+        guard let commandID, commandID != sourceID else { return }
+        onMove(sourceID, commandID, after)
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let insertionAfter else { return }
+        accent.setFill()
+        NSRect(x: bounds.minX, y: insertionAfter ? bounds.maxY - 2 : bounds.minY, width: bounds.width, height: 2).fill()
     }
 }

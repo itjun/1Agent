@@ -26,6 +26,25 @@ final class QuickCommandStore: ObservableObject {
         try replace(next)
     }
     func remove(_ id: UUID) throws { try replace(commands.filter { $0.id != id }) }
+    @discardableResult
+    func move(_ id: UUID, relativeTo targetID: UUID, after: Bool) throws -> Bool {
+        guard id != targetID, let source = commands.first(where: { $0.id == id }),
+              let target = commands.first(where: { $0.id == targetID }), source.section == target.section else { return false }
+        let original = commands.filter { $0.section == source.section }.sorted(by: QuickCommand.displayOrder)
+        var reordered = original.filter { $0.id != id }
+        guard let index = reordered.firstIndex(where: { $0.id == targetID }) else { return false }
+        reordered.insert(source, at: index + (after ? 1 : 0))
+        guard reordered.map(\.id) != original.map(\.id) else { return false }
+        let ranks = Dictionary(uniqueKeysWithValues: reordered.enumerated().map { ($0.element.id, $0.offset) })
+        // Reorder the complete group, including commands hidden by search/context.
+        // Only ranks change; bindings, scripts and the hidden commands' relative order survive.
+        try replace(commands.map { item in
+            var item = item
+            if let rank = ranks[item.id] { item.order = rank }
+            return item
+        })
+        return true
+    }
     func replace(_ next: [QuickCommand]) throws {
         // Do not overwrite an unreadable/unknown-version library with an empty one.
         if let loadError { throw NSError(domain: "QuickCommands", code: 1, userInfo: [NSLocalizedDescriptionKey: loadError]) }

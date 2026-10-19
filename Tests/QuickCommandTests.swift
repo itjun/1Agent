@@ -11,6 +11,7 @@ struct QuickCommandTests {
             return
         }
         try transferTests()
+        try orderingTests()
         let local = QuickCommandContext(sessionID: "a#0", directory: "/work/project", isLive: true)
         var item = QuickCommand(alias: "Pull", command: "python project.py git pull", directory: "/work/project")
         assert(item.matches(local))
@@ -93,6 +94,38 @@ struct QuickCommandTests {
 }
 
 extension QuickCommandTests {
+    @MainActor static func orderingTests() throws {
+        func check(_ condition: Bool, _ message: String = "Unexpected command order") { precondition(condition, message) }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("command-order-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = QuickCommandStore(url: root.appendingPathComponent("commands.json"))
+        let first = QuickCommand(alias: "A", command: "printf a", scope: .host, host: "dev", order: 5)
+        let hidden = QuickCommand(alias: "Hidden", command: "printf hidden", scope: .host, host: "other", order: 8)
+        let second = QuickCommand(alias: "B", command: "printf b", scope: .host, host: "dev", order: 10)
+        let last = QuickCommand(alias: "C", command: "printf c", scope: .host, host: "dev", order: 10)
+        let common = QuickCommand(alias: "Common", command: "pwd", scope: .all, order: 2)
+        let originals = [common, last, second, hidden, first] // Storage order differs from display order.
+        try store.replace(originals)
+        func ids() -> [UUID] { store.commands.sorted(by: QuickCommand.displayOrder).map(\.id) }
+        check(try store.move(last.id, relativeTo: first.id, after: false))
+        check(ids() == [last.id, first.id, hidden.id, second.id, common.id])
+        check(try store.move(last.id, relativeTo: second.id, after: true))
+        check(ids() == [first.id, hidden.id, second.id, last.id, common.id])
+        check(QuickCommandStore(url: store.url).commands.sorted(by: QuickCommand.displayOrder).map(\.id) == ids())
+        for original in originals {
+            var saved = store.commands.first { $0.id == original.id }!
+            saved.order = original.order
+            check(saved == original, "Only ordering may change; preserve scripts and host/folder bindings")
+        }
+        let snapshot = try Data(contentsOf: store.url)
+        check(try !store.move(first.id, relativeTo: first.id, after: true))
+        check(try !store.move(last.id, relativeTo: second.id, after: true))
+        check(try !store.move(first.id, relativeTo: common.id, after: false))
+        check(try !store.move(UUID(), relativeTo: first.id, after: false))
+        check(try Data(contentsOf: store.url) == snapshot, "No-op or stale/cross-group drops must not rewrite storage")
+        print("Quick command ordering: upward/downward moves, hidden rows, ties, persistence, unchanged bindings and no-op drops passed")
+    }
+
     @MainActor static func transferTests() throws {
         func rejects(_ action: () throws -> Void) {
             do { try action(); fatalError("invalid transfer accepted") } catch {}

@@ -48,6 +48,12 @@ struct QuickCommand: Codable, Equatable, Identifiable, Sendable {
     }
 
     var section: Int { scope == .directory ? 0 : scope == .all ? 2 : 1 }
+    static func displayOrder(_ a: Self, _ b: Self) -> Bool {
+        if a.section != b.section { return a.section < b.section }
+        if a.order != b.order { return a.order < b.order }
+        if a.alias != b.alias { return a.alias < b.alias }
+        return a.id.uuidString < b.id.uuidString
+    }
     func executionDirectory(in context: QuickCommandContext) -> String? {
         scope == .directory ? directory : context.directory
     }

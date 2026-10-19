@@ -97,6 +97,30 @@ import ObjectiveC
         try store.remove(item.id)
         precondition(!terminal.dropQuickCommand(item.id), "Deleted commands cannot execute from an old drag")
         precondition(window.quickCommandConfirmation == nil)
+
+        // Native list destinations must be distinct from terminal delivery and must
+        // account for flipped coordinates, clipping, groups and the release location.
+        let first = QuickCommand(alias: "First", command: "pwd", scope: .local)
+        let last = QuickCommand(alias: "Last", command: "ls", scope: .local)
+        try store.save(first); try store.save(last)
+        let row = QuickCommandReorderTargetView(frame: NSRect(x: 550, y: 80, width: 240, height: 64))
+        row.commandID = first.id; row.section = first.section
+        row.onMove = { source, destination, after in
+            do { try store.move(source, relativeTo: destination, after: after) }
+            catch { preconditionFailure("Reorder failed: \(error)") }
+        }
+        nativeWindow.contentView?.addSubview(row)
+        let above = row.convert(NSPoint(x: 20, y: 4), to: nil)
+        let below = row.convert(NSPoint(x: 20, y: 60), to: nil)
+        precondition(QuickCommandDragHandleView.reorderTarget(at: above, in: nativeWindow, sourceID: last.id, section: last.section) === row)
+        precondition(!row.isAfter(above) && row.isAfter(below))
+        precondition(QuickCommandDragHandleView.reorderTarget(at: above, in: nativeWindow, sourceID: first.id, section: first.section) == nil)
+        precondition(QuickCommandDragHandleView.reorderTarget(at: above, in: nativeWindow, sourceID: last.id, section: 2) == nil)
+        row.move(last.id, after: false)
+        precondition(store.commands.sorted(by: QuickCommand.displayOrder).map(\.id) == [last.id, first.id])
+        precondition(window.quickCommandConfirmation == nil && terminal.processHost == nil, "Sorting must never request terminal execution")
+        row.isHidden = true
+        precondition(QuickCommandDragHandleView.reorderTarget(at: above, in: nativeWindow, sourceID: last.id, section: last.section) == nil)
         print("Verified split destination, click/drop parity, cancel, stale selection, host/folder scope, hidden panes, deleted IDs and outside drops")
     }
 

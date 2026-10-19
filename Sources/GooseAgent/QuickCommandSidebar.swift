@@ -26,7 +26,7 @@ struct QuickCommandSidebar: View {
     private var commands: [QuickCommand] {
         store.commands.filter { $0.matches(context) && (search.isEmpty ||
             ($0.alias + " " + $0.command + " " + $0.group).localizedCaseInsensitiveContains(search)) }
-            .sorted(by: Self.displayOrder)
+            .sorted(by: QuickCommand.displayOrder)
     }
     private var selectedCommand: QuickCommand? { commands.first { $0.id == selectedCommandID } }
 
@@ -119,7 +119,7 @@ struct QuickCommandSidebar: View {
             Divider()
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
-                Text(batchSelecting ? "Select commands to copy. Double-click and drag execution are paused." : "Click to preview. Double-click or drag into a terminal to confirm execution.")
+                Text(batchSelecting ? "Select commands to copy. Double-click and drag execution are paused." : "Drag up or down to reorder. Double-click or drag into a terminal to confirm execution.")
             }.font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
         }.padding(16)
     }
@@ -154,7 +154,10 @@ struct QuickCommandSidebar: View {
                                         guard !batchSelecting else { return }
                                         selectedCommandID = item.id
                                         model.confirmQuickCommand(item, in: window)
-                                    }, showsSelection: batchSelecting)
+                                    }, showsSelection: batchSelecting, onReorder: { source, target, after in
+                                        do { try store.move(source, relativeTo: target, after: after); error = nil }
+                                        catch { self.error = error.localizedDescription }
+                                    })
                                 }
                             }
                             if commands.contains(where: { $0.section > section }) {
@@ -182,12 +185,6 @@ struct QuickCommandSidebar: View {
         }
     }
 
-    private static func displayOrder(_ a: QuickCommand, _ b: QuickCommand) -> Bool {
-        if a.section != b.section { return a.section < b.section }
-        if a.order != b.order { return a.order < b.order }
-        if a.alias != b.alias { return a.alias < b.alias }
-        return a.id.uuidString < b.id.uuidString
-    }
     private var batchControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -200,7 +197,7 @@ struct QuickCommandSidebar: View {
                     .buttonStyle(FamilyButtonStyle()).accessibilityIdentifier("quickCommands.selectAll")
                 Spacer(minLength: 4)
                 Button("Copy Selected") {
-                    copyCommands(store.commands.filter { selectedIDs.contains($0.id) }.sorted(by: Self.displayOrder))
+                    copyCommands(store.commands.filter { selectedIDs.contains($0.id) }.sorted(by: QuickCommand.displayOrder))
                 }.buttonStyle(FamilyButtonStyle()).disabled(selectedIDs.isEmpty)
                     .accessibilityIdentifier("quickCommands.copySelected")
             }
@@ -288,6 +285,7 @@ struct CommandListRow: View {
     var isSelected = false
     var onDoubleClick: () -> Void = {}
     var showsSelection = false
+    var onReorder: (UUID, UUID, Bool) -> Void = { _, _, _ in }
     @Environment(\.windowChrome) private var chrome
     @State private var hovered = false
     var body: some View {
@@ -298,7 +296,7 @@ struct CommandListRow: View {
                         QuickCommandDragHandle(item: item, chrome: chrome, onClick: action, onDoubleClick: onDoubleClick)
                             .accessibilityHidden(true)
                     }
-                        .help("Click to preview; double-click or drag to confirm")
+                        .help("Drag up or down to reorder; drag into a terminal to confirm execution")
                 } else { commandButton }
             }
             FamilyMenu(items: menu) { Image(systemName: "ellipsis").frame(width: 24, height: 28) }
@@ -306,6 +304,12 @@ struct CommandListRow: View {
         }
         .padding(10).background(isSelected ? chrome.accentFill : hovered ? chrome.elevated : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+        .overlay {
+            if allowsDragging {
+                QuickCommandReorderTarget(item: item, chrome: chrome, onMove: onReorder)
+                    .allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
         .onHover { hovered = $0 }
     }
 

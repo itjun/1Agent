@@ -424,6 +424,9 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部拆为独立面板" } }
       }
     },
+    "Drag up or down to reorder. Double-click or drag into a terminal to confirm execution." : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Drag up or down to reorder. Double-click or drag into a terminal to confirm execution."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"上下拖拽调整顺序；双击或拖入终端，确认后执行。"}}}},
+    "Drag up or down to reorder; drag into a terminal to confirm execution" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Drag up or down to reorder; drag into a terminal to confirm execution"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"上下拖拽调整顺序；拖入终端后确认执行"}}}},
+    "Drag up or down to resize the preview" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag up or down to resize the preview"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上下拖动以调整预览高度"}}}},
     "Drag to reorder. Right-click to manage the workspace or combine and separate its panels." : {
       "extractionState" : "manual",
       "localizations" : {
