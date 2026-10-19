@@ -15,6 +15,8 @@ import GhosttyTerminal
                                       directory: "/tmp", integratesRemoteShell: true))
             let view = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 800, height: 400))
             view.processHost = host
+            view.eventRelay.terminal = view
+            view.delegate = view.eventRelay
             view.controller = GhosttyRuntime.controller
             view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
             let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
