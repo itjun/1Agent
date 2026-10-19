@@ -35,7 +35,9 @@ with tempfile.TemporaryDirectory(prefix="1Agent startup 中文 '") as root:
             pid, fd = pty.fork()
             if pid == 0:
                 os.chdir(home)
-                env = dict(os.environ, HOME=str(home), ZDOTDIR=str(home), SHELL=shell, TERM="xterm-256color")
+                # This fixture has a PTY but no VT emulator to answer terminal queries.
+                # Rich fish/VT negotiation is exercised by test-terminal-compatibility.
+                env = dict(os.environ, HOME=str(home), ZDOTDIR=str(home), SHELL=shell, TERM="dumb")
                 for key in list(env):
                     if key.startswith("ONEAGENT_QC_") or key in ["BASH_ENV", "ENV", "HISTFILE"]:
                         del env[key]
