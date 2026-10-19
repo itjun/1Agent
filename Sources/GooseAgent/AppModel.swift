@@ -92,10 +92,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var launchEnvironment: [String] = []
     /// Ordered membership and independently selectable display panels, including single-session workspaces.
     @Published private(set) var workspaces: [Workspace] = []
-    /// The one main window. Every terminal and workspace shows in its sidebar.
-    let mainWindow = WindowState()
-    /// Kept for the loops that walk every window; there is only ever the main one.
-    var windows: [WindowState] { [mainWindow] }
+    @Published private(set) var windows: [WindowState] = [WindowState(id: SessionSnapshot.load()?.windows?.first?.id ?? UUID())]
+    var mainWindow: WindowState { windows[0] }
+    private var lastKeyWindowID: UUID?
     @Published var showingSettings = false
     /// Set once the app starts quitting. Windows then close without taking their terminals along,
     /// so the snapshot written at exit still lists every session.
@@ -132,10 +131,35 @@ final class AppModel: ObservableObject {
 
     // MARK: - Windows
 
-    /// The main window. Optional only so the callers that fall back with `??` keep compiling.
     var keyWindow: WindowState? {
-        mainWindow
+        if let lastKeyWindowID, let state = window(for: lastKeyWindowID) { return state }
+        if let native = NSApp.keyWindow, let state = MainWindowManager.shared.state(for: native) { return state }
+        return windows.first
     }
+
+    func windowBecameKey(_ state: WindowState) { lastKeyWindowID = state.id }
+
+    @discardableResult
+    func createWindow() -> WindowState {
+        if windows.count == 1, sidebarOrder(in: mainWindow).isEmpty,
+           MainWindowManager.shared.window(for: mainWindow) == nil {
+            activate(mainWindow)
+            return mainWindow
+        }
+        let state = WindowState()
+        windows.append(state)
+        activate(state)
+        persistSession()
+        return state
+    }
+
+    func newWindow(at directory: String? = nil) {
+        let cwd = directory ?? keyWindow.flatMap { selectedTab(in: $0) }.flatMap { $0.isLocal ? localFolder(of: $0) : nil }
+        let state = createWindow()
+        openLocalTerminal(at: cwd, in: state)
+    }
+
+
 
     func window(for id: UUID) -> WindowState? {
         windows.first { $0.id == id }
@@ -227,8 +251,12 @@ final class AppModel: ObservableObject {
         return panelRows(in: window).filter { !$0.leafIDs.allSatisfy { !wanted.contains($0) } }.flatMap(\.leafIDs)
     }
 
-    /// The main window is closing, which quits the app. The snapshot written here is what the next launch restores.
     func windowClosed(_ window: WindowState) {
+        guard !isQuitting else { return }
+        closeTabs(sidebarOrder(in: window))
+        windows.removeAll { $0.id == window.id }
+        if windows.isEmpty { windows = [WindowState()] }
+        if lastKeyWindowID == window.id { lastKeyWindowID = windows.first?.id }
         persistSession()
     }
 
@@ -272,12 +300,12 @@ final class AppModel: ObservableObject {
 
     /// The pane is drawn in the main window right now, and that window is on screen.
     func isPaneOnScreen(_ id: UUID) -> Bool {
-        guard let nsWindow = MainWindowManager.shared.window(for: mainWindow),
+        guard let owner = window(containing: id), let nsWindow = MainWindowManager.shared.window(for: owner),
               nsWindow.isVisible, !nsWindow.isMiniaturized else { return false }
-        if let zoomed = zoomedPane(in: mainWindow) {
+        if let zoomed = zoomedPane(in: owner) {
             return zoomed == id
         }
-        guard let root = displayRoot(in: mainWindow) else { return false }
+        guard let root = displayRoot(in: owner) else { return false }
         return WorkspaceBoard.leafIDs(root).contains(id)
     }
 
@@ -393,7 +421,9 @@ final class AppModel: ObservableObject {
         let blocks = window.blocks + [SidebarBlock.localGroup, .ungrouped, .mixedGroup].filter { !window.blocks.contains($0) }
         let stored = blocks.filter(\.isLoose).flatMap { window.looseMembers[$0] ?? [] }
         var seen = Set<UUID>()
-        return (stored + standalone.map(\.id)).compactMap { id in
+        let otherOwned = Set(windows.filter { $0.id != window.id }.flatMap { $0.looseMembers.values.flatMap { $0 } })
+        let fallback = window.id == mainWindow.id ? standalone.map(\.id).filter { !otherOwned.contains($0) } : []
+        return (stored + fallback).compactMap { id in
             guard seen.insert(id).inserted, let tab = byID[id] else { return nil }
             let panel = WorkspaceBoard.index(containing: id, in: workspaces)
                 .flatMap { workspaces[$0].panel(containing: id) }
@@ -454,7 +484,8 @@ final class AppModel: ObservableObject {
     }
 
     func existingTerminal(for alias: String, in window: WindowState) -> TerminalTab? {
-        let candidates = tabs.filter { $0.alias == alias && $0.hasTerminal && !$0.exited }
+        let owned = Set(sidebarOrder(in: window))
+        let candidates = tabs.filter { owned.contains($0.id) && $0.alias == alias && $0.hasTerminal && !$0.exited }
         return window.terminalMRU.compactMap { id in candidates.first { $0.id == id } }.first ?? candidates.last
     }
 
@@ -799,8 +830,7 @@ final class AppModel: ObservableObject {
         }
         guard !aliases.isEmpty else { return }
 
-        // There is one window now; `window=new` in the URL is accepted and ignored.
-        let target = mainWindow
+        let target = request.newWindow ? createWindow() : (keyWindow ?? mainWindow)
         if request.destination == .files {
             let workspace = fileWorkspace(for: target)
             for alias in aliases { workspace.openRemote(host: alias, at: request.path) }
@@ -839,13 +869,14 @@ final class AppModel: ObservableObject {
         showSection(.terminals, in: target)
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, windows.contains(where: { $0.id == target.id }) else { return }
             launchEnvironment = environment
             var created: [UUID] = []
             for alias in missing {
                 let tab = TerminalTab(id: UUID(), alias: alias, generation: 0, exited: false)
                 tabs.append(tab)
                 created.append(tab.id)
+                place([tab.id], intoLoose: .ungrouped, in: target, beside: nil, after: true)
             }
             let all = aliases.compactMap { alias in existingTerminal(for: alias, in: target)?.id }
             if all.count >= 2 {
@@ -890,7 +921,7 @@ final class AppModel: ObservableObject {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         guard !aliases.isEmpty else { return }
-        let target = window ?? mainWindow
+        let target = window ?? keyWindow ?? mainWindow
         target.hostPickerPresented = false
         activate(target)
         showSection(.terminals, in: target)
@@ -940,11 +971,12 @@ final class AppModel: ObservableObject {
             selectOnly(existing, in: target)
             return
         }
-        if canReuse, !pendingLocalOpens.insert(directory).inserted { return }
+        let pendingKey = target.id.uuidString + ":" + directory
+        if canReuse, !pendingLocalOpens.insert(pendingKey).inserted { return }
         Task {
-            defer { if canReuse { pendingLocalOpens.remove(directory) } }
+            defer { if canReuse { pendingLocalOpens.remove(pendingKey) } }
             let environment = await SSHLaunchEnvironment.shared.get()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, windows.contains(where: { $0.id == target.id }) else { return }
             launchEnvironment = environment
             if canReuse, let existing = reusableLocalTerminal(at: directory, in: target) {
                 selectOnly(existing, in: target)
@@ -967,7 +999,8 @@ final class AppModel: ObservableObject {
     }
 
     private func reusableLocalTerminal(at directory: String, in window: WindowState) -> UUID? {
-        let candidates = tabs.filter { $0.isLocal && $0.hasTerminal }.map { tab in
+        let owned = Set(sidebarOrder(in: window))
+        let candidates = tabs.filter { owned.contains($0.id) && $0.isLocal && $0.hasTerminal }.map { tab in
             LocalTerminalCandidate(id: tab.id, directory: localFolder(of: tab) ?? tab.directory ?? "",
                                    isRunning: !tab.exited)
         }
@@ -988,29 +1021,31 @@ final class AppModel: ObservableObject {
     /// command line. Waits for the saved session on a cold launch, then adds and selects.
     /// Multiple folders from "Window Here" share a workspace with independent panels;
     /// a single folder opens as a plain local terminal either way.
-    func openLocalTerminals(at directories: [String], asWorkspace: Bool, initialInput: String? = nil) {
+    func openLocalTerminals(at directories: [String], asWorkspace: Bool, initialInput: String? = nil,
+                            newWindow: Bool = false, reuseExisting: Bool = true) {
         guard !directories.isEmpty else { return }
         runAfterRestore { [weak self] in
             guard let self else { return }
             NSApp.activate()
+            let target = newWindow ? self.createWindow() : (self.keyWindow ?? self.mainWindow)
             if asWorkspace && directories.count >= 2 && initialInput == nil {
-                self.openLocalWorkspace(directories)
+                self.openLocalWorkspace(directories, in: target, reuseExisting: reuseExisting)
                 return
             }
             for directory in directories {
-                self.openLocalTerminal(at: directory, initialInput: initialInput, reuseExisting: initialInput == nil)
+                self.openLocalTerminal(at: directory, initialInput: initialInput, in: target,
+                                       reuseExisting: reuseExisting && initialInput == nil)
             }
         }
     }
 
-    private func openLocalWorkspace(_ directories: [String]) {
+    private func openLocalWorkspace(_ directories: [String], in target: WindowState, reuseExisting: Bool) {
         var validDirectories: [String] = []
         for directory in directories {
             guard let valid = ExternalOpen.validatedDirectory(directory) else { reportInvalidDirectory(directory); continue }
             if !validDirectories.contains(valid) { validDirectories.append(valid) }
         }
         guard !validDirectories.isEmpty else { return }
-        let target = mainWindow
         target.hostPickerPresented = false
         activate(target)
         showSection(.terminals, in: target)
@@ -1020,7 +1055,7 @@ final class AppModel: ObservableObject {
             launchEnvironment = environment
             var created: [UUID] = []
             for directory in validDirectories {
-                if let existing = reusableLocalTerminal(at: directory, in: target) {
+                if reuseExisting, let existing = reusableLocalTerminal(at: directory, in: target) {
                     created.append(existing)
                     continue
                 }
@@ -1089,7 +1124,8 @@ final class AppModel: ObservableObject {
     func openRunRequest(_ request: ExternalRunRequest) {
         let directory = request.directory ?? LocalTerminal.homeDirectory
         let input = ExternalOpen.initialInput(for: request)
-        openLocalTerminals(at: [directory], asWorkspace: false, initialInput: input)
+        openLocalTerminals(at: [directory], asWorkspace: false, initialInput: input,
+                           newWindow: request.newWindow, reuseExisting: false)
     }
 
     /// Hands a new local shell its one-time input. Nil for every later call.
@@ -1127,17 +1163,14 @@ final class AppModel: ObservableObject {
     /// The window appears at once; terminals follow as soon as the login environment is known.
     func restoreLastSession() {
         let snapshot = SessionSnapshot.load()
+        if let snapshot { restoreWindowStates(snapshot) }
         guard let snapshot, !snapshot.tabs.isEmpty else {
-            snapshot?.apply(to: mainWindow, keeping: [])
-            mainWindow.frame = snapshot?.restoredFrame()
-            MainWindowManager.shared.show(mainWindow, model: self)
+            showRestoredWindows()
             acceptSessionWrites = true
             finishRestore()
             return
         }
-        let known = Set(snapshot.tabs.map(\.id))
-        snapshot.apply(to: mainWindow, keeping: known)
-        MainWindowManager.shared.show(mainWindow, model: self)
+        showRestoredWindows()
         Task {
             let environment = await SSHLaunchEnvironment.shared.get()
             guard !Task.isCancelled else {
@@ -1190,6 +1223,30 @@ final class AppModel: ObservableObject {
             persistSession()
             finishRestore()
         }
+    }
+
+    private func restoreWindowStates(_ snapshot: SessionSnapshot) {
+        let known = Set(snapshot.tabs.map(\.id))
+        guard let stored = snapshot.windows, !stored.isEmpty else {
+            snapshot.apply(to: mainWindow, keeping: known)
+            return
+        }
+        let first = mainWindow
+        windows = stored.enumerated().map { index, entry in
+            let state = index == 0 && first.id == entry.id ? first : WindowState(id: entry.id)
+            var single = snapshot
+            single.windows = [entry]
+            single.keyWindow = entry.id
+            single.apply(to: state, keeping: known)
+            return state
+        }
+        lastKeyWindowID = snapshot.keyWindow
+    }
+
+    private func showRestoredWindows() {
+        let restoredKeyWindowID = lastKeyWindowID
+        for state in windows { MainWindowManager.shared.show(state, model: self) }
+        if let restoredKeyWindowID, let state = window(for: restoredKeyWindowID) { activate(state) }
     }
 
     private func finishRestore() {
@@ -2050,7 +2107,7 @@ final class AppModel: ObservableObject {
     func canMoveToLooseGroup(_ ids: [UUID], _ block: SidebarBlock, in window: WindowState) -> Bool {
         guard block.isLoose else { return false }
         let wanted = Set(ids)
-        let rows = panelRows(in: window).filter { !wanted.isDisjoint(with: $0.leafIDs) }
+        let rows = windows.flatMap { panelRows(in: $0) }.filter { !wanted.isDisjoint(with: $0.leafIDs) }
         return !rows.isEmpty && rows.allSatisfy {
             connectionGroup(for: $0.leafIDs.filter { wanted.contains($0) }) == connectionGroup(for: block)
         }
@@ -2072,7 +2129,9 @@ final class AppModel: ObservableObject {
 
     /// Creates a workspace with independent panels at the requested sidebar position.
     func createWorkspace(from ids: [UUID], atBlockIndex blockIndex: Int, in window: WindowState) {
-        let dragged = sessionIDs(completePanelMembers(ids, in: window))
+        let dragged = sessionIDs(ids.flatMap { id in
+            self.window(containing: id).map { completePanelMembers([id], in: $0) } ?? []
+        })
         guard !dragged.isEmpty else { return }
         let sources = Set(dragged.compactMap { self.window(containing: $0)?.id })
         let before = Set(workspaces.filter(\.isGrouped).map(\.id))
@@ -2124,6 +2183,21 @@ final class AppModel: ObservableObject {
 
     /// A block dragged into a sidebar gap moves to that position.
     func dropBlock(_ dragged: SidebarBlock, from source: WindowState, intoGap index: Int, of target: WindowState) {
+        guard source.id == target.id else {
+            let ids = members(of: dragged, in: source)
+            guard !ids.isEmpty else { return }
+            if case .workspace = dragged {
+                source.blocks.removeAll { $0 == dragged }
+                target.blocks.removeAll { $0 == dragged }
+                target.blocks.insert(dragged, at: min(max(index, 0), target.blocks.count))
+                select(ids, in: target)
+                syncSelection(in: source)
+                persistSession()
+            } else {
+                moveToLooseGroup(ids, dragged, in: target, beside: nil, after: true)
+            }
+            return
+        }
         reorderSidebarBlock(dragged, toIndex: index, in: target)
     }
 
@@ -2316,7 +2390,7 @@ final class AppModel: ObservableObject {
                     filesSourceTabID: window.filesSourceTabID
                 )
             },
-            keyWindow: mainWindow.id,
+            keyWindow: keyWindow?.id,
             departedAt: isQuitting ? Date() : nil
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }

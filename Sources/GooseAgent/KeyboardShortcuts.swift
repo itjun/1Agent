@@ -3,6 +3,8 @@ import SwiftUI
 
 enum AppShortcutID: String, CaseIterable, Identifiable {
     case newTab
+    case newWindow
+    case closeWindow
     case newLocalTerminal
     case openHost
     case toggleFullScreen
@@ -57,7 +59,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
 
     var group: AppShortcutGroup {
         switch self {
-        case .newTab, .newLocalTerminal, .openHost, .toggleFullScreen, .settings, .commandPalette:
+        case .newTab, .newWindow, .closeWindow, .newLocalTerminal, .openHost, .toggleFullScreen, .settings, .commandPalette:
             return .app
         case .previousTerminal, .nextTerminal,
              .selectTerminal1, .selectTerminal2, .selectTerminal3, .selectTerminal4,
@@ -78,6 +80,8 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .newTab: return String(localized: "New Terminal")
+        case .newWindow: return String(localized: "New Window")
+        case .closeWindow: return String(localized: "Close Window")
         case .newLocalTerminal: return String(localized: "New Local Terminal")
         case .openHost: return String(localized: "Open Host…")
         case .toggleFullScreen: return String(localized: "Toggle Full Screen")
@@ -129,6 +133,8 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     /// Pane switching and terminal actions follow Ghostty's macOS defaults.
     var defaultChord: KeyChord {
         switch self {
+        case .newWindow: return KeyChord(key: "n", modifiers: [.command])
+        case .closeWindow: return KeyChord(key: "w", modifiers: [.command, .shift])
         case .newTab: return KeyChord(key: "t", modifiers: .command)
         case .newLocalTerminal: return KeyChord(key: "t", modifiers: [.command, .shift])
         case .openHost: return KeyChord(key: "o", modifiers: .command)

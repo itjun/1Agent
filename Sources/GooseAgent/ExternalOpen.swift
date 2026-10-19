@@ -9,8 +9,7 @@ import Foundation
 /// - `layout=columns|rows|grid|leadingSide|leadingTop`: explicitly combine the opened hosts.
 ///   Without it they share a workspace but keep independent panels.
 /// - `name=<title>`: sidebar title of the workspace created for two or more hosts.
-/// - `window=new`: still parsed for the 1Panel URL contract, but ignored. 1Agent has one main
-///   window now and everything opens there.
+/// - `window=new`: create an independent terminal window for this request.
 struct ExternalOpenRequest: Equatable {
     var hosts: [String] = []
     var group: String?
@@ -43,6 +42,7 @@ struct ExternalRunRequest: Equatable {
     var directory: String?
     var command: String?
     var waitAfterCommand = false
+    var newWindow = false
 }
 
 /// What a second instance leaves for the running one in the hand-off folder. The notification only
@@ -136,11 +136,13 @@ enum ExternalOpen {
                 }
             case "wait":
                 request.waitAfterCommand = ExternalOpen.isTrue(value)
+            case "window":
+                request.newWindow = value == "new"
             default:
                 continue
             }
         }
-        if request.directory == nil && request.command == nil {
+        if request.directory == nil && request.command == nil && !request.newWindow {
             return nil
         }
         return request
@@ -160,6 +162,7 @@ enum ExternalOpen {
         if request.waitAfterCommand {
             items.append(URLQueryItem(name: "wait", value: "1"))
         }
+        if request.newWindow { items.append(URLQueryItem(name: "window", value: "new")) }
         components.queryItems = items
         return components.url
     }
@@ -187,6 +190,8 @@ enum ExternalOpen {
                 }
                 break
             }
+            if argument == "--new-window" { request.newWindow = true }
+            if argument == "--tab" { request.newWindow = false }
             if argument.hasPrefix("--working-directory=") {
                 let value = String(argument.dropFirst("--working-directory=".count))
                 request.directory = value
@@ -195,7 +200,7 @@ enum ExternalOpen {
             }
             index += 1
         }
-        if request.directory == nil && request.command == nil {
+        if request.directory == nil && request.command == nil && !request.newWindow {
             return nil
         }
         return request

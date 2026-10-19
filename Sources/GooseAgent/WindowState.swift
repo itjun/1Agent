@@ -104,7 +104,9 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
     /// Shows the window for `state`, creating it on first use.
     func show(_ state: WindowState, model: AppModel) {
         self.model = model
+        model.windowBecameKey(state)
         if let window = windows[state.id] {
+            NSApp.activate()
             window.makeKeyAndOrderFront(nil)
             return
         }
@@ -138,11 +140,12 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Hides the window. The app and its terminals keep running; the Dock icon or the next open shows it again.
     func close(_ state: WindowState) {
         guard let window = windows[state.id] else { return }
-        hide(window)
+        window.performClose(nil)
     }
+
+    func closeImmediately(_ state: WindowState) { windows[state.id]?.close() }
 
     private func hide(_ window: NSWindow) {
         if let state = state(for: window) {
@@ -178,14 +181,23 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         model?.persistSessionIfReady()
     }
 
-    /// The close button and File → Close only hide the single main window, so sessions survive it.
-    /// Quitting closes windows without asking here.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if model?.isQuitting == true {
-            return true
-        }
-        hide(sender)
-        return false
+        guard let model, !model.isQuitting, let state = state(for: sender) else { return true }
+        let active = model.sidebarOrder(in: state).compactMap { id in model.tabs.first { $0.id == id } }
+            .filter { $0.hasTerminal && !$0.exited && SSHTerminalRegistry.hasRunningCommand($0.sessionID) }
+        guard !active.isEmpty else { return true }
+        let alert = FamilyAlert()
+        alert.messageText = String(localized: "Close this window and its running sessions?")
+        alert.informativeText = String(localized: "Only sessions in this window will be stopped. Other windows stay open.")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addButton(withTitle: String(localized: "Close Window"))
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, let state = state(for: window) else { return }
+        model?.windowBecameKey(state)
     }
 
     /// Only reached while quitting; the frame and snapshot saved here come back at next launch.

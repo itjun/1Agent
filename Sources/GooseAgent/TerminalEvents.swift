@@ -18,6 +18,8 @@ final class TerminalEventRelay: TerminalSurfaceLifecycleDelegate,
     TerminalSurfacePwdDelegate {
     weak var terminal: SSHTerminalNSView?
 
+
+
     func terminalDidAttachSurface(_ surface: TerminalSurface) {
         terminal?.attachedSurface = surface
     }
@@ -358,7 +360,7 @@ final class TerminalActivity: ObservableObject {
     /// Not marked when the user is typing in that very terminal.
     private func markBell(sessionID: String) {
         guard let model, let tab = model.tab(forSession: sessionID) else { return }
-        if isAttended(tab) && model.mainWindow.selectedTabID == tab.id {
+        if isAttended(tab) && model.window(containing: tab.id)?.selectedTabID == tab.id {
             return
         }
         bellMarks.insert(sessionID)
@@ -372,7 +374,7 @@ final class TerminalActivity: ObservableObject {
     }
 
     private func clearBellOfSelectedPane() {
-        guard let model, let tab = model.selectedTab(in: model.mainWindow) else { return }
+        guard let model, let state = model.keyWindow, let tab = model.selectedTab(in: state) else { return }
         clearBell(sessionID: tab.sessionID)
     }
 
@@ -385,9 +387,9 @@ final class TerminalActivity: ObservableObject {
     /// Clicked notification: bring the app forward with that session selected.
     func reveal(tabID: UUID) {
         NSApp.activate()
-        guard let model, model.tabs.contains(where: { $0.id == tabID }) else { return }
-        MainWindowManager.shared.show(model.mainWindow, model: model)
-        model.selectOnly(tabID, in: model.mainWindow)
+        guard let model, let state = model.window(containing: tabID) else { return }
+        MainWindowManager.shared.show(state, model: model)
+        model.selectOnly(tabID, in: state)
     }
 
     private static func durationText(_ duration: TimeInterval) -> String {

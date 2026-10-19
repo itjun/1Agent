@@ -32,13 +32,22 @@ final class ServiceProvider: NSObject {
         asWorkspace: Bool,
         error: AutoreleasingUnsafeMutablePointer<NSString>
     ) {
-        let urls = pasteboard.readObjects(
+        var urls = pasteboard.readObjects(
             forClasses: [NSURL.self],
             options: [.urlReadingFileURLsOnly: true]
         ) as? [URL] ?? []
+        if urls.isEmpty, let text = pasteboard.string(forType: .string) {
+            urls = text.split(whereSeparator: \.isNewline).compactMap { line in
+                let path = String(line).trimmingCharacters(in: .whitespaces)
+                if let url = URL(string: path), url.isFileURL { return url }
+                guard path.hasPrefix("/") || path.hasPrefix("~/") else { return nil }
+                return URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+            }
+        }
         // A selected file opens its folder. Finder keeps the selection order; keep it too.
         var directories: [String] = []
         for url in urls {
+            let url = (try? URL(resolvingAliasFileAt: url, options: [.withoutUI])) ?? url.resolvingSymlinksInPath()
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
             var directory = url.standardizedFileURL.path
@@ -53,6 +62,7 @@ final class ServiceProvider: NSObject {
             error.pointee = String(localized: "No folder to open.") as NSString
             return
         }
-        model.openLocalTerminals(at: directories, asWorkspace: asWorkspace)
+        model.openLocalTerminals(at: directories, asWorkspace: asWorkspace,
+                                 newWindow: asWorkspace, reuseExisting: false)
     }
 }

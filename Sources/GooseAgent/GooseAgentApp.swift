@@ -104,9 +104,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Clicking the Dock icon (or `open` without arguments) with the main window hidden brings it back.
     /// `flag` is also true when only Settings is on screen, so the main window is checked itself.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        let mainWindowVisible = MainWindowManager.shared.window(for: model.mainWindow)?.isVisible == true
-        if !flag || !mainWindowVisible {
-            MainWindowManager.shared.show(model.mainWindow, model: model)
+        let hasTerminalWindow = model.windows.contains { MainWindowManager.shared.window(for: $0)?.isVisible == true }
+        if !flag || !hasTerminalWindow {
+            MainWindowManager.shared.show(model.keyWindow ?? model.mainWindow, model: model)
         }
         return true
     }
@@ -546,6 +546,13 @@ struct GooseAgentApp: App {
         .commands {
             let _ = shortcutsRevision
             CommandGroup(replacing: .newItem) {
+                Button("New Window") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.newWindow() } }
+                    .keyboardShortcut(AppShortcuts.chord(for: .newWindow).keyboardShortcut)
+                Button("Close Window") {
+                    guard !(NSApp.keyWindow is FamilyModalWindow), let state = appDelegate.model.keyWindow else { return }
+                    MainWindowManager.shared.close(state)
+                }
+                    .keyboardShortcut(AppShortcuts.chord(for: .closeWindow).keyboardShortcut)
                 Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.newTab() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
                 Button("New Local Terminal") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.openLocalTerminal() } }
@@ -559,17 +566,17 @@ struct GooseAgentApp: App {
             CommandGroup(after: .sidebar) {
                 Button(AppShortcutID.toggleSidebar.title) {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    appDelegate.model.toggleSidebar(in: appDelegate.model.mainWindow)
+                    if let state = appDelegate.model.keyWindow { appDelegate.model.toggleSidebar(in: state) }
                 }
                 .keyboardShortcut(AppShortcuts.chord(for: .toggleSidebar).keyboardShortcut)
                 Button(AppShortcutID.toggleToolSidebar.title) {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    appDelegate.model.toggleToolSidebar(in: appDelegate.model.mainWindow)
+                    if let state = appDelegate.model.keyWindow { appDelegate.model.toggleToolSidebar(in: state) }
                 }
                 .keyboardShortcut(AppShortcuts.chord(for: .toggleToolSidebar).keyboardShortcut)
                 Button(AppShortcutID.commandPalette.title) {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    appDelegate.model.openCommandPalette(in: appDelegate.model.mainWindow)
+                    if let state = appDelegate.model.keyWindow { appDelegate.model.openCommandPalette(in: state) }
                 }
                 .keyboardShortcut(AppShortcuts.chord(for: .commandPalette).keyboardShortcut)
                 Divider()
@@ -592,7 +599,7 @@ struct GooseAgentApp: App {
                     .keyboardShortcut(AppShortcuts.chord(for: .settings).keyboardShortcut)
             }
             TerminalCommands(focus: FocusedTerminal.shared, model: appDelegate.model) {
-                appDelegate.model.toggleSplitZoom(in: appDelegate.model.mainWindow)
+                if let state = appDelegate.model.keyWindow { appDelegate.model.toggleSplitZoom(in: state) }
             }
         }
     }

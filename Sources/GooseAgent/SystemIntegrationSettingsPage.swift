@@ -69,7 +69,7 @@ struct SystemIntegrationSettingsPage: View {
 
             line
             HStack(alignment: .top, spacing: Theme.Space.l) {
-                Text("Finder service entries are provided. Independent windows still need to be added.")
+                Text("Finder services create new terminals and independent windows.")
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -207,7 +207,7 @@ struct SystemIntegrationSettingsPage: View {
     private func showFinderServices() {
         let alert = FamilyAlert()
         alert.messageText = String(localized: "Finder Directory Services")
-        alert.informativeText = String(localized: "Select a file or folder in Finder, then open the Services menu.\n\nNew 1Agent Tab Here opens the selected folder, or a file’s parent folder.\n\nNew 1Agent Window Here currently opens in the main window. Independent windows are not yet available.")
+        alert.informativeText = String(localized: "Select a file or folder in Finder, then open the Services menu.\n\nNew 1Agent Tab Here always creates a new terminal in the selected folder, or a file’s parent folder.\n\nNew 1Agent Window Here creates an independent window. Multiple folders share that new window.")
         alert.addButton(withTitle: String(localized: "OK"))
         if let window = NSApp.keyWindow { alert.beginSheetModal(for: window) { _ in } }
         else { alert.runModal() }

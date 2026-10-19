@@ -581,6 +581,11 @@ enum SSHTerminalRegistry {
         views[id]?.processHost?.session.readViewportText()
     }
 
+    static func hasRunningCommand(_ id: String) -> Bool {
+        guard let host = views[id]?.processHost else { return false }
+        return host.isRemote || !host.process.shellIsForeground
+    }
+
     /// Starts the same command again inside the same terminal. False when the view is gone.
     @discardableResult
     static func restart(_ id: String, notice: String) -> Bool {
