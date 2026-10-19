@@ -9,6 +9,7 @@ struct SystemIntegrationSettingsPage: View {
     @AppStorage(TerminalAutomation.enabledKey) private var automationEnabled = true
     @ObservedObject private var quickTerminal = QuickTerminalController.shared
     @ObservedObject private var secureInput = TerminalSecureInput.shared
+    @State private var commandLineFeedback: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -107,7 +108,14 @@ struct SystemIntegrationSettingsPage: View {
                     }
                     Toggle("Secure Keyboard Input", isOn: $secureInput.manual)
                         .help("Secure input is released when the terminal loses focus.")
-
+                    Button("Install Command Line Tool") {
+                        do {
+                            try TerminalCommandLine.install()
+                            commandLineFeedback = String(format: String(localized: "The command line tool has been installed at %@."), TerminalCommandLine.destination.path)
+                        } catch { commandLineFeedback = error.localizedDescription }
+                    }
+                    .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                    if let commandLineFeedback { Text(verbatim: commandLineFeedback).font(Theme.Font.rowMeta).textSelection(.enabled) }
                 }
                 .padding(.top, Theme.Space.m)
             }

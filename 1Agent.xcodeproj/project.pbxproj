@@ -63,6 +63,7 @@
 		60DF178EEEA08306D7385297 /* DropTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8680C82540985A8A88BADF /* DropTransfer.swift */; };
 		6167B218E94CB198975D0316 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7EE823807020FCAC7AB30D /* PaneLayout.swift */; };
 		61ACA549F4285840EFB619A5 /* FamilyFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */; };
+		61ED839C0AFD56A6F49594EC /* 1agent in Resources */ = {isa = PBXBuildFile; fileRef = F7598CCEED462B4329E3B155 /* 1agent */; };
 		64600400D3FD8E3EB1BD68A1 /* AgentConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA85F0734EE5ACB28AADA2F /* AgentConversation.swift */; };
 		65D0A618C064D4646AF58B25 /* PinnedLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16730EE26824B43E5A087F41 /* PinnedLocations.swift */; };
 		6633572CB49A2155FA32EFF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2077428E1F778214E2AA9D80 /* ContentView.swift */; };
@@ -129,6 +130,7 @@
 		E6D187F8589A88CEF1346984 /* WindowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19288DDD38A9437A008A7ADC /* WindowState.swift */; };
 		E70D2E0CB2751BB0742B5AF9 /* WindowTitleSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2254C1C7DBE4FE6A5CC025DC /* WindowTitleSync.swift */; };
 		E894648382EF9EEBEB3E0882 /* TerminalThemes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361A21A864C230DE8DF8A323 /* TerminalThemes.swift */; };
+		EBF4B19BD9F6786A86FA222C /* TerminalCommandLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD19F7BC748240DBEB43285 /* TerminalCommandLine.swift */; };
 		EBF6CF1BD4B5817CD589D2BA /* TerminalEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */; };
 		ED5D2B34518AAFC3574D3EBA /* QuickCommandHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */; };
 		EDA14E78AAB7BC4841363094 /* AgentSessionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB37A0ACBB299D6C1536C40F /* AgentSessionContext.swift */; };
@@ -264,6 +266,7 @@
 		BC485445973785CE5D32DA81 /* agent-sessions */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "agent-sessions"; path = "Resources/agent-sessions"; sourceTree = SOURCE_ROOT; };
 		BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransferQueue.swift; sourceTree = "<group>"; };
 		BD4E62BE663582C439B996D1 /* FileIconCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = FileIconCatalog.json; sourceTree = "<group>"; };
+		BDD19F7BC748240DBEB43285 /* TerminalCommandLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommandLine.swift; sourceTree = "<group>"; };
 		BEAD42576853180D4E34F59B /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
 		BF91141EEC0B753F9445733B /* SheetLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLayout.swift; sourceTree = "<group>"; };
 		C15951E929B83BE7E8302278 /* AgentProcessInspection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProcessInspection.swift; sourceTree = "<group>"; };
@@ -295,6 +298,7 @@
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAssociations.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
+		F7598CCEED462B4329E3B155 /* 1agent */ = {isa = PBXFileReference; path = 1agent; sourceTree = "<group>"; };
 		F81626026E15E6A32929435F /* RemoteAgentBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteAgentBootstrap.swift; sourceTree = "<group>"; };
 		FA9DE239EEDFFF628F09F525 /* RemoteAgentSessionContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteAgentSessionContext.swift; sourceTree = "<group>"; };
 		FB14CE70F241072630A04E5D /* AgentSessionHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = AgentSessionHelper; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -396,6 +400,7 @@
 		C38A737F52A5F7635631F469 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				F7598CCEED462B4329E3B155 /* 1agent */,
 				5AD6A1D884E315562428F9EF /* 1Agent.sdef */,
 				BD4E62BE663582C439B996D1 /* FileIconCatalog.json */,
 				CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */,
@@ -509,6 +514,7 @@
 				F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */,
 				D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */,
 				043B43BD36E404CF638EB54F /* TerminalCanvas.swift */,
+				BDD19F7BC748240DBEB43285 /* TerminalCommandLine.swift */,
 				68F8FB8424C9121A1D861F18 /* TerminalCommandPalette.swift */,
 				24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */,
 				3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */,
@@ -628,6 +634,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				26E20533C0776413922B5627 /* 1Agent.sdef in Resources */,
+				61ED839C0AFD56A6F49594EC /* 1agent in Resources */,
 				1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */,
 				9C827CD4FE4427CB1881372E /* ApplicationIcons in Resources */,
 				5FB944658C83C93BF52FE910 /* Assets.xcassets in Resources */,
@@ -778,6 +785,7 @@
 				7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */,
 				23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */,
 				38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */,
+				EBF4B19BD9F6786A86FA222C /* TerminalCommandLine.swift in Sources */,
 				21AF7290436D16AF9D2BA8A0 /* TerminalCommandPalette.swift in Sources */,
 				5DEEF6A3D6B4A511C449594D /* TerminalCommands.swift in Sources */,
 				EBF6CF1BD4B5817CD589D2BA /* TerminalEvents.swift in Sources */,

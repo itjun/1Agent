@@ -418,7 +418,11 @@ enum CommandLineLaunch {
         let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).filter {
             $0.processIdentifier != me && !$0.isTerminated
         }
-        guard !others.isEmpty, let url = ExternalOpen.runURL(for: request) else { return }
+        guard !others.isEmpty else {
+            if CommandLine.arguments.contains("--handoff-only") { exit(2) }
+            return
+        }
+        guard let url = ExternalOpen.runURL(for: request) else { exit(1) }
         let ticket = HandOffTicket(pid: me, url: url.absoluteString)
         guard let file = CommandLineLaunch.writeTicket(ticket) else {
             // Starting a second full copy would fight the running one over the saved session.
@@ -433,9 +437,15 @@ enum CommandLineLaunch {
         let deadline = Date().addingTimeInterval(CommandLineLaunch.handOffTimeout)
         while FileManager.default.fileExists(atPath: file.path) && Date() < deadline {
             usleep(50_000)
+            // A concurrent cold launch can install its observer after the first notification.
+            DistributedNotificationCenter.default().postNotificationName(
+                CommandLineLaunch.handOffNotification, object: nil,
+                userInfo: [CommandLineLaunch.ticketKey: file.lastPathComponent], deliverImmediately: true
+            )
         }
+        let acknowledged = !FileManager.default.fileExists(atPath: file.path)
         try? FileManager.default.removeItem(at: file)
-        exit(0)
+        exit(acknowledged ? 0 : 1)
     }
 
     /// The folder is 0700 and the file 0600, named with a fresh UUID.
