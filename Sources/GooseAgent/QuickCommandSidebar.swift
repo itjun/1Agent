@@ -23,11 +23,6 @@ struct QuickCommandSidebar: View {
     @State private var previewDragHeight: Double?
 
     private var context: QuickCommandContext { model.quickCommandContext(in: window) }
-    private var selectedTab: Binding<String> {
-        Binding(get: { window.presentation.toolSidebarTab }, set: { value in
-            model.updatePresentation(in: window) { $0.toolSidebarTab = value }
-        })
-    }
     private var commands: [QuickCommand] {
         store.commands.filter { $0.matches(context) && (search.isEmpty ||
             ($0.alias + " " + $0.command + " " + $0.group).localizedCaseInsensitiveContains(search)) }
@@ -37,17 +32,10 @@ struct QuickCommandSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                tab("commands", title: "Commands")
-                tab("info", title: "Information")
-                tab("files", title: "Files")
-            }
+            Text("Commands").font(Theme.Font.row)
+                .frame(maxWidth: .infinity).frame(height: 42)
             Divider()
-            switch selectedTab.wrappedValue {
-            case "info": information
-            case "files": QuickCommandFiles(model: model, window: window, context: context)
-            default: commandList
-            }
+            commandList
         }
         .foregroundStyle(chrome.text).background(chrome.background)
         .accessibilityElement(children: .contain)
@@ -84,14 +72,6 @@ struct QuickCommandSidebar: View {
         .familySheet(isPresented: $historyPresented, width: SheetLayout.commandLibrary, height: SheetLayout.commandLibraryHeight) {
             QuickCommandHistoryView(context: context, hosts: model.hosts) { historyPresented = false }
         }
-    }
-
-    private func tab(_ key: String, title: LocalizedStringKey) -> some View {
-        Button { selectedTab.wrappedValue = key } label: {
-            Text(title).font(Theme.Font.row).frame(maxWidth: .infinity).frame(height: 42)
-                .foregroundStyle(selectedTab.wrappedValue == key ? chrome.accent : chrome.secondary)
-                .overlay(alignment: .bottom) { if selectedTab.wrappedValue == key { Rectangle().fill(chrome.accent).frame(height: 2) } }
-        }.buttonStyle(.plain).accessibilityIdentifier("tools.tab." + key)
     }
 
     private var commandList: some View {
@@ -289,21 +269,6 @@ struct QuickCommandSidebar: View {
          FamilyMenuItem(title: String(localized: "Delete"), destructive: true, action: {
              do { try store.remove(item.id) } catch { self.error = error.localizedDescription }
          })]
-    }
-    private var information: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                CommandInfoRow(title: "Target Host", value: context.host ?? String(localized: "This Mac"))
-                CommandInfoRow(title: "Connection", value: context.isLive ? String(localized: "Connected") : String(localized: "Not connected"))
-                if let host = model.hosts.first(where: { $0.alias == context.host }) {
-                    CommandInfoRow(title: "Address", value: host.hostName ?? String(localized: "Unknown"))
-                    CommandInfoRow(title: "User", value: host.user ?? String(localized: "Unknown"))
-                    CommandInfoRow(title: "Port", value: host.port ?? "22")
-                }
-                CommandInfoRow(title: "Working Directory", value: context.directory ?? String(localized: "Directory unknown"))
-                CommandInfoRow(title: "Shell", value: context.host == nil ? LocalTerminal.shellExecutable : String(localized: "Unknown"))
-            }.padding(16)
-        }
     }
 }
 

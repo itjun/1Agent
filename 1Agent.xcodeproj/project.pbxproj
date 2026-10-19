@@ -52,7 +52,6 @@
 		5311EB3EE4A6DAAE61DFDB36 /* FamilyAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC1D5B9C575BDA04C5CBF4C /* FamilyAlert.swift */; };
 		53BB79DFD89397C0F9A670CA /* NativeTextPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */; };
 		54A69B737E8AA19ABE80CA7C /* TerminalLight.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = 15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */; };
-		5552A19EC9F26366BBAAF397 /* QuickCommandFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E64DFD6AC326B25A3874B8 /* QuickCommandFiles.swift */; };
 		556106C260924FD51CB34EB9 /* TerminalRestoration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6430239EACF7C834A7F4F250 /* TerminalRestoration.swift */; };
 		5777841046D0FEE1F1ECDB15 /* FilesWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76AB46074F2E387D4CB2E709 /* FilesWorkspaceView.swift */; };
 		5C1EAA30E3A62A9AF2C99EAB /* ExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5093EE3F486041297EE0F59E /* ExternalOpen.swift */; };
@@ -282,7 +281,6 @@
 		CDE68855BD120DF7421F24EE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-NOTICE.txt"; sourceTree = "<group>"; };
 		D04B9E55BFC942871BBD992B /* FileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransfer.swift; sourceTree = "<group>"; };
-		D1E64DFD6AC326B25A3874B8 /* QuickCommandFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandFiles.swift; sourceTree = "<group>"; };
 		D2406A9EE19A829183ED59E8 /* AgentLaunchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLaunchPolicy.swift; sourceTree = "<group>"; };
 		D303E19F85127FB7B052F2ED /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
 		D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAutomation.swift; sourceTree = "<group>"; };
@@ -489,7 +487,6 @@
 				53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */,
 				47519C98F67FEF8BFC1D299C /* QuickCommandDialogs.swift */,
 				079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */,
-				D1E64DFD6AC326B25A3874B8 /* QuickCommandFiles.swift */,
 				4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */,
 				A9B18799BA36F4789180EC87 /* QuickCommandHistoryView.swift */,
 				384566BABBE38F655397C1D0 /* QuickCommandLibraryView.swift */,
@@ -761,7 +758,6 @@
 				9B069FD4F9697A0C757333EF /* QuickCommandActions.swift in Sources */,
 				FCB11DE661B12CD801D7A781 /* QuickCommandDialogs.swift in Sources */,
 				F3CB90109973D461C41E5160 /* QuickCommandDrag.swift in Sources */,
-				5552A19EC9F26366BBAAF397 /* QuickCommandFiles.swift in Sources */,
 				ED5D2B34518AAFC3574D3EBA /* QuickCommandHistory.swift in Sources */,
 				8A9CB1C237B52349AD56633B /* QuickCommandHistoryView.swift in Sources */,
 				886D985B199BDDE9E8CC5DBA /* QuickCommandLibraryView.swift in Sources */,

@@ -64,11 +64,19 @@ struct QuickCommandTests {
         assert(String(data: preserved, encoding: .utf8) == "bad")
         var presentation = WorkspacePresentation()
         assert(!presentation.toolSidebarOpen && presentation.toolSidebarWidth == 350)
-        presentation.toolSidebarOpen = true; presentation.toolSidebarTab = "files"; presentation.toolSidebarWidth = 410
+        presentation.toolSidebarOpen = true; presentation.toolSidebarWidth = 410
         let restored = try JSONDecoder().decode(WorkspacePresentation.self, from: JSONEncoder().encode(presentation))
         assert(restored == presentation)
+        for removedTab in ["files", "info"] {
+            var payload = try JSONSerialization.jsonObject(with: JSONEncoder().encode(presentation)) as! [String: Any]
+            payload["toolSidebarTab"] = removedTab
+            let migrated = try JSONDecoder().decode(WorkspacePresentation.self, from: JSONSerialization.data(withJSONObject: payload))
+            assert(migrated == presentation, "removed tabs must not change sidebar visibility, sizing or file layout")
+            let saved = try JSONSerialization.jsonObject(with: JSONEncoder().encode(migrated)) as! [String: Any]
+            assert(saved["toolSidebarTab"] == nil, "obsolete tab selection is no longer persisted")
+        }
         let old = try JSONDecoder().decode(WorkspacePresentation.self, from: Data("{\"presentationVersion\":4}".utf8))
-        assert(!old.toolSidebarOpen && old.toolSidebarTab == "commands")
+        assert(!old.toolSidebarOpen)
         assert(ToolSidebarLayout.visibleWidth(detailWidth: 650, open: true, filesMode: false, preferred: 350) == 0)
         assert(ToolSidebarLayout.visibleWidth(detailWidth: 750, open: true, filesMode: false, preferred: 350) == 349)
         assert(ToolSidebarLayout.visibleWidth(detailWidth: 900, open: true, filesMode: true, preferred: 350) == 0)

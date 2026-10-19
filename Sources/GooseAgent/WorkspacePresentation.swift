@@ -42,7 +42,6 @@ struct WorkspacePresentation: Codable, Equatable {
     var sidebarCollapsed = true
     var toolSidebarOpen = false
     var toolSidebarWidth: Double = 350
-    var toolSidebarTab = "commands"
     var commandPreviewExpanded = true
     var commandPreviewHeight: Double = CommandPreviewLayout.defaultHeight
     var collapsedWorkspaces: Set<UUID> = []
@@ -52,7 +51,7 @@ struct WorkspacePresentation: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case presentationVersion, filesVisible, filesExpanded, filesLayout, filesWorkspace, filesWidth, filesHeightRatio
-        case sidebarCollapsed, collapsedWorkspaces, toolSidebarOpen, toolSidebarWidth, toolSidebarTab
+        case sidebarCollapsed, collapsedWorkspaces, toolSidebarOpen, toolSidebarWidth
         case commandPreviewExpanded, commandPreviewHeight, collapsedConnectionGroups
     }
 
@@ -73,8 +72,6 @@ struct WorkspacePresentation: Codable, Equatable {
         sidebarCollapsed = try values.decodeIfPresent(Bool.self, forKey: .sidebarCollapsed) ?? true
         toolSidebarOpen = try values.decodeIfPresent(Bool.self, forKey: .toolSidebarOpen) ?? false
         toolSidebarWidth = ToolSidebarLayout.storedWidth(try values.decodeIfPresent(Double.self, forKey: .toolSidebarWidth) ?? 350)
-        let toolTab = try values.decodeIfPresent(String.self, forKey: .toolSidebarTab) ?? "commands"
-        toolSidebarTab = ["commands", "info", "files"].contains(toolTab) ? toolTab : "commands"
         commandPreviewExpanded = try values.decodeIfPresent(Bool.self, forKey: .commandPreviewExpanded) ?? true
         commandPreviewHeight = CommandPreviewLayout.storedHeight(
             try values.decodeIfPresent(Double.self, forKey: .commandPreviewHeight) ?? CommandPreviewLayout.defaultHeight)
@@ -102,7 +99,6 @@ struct WorkspacePresentation: Codable, Equatable {
         try values.encode(sidebarCollapsed, forKey: .sidebarCollapsed)
         try values.encode(toolSidebarOpen, forKey: .toolSidebarOpen)
         try values.encode(toolSidebarWidth, forKey: .toolSidebarWidth)
-        try values.encode(toolSidebarTab, forKey: .toolSidebarTab)
         try values.encode(commandPreviewExpanded, forKey: .commandPreviewExpanded)
         try values.encode(CommandPreviewLayout.storedHeight(commandPreviewHeight), forKey: .commandPreviewHeight)
         try values.encode(collapsedWorkspaces, forKey: .collapsedWorkspaces)
