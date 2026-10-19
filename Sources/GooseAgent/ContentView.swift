@@ -72,10 +72,7 @@ struct RootView: View {
         }
         .frame(minWidth: 880, minHeight: 520)
         .background(chrome.background)
-        .environment(\.windowChrome, chrome)
-                    .tint(chrome.accent).font(Theme.Font.body)
         .ignoresSafeArea(edges: .top)
-        .preferredColorScheme(appearanceDriver.interfaceColorScheme)
         .onChange(of: appearanceRaw) { _, _ in
             appearanceDriver.reapply()
         }
@@ -128,6 +125,11 @@ struct RootView: View {
                 }
             }
         }
+        // Environment flows inward: include every modal anchor in the workspace
+        // appearance so its separate hosting view never captures the default palette.
+        .environment(\.windowChrome, chrome)
+        .tint(chrome.accent).font(Theme.Font.body)
+        .preferredColorScheme(appearanceDriver.interfaceColorScheme)
 
     }
 

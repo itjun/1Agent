@@ -1,5 +1,6 @@
 .PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop test-sidebar-groups test-app-icons generate-app-icons clean
 .PHONY: test-agent-sessions
+.PHONY: test-modal-appearance
 .PHONY: test-system-integration
 .PHONY: test-terminal-windows test-scripting-replies
 .PHONY: test-terminal-automation
@@ -125,6 +126,9 @@ test: test-agent-sessions test-system-integration test-scripting-replies
 	bash scripts/test-upload-check.sh
 
 # Uses the production Debug module. Run make build first.
+test-modal-appearance:
+	bash scripts/test-modal-appearance.sh
+
 test-appearance:
 	bash scripts/test-family-appearance.sh
 
