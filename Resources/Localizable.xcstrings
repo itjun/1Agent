@@ -837,6 +837,7 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建本机终端" } }
       }
     },
+    "Host Information" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Host Information"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "主机信息"}}}},
     "Open Host…" : {
       "extractionState" : "manual",
       "localizations" : {

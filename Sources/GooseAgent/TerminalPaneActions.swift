@@ -61,6 +61,11 @@ enum TerminalPaneActions {
         let split = model.panelRow(for: tab.id, in: window)?.isSplit == true
         let zoomed = model.zoomedPane(in: window) == tab.id
         var items: [FamilyMenuItem] = [
+            FamilyMenuItem(title: String(localized: "Host Information"), action: {
+                guard currentTab(tab.id, model: model) != nil else { return }
+                window.hostInformationTabID = tab.id
+            }),
+            .separator,
             FamilyMenuItem(title: String(localized: "Working Directory"), enabled: false),
             FamilyMenuItem(title: directory ?? String(localized: "Directory Not Reported"), enabled: false),
             FamilyMenuItem(title: String(localized: "Copy Path"), enabled: directory != nil, action: {

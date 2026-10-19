@@ -1,6 +1,8 @@
 import Foundation
 
 enum SheetLayout {
+    static let hostInformation: CGFloat = 520
+    static let hostInformationHeight: CGFloat = 640
     static let quickCommand: CGFloat = 640
     static let quickCommandHeight: CGFloat = 650
     static let commandLibrary: CGFloat = 820

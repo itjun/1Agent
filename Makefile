@@ -146,3 +146,8 @@ clean:
 # Production transport replay with isolated preferences and no SSH/network access.
 test-remote-directory:
 	bash scripts/test-remote-directory.sh
+
+# Production host information presentation, isolated from user sessions.
+.PHONY: test-host-information
+test-host-information:
+	bash scripts/test-host-information.sh

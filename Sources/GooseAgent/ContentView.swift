@@ -100,6 +100,7 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
+        .modifier(HostInformationPresentation(model: model, window: window))
         .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let confirmation = window.quickCommandConfirmation {
                 QuickCommandConfirmation(confirmation: confirmation, model: model, window: window) {
