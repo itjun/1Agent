@@ -23,6 +23,10 @@ targets:
         excludes:
           - Localizable.xcstrings
           - shell-integration/**
+          - ApplicationIcons/**
+      - path: Resources/ApplicationIcons
+        type: folder
+        buildPhase: resources
       - path: Resources/Localizable.xcstrings
       # A folder reference keeps the directory layout and hidden files such as zsh/.zshenv.
       - path: Resources/shell-integration

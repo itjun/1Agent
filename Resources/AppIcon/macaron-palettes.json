@@ -1,0 +1,82 @@
+[
+  {
+    "id": "M01",
+    "name": "草莓奶霜",
+    "bg": "#FFF1F4",
+    "fill": "#F6C3D1",
+    "ring": "#E7A7BC",
+    "ink": "#A26D86"
+  },
+  {
+    "id": "M02",
+    "name": "薰衣草奶昔",
+    "bg": "#F4F0FC",
+    "fill": "#D9CCF3",
+    "ring": "#BCA9DD",
+    "ink": "#82719F"
+  },
+  {
+    "id": "M03",
+    "name": "薄荷奶糖",
+    "bg": "#EFF9F2",
+    "fill": "#C6E8D5",
+    "ring": "#A1CCB8",
+    "ink": "#678F83"
+  },
+  {
+    "id": "M04",
+    "name": "云朵苏打",
+    "bg": "#EEF6FC",
+    "fill": "#BEDDF3",
+    "ring": "#9FC2DD",
+    "ink": "#688BA8"
+  },
+  {
+    "id": "M05",
+    "name": "蜜桃雪酪",
+    "bg": "#FFF3EB",
+    "fill": "#F7CDB9",
+    "ring": "#E6AE99",
+    "ink": "#A9796F"
+  },
+  {
+    "id": "M06",
+    "name": "柠檬布丁",
+    "bg": "#FFF9EA",
+    "fill": "#F4E3AA",
+    "ring": "#DDC989",
+    "ink": "#A28F5E"
+  },
+  {
+    "id": "M07",
+    "name": "蓝莓酸奶",
+    "bg": "#F2F2FC",
+    "fill": "#C5CFEE",
+    "ring": "#ACB6DB",
+    "ink": "#7982A7"
+  },
+  {
+    "id": "M08",
+    "name": "开心果慕斯",
+    "bg": "#F5F8EB",
+    "fill": "#DCE7B4",
+    "ring": "#BFCF96",
+    "ink": "#889A69"
+  },
+  {
+    "id": "M09",
+    "name": "草莓海盐",
+    "bg": "#EDF7F4",
+    "fill": "#F1C8D2",
+    "ring": "#D7AABA",
+    "ink": "#968099"
+  },
+  {
+    "id": "M10",
+    "name": "香芋蜜桃",
+    "bg": "#FDF0EA",
+    "fill": "#DACBF2",
+    "ring": "#BFA9D9",
+    "ink": "#9077A4"
+  }
+]

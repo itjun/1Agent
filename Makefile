@@ -1,4 +1,4 @@
-.PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop test-sidebar-groups clean
+.PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop test-sidebar-groups generate-app-icons clean
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -13,6 +13,9 @@ APP_BUILT = $(DERIVED_DATA)/Build/Products/Debug/$(APP_BUNDLE)
 
 gen:
 	xcodegen generate
+
+generate-app-icons:
+	node scripts/generate-app-icons.mjs
 
 # Compile, then install into /Applications (quit → replace → relaunch if needed).
 build: gen

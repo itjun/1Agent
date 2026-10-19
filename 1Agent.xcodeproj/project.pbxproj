@@ -27,6 +27,7 @@
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
 		29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */; };
 		2CC7E9867CD194A86B245F50 /* ThemePreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78EF3DC9557BC5009929F59 /* ThemePreviewCard.swift */; };
+		2D7C86FE185C7FD54564D5FF /* macaron-original-mark.png in Resources */ = {isa = PBXBuildFile; fileRef = C5E10203568D61260319007F /* macaron-original-mark.png */; };
 		33DCFCC9A4C67EC83537B7CB /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
@@ -60,6 +61,7 @@
 		68E57E62AE433E59107CCA8E /* SSHConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 440DFBB9CC120A82EAE3507C /* SSHConfig.swift */; };
 		6B078EE00CB2CBDDF4EBBB5C /* FileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D05831F5707DB53D3786F6D /* FileSystem.swift */; };
 		6B6B10D6805C16B8850A3A8F /* FileWorkspaceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 906AFAE30A9BC239EE0FB97B /* FileWorkspaceState.swift */; };
+		6B7680E4D81695F8D2183EA9 /* macaron-palettes.json in Resources */ = {isa = PBXBuildFile; fileRef = CABBCB98A210B9EF5A1C72B9 /* macaron-palettes.json */; };
 		6E49358D8135FD032E1B5BDA /* GooseAgentApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199854A048ECCDE3D9559213 /* GooseAgentApp.swift */; };
 		72CF34389AD438388A7057E5 /* GhosttyConfigImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01647B79038286A152A66C27 /* GhosttyConfigImport.swift */; };
 		7860366F3F23C4E9EFA09527 /* goose-agent-icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */; };
@@ -79,6 +81,7 @@
 		97C3688158EFEBC432C8F3AE /* PinnedLocationDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */; };
 		983049074A7D2DF8A76E5085 /* TextFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2222F4287412ADA926A0AFC /* TextFile.swift */; };
 		9B069FD4F9697A0C757333EF /* QuickCommandActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */; };
+		9C827CD4FE4427CB1881372E /* ApplicationIcons in Resources */ = {isa = PBXBuildFile; fileRef = FBE87DE2ED5872092C13985A /* ApplicationIcons */; };
 		A017C648B0C6B7A50F41DBF9 /* QuickCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F081A460F13779B2F87B39CA /* QuickCommand.swift */; };
 		A89071147FC25805E84361A6 /* FamilyMenuControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC04379ABB1F67A2FA6C90F0 /* FamilyMenuControls.swift */; };
 		A904414E0A56E36983D165D3 /* PreviewSyntax.js in Resources */ = {isa = PBXBuildFile; fileRef = 00BF2C9913789DC6BE4D0051 /* PreviewSyntax.js */; };
@@ -229,6 +232,8 @@
 		C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFind.swift; sourceTree = "<group>"; };
 		C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImporter.swift; sourceTree = "<group>"; };
 		C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
+		C5E10203568D61260319007F /* macaron-original-mark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "macaron-original-mark.png"; sourceTree = "<group>"; };
+		CABBCB98A210B9EF5A1C72B9 /* macaron-palettes.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "macaron-palettes.json"; sourceTree = "<group>"; };
 		CDE68855BD120DF7421F24EE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-NOTICE.txt"; sourceTree = "<group>"; };
 		D04B9E55BFC942871BBD992B /* FileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransfer.swift; sourceTree = "<group>"; };
@@ -244,6 +249,7 @@
 		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
+		FBE87DE2ED5872092C13985A /* ApplicationIcons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ApplicationIcons; path = Resources/ApplicationIcons; sourceTree = SOURCE_ROOT; };
 		FC199BA5503EE914D1E884FD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -306,6 +312,8 @@
 				B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */,
 				4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */,
 				8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */,
+				C5E10203568D61260319007F /* macaron-original-mark.png */,
+				CABBCB98A210B9EF5A1C72B9 /* macaron-palettes.json */,
 			);
 			path = AppIcon;
 			sourceTree = "<group>";
@@ -322,6 +330,7 @@
 		8B6A8EE0503382D9119AED66 = {
 			isa = PBXGroup;
 			children = (
+				FBE87DE2ED5872092C13985A /* ApplicationIcons */,
 				11B7BE5E018ED46FA154243C /* shell-integration */,
 				F1E27CE49E718666CA49744C /* GooseAgent */,
 				D22B8F3C47B763C575003683 /* Packages */,
@@ -508,6 +517,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */,
+				9C827CD4FE4427CB1881372E /* ApplicationIcons in Resources */,
 				5FB944658C83C93BF52FE910 /* Assets.xcassets in Resources */,
 				BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */,
 				44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */,
@@ -525,6 +535,8 @@
 				B59B42C83A80A64345CEE3CD /* goose-agent-icon-1024.png in Resources */,
 				0DE73A8B2336FE70C87E605A /* goose-agent-icon-rounded.png in Resources */,
 				7860366F3F23C4E9EFA09527 /* goose-agent-icon.svg in Resources */,
+				2D7C86FE185C7FD54564D5FF /* macaron-original-mark.png in Resources */,
+				6B7680E4D81695F8D2183EA9 /* macaron-palettes.json in Resources */,
 				469C2A9F9A8D0FFAC417BED2 /* shell-integration in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
