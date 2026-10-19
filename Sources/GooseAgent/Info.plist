@@ -80,6 +80,8 @@
 	<string>public.app-category.developer-tools</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSAppleScriptEnabled</key>
+	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 eachann1024</string>
 	<key>NSPrincipalClass</key>
@@ -129,5 +131,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>OSAScriptingDefinition</key>
+	<string>1Agent.sdef</string>
 </dict>
 </plist>

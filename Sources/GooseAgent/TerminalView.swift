@@ -586,6 +586,8 @@ enum SSHTerminalRegistry {
         return host.isRemote || !host.process.shellIsForeground
     }
 
+    static func automationView(_ id: String) -> SSHTerminalNSView? { views[id] }
+
     /// Starts the same command again inside the same terminal. False when the view is gone.
     @discardableResult
     static func restart(_ id: String, notice: String) -> Bool {
@@ -1470,6 +1472,7 @@ struct SSHTerminalView: NSViewRepresentable {
     var remoteDirectory: String? = nil
     var environment: [String]
     var dark: Bool
+    var initialFontSize: Float? = nil
     var restoration: TerminalRestoration? = nil
     var agentConversation: AgentConversation? = nil
     var isPresented: Bool = true
@@ -1573,7 +1576,7 @@ struct SSHTerminalView: NSViewRepresentable {
         view.delegate = view.eventRelay
         view.registerForDraggedTypes(SSHTerminalNSView.dropTypes)
         view.controller = GhosttyRuntime.controller
-        view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
+        view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session), fontSize: initialFontSize)
         let launch = Self.launch(alias: alias, directory: directory, environment: environment, remoteDirectory: remoteDirectory)
         var initialLaunch: TerminalLaunch?
         if !alias.isEmpty, let command = takeRemoteStartupCommand() {

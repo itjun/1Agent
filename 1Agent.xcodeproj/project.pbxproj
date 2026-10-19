@@ -22,8 +22,11 @@
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
 		1C07B38060B329A466CA3153 /* AgentProcessInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15951E929B83BE7E8302278 /* AgentProcessInspection.swift */; };
 		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
+		1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */; };
 		21AF7290436D16AF9D2BA8A0 /* TerminalCommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68F8FB8424C9121A1D861F18 /* TerminalCommandPalette.swift */; };
+		23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */; };
 		26772E9BB33C53E1A17BD65D /* DropZoneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */; };
+		26E20533C0776413922B5627 /* 1Agent.sdef in Resources */ = {isa = PBXBuildFile; fileRef = 5AD6A1D884E315562428F9EF /* 1Agent.sdef */; };
 		272263DCE7BC9D40856986FB /* TerminalSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */; };
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
 		29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */; };
@@ -172,6 +175,7 @@
 		1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationDrag.swift; sourceTree = "<group>"; };
 		19288DDD38A9437A008A7ADC /* WindowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowState.swift; sourceTree = "<group>"; };
 		199854A048ECCDE3D9559213 /* GooseAgentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooseAgentApp.swift; sourceTree = "<group>"; };
+		1A2F819DDF02F4AC02ACA90C /* ScriptingReplyBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ScriptingReplyBridge.h; sourceTree = "<group>"; };
 		1CD11169BC693046BBA4B666 /* QuickCommandStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandStore.swift; sourceTree = "<group>"; };
 		1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPaneActions.swift; sourceTree = "<group>"; };
 		2077428E1F778214E2AA9D80 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -210,6 +214,7 @@
 		53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandActions.swift; sourceTree = "<group>"; };
 		5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SymbolsNerdFont-LICENSE.txt"; sourceTree = "<group>"; };
 		5A7EE823807020FCAC7AB30D /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
+		5AD6A1D884E315562428F9EF /* 1Agent.sdef */ = {isa = PBXFileReference; path = 1Agent.sdef; sourceTree = "<group>"; };
 		616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSwitcher.swift; sourceTree = "<group>"; };
 		63A7D5B98C26CE953ED880F3 /* FileIcons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = FileIcons.xcassets; sourceTree = "<group>"; };
 		6430239EACF7C834A7F4F250 /* TerminalRestoration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRestoration.swift; sourceTree = "<group>"; };
@@ -272,14 +277,17 @@
 		D1E64DFD6AC326B25A3874B8 /* QuickCommandFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandFiles.swift; sourceTree = "<group>"; };
 		D2406A9EE19A829183ED59E8 /* AgentLaunchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLaunchPolicy.swift; sourceTree = "<group>"; };
 		D303E19F85127FB7B052F2ED /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
+		D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAutomation.swift; sourceTree = "<group>"; };
 		D78EF3DC9557BC5009929F59 /* ThemePreviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePreviewCard.swift; sourceTree = "<group>"; };
 		D7ABED304CF69F1423985F54 /* TransferToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferToast.swift; sourceTree = "<group>"; };
+		D8D6B3657FEB88D52FC8A8FE /* GooseAgent-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GooseAgent-Bridging-Header.h"; sourceTree = "<group>"; };
 		D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewPane.swift; sourceTree = "<group>"; };
 		DB25B10A2B15E7127307F842 /* UploadCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadCheck.swift; sourceTree = "<group>"; };
 		DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsView.swift; sourceTree = "<group>"; };
 		E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
 		E513AE207C91AAB81A8D5279 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
 		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
+		EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ScriptingReplyBridge.m; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAssociations.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
@@ -384,6 +392,7 @@
 		C38A737F52A5F7635631F469 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				5AD6A1D884E315562428F9EF /* 1Agent.sdef */,
 				BD4E62BE663582C439B996D1 /* FileIconCatalog.json */,
 				CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */,
 				497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */,
@@ -454,6 +463,7 @@
 				01F8B90421D84B96A4DC2D00 /* FocusRing.swift */,
 				01647B79038286A152A66C27 /* GhosttyConfigImport.swift */,
 				C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */,
+				D8D6B3657FEB88D52FC8A8FE /* GooseAgent-Bridging-Header.h */,
 				199854A048ECCDE3D9559213 /* GooseAgentApp.swift */,
 				05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */,
 				97958BC6F31945F5729782D0 /* Info.plist */,
@@ -478,6 +488,8 @@
 				F81626026E15E6A32929435F /* RemoteAgentBootstrap.swift */,
 				FA9DE239EEDFFF628F09F525 /* RemoteAgentSessionContext.swift */,
 				6ED45FA3719FB04737F90722 /* RemoteShellIntegration.swift */,
+				1A2F819DDF02F4AC02ACA90C /* ScriptingReplyBridge.h */,
+				EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */,
 				B3DC1BA41700994472C1F669 /* ServiceProvider.swift */,
 				892504A66F17F43AE42EC04A /* SettingsView.swift */,
 				B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */,
@@ -491,6 +503,7 @@
 				BEAD42576853180D4E34F59B /* SSHLaunch.swift */,
 				C9913CB31A48D7D7573940C7 /* SystemIntegrationSettingsPage.swift */,
 				F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */,
+				D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */,
 				043B43BD36E404CF638EB54F /* TerminalCanvas.swift */,
 				68F8FB8424C9121A1D861F18 /* TerminalCommandPalette.swift */,
 				24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */,
@@ -608,6 +621,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				26E20533C0776413922B5627 /* 1Agent.sdef in Resources */,
 				1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */,
 				9C827CD4FE4427CB1881372E /* ApplicationIcons in Resources */,
 				5FB944658C83C93BF52FE910 /* Assets.xcassets in Resources */,
@@ -744,6 +758,7 @@
 				124D4B870522C607E44761C4 /* RemoteShellIntegration.swift in Sources */,
 				68E57E62AE433E59107CCA8E /* SSHConfig.swift in Sources */,
 				402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */,
+				1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */,
 				0C4038B602AAF8717BC418C2 /* ServiceProvider.swift in Sources */,
 				AD0B5C92727259945341E0C7 /* SettingsView.swift in Sources */,
 				F994360820CB4D1BDC7CA338 /* SettingsWindowFrame.swift in Sources */,
@@ -755,6 +770,7 @@
 				814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */,
 				683CC41EC0037F47E07D4F7E /* SystemIntegrationSettingsPage.swift in Sources */,
 				7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */,
+				23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */,
 				38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */,
 				21AF7290436D16AF9D2BA8A0 /* TerminalCommandPalette.swift in Sources */,
 				5DEEF6A3D6B4A511C449594D /* TerminalCommands.swift in Sources */,
@@ -820,6 +836,7 @@
 				PRODUCT_MODULE_NAME = GooseAgent;
 				PRODUCT_NAME = 1Agent;
 				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/GooseAgent/GooseAgent-Bridging-Header.h";
 				SWIFT_VERSION = 5.10;
 			};
 			name = Release;
@@ -848,6 +865,7 @@
 				PRODUCT_MODULE_NAME = GooseAgent;
 				PRODUCT_NAME = 1Agent;
 				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/GooseAgent/GooseAgent-Bridging-Header.h";
 				SWIFT_VERSION = 5.10;
 			};
 			name = Debug;

@@ -5,6 +5,8 @@ struct SystemIntegrationSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @StateObject private var associations = TerminalAssociationStore.shared
     @State private var showsScriptTypes = false
+    @State private var showsAutomation = false
+    @AppStorage(TerminalAutomation.enabledKey) private var automationEnabled = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -79,7 +81,24 @@ struct SystemIntegrationSettingsPage: View {
                     .accessibilityIdentifier("systemIntegration.services")
             }
 
+            DisclosureGroup("Windows and Automation", isExpanded: $showsAutomation) {
+                VStack(alignment: .leading, spacing: Theme.Space.m) {
+                    HStack {
+                        Button("New Window") { TerminalAutomation.model?.newWindow() }
+                    }
+                    .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                    Toggle("Enable Terminal Automation", isOn: $automationEnabled)
+                    Text("AppleScript and Shortcuts address windows and terminals by ID.")
+                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                    if !TerminalAutomation.hasDeveloperTeamSignature {
+                        Text("This local build supports AppleScript. Native Shortcuts actions require Apple developer signing.")
+                            .font(Theme.Font.rowMeta).foregroundStyle(chrome.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
+                }
+                .padding(.top, Theme.Space.m)
+            }
         }
         .font(Theme.Font.body)
         .onAppear { associations.refresh() }

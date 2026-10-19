@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GhosttyRuntime.removeLeftoverConfigFiles()
         GhosttyRuntime.applyTerminalSettings()
         MainWindowManager.shared.attach(model: model)
+        TerminalAutomation.model = model
         TerminalActivity.shared.model = model
         TerminalNotifications.shared.install()
         // Reading PATH from a login shell takes a moment; do it now so the first ⌘T does not wait.

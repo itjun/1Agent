@@ -55,6 +55,9 @@ struct TerminalTab: Identifiable, Equatable {
     var restoration: TerminalRestoration? = nil
     /// Exact Agent conversation attached to this terminal at the last app exit.
     var agentConversation: AgentConversation? = nil
+    /// One-launch automation overrides; commands and environment are never restored from disk.
+    var creationEnvironment: [String] = []
+    var creationFontSize: Float? = nil
 
     var sessionID: String { "\(id.uuidString)#\(generation)" }
 
@@ -159,7 +162,31 @@ final class AppModel: ObservableObject {
         openLocalTerminal(at: cwd, in: state)
     }
 
-
+    func createScriptTerminal(configuration: TerminalCreationConfiguration, in target: WindowState,
+                              splitting source: UUID? = nil, edge: SplitEdge = .right) async throws -> UUID {
+        while !sessionRestored { try await Task.sleep(nanoseconds: 20_000_000) }
+        let original = source.flatMap { id in tabs.first { $0.id == id } }
+        let requested = configuration.directory ?? original.flatMap { $0.isLocal ? localFolder(of: $0) : nil } ?? LocalTerminal.homeDirectory
+        guard let directory = ExternalOpen.validatedDirectory(requested) else { throw AutomationFailure.invalidDirectory }
+        launchEnvironment = await SSHLaunchEnvironment.shared.get()
+        guard windows.contains(where: { $0.id == target.id }), source == nil || original != nil else { throw AutomationFailure.missingObject }
+        var tab = TerminalTab(id: UUID(), alias: original?.alias, directory: directory, generation: 0, exited: false,
+                              remoteDirectory: original?.remoteDirectory)
+        tab.creationEnvironment = configuration.environment
+        tab.creationFontSize = configuration.fontSize
+        if let command = configuration.command {
+            let startup = configuration.waitAfterCommand
+                ? command + "; exec " + ExternalOpen.shellQuoted(LocalTerminal.shellExecutable) + " -l"
+                : command
+            if tab.isLocal { pendingLocalStartupCommands[tab.id] = startup }
+            else { pendingRemoteStartupCommands[tab.id] = startup }
+        }
+        if let input = configuration.initialInput { pendingInitialInput[tab.id] = input }
+        activate(target)
+        showSection(.terminals, in: target)
+        add(tab, placement: source == nil ? .newTab : .split(edge), beside: source ?? target.selectedTabID ?? UUID(), in: target)
+        return tab.id
+    }
 
     func window(for id: UUID) -> WindowState? {
         windows.first { $0.id == id }

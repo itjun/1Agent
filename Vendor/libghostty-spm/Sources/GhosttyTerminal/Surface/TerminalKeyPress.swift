@@ -91,6 +91,18 @@ public struct TerminalKeyPress: Sendable, Hashable {
 }
 
 public extension TerminalSurface {
+    /// Explicit press/release for native scripting clients; retains the engine's key encoder.
+    @discardableResult
+    func sendScriptKey(_ press: TerminalKeyPress, release: Bool) -> Bool {
+        guard press.key.hasPlatformKeycode, rawValue != nil else { return false }
+        return press.withKeyEvent(action: release ? GHOSTTY_ACTION_RELEASE : GHOSTTY_ACTION_PRESS) {
+            let handled = sendKeyEvent($0)
+            // Legacy terminal modes intentionally emit no bytes for key-up. Delivery of a
+            // valid release still succeeds; only Kitty event reporting needs encoded output.
+            return release || handled
+        }
+    }
+
     /// Presses and releases a key, as if typed on a hardware keyboard: the
     /// event takes the key path, so the terminal's key encoding applies and
     /// it is never paste-framed. Returns whether the press was accepted —
