@@ -255,7 +255,7 @@ struct HostPicker: View {
         let openCount = model.openSessionCount(alias: host.alias)
         let browsedDirectory = forFiles ? model.browsedDirectory(for: host.alias, in: window) : nil
         return HStack(spacing: Theme.Space.s) {
-            Image(systemName: "server.rack")
+            Image(systemName: SidebarConnectionGroup.remote.symbol)
                 .font(.system(size: 22))
                 .foregroundStyle(isHighlighted || isTicked ? chrome.accent : chrome.secondary)
                 .frame(width: 30)

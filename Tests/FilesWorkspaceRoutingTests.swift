@@ -775,7 +775,7 @@ private struct FilesWorkspaceRoutingTests {
         try require(switcher.query == "本机", "Chinese text insertion must update the query")
         switcher.query = ""
         try require(switcher.items.filter { $0.kind == .files && !$0.isRemoteFile }.allSatisfy { $0.fileSymbol == "desktopcomputer" } &&
-                    switcher.items.contains { $0.kind == .files && $0.isRemoteFile && $0.fileSymbol == "server.rack" },
+                    switcher.items.contains { $0.kind == .files && $0.isRemoteFile && $0.fileSymbol == SidebarConnectionGroup.remote.symbol },
                     "Local and remote file cards must use distinct device symbols")
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [], key: 59))
         try require(switcher.isOpen, "Search mode survives modifier release")

@@ -16,7 +16,7 @@ struct SwitcherItem: Identifiable, Equatable {
     var filePreview: String? = nil
     var fileStatus: String? = nil
     var isRemoteFile = false
-    var fileSymbol: String { isRemoteFile ? "server.rack" : "desktopcomputer" }
+    var fileSymbol: String { isRemoteFile ? SidebarConnectionGroup.remote.symbol : "desktopcomputer" }
 }
 
 struct SwitcherFileRow: Identifiable, Equatable {

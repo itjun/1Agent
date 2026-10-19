@@ -256,7 +256,7 @@ enum TerminalPaletteCommand: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .newLocal: return "plus.rectangle"
-        case .openHost: return "server.rack"
+        case .openHost: return SidebarConnectionGroup.remote.symbol
         case .switchTerminal: return "rectangle.3.group"
         case .sidebar: return "sidebar.left"
         case .splitRight: return "rectangle.righthalf.inset.filled"

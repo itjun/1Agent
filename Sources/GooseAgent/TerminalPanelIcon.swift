@@ -7,7 +7,7 @@ struct TerminalPanelIcon: View {
 
     var body: some View {
         if case .leaf = layout {
-            Image(systemName: isRemote ? "server.rack" : "terminal")
+            Image(systemName: isRemote ? SidebarConnectionGroup.remote.symbol : "terminal")
         } else {
             GeometryReader { geometry in
                 let bounds = CGRect(origin: .zero, size: geometry.size).insetBy(dx: 0.5, dy: 0.5)

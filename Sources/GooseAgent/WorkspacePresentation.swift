@@ -16,7 +16,7 @@ enum SidebarConnectionGroup: String, Codable, CaseIterable {
     var symbol: String {
         switch self {
         case .local: "desktopcomputer"
-        case .remote: "server.rack"
+        case .remote: "cloud"
         case .mixed: "square.grid.2x2"
         }
     }

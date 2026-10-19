@@ -175,7 +175,7 @@ private struct FileEndpointPanel: View {
             } else {
                 endpointHeader.padding(.horizontal, Theme.Space.m)
                 VStack(spacing: Theme.Space.m) {
-                    Image(systemName: "server.rack").font(Theme.Font.emptySymbol).foregroundStyle(chrome.tertiary)
+                    Image(systemName: SidebarConnectionGroup.remote.symbol).font(Theme.Font.emptySymbol).foregroundStyle(chrome.tertiary)
                     Text("Choose a server").font(Theme.Font.emptyTitle)
 
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
