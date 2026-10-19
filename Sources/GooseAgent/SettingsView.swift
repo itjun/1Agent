@@ -3,6 +3,8 @@ import GhosttyTheme
 import SwiftUI
 
 enum SettingsLayout {
+    static let appIconColumns = 5
+    static let appIconPreviewSize: CGFloat = 88
     static let sidebarWidth: CGFloat = 180
     /// One page row in the left navigation.
     static let navRowHeight: CGFloat = 40
@@ -29,6 +31,7 @@ enum SettingsLayout {
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
     case appearance
+    case appIcon
     case font
     case terminal
     case shortcuts
@@ -39,6 +42,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     var title: LocalizedStringKey {
         switch self {
         case .appearance: "Appearance"
+        case .appIcon: "App Icon"
         case .font: "Font"
         case .terminal: "Terminal"
         case .shortcuts: "Keyboard Shortcuts"
@@ -49,6 +53,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .appearance: "paintpalette"
+        case .appIcon: "app"
         case .font: "textformat"
         case .terminal: "terminal"
         case .shortcuts: "command"
@@ -254,6 +259,8 @@ struct SettingsView: View {
             switch selectedPage {
             case .appearance:
                 appearancePage
+            case .appIcon:
+                ApplicationIconSettingsPage()
             case .font:
                 fontPage
             case .terminal:

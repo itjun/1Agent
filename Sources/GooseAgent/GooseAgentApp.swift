@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        ApplicationIconManager.shared.applyStoredIcon()
         AppearanceDriver.shared.reapply()
         TerminalDefaults.registerBundledFonts()
         GhosttyRuntime.removeLeftoverConfigFiles()
