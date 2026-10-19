@@ -179,6 +179,30 @@ import SwiftUI
         try check(!model.tabs.contains { $0.id == l2 } && model.tabs.contains { $0.id == r1 },
                   "Close must target the clicked row, not the subsequently focused terminal")
         print("Verified sidebar menus and frozen action targets")
+        // Shell exit must remove the pane, history and saved session just like context-close.
+        model.selectOnly(ml, in: window, focusTerminal: false)
+        window.terminalMRU = [ml, mr]
+        model.terminalDidExit(ml, code: 0, lived: 10)
+        try check(!model.tabs.contains { $0.id == ml }, "Local shell exit removes its terminal")
+        try check(model.panelRow(for: mr, in: window)?.leafIDs == [mr], "Exit collapses the split to its surviving pane")
+        try check(window.selectedTabID == mr, "Exit selects the surviving split pane")
+        try check(!window.terminalMRU.contains(ml) && !window.sidebarSelection.contains(ml), "Exit clears terminal history and sidebar selection")
+        model.terminalDidExit(ml, code: 0, lived: 10)
+        try check(model.tabs.contains { $0.id == mr }, "A repeated exit cannot close a different pane")
+        model.terminalDidExit(l1, code: 255, lived: 1)
+        model.terminalDidExit(wl, code: nil, lived: 1)
+        try check(!model.tabs.contains { $0.id == l1 || $0.id == wl }, "Every local exit closes, including nonzero or signalled exit")
+        model.terminalDidExit(r1, code: 0, lived: 10)
+        model.terminalDidExit(wr, code: 1, lived: 10)
+        try check(!model.tabs.contains { $0.id == r1 || $0.id == wr }, "Remote shell exit closes on zero or nonzero shell status")
+        model.terminalDidExit(r2, code: 255, lived: 1)
+        model.terminalDidExit(mr, code: nil, lived: 1)
+        try check(model.tabs.first { $0.id == r2 }?.exited == true && model.tabs.first { $0.id == mr }?.exited == true,
+                  "SSH failures retain disconnected terminals for reconnect")
+        let afterExit = try JSONDecoder().decode(SessionSnapshot.self, from: defaults.data(forKey: SessionSnapshot.storageKey)!)
+        let closedIDs: Set<UUID> = [ml, l1, wl, r1, wr]
+        try check(closedIDs.isDisjoint(with: afterExit.tabs.map(\.id)), "Closed shells are absent from the saved session")
+        print("Verified shell-exit cleanup, split selection, persistence, duplicate callbacks and SSH failure retention")
     }
 
     @MainActor static func checkSidebarMenus(model: AppModel, window: WindowState, local: UUID,

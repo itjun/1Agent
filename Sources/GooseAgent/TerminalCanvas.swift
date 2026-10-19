@@ -70,15 +70,7 @@ struct TerminalCanvas: View {
                         takeRemoteStartupCommand: { model.takeRemoteStartupCommand(for: tab.id) },
                         takeLocalStartupCommand: { model.takeLocalStartupCommand(for: tab.id) },
                         onExit: { code, lived in
-                            // Keep exited local shells available for the sidebar's Reopen action.
-                            // ssh uses 255 when the connection itself fails.
-                            if tab.isLocal {
-                                model.markClosed(tab.id, lived: lived)
-                            } else if let code, code != 255 {
-                                model.closeTab(tab.id)
-                            } else {
-                                model.markClosed(tab.id, lived: lived)
-                            }
+                            model.terminalDidExit(tab.id, code: code, lived: lived)
                         },
                         onClose: { model.closeTab(tab.id) },
                         onFocus: { model.notePaneFocused(tab.id, in: window) },

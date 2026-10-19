@@ -1281,6 +1281,17 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// A shell exit closes the same pane as the context menu. SSH transport failures
+    /// (255 or a signal) keep their output and reconnect path instead.
+    func terminalDidExit(_ tabID: UUID, code: Int32?, lived: TimeInterval) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        if tab.isLocal || (code != nil && code != 255) {
+            closeTab(tabID)
+        } else {
+            markClosed(tabID, lived: lived)
+        }
+    }
+
     /// SSH transport ended. A link that held for a while is retried with growing delays, up to three
     /// times. One that died right away is not: that is an auth or config problem, not the network.
     func markClosed(_ tabID: UUID, lived: TimeInterval) {
