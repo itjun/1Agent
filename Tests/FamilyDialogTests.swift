@@ -112,6 +112,18 @@ struct FamilyDialogTests {
                     "dialog uses fixed light/dark family surface")
             alert.cancel()
         }
+        // Odd window dimensions must not place text between physical pixels.
+        // Exercise the actual native host, including its scroll/clip hierarchy.
+        owner.setContentSize(NSSize(width: 881, height: 601))
+        let alignedCard = NSHostingView(rootView: Text("清晰文字 Pixel alignment"))
+        let aligned = FamilyModalPresentation(content: alignedCard, size: NSSize(width: 520, height: 440), owner: owner) {}
+        aligned.show()
+        aligned.backdrop.layoutSubtreeIfNeeded()
+        let origin = alignedCard.convert(alignedCard.bounds, to: nil).origin
+        require(abs(origin.x - origin.x.rounded()) < 0.001 && abs(origin.y - origin.y.rounded()) < 0.001,
+                "modal text must start on whole points at both standard and Retina resolution; actual: \(origin)")
+        aligned.close()
+
         owner.close()
         print("FamilyDialogTests passed: input focus/editing, cancellation, response mapping, queuing, upload abort, focus restoration, danger/checkbox controls, light/dark surfaces")
     }

@@ -40,7 +40,7 @@ final class FamilyModalPresentation: NSObject {
         completion = onCancel
         updateFrame()
         if let owner {
-            for name in [NSWindow.didResizeNotification, NSWindow.didMoveNotification] {
+            for name in [NSWindow.didResizeNotification, NSWindow.didMoveNotification, NSWindow.didChangeBackingPropertiesNotification] {
                 observers.append(NotificationCenter.default.addObserver(forName: name, object: owner, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated { self?.updateFrame() }
                 })
@@ -128,7 +128,13 @@ final class FamilyModalBackdrop: NSView {
     override func layout() {
         super.layout()
         let size = NSSize(width: min(cardSize.width, max(0, bounds.width - 32)), height: min(cardSize.height, max(0, bounds.height - 64)))
-        scroll.frame = NSRect(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2, width: size.width, height: size.height)
+        // Center on whole points, then align to this display's backing pixels.
+        // Half-point origins soften the entire hosted text layer on standard
+        // displays and when the Retina surface is sampled at logical resolution.
+        let centered = NSRect(x: ((bounds.width - size.width) / 2).rounded(),
+                              y: ((bounds.height - size.height) / 2).rounded(),
+                              width: size.width, height: size.height)
+        scroll.frame = backingAlignedRect(centered, options: .alignAllEdgesNearest)
         card?.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: cardSize.height))
     }
     override func mouseDown(with event: NSEvent) {
