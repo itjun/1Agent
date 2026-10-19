@@ -50,24 +50,12 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     var title: LocalizedStringKey {
         switch self {
         case .appearance: "Appearance"
-        case .appIcon: "App Icon"
+        case .appIcon: "Icon"
         case .font: "Font"
         case .terminal: "Terminal"
-        case .shortcuts: "Keyboard Shortcuts"
+        case .shortcuts: "Hotkeys"
         case .systemIntegration: "System Integration"
         case .advanced: "Advanced"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .appearance: "paintpalette"
-        case .appIcon: "app"
-        case .font: "textformat"
-        case .terminal: "terminal"
-        case .shortcuts: "command"
-        case .systemIntegration: "link"
-        case .advanced: "wrench.and.screwdriver"
         }
     }
 }
@@ -233,26 +221,18 @@ struct SettingsView: View {
                 Button {
                     selectedPage = page
                 } label: {
-                    HStack(spacing: Theme.Space.s) {
-                        Image(systemName: page.symbol)
-                            .font(.system(size: 13))
-                            .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.secondary)
-                            .frame(width: 18)
-                            // `textformat` 在中文环境会渲染成汉字「格式」，固定用拉丁变体让它保持图标外观。
-                            .environment(\.locale, Locale(identifier: "en"))
-                        Text(page.title)
-                            .font(Theme.Font.row.weight(selected ? .semibold : .regular))
-                            .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, Theme.Space.s)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: SettingsLayout.navRowHeight)
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                            .fill(selected ? sidebarChrome.accentFill : Color.clear)
-                    )
-                    .contentShape(Rectangle())
+                    Text(page.title)
+                        .font(Theme.Font.row.weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
+                        .lineLimit(1)
+                        .padding(.horizontal, Theme.Space.s)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: SettingsLayout.navRowHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                                .fill(selected ? sidebarChrome.accentFill : Color.clear)
+                        )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(FamilyButtonStyle())
                 .accessibilityIdentifier("settings.navigation.\(page.rawValue)")

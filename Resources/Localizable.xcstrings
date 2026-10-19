@@ -480,6 +480,20 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "液态玻璃需要 macOS 26 或更新版本，侧栏当前使用实心背景。" } }
       }
     },
+    "Icon" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Icon" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "图标" } }
+      }
+    },
+    "Hotkeys" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hotkeys" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "热键" } }
+      }
+    },
     "Appearance" : {
       "extractionState" : "manual",
       "localizations" : {
