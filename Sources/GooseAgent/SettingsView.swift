@@ -787,7 +787,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func toggle(model: AppModel) {
         self.model = model
-        QuickTerminalController.shared.hideForSettings()
         if let window, window.isVisible {
             window.close()
             return
