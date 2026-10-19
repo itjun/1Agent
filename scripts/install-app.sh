@@ -2,7 +2,7 @@
 # After a Debug build: install 1Agent.app (bundle id com.itjun.1agent) into /Applications.
 # Official Ghostty keeps /Applications/Ghostty.app, bundle id com.mitchellh.ghostty, and ghostty://.
 # A previous build of this app that replaced Ghostty (executable "Ghostty", not "ghostty",
-# and not signed by Ghostty's team) is quit and removed. If that leaves no Ghostty.app and
+# and not signed by Ghostty's team) is quit and removed. Only when removing that old build, if
 # ~/iLearn/backups has an official zip, the official app is unpacked back into /Applications.
 set -euo pipefail
 
@@ -19,6 +19,7 @@ IMPERSONATOR_PROCESS="^${GHOSTTY_DST}/Contents/MacOS/Ghostty( |$)"
 
 BACKUP_DIR="$HOME/iLearn/backups"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+restore_official=0
 
 SRC="${1:-}"
 if [[ -z "$SRC" ]]; then
@@ -68,12 +69,13 @@ if [[ -d "$GHOSTTY_DST" ]]; then
     echo "→ removing this app's copy at $GHOSTTY_DST"
     "$LSREGISTER" -u "$GHOSTTY_DST" || true
     rm -rf "$GHOSTTY_DST"
+    restore_official=1
   else
     echo "→ leaving $GHOSTTY_DST in place"
   fi
 fi
 
-if [[ ! -d "$GHOSTTY_DST" ]]; then
+if [[ ! -d "$GHOSTTY_DST" && "$restore_official" == 1 ]]; then
   newest=""
   newest_mtime=0
   for zip in "$BACKUP_DIR"/Ghostty-*-official.app.zip; do
