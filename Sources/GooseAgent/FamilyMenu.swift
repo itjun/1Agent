@@ -256,7 +256,7 @@ private final class FamilyPopupPanel: NSPanel {
 @MainActor
 private final class FamilyMenuContent: NSView {
     let items: [FamilyMenuItem]
-    let chrome: WindowChrome
+    private var chrome: WindowChrome
     var rows: [FamilyMenuRow] = []
     var selected: Int?
     var onHover: (Int?) -> Void = { _ in }
@@ -302,6 +302,16 @@ private final class FamilyMenuContent: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        guard window != nil else { return }
+        chrome = WindowChrome.resolve(isDark: effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
+        layer?.backgroundColor = NSColor(chrome.background).cgColor
+        layer?.borderColor = NSColor(chrome.hairline).cgColor
+        for row in rows { row.chrome = chrome }
+        needsDisplay = true
+    }
+
     func select(_ index: Int?) {
         selected = index
         for (position, row) in rows.enumerated() { row.menuHighlighted = position == index }
@@ -320,7 +330,7 @@ private final class FamilyMenuDocument: NSView {
 @MainActor
 private final class FamilyMenuRow: NSButton {
     let item: FamilyMenuItem
-    let chrome: WindowChrome
+    var chrome: WindowChrome { didSet { needsDisplay = true } }
     var menuHighlighted = false { didSet { needsDisplay = true } }
     var onHover: () -> Void = {}
     var onPress: () -> Void = {}

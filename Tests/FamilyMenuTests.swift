@@ -65,6 +65,18 @@ struct FamilyMenuTests {
             expect(fired.last == "first" && presenter.panels.isEmpty, "Down skips disabled rows/separators; Enter invokes and dismisses")
             expect(owner.firstResponder === field, "Menu dismissal must retain editor/terminal focus")
         }
+        show()
+        let liveMenu = presenter.panels[0]
+        for appearance in [NSAppearance.Name.aqua, .darkAqua, .aqua] {
+            liveMenu.appearance = NSAppearance(named: appearance)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+            let chrome = WindowChrome(isDark: appearance == .darkAqua)
+            expect(liveMenu.contentView?.layer?.backgroundColor == NSColor(chrome.background).cgColor,
+                   "An already-open menu follows light/dark changes")
+            expect(liveMenu.contentView?.layer?.borderColor == NSColor(chrome.hairline).cgColor,
+                   "An already-open menu refreshes its border")
+        }
+        presenter.dismiss()
         show(); key(119); key(36)
         expect(fired.last == "last", "End selects the final enabled action")
         show(); key(115); key(125); key(124)
