@@ -53,6 +53,8 @@ struct TerminalTab: Identifiable, Equatable {
     var remoteDirectory: String? = nil
     /// One-time startup marker for a terminal reopened from the saved app session.
     var restoration: TerminalRestoration? = nil
+    /// Exact Agent conversation attached to this terminal at the last app exit.
+    var agentConversation: AgentConversation? = nil
 
     var sessionID: String { "\(id.uuidString)#\(generation)" }
 
@@ -1170,7 +1172,8 @@ final class AppModel: ObservableObject {
                         directory: LocalTerminal.launchDirectory(directory),
                         generation: 0,
                         exited: false,
-                        restoration: TerminalRestoration(departedAt: snapshot.departedAt)
+                        restoration: TerminalRestoration(departedAt: snapshot.departedAt),
+                        agentConversation: item.agentConversation
                     )
                 }
                 return nil
@@ -1226,6 +1229,7 @@ final class AppModel: ObservableObject {
         tabs[index].generation += 1
         tabs[index].exited = false
         tabs[index].restoration = nil
+        tabs[index].agentConversation = nil
         persistSession()
         if let window = window(containing: tabID) { selectOnly(tabID, in: window) }
     }
@@ -2276,7 +2280,8 @@ final class AppModel: ObservableObject {
                     return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory)
                 }
                 guard let directory = tab.directory, !directory.isEmpty else { return nil }
-                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory)
+                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory,
+                                           agentConversation: SSHTerminalRegistry.agentConversation(for: tab.sessionID, fallback: tab.agentConversation))
             },
             workspaces: workspaces,
             windows: windows.map { window in
@@ -2321,6 +2326,7 @@ struct SessionSnapshot: Codable {
         var preview: String? = nil
         /// File panes of an earlier build; such tabs are dropped at launch.
         var files: FileBrowserTarget? = nil
+        var agentConversation: AgentConversation? = nil
     }
 
     struct Frame: Codable {

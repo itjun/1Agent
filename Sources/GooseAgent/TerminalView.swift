@@ -266,6 +266,7 @@ final class TerminalProcessHost {
     private(set) var commandBridge: LocalCommandBridge?
     private(set) var remoteWorkingDirectory: String?
     private(set) var isRemote = false
+    private(set) var agentContext: AgentSessionContext?
     var onRemoteDirectory: ((String) -> Void)?
     private var remotePreparation: Task<Void, Never>?
     private var cancelForwarding: (() -> Void)?
@@ -294,9 +295,20 @@ final class TerminalProcessHost {
         )
     }
 
-    func start(_ launch: TerminalLaunch, initialLaunch: TerminalLaunch? = nil, restoration: TerminalRestoration? = nil) {
+    func start(_ launch: TerminalLaunch, initialLaunch: TerminalLaunch? = nil, restoration: TerminalRestoration? = nil,
+               agentConversation: AgentConversation? = nil) {
         self.launch = launch
         self.initialLaunch = initialLaunch
+        if !launch.integratesRemoteShell, !launch.shellIntegrationEnvironment.isEmpty {
+            agentContext = AgentSessionContext(conversation: agentConversation)
+            if initialLaunch == nil, let command = agentContext?.resumeCommand {
+                var first = launch
+                // Login/interactive rc files load normally before the CLI. Its command is an
+                // explicit exec argument, so no password prompt or Agent input can consume it.
+                first.args = ["-l", "-i", "-c", command + "; exec " + AgentLaunchPolicy.quote(launch.executable) + " -l"]
+                self.initialLaunch = first
+            }
+        }
         pendingRestoration = restoration
         startWhenReady()
     }
@@ -369,6 +381,7 @@ final class TerminalProcessHost {
         var environment = sshChildEnvironment(launch.environment)
         if !launch.shellIntegrationEnvironment.isEmpty {
             environment = ShellIntegrationEnvironment.merged(environment, overrides: launch.shellIntegrationEnvironment)
+            if let agentContext { environment = ShellIntegrationEnvironment.merged(environment, overrides: agentContext.environment) }
             commandBridge = LocalCommandBridge()
             if let commandBridge {
                 environment = environment.filter { !$0.hasPrefix("ONEAGENT_QC_") } + commandBridge.environment
@@ -475,6 +488,23 @@ enum SSHTerminalRegistry {
 
     static func processIdentity(for id: String) -> UUID? {
         views[id]?.processHost?.process.identity
+    }
+
+    static func agentConversation(for id: String, fallback: AgentConversation?) -> AgentConversation? {
+        guard let host = views[id]?.processHost else { return fallback }
+        return host.agentContext?.conversation
+    }
+
+    /// Called while PTYs and output readers are still alive, allowing transcript flushes.
+    static func stopAgentsForApplicationExit() async {
+        let pids = views.values.compactMap { view -> pid_t? in
+            guard let host = view.processHost else { return nil }
+            return host.agentContext?.stop(ownedBy: host.process.shellPid)
+        }
+        let deadline = Date().addingTimeInterval(3.5)
+        while Date() < deadline, pids.contains(where: { kill($0, 0) == 0 }) {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
     }
 
     static func quickCommandReady(_ id: String) async -> Bool {
@@ -1402,6 +1432,7 @@ struct SSHTerminalView: NSViewRepresentable {
     var environment: [String]
     var dark: Bool
     var restoration: TerminalRestoration? = nil
+    var agentConversation: AgentConversation? = nil
     var isPresented: Bool = true
     /// Selection is an ongoing focus intent, including views mounted after the open action.
     var isSelected: Bool = true
@@ -1518,7 +1549,7 @@ struct SSHTerminalView: NSViewRepresentable {
             first.args = ["-c", command]
             initialLaunch = first
         }
-        host.start(launch, initialLaunch: initialLaunch, restoration: restoration)
+        host.start(launch, initialLaunch: initialLaunch, restoration: restoration, agentConversation: agentConversation)
         if let input = takeInitialInput() {
             host.sendInitialInput(input)
         }

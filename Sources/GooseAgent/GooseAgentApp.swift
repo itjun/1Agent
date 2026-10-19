@@ -365,10 +365,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Quitting closes every window; mark it first so those closes keep the terminals in the snapshot.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !model.isQuitting else { return .terminateLater }
         model.isQuitting = true
         model.persistSessionIfReady()
         FileTransferQueue.shared.interruptForTermination()
-        return .terminateNow
+        Task { @MainActor in
+            await SSHTerminalRegistry.stopAgentsForApplicationExit()
+            model.persistSessionIfReady()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {

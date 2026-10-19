@@ -123,6 +123,7 @@
 		E894648382EF9EEBEB3E0882 /* TerminalThemes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361A21A864C230DE8DF8A323 /* TerminalThemes.swift */; };
 		EBF6CF1BD4B5817CD589D2BA /* TerminalEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */; };
 		ED5D2B34518AAFC3574D3EBA /* QuickCommandHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */; };
+		EDA14E78AAB7BC4841363094 /* AgentSessionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB37A0ACBB299D6C1536C40F /* AgentSessionContext.swift */; };
 		EE772365BA73023DCA562619 /* FileRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 388A1951E4AD6C678189139A /* FileRules.swift */; };
 		EE8E86687AA61CED761178BF /* DropZones.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A765B8F209AFF3FB2D170F /* DropZones.swift */; };
 		EECABD4DC9B3EB672205AFE6 /* DragDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E42671B05FC0FE55B2965F /* DragDrop.swift */; };
@@ -277,6 +278,7 @@
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
 		FB14CE70F241072630A04E5D /* AgentSessionHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = AgentSessionHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB37A0ACBB299D6C1536C40F /* AgentSessionContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionContext.swift; sourceTree = "<group>"; };
 		FBE87DE2ED5872092C13985A /* ApplicationIcons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ApplicationIcons; path = Resources/ApplicationIcons; sourceTree = SOURCE_ROOT; };
 		FC199BA5503EE914D1E884FD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -421,6 +423,7 @@
 			isa = PBXGroup;
 			children = (
 				DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */,
+				FB37A0ACBB299D6C1536C40F /* AgentSessionContext.swift */,
 				8904A001DE23C1175D7692D4 /* AppIcon.icon */,
 				CDE68855BD120DF7421F24EE /* AppLanguage.swift */,
 				2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */,
@@ -664,6 +667,7 @@
 				64600400D3FD8E3EB1BD68A1 /* AgentConversation.swift in Sources */,
 				C52E2436845B7F9657782BBF /* AgentLaunchPolicy.swift in Sources */,
 				1C07B38060B329A466CA3153 /* AgentProcessInspection.swift in Sources */,
+				EDA14E78AAB7BC4841363094 /* AgentSessionContext.swift in Sources */,
 				04696D0CA687AB607C42CE64 /* AppLanguage.swift in Sources */,
 				CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */,
 				F4B1E0B0F3895EFA22477278 /* ApplicationIcon.swift in Sources */,

@@ -26,6 +26,8 @@ enum TerminalRestorationTests {
         let legacy = Data(#"{"tabs":[],"version":2}"#.utf8)
         let old = try JSONDecoder().decode(SessionSnapshot.self, from: legacy)
         expect(old.departedAt == nil, "Old snapshots must decode without inventing an exit time")
+        let legacyTab = try JSONDecoder().decode(SessionSnapshot.Tab.self, from: Data("{\"id\":\"\(UUID())\",\"directory\":\"/tmp\"}".utf8))
+        expect(legacyTab.agentConversation == nil, "Old terminal snapshots do not invent an Agent conversation")
         let date = Date(timeIntervalSince1970: 0)
         var saved = SessionSnapshot(tabs: [], workspaces: [], windows: [], keyWindow: nil, departedAt: date)
         let decoded = try JSONDecoder().decode(SessionSnapshot.self, from: JSONEncoder().encode(saved))
