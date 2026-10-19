@@ -46,6 +46,21 @@ enum CommandLiteralEditorTests {
         field.updateFromModel(literal + "more")
         require(fieldEditor.selectedRange() == NSRange(location: 2, length: 7), "field binding updates preserve selection")
         require(window.fieldEditor(false, for: nil) !== fieldEditor, "literal field editor is not the window's shared editor")
+        for font in [NSFont.systemFont(ofSize: 13), NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)] {
+            window.makeFirstResponder(nil)
+            field.font = font
+            window.makeFirstResponder(field)
+            let activeEditor = field.currentEditor() as! CommandLiteralTextView
+            activeEditor.layoutManager!.ensureLayout(for: activeEditor.textContainer!)
+            let line = activeEditor.layoutManager!.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+            let textRect = activeEditor.convert(line.offsetBy(dx: activeEditor.textContainerOrigin.x, dy: activeEditor.textContainerOrigin.y), to: field)
+            require(abs(textRect.midY - field.bounds.midY) <= 1,
+                    "focused single-line text stays vertically centered: text=\(textRect), field=\(field.bounds)")
+            let idleRect = field.cell!.drawingRect(forBounds: field.bounds)
+            require(abs(textRect.minX - idleRect.minX) <= 1 && textRect.minX >= 8,
+                    "focused text retains the same horizontal inset as unfocused text")
+            require(activeEditor.string == literal + "more", "changing focus and font preserves literal command text")
+        }
         window.makeFirstResponder(nil)
         window.close()
         print("ok")

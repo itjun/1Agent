@@ -158,8 +158,22 @@ private final class CommandLiteralFieldCell: NSTextFieldCell {
     }
 
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        let height = min(20, rect.height)
+        let height = min(rect.height, ceil(font.map { $0.ascender - $0.descender + $0.leading } ?? 20))
         return NSRect(x: rect.minX + 8, y: rect.midY - height / 2, width: max(0, rect.width - 16), height: height)
+    }
+
+    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
+                         delegate: Any?, start selStart: Int, length selLength: Int) {
+        // NSTextField's editor otherwise fills the entire 32pt control and starts
+        // its first line at the top, ignoring the cell's drawing inset.
+        super.select(withFrame: drawingRect(forBounds: rect), in: controlView, editor: textObj,
+                     delegate: delegate, start: selStart, length: selLength)
+    }
+
+    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
+                       delegate: Any?, event: NSEvent?) {
+        super.edit(withFrame: drawingRect(forBounds: rect), in: controlView, editor: textObj,
+                   delegate: delegate, event: event)
     }
 }
 
