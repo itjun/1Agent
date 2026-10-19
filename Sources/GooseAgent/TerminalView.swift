@@ -234,6 +234,7 @@ struct TerminalLaunch: Equatable {
     /// Local shells only: `ShellIntegrationEnvironment` variables, applied after `sshChildEnvironment`.
     var shellIntegrationEnvironment: [String] = []
     var integratesRemoteShell = false
+    var remoteDirectory: String? = nil
 }
 
 /// Owns one Ghostty session and the child process behind it. The process can be replaced
@@ -267,6 +268,12 @@ final class TerminalProcessHost {
     private(set) var remoteWorkingDirectory: String?
     private(set) var isRemote = false
     private(set) var agentContext: AgentSessionContext?
+    private(set) var remoteAgentContext: RemoteAgentSessionContext?
+    private var remoteAgentSeed: AgentConversation?
+    var savedAgentConversation: AgentConversation? {
+        if isRemote { return remoteAgentContext == nil ? remoteAgentSeed : remoteAgentContext?.conversation }
+        return agentContext?.conversation
+    }
     var onRemoteDirectory: ((String) -> Void)?
     private var remotePreparation: Task<Void, Never>?
     private var cancelForwarding: (() -> Void)?
@@ -299,6 +306,8 @@ final class TerminalProcessHost {
                agentConversation: AgentConversation? = nil) {
         self.launch = launch
         self.initialLaunch = initialLaunch
+        isRemote = launch.integratesRemoteShell
+        remoteAgentSeed = agentConversation
         if !launch.integratesRemoteShell, !launch.shellIntegrationEnvironment.isEmpty {
             agentContext = AgentSessionContext(conversation: agentConversation)
             if initialLaunch == nil, let command = agentContext?.resumeCommand {
@@ -346,6 +355,7 @@ final class TerminalProcessHost {
 
     func terminate() {
         terminated = true
+        remoteAgentContext?.cancel()
         remotePreparation?.cancel()
         process.terminate()
         cancelForwarding?(); cancelForwarding = nil
@@ -354,6 +364,11 @@ final class TerminalProcessHost {
 
     private func startProcess(_ launch: TerminalLaunch) {
         remotePreparation?.cancel()
+        if let remoteAgentContext {
+            remoteAgentSeed = remoteAgentContext.conversation
+            remoteAgentContext.cancel()
+            self.remoteAgentContext = nil
+        }
         cancelForwarding?(); cancelForwarding = nil
         commandBridge = nil
         remoteWorkingDirectory = nil
@@ -389,14 +404,26 @@ final class TerminalProcessHost {
         }
         if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath, let bridge = LocalCommandBridge(remote: true) {
             let childEnvironment = environment
+            let agentSeed = remoteAgentSeed
+            let seedData = agentSeed.flatMap { try? JSONEncoder().encode($0) }
+            let agentSocket = bridge.folder + "/a"
+            let unavailable = String(localized: "Agent conversation recovery needs Python 3.9 or later and Bash or Zsh on this host.")
+            let restoreError = String(localized: "Cannot restore the Agent conversation. Check the tool, session file and directory.")
             remotePreparation = Task { [weak self, weak process] in
                 let prepared = await Task.detached {
                     RemoteShellIntegration.prepare(arguments: launch.args, environment: childEnvironment,
-                                                   resources: resources, socket: bridge.socketPath, token: bridge.token)
+                                                   resources: resources, socket: bridge.socketPath, token: bridge.token,
+                                                   agentSocket: agentSocket, agentConversation: seedData,
+                                                   remoteDirectory: launch.remoteDirectory,
+                                                   directoryCommand: launch.remoteDirectory.map { SSHCommand.remoteStartupCommand(directory: $0) },
+                                                   agentUnavailableMessage: unavailable, agentRestoreError: restoreError)
                 }.value
                 guard !Task.isCancelled, let self, let process, self.process === process, !self.terminated else { return }
                 if let prepared {
                     self.commandBridge = bridge
+                    let context = RemoteAgentSessionContext(socketPath: agentSocket, token: bridge.token, conversation: agentSeed)
+                    self.remoteAgentContext = context
+                    context.start()
                     self.cancelForwarding = {
                         DispatchQueue.global().async {
                             let cancel = Process()
@@ -492,7 +519,7 @@ enum SSHTerminalRegistry {
 
     static func agentConversation(for id: String, fallback: AgentConversation?) -> AgentConversation? {
         guard let host = views[id]?.processHost else { return fallback }
-        return host.agentContext?.conversation
+        return host.savedAgentConversation
     }
 
     /// Called while PTYs and output readers are still alive, allowing transcript flushes.
@@ -502,6 +529,13 @@ enum SSHTerminalRegistry {
             return host.agentContext?.stop(ownedBy: host.process.shellPid)
         }
         let deadline = Date().addingTimeInterval(3.5)
+        await withTaskGroup(of: Void.self) { group in
+            for view in views.values {
+                if let context = view.processHost?.remoteAgentContext {
+                    group.addTask { await context.stop() }
+                }
+            }
+        }
         while Date() < deadline, pids.contains(where: { kill($0, 0) == 0 }) {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
@@ -1479,7 +1513,8 @@ struct SSHTerminalView: NSViewRepresentable {
             args: SSHCommand.arguments(alias: alias, remoteDirectory: remoteDirectory),
             environment: environment,
             directory: nil,
-            integratesRemoteShell: true
+            integratesRemoteShell: true,
+            remoteDirectory: remoteDirectory
         )
     }
 

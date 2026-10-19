@@ -1163,7 +1163,8 @@ final class AppModel: ObservableObject {
                 if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
                     return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false,
                                        remoteDirectory: item.remoteDirectory,
-                                       restoration: TerminalRestoration(departedAt: snapshot.departedAt))
+                                       restoration: TerminalRestoration(departedAt: snapshot.departedAt),
+                                       agentConversation: item.agentConversation)
                 }
                 if let directory = item.directory?.trimmingCharacters(in: .whitespacesAndNewlines), !directory.isEmpty {
                     return TerminalTab(
@@ -2277,7 +2278,8 @@ final class AppModel: ObservableObject {
                     return SessionSnapshot.Tab(id: tab.id, alias: nil, preview: path)
                 }
                 if let alias = tab.alias, !alias.isEmpty {
-                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory)
+                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory,
+                                               agentConversation: SSHTerminalRegistry.agentConversation(for: tab.sessionID, fallback: tab.agentConversation))
                 }
                 guard let directory = tab.directory, !directory.isEmpty else { return nil }
                 return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory,

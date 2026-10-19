@@ -10,16 +10,26 @@ enum RemoteShellIntegration {
     }
 
     static func prepare(arguments: [String], environment: [String], resources: String,
-                        socket: String, token: String) -> Prepared? {
+                        socket: String, token: String, agentSocket: String? = nil, agentConversation: Data? = nil,
+                        remoteDirectory: String? = nil, directoryCommand: String? = nil,
+                        agentUnavailableMessage: String = "", agentRestoreError: String = "") -> Prepared? {
         guard let separator = arguments.firstIndex(of: "--"), arguments.count > separator + 1 else { return nil }
         let prefix = Array(arguments[..<separator]), alias = arguments[separator + 1]
         let explicit = arguments.count > separator + 2 ? arguments[separator + 2] : nil
         // A custom RemoteCommand (e.g. a tmux attach) must not silently become a login shell.
         if explicit == nil && !hasOrdinaryShell(arguments: prefix + ["--", alias], environment: environment) { return nil }
-        guard let command = bootstrap(resources: resources, token: token, startupCommand: explicit) else { return nil }
+        let managedDirectory = explicit != nil && directoryCommand != nil && explicit == directoryCommand
+        let command: String?
+        if agentSocket != nil {
+            command = RemoteAgentBootstrap.command(resources: resources, token: token, conversation: agentConversation,
+                                                   directory: managedDirectory ? remoteDirectory : nil, startupCommand: managedDirectory ? nil : explicit,
+                                                   unavailableMessage: agentUnavailableMessage, restoreError: agentRestoreError)
+        } else { command = bootstrap(resources: resources, token: token, startupCommand: explicit) }
+        guard let command else { return nil }
         let forward = socket + ":" + remoteFolder(token: token) + "/s"
-        return Prepared(arguments: prefix + ["-o", "RemoteCommand=none", "-L", forward, "--", alias, command],
-                        forwarding: forward, cancelArguments: prefix + ["-O", "cancel", "-L", forward, "--", alias])
+        let forwards = ["-L", forward] + (agentSocket.map { ["-L", $0 + ":" + remoteFolder(token: token) + "/agent"] } ?? [])
+        return Prepared(arguments: prefix + ["-o", "RemoteCommand=none"] + forwards + ["--", alias, command],
+                        forwarding: forward, cancelArguments: prefix + ["-O", "cancel"] + forwards + ["--", alias])
     }
 
     static func remoteFolder(token: String) -> String { "/tmp/1a-remote-" + token }

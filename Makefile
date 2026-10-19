@@ -7,6 +7,7 @@ test-agent-sessions:
 	swiftc Sources/AgentSessions/*.swift Sources/AgentSessionHelper/main.swift -o /tmp/oneagent-agent-session-tests
 	python3 scripts/test-agent-sessions.py /tmp/oneagent-agent-session-tests
 	node scripts/test-agent-session-extension.mjs
+	python3 scripts/test-remote-agent-sessions.py
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -43,8 +44,9 @@ run: build
 test: test-agent-sessions
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Tests/RemoteCommandBridgeTests.swift
 	/tmp/oneagent-remote-bridge-tests
-	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
+	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Sources/GooseAgent/RemoteAgentBootstrap.swift Tests/RemoteShellIntegrationTests.swift
 	/tmp/oneagent-remote-shell-tests
+	python3 scripts/test-remote-agent-bootstrap.py
 	ONEAGENT_REMOTE_INTEGRATION_TEST=1 python3 scripts/test-quick-command-bridge.py
 	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandTransfer.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
 	/tmp/oneagent-quick-command-tests

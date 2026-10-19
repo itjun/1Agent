@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Agent conversation recovery needs Python 3.9 or later and Bash or Zsh on this host.": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Agent conversation recovery needs Python 3.9 or later and Bash or Zsh on this host."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "此主机需要 Python 3.9 或更新版本以及 Bash 或 Zsh，才能恢复 Agent 对话。"}}}},
     "Cannot restore the Agent conversation. Check the tool, session file and directory.": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cannot restore the Agent conversation. Check the tool, session file and directory."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法恢复 Agent 对话，请检查工具、会话文件和工作目录。"}}}},
     "Macaron Alternatives" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Macaron Alternatives"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"马卡龙备选"}}}},
     "White background, blue icon" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"White background, blue icon"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"白色底板，蓝色图案"}}}},

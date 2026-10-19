@@ -2,6 +2,15 @@ import Foundation
 
 @main enum RemoteShellIntegrationTests {
     static func main() throws {
+        if CommandLine.arguments.count >= 4, CommandLine.arguments[1] == "--agent-bootstrap" {
+            let seed = CommandLine.arguments.count > 4 && CommandLine.arguments[4] != "-"
+                ? try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[4])) : nil
+            let directory = CommandLine.arguments.count > 5 ? CommandLine.arguments[5] : nil
+            guard let command = RemoteAgentBootstrap.command(resources: CommandLine.arguments[2], token: CommandLine.arguments[3],
+                                                             conversation: seed, directory: directory, startupCommand: nil,
+                                                             unavailableMessage: "Agent recovery unavailable", restoreError: "Agent recovery failed") else { exit(2) }
+            print(command); return
+        }
         if CommandLine.arguments.count >= 4, CommandLine.arguments[1] == "--bootstrap" {
             guard let command = RemoteShellIntegration.bootstrap(resources: CommandLine.arguments[2], token: CommandLine.arguments[3],
                                                                  startupCommand: CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : nil) else { exit(2) }
@@ -25,6 +34,12 @@ import Foundation
         precondition(launch?.arguments.contains("-L") == true)
         precondition(launch?.cancelArguments.contains("cancel") == true)
         precondition(launch?.arguments.last?.contains("ZDOTDIR") == true)
+        let agents = RemoteShellIntegration.prepare(arguments: ["-F", "/dev/null", "--", "fixture", "managed-cd"],
+                                                   environment: [], resources: resources, socket: "/tmp/qc-socket", token: token,
+                                                   agentSocket: "/tmp/agent-socket", remoteDirectory: "/a b/中", directoryCommand: "managed-cd")
+        precondition(agents?.arguments.contains("/tmp/agent-socket:/tmp/1a-remote-\(token)/agent") == true)
+        precondition(agents?.cancelArguments.contains("/tmp/agent-socket:/tmp/1a-remote-\(token)/agent") == true)
+        precondition(agents?.arguments.last?.contains("managed-cd") == false, "managed directory must not become a custom command")
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("remote-config-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
         try "Host fixture\n RemoteCommand tmux attach\n".write(to: folder, atomically: true, encoding: .utf8)

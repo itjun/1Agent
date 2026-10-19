@@ -35,6 +35,7 @@
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
 		39CA6DE87CF04FA1C5404BCC /* AgentConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA85F0734EE5ACB28AADA2F /* AgentConversation.swift */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
+		3A9FB7BED120170F730C91C2 /* RemoteAgentSessionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9DE239EEDFFF628F09F525 /* RemoteAgentSessionContext.swift */; };
 		3CFD4C61C9572EF64DF11BE9 /* ApplicationIconSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43AC2234E9399E765452B45C /* ApplicationIconSettingsPage.swift */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
@@ -137,6 +138,7 @@
 		FC241887E9142971AEC50108 /* TerminalSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */; };
 		FCB11DE661B12CD801D7A781 /* QuickCommandDialogs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47519C98F67FEF8BFC1D299C /* QuickCommandDialogs.swift */; };
 		FD76232C7697FDD3965267B8 /* UploadCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB25B10A2B15E7127307F842 /* UploadCheck.swift */; };
+		FE2E53FB13A7CCD7FB8442B1 /* RemoteAgentBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81626026E15E6A32929435F /* RemoteAgentBootstrap.swift */; };
 		FF4027301CF818E6FC6374CD /* SidebarActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */; };
 /* End PBXBuildFile section */
 
@@ -277,6 +279,8 @@
 		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
+		F81626026E15E6A32929435F /* RemoteAgentBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteAgentBootstrap.swift; sourceTree = "<group>"; };
+		FA9DE239EEDFFF628F09F525 /* RemoteAgentSessionContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteAgentSessionContext.swift; sourceTree = "<group>"; };
 		FB14CE70F241072630A04E5D /* AgentSessionHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = AgentSessionHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB37A0ACBB299D6C1536C40F /* AgentSessionContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionContext.swift; sourceTree = "<group>"; };
 		FBE87DE2ED5872092C13985A /* ApplicationIcons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ApplicationIcons; path = Resources/ApplicationIcons; sourceTree = SOURCE_ROOT; };
@@ -467,6 +471,8 @@
 				6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */,
 				1CD11169BC693046BBA4B666 /* QuickCommandStore.swift */,
 				4A0D4D2DC99D26A068742A81 /* QuickCommandTransfer.swift */,
+				F81626026E15E6A32929435F /* RemoteAgentBootstrap.swift */,
+				FA9DE239EEDFFF628F09F525 /* RemoteAgentSessionContext.swift */,
 				6ED45FA3719FB04737F90722 /* RemoteShellIntegration.swift */,
 				B3DC1BA41700994472C1F669 /* ServiceProvider.swift */,
 				892504A66F17F43AE42EC04A /* SettingsView.swift */,
@@ -726,6 +732,8 @@
 				51FA7F27493E8F39148F39A6 /* QuickCommandSidebar.swift in Sources */,
 				0049A3ADBCF920705C9917A7 /* QuickCommandStore.swift in Sources */,
 				B744A1ACD2B549995CF0049C /* QuickCommandTransfer.swift in Sources */,
+				FE2E53FB13A7CCD7FB8442B1 /* RemoteAgentBootstrap.swift in Sources */,
+				3A9FB7BED120170F730C91C2 /* RemoteAgentSessionContext.swift in Sources */,
 				D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */,
 				124D4B870522C607E44761C4 /* RemoteShellIntegration.swift in Sources */,
 				68E57E62AE433E59107CCA8E /* SSHConfig.swift in Sources */,
