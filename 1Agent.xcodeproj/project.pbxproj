@@ -20,6 +20,7 @@
 		18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */; };
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
+		1C07B38060B329A466CA3153 /* AgentProcessInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15951E929B83BE7E8302278 /* AgentProcessInspection.swift */; };
 		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
 		21AF7290436D16AF9D2BA8A0 /* TerminalCommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68F8FB8424C9121A1D861F18 /* TerminalCommandPalette.swift */; };
 		26772E9BB33C53E1A17BD65D /* DropZoneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */; };
@@ -56,6 +57,7 @@
 		60DF178EEEA08306D7385297 /* DropTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8680C82540985A8A88BADF /* DropTransfer.swift */; };
 		6167B218E94CB198975D0316 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7EE823807020FCAC7AB30D /* PaneLayout.swift */; };
 		61ACA549F4285840EFB619A5 /* FamilyFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */; };
+		64600400D3FD8E3EB1BD68A1 /* AgentConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA85F0734EE5ACB28AADA2F /* AgentConversation.swift */; };
 		65D0A618C064D4646AF58B25 /* PinnedLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16730EE26824B43E5A087F41 /* PinnedLocations.swift */; };
 		6633572CB49A2155FA32EFF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2077428E1F778214E2AA9D80 /* ContentView.swift */; };
 		68550A509D3C43DB75677D1A /* ShortcutsSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */; };
@@ -99,6 +101,7 @@
 		BDE0F6784FE455B5144022E1 /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 0A4845DDBF4FBE86870CF14E /* GhosttyTheme */; };
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
 		C47DE107C61A6FF1CC5E4109 /* FileTransferQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */; };
+		C52E2436845B7F9657782BBF /* AgentLaunchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2406A9EE19A829183ED59E8 /* AgentLaunchPolicy.swift */; };
 		CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D91EB1556003521E0650B7 /* AppModel.swift */; };
 		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
 		CF4B6D7911791ED91EAC823F /* FileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B9E55BFC942871BBD992B /* FileTransfer.swift */; };
@@ -140,6 +143,7 @@
 		0465AA079B8A127DDAA44D22 /* QuickCommandPasteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandPasteView.swift; sourceTree = "<group>"; };
 		05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPicker.swift; sourceTree = "<group>"; };
 		079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandDrag.swift; sourceTree = "<group>"; };
+		0BA85F0734EE5ACB28AADA2F /* AgentConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentConversation.swift; sourceTree = "<group>"; };
 		0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettingsPage.swift; sourceTree = "<group>"; };
 		11B7BE5E018ED46FA154243C /* shell-integration */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "shell-integration"; path = "Resources/shell-integration"; sourceTree = SOURCE_ROOT; };
 		13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZoneLayout.swift; sourceTree = "<group>"; };
@@ -232,6 +236,7 @@
 		BD4E62BE663582C439B996D1 /* FileIconCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = FileIconCatalog.json; sourceTree = "<group>"; };
 		BEAD42576853180D4E34F59B /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
 		BF91141EEC0B753F9445733B /* SheetLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLayout.swift; sourceTree = "<group>"; };
+		C15951E929B83BE7E8302278 /* AgentProcessInspection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProcessInspection.swift; sourceTree = "<group>"; };
 		C2222F4287412ADA926A0AFC /* TextFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFile.swift; sourceTree = "<group>"; };
 		C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFind.swift; sourceTree = "<group>"; };
 		C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImporter.swift; sourceTree = "<group>"; };
@@ -242,6 +247,7 @@
 		CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-NOTICE.txt"; sourceTree = "<group>"; };
 		D04B9E55BFC942871BBD992B /* FileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransfer.swift; sourceTree = "<group>"; };
 		D1E64DFD6AC326B25A3874B8 /* QuickCommandFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandFiles.swift; sourceTree = "<group>"; };
+		D2406A9EE19A829183ED59E8 /* AgentLaunchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLaunchPolicy.swift; sourceTree = "<group>"; };
 		D303E19F85127FB7B052F2ED /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
 		D78EF3DC9557BC5009929F59 /* ThemePreviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePreviewCard.swift; sourceTree = "<group>"; };
 		D7ABED304CF69F1423985F54 /* TransferToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferToast.swift; sourceTree = "<group>"; };
@@ -336,6 +342,7 @@
 			children = (
 				FBE87DE2ED5872092C13985A /* ApplicationIcons */,
 				11B7BE5E018ED46FA154243C /* shell-integration */,
+				DA07F4940042B35BD11D6B03 /* AgentSessions */,
 				F1E27CE49E718666CA49744C /* GooseAgent */,
 				D22B8F3C47B763C575003683 /* Packages */,
 				C38A737F52A5F7635631F469 /* Resources */,
@@ -367,6 +374,17 @@
 				4EC91D27043AA07DDFB6BFE5 /* libghostty-spm */,
 			);
 			name = Packages;
+			sourceTree = "<group>";
+		};
+		DA07F4940042B35BD11D6B03 /* AgentSessions */ = {
+			isa = PBXGroup;
+			children = (
+				0BA85F0734EE5ACB28AADA2F /* AgentConversation.swift */,
+				D2406A9EE19A829183ED59E8 /* AgentLaunchPolicy.swift */,
+				C15951E929B83BE7E8302278 /* AgentProcessInspection.swift */,
+			);
+			name = AgentSessions;
+			path = Sources/AgentSessions;
 			sourceTree = "<group>";
 		};
 		F1E27CE49E718666CA49744C /* GooseAgent */ = {
@@ -555,6 +573,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				5239E4B061DE3741F2558E6C /* AdvancedSettingsView.swift in Sources */,
+				64600400D3FD8E3EB1BD68A1 /* AgentConversation.swift in Sources */,
+				C52E2436845B7F9657782BBF /* AgentLaunchPolicy.swift in Sources */,
+				1C07B38060B329A466CA3153 /* AgentProcessInspection.swift in Sources */,
 				04696D0CA687AB607C42CE64 /* AppLanguage.swift in Sources */,
 				CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */,
 				F4B1E0B0F3895EFA22477278 /* ApplicationIcon.swift in Sources */,

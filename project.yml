@@ -18,6 +18,7 @@ targets:
     platform: macOS
     sources:
       - Sources/GooseAgent
+      - Sources/AgentSessions
       - path: Resources
         buildPhase: resources
         excludes:

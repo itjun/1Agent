@@ -1,4 +1,9 @@
 .PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop test-sidebar-groups test-app-icons generate-app-icons clean
+.PHONY: test-agent-sessions
+
+test-agent-sessions:
+	swiftc -parse-as-library Sources/AgentSessions/*.swift Tests/AgentConversationTests.swift -o /tmp/oneagent-agent-conversation-tests
+	/tmp/oneagent-agent-conversation-tests
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -32,7 +37,7 @@ install:
 run: build
 	open "/Applications/$(APP_BUNDLE)"
 
-test:
+test: test-agent-sessions
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Tests/RemoteCommandBridgeTests.swift
 	/tmp/oneagent-remote-bridge-tests
 	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
