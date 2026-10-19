@@ -44,6 +44,7 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var zoomedPanes: [UUID: UUID] = [:]
     /// Last known frame on screen, restored at launch.
     var frame: CGRect?
+    var isQuickTerminal = false
     /// The drop relay of this window's view.
     weak var relay: CanvasDropRelay?
     var dropEpoch = 0
@@ -183,6 +184,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard let model, !model.isQuitting, let state = state(for: sender) else { return true }
+        if state.isQuickTerminal { hide(sender); return false }
         let active = model.sidebarOrder(in: state).compactMap { id in model.tabs.first { $0.id == id } }
             .filter { $0.hasTerminal && !$0.exited && SSHTerminalRegistry.hasRunningCommand($0.sessionID) }
         guard !active.isEmpty else { return true }

@@ -807,6 +807,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func toggle(model: AppModel) {
         self.model = model
+        QuickTerminalController.shared.hideForSettings()
         if let window, window.isVisible {
             window.close()
             return
@@ -817,6 +818,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     /// Opens Settings, or brings it to the front when it is already open.
     func show(model: AppModel) {
         self.model = model
+        QuickTerminalController.shared.hideForSettings()
         if let window, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()

@@ -7,6 +7,7 @@ struct SystemIntegrationSettingsPage: View {
     @State private var showsScriptTypes = false
     @State private var showsAutomation = false
     @AppStorage(TerminalAutomation.enabledKey) private var automationEnabled = true
+    @ObservedObject private var quickTerminal = QuickTerminalController.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -85,8 +86,16 @@ struct SystemIntegrationSettingsPage: View {
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
                     HStack {
                         Button("New Window") { TerminalAutomation.model?.newWindow() }
+                        Button("Toggle Quick Terminal") { quickTerminal.toggle() }
                     }
                     .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                    HStack {
+                        Text("Quick Terminal Shortcut")
+                        Text(verbatim: AppShortcuts.display(for: .quickTerminal)).foregroundStyle(chrome.secondary)
+                    }
+                    if let error = quickTerminal.registrationError {
+                        Text(verbatim: error).foregroundStyle(chrome.danger).fixedSize(horizontal: false, vertical: true)
+                    }
                     Toggle("Enable Terminal Automation", isOn: $automationEnabled)
                     Text("AppleScript and Shortcuts address windows and terminals by ID.")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)

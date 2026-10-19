@@ -74,6 +74,7 @@
 		6B7680E4D81695F8D2183EA9 /* macaron-palettes.json in Resources */ = {isa = PBXBuildFile; fileRef = CABBCB98A210B9EF5A1C72B9 /* macaron-palettes.json */; };
 		6E49358D8135FD032E1B5BDA /* GooseAgentApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199854A048ECCDE3D9559213 /* GooseAgentApp.swift */; };
 		72CF34389AD438388A7057E5 /* GhosttyConfigImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01647B79038286A152A66C27 /* GhosttyConfigImport.swift */; };
+		74B09B24A21C58B67ABB214A /* TerminalPlatformIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */; };
 		7860366F3F23C4E9EFA09527 /* goose-agent-icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */; };
 		7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */; };
 		7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */; };
@@ -234,6 +235,7 @@
 		72041EFA5AEDCF6A9B0AE935 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		76AB46074F2E387D4CB2E709 /* FilesWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesWorkspaceView.swift; sourceTree = "<group>"; };
 		76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsPage.swift; sourceTree = "<group>"; };
+		79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPlatformIntegration.swift; sourceTree = "<group>"; };
 		7CF8537478DC8E39CE11C226 /* FamilyControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyControls.swift; sourceTree = "<group>"; };
 		7DC2AB74FE4D721374A45471 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPanelIcon.swift; sourceTree = "<group>"; };
@@ -514,6 +516,7 @@
 				DA0C5AD90ACC70094360B818 /* TerminalIntents.swift */,
 				1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */,
 				80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */,
+				79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */,
 				22680FE638056AFBBDA0F764 /* TerminalProcess.swift */,
 				6430239EACF7C834A7F4F250 /* TerminalRestoration.swift */,
 				C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */,
@@ -782,6 +785,7 @@
 				DAF38D6E94140385B26CB56B /* TerminalIntents.swift in Sources */,
 				18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */,
 				29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */,
+				74B09B24A21C58B67ABB214A /* TerminalPlatformIntegration.swift in Sources */,
 				292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */,
 				556106C260924FD51CB34EB9 /* TerminalRestoration.swift in Sources */,
 				E3CA332263834B7BDAF1871D /* TerminalSettings.swift in Sources */,

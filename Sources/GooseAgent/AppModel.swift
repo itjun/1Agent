@@ -1261,6 +1261,7 @@ final class AppModel: ObservableObject {
         let first = mainWindow
         windows = stored.enumerated().map { index, entry in
             let state = index == 0 && first.id == entry.id ? first : WindowState(id: entry.id)
+            state.isQuickTerminal = entry.quickTerminal ?? false
             var single = snapshot
             single.windows = [entry]
             single.keyWindow = entry.id
@@ -2414,7 +2415,8 @@ final class AppModel: ObservableObject {
                     panelTitles: window.panelTitles,
                     terminalMRU: window.terminalMRU,
                     zoomedPanes: window.zoomedPanes,
-                    filesSourceTabID: window.filesSourceTabID
+                    filesSourceTabID: window.filesSourceTabID,
+                    quickTerminal: window.isQuickTerminal
                 )
             },
             keyWindow: keyWindow?.id,
@@ -2475,6 +2477,7 @@ struct SessionSnapshot: Codable {
         var terminalMRU: [UUID]? = nil
         var zoomedPanes: [UUID: UUID]? = nil
         var filesSourceTabID: UUID? = nil
+        var quickTerminal: Bool? = nil
     }
 
     static let storageKey = "session.openTabs"

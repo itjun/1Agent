@@ -60,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task.detached(priority: .utility) { _ = await SSHLaunchEnvironment.shared.get() }
         model.watchSSHConfig()
         model.restoreLastSession()
+        QuickTerminalController.shared.start(model: model)
         NSApp.servicesProvider = ServiceProvider(model: model)
         NSUpdateDynamicServices()
         DistributedNotificationCenter.default().addObserver(
@@ -120,6 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         appliedShortcutsRevision = revision
+        QuickTerminalController.shared.refreshRegistration()
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
                 TerminalCommands.applySelectAllShortcut()
@@ -565,6 +567,8 @@ struct GooseAgentApp: App {
                     .keyboardShortcut(AppShortcuts.chord(for: .openHost).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
+                Button("Toggle Quick Terminal") { QuickTerminalController.shared.toggle() }
+                    .keyboardShortcut(AppShortcuts.chord(for: .quickTerminal).keyboardShortcut)
                 Button(AppShortcutID.toggleSidebar.title) {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     if let state = appDelegate.model.keyWindow { appDelegate.model.toggleSidebar(in: state) }
