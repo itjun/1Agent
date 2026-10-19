@@ -27,11 +27,13 @@
 		272263DCE7BC9D40856986FB /* TerminalSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C1283793F4A9076DC11F3 /* TerminalSwitcher.swift */; };
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
 		29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */; };
+		2C24333E947C55774D6F02E4 /* AgentLaunchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2406A9EE19A829183ED59E8 /* AgentLaunchPolicy.swift */; };
 		2CC7E9867CD194A86B245F50 /* ThemePreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78EF3DC9557BC5009929F59 /* ThemePreviewCard.swift */; };
 		2D7C86FE185C7FD54564D5FF /* macaron-original-mark.png in Resources */ = {isa = PBXBuildFile; fileRef = C5E10203568D61260319007F /* macaron-original-mark.png */; };
 		33DCFCC9A4C67EC83537B7CB /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
+		39CA6DE87CF04FA1C5404BCC /* AgentConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA85F0734EE5ACB28AADA2F /* AgentConversation.swift */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
 		3CFD4C61C9572EF64DF11BE9 /* ApplicationIconSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43AC2234E9399E765452B45C /* ApplicationIconSettingsPage.swift */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
@@ -80,6 +82,7 @@
 		8F03ADD0081CD35647AFFFB3 /* FileIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63A7D5B98C26CE953ED880F3 /* FileIcons.xcassets */; };
 		91ED427A152DC13AE187EE58 /* FamilyModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2105529F1C40033DFD8D8A32 /* FamilyModal.swift */; };
 		94C91BF3EF904694099F9B90 /* TransferToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7ABED304CF69F1423985F54 /* TransferToast.swift */; };
+		95E6421DF272D271D507CB39 /* agent-sessions in Resources */ = {isa = PBXBuildFile; fileRef = BC485445973785CE5D32DA81 /* agent-sessions */; };
 		97B86305AC381C8700A523A5 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D303E19F85127FB7B052F2ED /* FileBrowserView.swift */; };
 		97C3688158EFEBC432C8F3AE /* PinnedLocationDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */; };
 		983049074A7D2DF8A76E5085 /* TextFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2222F4287412ADA926A0AFC /* TextFile.swift */; };
@@ -124,8 +127,10 @@
 		EE8E86687AA61CED761178BF /* DropZones.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A765B8F209AFF3FB2D170F /* DropZones.swift */; };
 		EECABD4DC9B3EB672205AFE6 /* DragDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E42671B05FC0FE55B2965F /* DragDrop.swift */; };
 		F0B33CCCEC0174D380DC6718 /* LegacyDefaultsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */; };
+		F3B759C249A29AB92A213662 /* AgentProcessInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15951E929B83BE7E8302278 /* AgentProcessInspection.swift */; };
 		F3CB90109973D461C41E5160 /* QuickCommandDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */; };
 		F4B1E0B0F3895EFA22477278 /* ApplicationIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */; };
+		F881F8A237DA4AE81D4F14C6 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72041EFA5AEDCF6A9B0AE935 /* main.swift */; };
 		F994360820CB4D1BDC7CA338 /* SettingsWindowFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */; };
 		FA4489BBA6FBFD7AD8E13D8A /* HostPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */; };
 		FC241887E9142971AEC50108 /* TerminalSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */; };
@@ -133,6 +138,16 @@
 		FD76232C7697FDD3965267B8 /* UploadCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB25B10A2B15E7127307F842 /* UploadCheck.swift */; };
 		FF4027301CF818E6FC6374CD /* SidebarActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5AE42CA898D0D65FE39AD78F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C6DC92222C65E5F1A6753B7D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3BB70B586970F13D5936AC8F;
+			remoteInfo = AgentSessionHelper;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		00BF2C9913789DC6BE4D0051 /* PreviewSyntax.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = PreviewSyntax.js; sourceTree = "<group>"; };
@@ -205,6 +220,7 @@
 		6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBoard.swift; sourceTree = "<group>"; };
 		709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyDefaultsMigration.swift; sourceTree = "<group>"; };
 		71FDA7CC65A4FE2654714778 /* PinnedLocationsSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationsSidebar.swift; sourceTree = "<group>"; };
+		72041EFA5AEDCF6A9B0AE935 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		76AB46074F2E387D4CB2E709 /* FilesWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesWorkspaceView.swift; sourceTree = "<group>"; };
 		76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsPage.swift; sourceTree = "<group>"; };
 		7CF8537478DC8E39CE11C226 /* FamilyControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyControls.swift; sourceTree = "<group>"; };
@@ -232,6 +248,7 @@
 		B3DC1BA41700994472C1F669 /* ServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProvider.swift; sourceTree = "<group>"; };
 		B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-1024.png"; sourceTree = "<group>"; };
 		B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowFrame.swift; sourceTree = "<group>"; };
+		BC485445973785CE5D32DA81 /* agent-sessions */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "agent-sessions"; path = "Resources/agent-sessions"; sourceTree = SOURCE_ROOT; };
 		BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransferQueue.swift; sourceTree = "<group>"; };
 		BD4E62BE663582C439B996D1 /* FileIconCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = FileIconCatalog.json; sourceTree = "<group>"; };
 		BEAD42576853180D4E34F59B /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
@@ -259,6 +276,7 @@
 		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
+		FB14CE70F241072630A04E5D /* AgentSessionHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = AgentSessionHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		FBE87DE2ED5872092C13985A /* ApplicationIcons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ApplicationIcons; path = Resources/ApplicationIcons; sourceTree = SOURCE_ROOT; };
 		FC199BA5503EE914D1E884FD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -280,6 +298,7 @@
 			isa = PBXGroup;
 			children = (
 				6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */,
+				FB14CE70F241072630A04E5D /* AgentSessionHelper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -340,8 +359,10 @@
 		8B6A8EE0503382D9119AED66 = {
 			isa = PBXGroup;
 			children = (
+				BC485445973785CE5D32DA81 /* agent-sessions */,
 				FBE87DE2ED5872092C13985A /* ApplicationIcons */,
 				11B7BE5E018ED46FA154243C /* shell-integration */,
+				E8EE44C51991CE47903B373C /* AgentSessionHelper */,
 				DA07F4940042B35BD11D6B03 /* AgentSessions */,
 				F1E27CE49E718666CA49744C /* GooseAgent */,
 				D22B8F3C47B763C575003683 /* Packages */,
@@ -385,6 +406,15 @@
 			);
 			name = AgentSessions;
 			path = Sources/AgentSessions;
+			sourceTree = "<group>";
+		};
+		E8EE44C51991CE47903B373C /* AgentSessionHelper */ = {
+			isa = PBXGroup;
+			children = (
+				72041EFA5AEDCF6A9B0AE935 /* main.swift */,
+			);
+			name = AgentSessionHelper;
+			path = Sources/AgentSessionHelper;
 			sourceTree = "<group>";
 		};
 		F1E27CE49E718666CA49744C /* GooseAgent */ = {
@@ -484,10 +514,12 @@
 				5A8316C63BDF238B209E5696 /* Sources */,
 				5AE29F9C2F01172D1FAAEEA2 /* Resources */,
 				CAB0B723CEEB01D8A20A4321 /* Frameworks */,
+				A66098E3C1F59FFA23207370 /* Embed Agent session helper */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				F175BF21C85AB930E1DC9D4B /* PBXTargetDependency */,
 			);
 			name = 1Agent;
 			packageProductDependencies = (
@@ -497,6 +529,23 @@
 			productName = 1Agent;
 			productReference = 6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */;
 			productType = "com.apple.product-type.application";
+		};
+		3BB70B586970F13D5936AC8F /* AgentSessionHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 61510E492A57A6BAE3119539 /* Build configuration list for PBXNativeTarget "AgentSessionHelper" */;
+			buildPhases = (
+				26F0107E37B9DF115F6829DC /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AgentSessionHelper;
+			packageProductDependencies = (
+			);
+			productName = AgentSessionHelper;
+			productReference = FB14CE70F241072630A04E5D /* AgentSessionHelper */;
+			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
@@ -509,6 +558,9 @@
 				TargetAttributes = {
 					0D4BCF906C3FD5783D0036D0 = {
 						DevelopmentTeam = NCFNX3LJ83;
+						ProvisioningStyle = Manual;
+					};
+					3BB70B586970F13D5936AC8F = {
 						ProvisioningStyle = Manual;
 					};
 				};
@@ -531,6 +583,7 @@
 			projectRoot = "";
 			targets = (
 				0D4BCF906C3FD5783D0036D0 /* 1Agent */,
+				3BB70B586970F13D5936AC8F /* AgentSessionHelper */,
 			);
 		};
 /* End PBXProject section */
@@ -554,6 +607,7 @@
 				8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
 				E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */,
 				54A69B737E8AA19ABE80CA7C /* TerminalLight.ghostty in Resources */,
+				95E6421DF272D271D507CB39 /* agent-sessions in Resources */,
 				454601CCC7894A948CE872FC /* ghostty-source.png in Resources */,
 				4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */,
 				B59B42C83A80A64345CEE3CD /* goose-agent-icon-1024.png in Resources */,
@@ -567,7 +621,41 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A66098E3C1F59FFA23207370 /* Embed Agent session helper */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/oneagent-agent-session",
+			);
+			name = "Embed Agent session helper";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/oneagent-agent-session",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers\"\ncp \"$BUILT_PRODUCTS_DIR/oneagent-agent-session\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/oneagent-agent-session\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		26F0107E37B9DF115F6829DC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39CA6DE87CF04FA1C5404BCC /* AgentConversation.swift in Sources */,
+				2C24333E947C55774D6F02E4 /* AgentLaunchPolicy.swift in Sources */,
+				F3B759C249A29AB92A213662 /* AgentProcessInspection.swift in Sources */,
+				F881F8A237DA4AE81D4F14C6 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5A8316C63BDF238B209E5696 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -677,6 +765,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F175BF21C85AB930E1DC9D4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3BB70B586970F13D5936AC8F /* AgentSessionHelper */;
+			targetProxy = 5AE42CA898D0D65FE39AD78F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0003730F99AA961F1E7FEF77 /* Release */ = {
@@ -799,6 +895,24 @@
 			};
 			name = Debug;
 		};
+		674E3E577DCB7A3275F0DC87 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.itjun.1agent.agent-session";
+				PRODUCT_NAME = "oneagent-agent-session";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
 		B5857BED499A16436040E52D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -855,6 +969,24 @@
 			};
 			name = Release;
 		};
+		F9E7EBAE6EECDB375D8E3440 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.itjun.1agent.agent-session";
+				PRODUCT_NAME = "oneagent-agent-session";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -863,6 +995,15 @@
 			buildConfigurations = (
 				4F37A240EDBF89A548E43F5D /* Debug */,
 				0003730F99AA961F1E7FEF77 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		61510E492A57A6BAE3119539 /* Build configuration list for PBXNativeTarget "AgentSessionHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F9E7EBAE6EECDB375D8E3440 /* Debug */,
+				674E3E577DCB7A3275F0DC87 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

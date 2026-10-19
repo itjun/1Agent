@@ -25,6 +25,10 @@ targets:
           - Localizable.xcstrings
           - shell-integration/**
           - ApplicationIcons/**
+          - agent-sessions/**
+      - path: Resources/agent-sessions
+        type: folder
+        buildPhase: resources
       - path: Resources/ApplicationIcons
         type: folder
         buildPhase: resources
@@ -34,10 +38,21 @@ targets:
         type: folder
         buildPhase: resources
     dependencies:
+      - target: AgentSessionHelper
+        embed: false
       - package: GhosttyTerminal
         product: GhosttyTerminal
       - package: GhosttyTerminal
         product: GhosttyTheme
+    postBuildScripts:
+      - name: Embed Agent session helper
+        script: |
+          mkdir -p "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
+          cp "$BUILT_PRODUCTS_DIR/oneagent-agent-session" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/oneagent-agent-session"
+        inputFiles:
+          - "$(BUILT_PRODUCTS_DIR)/oneagent-agent-session"
+        outputFiles:
+          - "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/oneagent-agent-session"
     info:
       path: Sources/GooseAgent/Info.plist
       properties:
@@ -119,3 +134,17 @@ targets:
           CODE_SIGN_IDENTITY: "Developer ID Application: MOE AI LLC (NCFNX3LJ83)"
           ONLY_ACTIVE_ARCH: NO
           ARCHS: "arm64 x86_64"
+  AgentSessionHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - Sources/AgentSessionHelper
+      - Sources/AgentSessions
+    settings:
+      base:
+        PRODUCT_NAME: oneagent-agent-session
+        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent.agent-session
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_VERSION: "5.10"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: YES

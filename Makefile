@@ -4,6 +4,9 @@
 test-agent-sessions:
 	swiftc -parse-as-library Sources/AgentSessions/*.swift Tests/AgentConversationTests.swift -o /tmp/oneagent-agent-conversation-tests
 	/tmp/oneagent-agent-conversation-tests
+	swiftc Sources/AgentSessions/*.swift Sources/AgentSessionHelper/main.swift -o /tmp/oneagent-agent-session-tests
+	python3 scripts/test-agent-sessions.py /tmp/oneagent-agent-session-tests
+	node scripts/test-agent-session-extension.mjs
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
