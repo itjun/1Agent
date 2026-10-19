@@ -305,7 +305,9 @@ struct RootView: View {
                 HStack(spacing: 6) {
                     Image(systemName: collapsed ? "chevron.right" : "chevron.down")
                         .font(.system(size: 10, weight: .semibold)).frame(width: 12)
-                    Image(systemName: group.symbol).font(.system(size: 12)).frame(width: 16)
+                    if group == .mixed {
+                        Image(systemName: group.symbol).font(.system(size: 12)).frame(width: 16)
+                    }
                     Text(verbatim: group.title).font(.system(size: 12, weight: .semibold))
                     Text(verbatim: String(count)).font(Theme.Font.rowMeta).monospacedDigit()
                     Spacer(minLength: 0)
