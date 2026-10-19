@@ -34,6 +34,22 @@ struct FamilyDialogTests {
         require(owner.childWindows?.isEmpty != false, "cancel removes the scrim")
         require(owner.firstResponder === previous, "focus returns to previous input")
 
+        // Unhandled SwiftUI clicks (including disabled controls and button padding) can
+        // bubble through the card to the backdrop. Only the actual scrim may cancel.
+        let card = NSHostingView(rootView: Text("History"))
+        var backdropCancellations = 0
+        let history = FamilyModalPresentation(content: card, size: NSSize(width: 600, height: 400), owner: owner) {
+            backdropCancellations += 1
+        }
+        history.show()
+        let inside = card.convert(NSPoint(x: 30, y: 30), to: nil)
+        history.backdrop.mouseDown(with: mouseEvent(at: inside, in: history.window))
+        require(backdropCancellations == 0, "clicks inside the history card must not dismiss the dialog")
+        let outside = history.backdrop.convert(NSPoint(x: 2, y: 2), to: nil)
+        history.backdrop.mouseDown(with: mouseEvent(at: outside, in: history.window))
+        require(backdropCancellations == 1, "clicks on the scrim still cancel the dialog")
+        history.close()
+
         let first = FamilyAlert()
         first.messageText = "Delete?"; first.alertStyle = .critical
         first.addButton(withTitle: "Delete"); first.addButton(withTitle: "Cancel")
@@ -98,6 +114,10 @@ struct FamilyDialogTests {
         }
         owner.close()
         print("FamilyDialogTests passed: input focus/editing, cancellation, response mapping, queuing, upload abort, focus restoration, danger/checkbox controls, light/dark surfaces")
+    }
+    static func mouseEvent(at point: NSPoint, in window: NSWindow) -> NSEvent {
+        NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [], timestamp: 0,
+                          windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
     }
     static func require(_ condition: Bool, _ message: String) { if !condition { fatalError(message) } }
 }

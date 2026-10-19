@@ -131,7 +131,12 @@ final class FamilyModalBackdrop: NSView {
         scroll.frame = NSRect(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2, width: size.width, height: size.height)
         card?.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: cardSize.height))
     }
-    override func mouseDown(with event: NSEvent) { onCancel?() }
+    override func mouseDown(with event: NSEvent) {
+        // SwiftUI can pass unhandled clicks through the responder chain. A click
+        // within the card (for example on disabled button padding) is not a cancel.
+        guard !scroll.frame.contains(convert(event.locationInWindow, from: nil)) else { return }
+        onCancel?()
+    }
 }
 
 /// SwiftUI sheet content shares the same centered modal host as confirmations.
