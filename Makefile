@@ -1,5 +1,30 @@
 .PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop test-sidebar-groups test-app-icons generate-app-icons clean
 .PHONY: test-agent-sessions
+.PHONY: test-system-integration
+.PHONY: test-terminal-windows test-scripting-replies
+.PHONY: test-terminal-automation
+.PHONY: test-terminal-compatibility test-terminal-stress
+
+test-terminal-automation:
+	python3 scripts/test-terminal-automation.py
+
+test-terminal-compatibility:
+	bash scripts/test-terminal-windows.sh "" --compatibility
+	ONEAGENT_COMPATIBILITY_NO_FEATURES=1 bash scripts/test-terminal-windows.sh "" --shell-compatibility
+
+test-terminal-stress:
+	bash scripts/test-terminal-windows.sh "" --stress-compatibility
+
+test-terminal-windows:
+	bash scripts/test-terminal-windows.sh
+
+test-scripting-replies:
+	clang -fobjc-arc -framework Foundation -I Sources/GooseAgent Sources/GooseAgent/ScriptingReplyBridge.m Tests/ScriptingReplyBridgeTests.m -o /tmp/oneagent-scripting-reply-tests
+	/tmp/oneagent-scripting-reply-tests
+
+test-system-integration:
+	swiftc -parse-as-library Sources/GooseAgent/TerminalAssociations.swift Tests/TerminalAssociationsTests.swift -o /tmp/oneagent-system-integration-tests
+	/tmp/oneagent-system-integration-tests
 
 test-agent-sessions:
 	swiftc -parse-as-library Sources/AgentSessions/*.swift Tests/AgentConversationTests.swift -o /tmp/oneagent-agent-conversation-tests
@@ -41,7 +66,7 @@ install:
 run: build
 	open "/Applications/$(APP_BUNDLE)"
 
-test: test-agent-sessions
+test: test-agent-sessions test-system-integration test-scripting-replies
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Tests/RemoteCommandBridgeTests.swift
 	/tmp/oneagent-remote-bridge-tests
 	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Sources/GooseAgent/RemoteAgentBootstrap.swift Tests/RemoteShellIntegrationTests.swift
