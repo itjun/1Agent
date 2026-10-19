@@ -14,6 +14,7 @@ struct FamilyButtonStyle: ButtonStyle {
             .padding(.horizontal, kind == .plain ? 0 : 12)
             .frame(minHeight: kind == .plain ? nil : Theme.Control.height)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(fill(configuration.isPressed)))
+            .contentShape(Rectangle())
             .overlay {
                 RoundedRectangle(cornerRadius: Theme.Radius.control)
                     .stroke(focused ? chrome.focus : Color.clear, lineWidth: 2)
