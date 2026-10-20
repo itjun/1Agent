@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project 1Agent.xcodeproj \
+            -scheme 1Agent \
+            -configuration Debug \
+            -derivedDataPath build/DerivedData.noindex \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            build \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            -skipPackagePluginValidation
