@@ -1397,7 +1397,24 @@ final class AppModel: ObservableObject {
     }
 
     func toggleSettings() {
-        SettingsWindowController.shared.toggle(model: self)
+        if showingSettings {
+            closeSettings()
+        } else {
+            showSettings()
+        }
+    }
+
+    /// Settings covers the main window's content; it never opens a window of its own.
+    func showSettings() {
+        mainWindow.hostPickerPresented = false
+        showingSettings = true
+        activate(mainWindow)
+    }
+
+    func closeSettings() {
+        guard showingSettings else { return }
+        ThemePreview.shared.cancel()
+        showingSettings = false
     }
 
     // MARK: - Reconnect

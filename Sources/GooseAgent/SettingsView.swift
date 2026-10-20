@@ -126,7 +126,11 @@ struct SettingsView: View {
     /// User theme waiting for the Move to Trash confirmation.
 
     private var sidebarChrome: WindowChrome { chrome }
+    private let onClose: () -> Void
 
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+    }
 
     private var appearance: TerminalAppearance {
         TerminalAppearance(rawValue: appearanceRaw) ?? .system
@@ -209,6 +213,19 @@ struct SettingsView: View {
 
     private var settingsNavigation: some View {
         VStack(alignment: .leading, spacing: 2) {
+            Button(action: onClose) {
+                Label("Back to Workspace", systemImage: "chevron.left")
+                    .font(Theme.Font.row)
+                    .foregroundStyle(sidebarChrome.secondary)
+                    .padding(.horizontal, Theme.Space.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: SettingsLayout.navRowHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FamilyButtonStyle())
+            .help(String(localized: "Back to Workspace") + " (" + AppShortcuts.display(for: .settings) + ")")
+            .accessibilityIdentifier("settings.close")
+            .padding(.horizontal, Theme.Space.s)
             Text("Settings")
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(sidebarChrome.text)
@@ -748,117 +765,3 @@ private enum ThemeFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// Settings is its own window, with the standard traffic lights, like WeChat.
-struct SettingsWindowRoot: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject private var appearanceDriver = AppearanceDriver.shared
-    @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
-    @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
-    @ObservedObject private var preview = ThemePreview.shared
-    @ObservedObject private var applicationIcons = ApplicationIconManager.shared
-
-    private var chrome: WindowChrome {
-        let _ = lightThemeRaw
-        let _ = darkThemeRaw
-        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: applicationIcons.selected)
-    }
-
-    var body: some View {
-        SettingsView()
-            .environment(\.windowChrome, chrome)
-                    .tint(chrome.accent).font(Theme.Font.body)
-            .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-
-            .frame(minWidth: SheetLayout.settings, minHeight: SheetLayout.settingsBodyHeight)
-            .onAppear { appearanceDriver.reapply() }
-            .onChange(of: appearanceRaw) { _, _ in
-                appearanceDriver.reapply()
-            }
-    }
-}
-
-@MainActor
-final class SettingsWindowController: NSObject, NSWindowDelegate {
-    static let shared = SettingsWindowController()
-    static let windowID = NSUserInterfaceItemIdentifier("settings")
-
-    private var window: NSWindow?
-    private var model: AppModel?
-
-    func toggle(model: AppModel) {
-        self.model = model
-        if let window, window.isVisible {
-            window.close()
-            return
-        }
-        show(model: model)
-    }
-
-    /// Opens Settings, or brings it to the front when it is already open.
-    func show(model: AppModel) {
-        self.model = model
-        QuickTerminalController.shared.hideForSettings()
-        if let window, window.isVisible {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate()
-            return
-        }
-        model.keyWindow?.hostPickerPresented = false
-        let source = sourceWindow()
-        let window = self.window ?? makeWindow(model: model)
-        self.window = window
-        placeWindow(window, over: source)
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
-        model.showingSettings = true
-    }
-
-    private func makeWindow(model: AppModel) -> NSWindow {
-        let controller = NSHostingController(rootView: SettingsWindowRoot(model: model))
-        // 只让 SwiftUI 约束最小尺寸，否则它会按内容理想尺寸改写我们设定的 50% 窗口大小。
-        controller.sizingOptions = [.minSize]
-        let window = NSWindow(contentViewController: controller)
-        window.identifier = Self.windowID
-        window.title = String(localized: "Settings")
-        window.styleMask = [.titled, .closable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.titlebarSeparatorStyle = .none
-        window.isRestorable = false
-        window.isReleasedWhenClosed = false
-        window.delegate = self
-        window.appearance = TerminalAppearance.appKitAppearance(isDark: TerminalAppearance.stored().resolvesDark())
-        let size = NSSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
-        window.setContentSize(size)
-        window.minSize = size
-        return window
-    }
-
-    /// The main window Settings was opened from: the key/main window, never Settings itself.
-    private func sourceWindow() -> NSWindow? {
-        for candidate in [NSApp.keyWindow, NSApp.mainWindow] {
-            if let candidate, candidate.isVisible, candidate.identifier != Self.windowID {
-                return candidate
-            }
-        }
-        return nil
-    }
-
-    /// Re-applied on every open so the window never keeps an older size.
-    private func placeWindow(_ window: NSWindow, over source: NSWindow?) {
-        guard let screen = source?.screen ?? NSScreen.main else { return }
-        let visible = screen.visibleFrame
-        let frame = SettingsWindowFrame.frame(
-            anchor: source?.frame ?? visible,
-            visible: visible,
-            minSize: window.minSize
-        )
-        window.setFrame(frame, display: false)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        ThemePreview.shared.cancel()
-        model?.showingSettings = false
-    }
-}

@@ -100,8 +100,6 @@ test: test-agent-sessions test-system-integration test-scripting-replies
 	/tmp/goose-pane-layout-test
 	swiftc -o /tmp/goose-workspace-board-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
 	/tmp/goose-workspace-board-test
-	swiftc -o /tmp/goose-settings-window-frame-test Sources/GooseAgent/SettingsWindowFrame.swift Tests/SettingsWindowFrameTests.swift
-	/tmp/goose-settings-window-frame-test
 	swiftc -o /tmp/goose-terminal-settings-test Sources/GooseAgent/TerminalSettings.swift Tests/TerminalSettingsTests.swift
 	/tmp/goose-terminal-settings-test
 	swiftc -o /tmp/goose-command-finished-policy-test Sources/GooseAgent/TerminalSettings.swift Sources/GooseAgent/CommandFinishedPolicy.swift Tests/CommandFinishedPolicyTests.swift

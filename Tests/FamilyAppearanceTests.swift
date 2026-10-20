@@ -84,7 +84,9 @@ enum FamilyAppearanceTests {
         driver.reapply()
         preview.show(lightTheme)
         check(true, false, "light preview in dark UI")
-        SettingsWindowController.shared.windowWillClose(Notification(name: NSWindow.willCloseNotification, object: windows[0]))
+        let model = AppModel()
+        model.showingSettings = true
+        model.closeSettings()
         check(true, true, "closing settings cancels preview")
         expect(defaults.string(forKey: TerminalAppearance.lightThemeKey) == "GitHub Light Default", "closing settings does not save")
         preview.showDefaults()

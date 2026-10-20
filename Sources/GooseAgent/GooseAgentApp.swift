@@ -194,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model.toggleSection(in: window)
             return nil
         }
-        if let window, window.section == .files, !window.hostPickerPresented,
+        if let window, window.section == .files, !window.hostPickerPresented, !model.showingSettings,
            chord == AppShortcuts.chord(for: .closeTab),
            NSApp.keyWindow?.identifier == MainWindowManager.windowID {
             _ = model.fileWorkspace(for: window).closeFocusedTab()
@@ -221,9 +221,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let duplicatesDown = chord == AppShortcuts.chord(for: .duplicateDown)
         let closesTerminal = chord == AppShortcuts.chord(for: .closeTab)
         guard duplicatesRight || duplicatesDown || closesTerminal else { return event }
-        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID {
+        if model.showingSettings {
             if closesTerminal {
-                NSApp.keyWindow?.close()
+                model.closeSettings()
             }
             return nil
         }
@@ -285,7 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ?? (chord == reverseSwitcherChord ? .terminalSwitcher : nil)
         guard let id = matched else { return nil }
         guard let window else { return false }
-        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || window.hostPickerPresented {
+        if model.showingSettings || window.hostPickerPresented {
             return false
         }
         if id == .terminalSwitcher {
@@ -317,12 +317,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return AppDelegate.toggleFullScreenOfKeyWindow()
     }
 
-    /// View → Toggle Full Screen and its shortcut. Settings and sheets stay as they are.
+    /// View → Toggle Full Screen and its shortcut. Sheets stay as they are.
     @discardableResult
     static func toggleFullScreenOfKeyWindow() -> Bool {
-        guard let window = NSApp.keyWindow,
-              window.identifier != SettingsWindowController.windowID,
-              window.sheetParent == nil else { return false }
+        guard let window = NSApp.keyWindow, window.sheetParent == nil else { return false }
         window.toggleFullScreen(nil)
         return true
     }
@@ -335,7 +333,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         guard paneShortcuts.contains(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
         guard let window else { return false }
-        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || window.hostPickerPresented {
+        if model.showingSettings || window.hostPickerPresented {
             return false
         }
         // Moving comes first: it shares the arrow keys with focusing and adds Shift.

@@ -143,7 +143,6 @@
 		F3CB90109973D461C41E5160 /* QuickCommandDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */; };
 		F4B1E0B0F3895EFA22477278 /* ApplicationIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */; };
 		F881F8A237DA4AE81D4F14C6 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72041EFA5AEDCF6A9B0AE935 /* main.swift */; };
-		F994360820CB4D1BDC7CA338 /* SettingsWindowFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */; };
 		FA4489BBA6FBFD7AD8E13D8A /* HostPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */; };
 		FC241887E9142971AEC50108 /* TerminalSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */; };
 		FCB11DE661B12CD801D7A781 /* QuickCommandDialogs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47519C98F67FEF8BFC1D299C /* QuickCommandDialogs.swift */; };
@@ -263,7 +262,6 @@
 		B2D39CACC49F126CA35409C0 /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
 		B3DC1BA41700994472C1F669 /* ServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProvider.swift; sourceTree = "<group>"; };
 		B6248AD2B0B0BB89E5C788AA /* goose-agent-icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-1024.png"; sourceTree = "<group>"; };
-		B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowFrame.swift; sourceTree = "<group>"; };
 		BC485445973785CE5D32DA81 /* agent-sessions */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "agent-sessions"; path = "Resources/agent-sessions"; sourceTree = SOURCE_ROOT; };
 		BC9F0D8F78708C18C3CEDAB3 /* HostInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostInformationView.swift; sourceTree = "<group>"; };
 		BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransferQueue.swift; sourceTree = "<group>"; };
@@ -503,7 +501,6 @@
 				EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */,
 				B3DC1BA41700994472C1F669 /* ServiceProvider.swift */,
 				892504A66F17F43AE42EC04A /* SettingsView.swift */,
-				B786179D9D96A64A7D195646 /* SettingsWindowFrame.swift */,
 				BF91141EEC0B753F9445733B /* SheetLayout.swift */,
 				82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */,
 				651A72E339CED37F30858736 /* ShellIntegration.swift */,
@@ -777,7 +774,6 @@
 				1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */,
 				0C4038B602AAF8717BC418C2 /* ServiceProvider.swift in Sources */,
 				AD0B5C92727259945341E0C7 /* SettingsView.swift in Sources */,
-				F994360820CB4D1BDC7CA338 /* SettingsWindowFrame.swift in Sources */,
 				D77456A7DBB9E12229EADFD3 /* SheetLayout.swift in Sources */,
 				BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */,
 				176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */,
