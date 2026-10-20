@@ -5,7 +5,7 @@ zmodload zsh/net/socket 2>/dev/null || return 0
 zmodload zsh/datetime 2>/dev/null || return 0
 
 _oneagent_qc_ready() {
-    [[ $_oneagent_qc_searching != 1 && $CONTEXT == start && -z $BUFFER && $KEYMAP != isearch && $KEYMAP != menuselect &&
+    [[ -z $_oneagent_qc_pending && $_oneagent_qc_searching != 1 && $CONTEXT == start && -z $BUFFER && $KEYMAP != isearch && $KEYMAP != menuselect &&
        $KEYMAP != command && $KEYMAP != visual && $KEYMAP != viopp &&
        ${PENDING:-0} == 0 && ${KEYS_QUEUED_COUNT:-0} == 0 && ${REGION_ACTIVE:-0} == 0 &&
        $ZSH_SUBSHELL == 0 ]]
@@ -52,33 +52,15 @@ _oneagent_qc_request() {
         expected=$(print -rn -- "$directory" | /usr/bin/base64 -d 2>/dev/null)
         if [[ -n $decoded && ( $PWD == $expected || ${PWD:A} == $expected ) ]] && (( EPOCHREALTIME <= deadline )) && _oneagent_qc_ready; then
             _oneagent_qc_seen+=($request)
-            # Execute inside the guarded widget rather than injecting PTY input.
-            # zsh 5.9's fd polling loop does not wake for accept-line / zle -U.
-            # Restore the pre-ZLE terminal mode for interactive commands and put
-            # ZLE's mode back in an always block, including after Ctrl-C.
-            # Job-control refreshes can redraw ZLE over a widget's output when
-            # its child exits. Keep these children in the shell's process group;
-            # the scoped INT trap below lets Ctrl-C stop the command, not ZLE.
-            unsetopt monitor notify
-            setopt localtraps
-            trap ':' INT
-            local editing_tty=$(command stty -g < /dev/tty)
-            {
-                _oneagent_qc_reply "$client" "$request|accepted"
-                exec {client}>&-
-                zle -I
-                print -r -- "$decoded"
-                print -s -- "$decoded"
-                command stty "$_oneagent_qc_cooked_tty" < /dev/tty
-                # Do not expose the widget's listener fd as $1 to sourced scripts.
-                ( trap - INT; builtin set --; builtin eval -- "$decoded" )
-            } always {
-                TRY_BLOCK_INTERRUPT=0
-                TRY_BLOCK_ERROR=0
-                print
-                command stty "$editing_tty" < /dev/tty
-                zle -R
-            }
+            # Leave ZLE before executing: a child run inside an fd widget lets
+            # SIGWINCH redraw the old prompt over that child's output. zsh 5.9
+            # polls the tty again after an fd callback, so the host sends one
+            # NUL wakeup (no command bytes) to enter the accept widget.
+            typeset -g _oneagent_qc_pending=$decoded
+            typeset -g _oneagent_qc_restore_key=$(bindkey -L -M "$KEYMAP" '^@')
+            bindkey -M "$KEYMAP" '^@' _oneagent_qc_wakeup
+            _oneagent_qc_reply "$client" "$request|accepted-wakeup"
+            exec {client}>&-
             return 0
         fi
         _oneagent_qc_reply "$client" "$request|rejected"
@@ -86,6 +68,18 @@ _oneagent_qc_request() {
         _oneagent_qc_reply "$client" "$request|rejected"
     fi
     exec {client}>&-
+}
+
+# The command stays separate from the editor buffer until the owned process
+# receives its wakeup. Restore the user's NUL binding before accepting the line.
+_oneagent_qc_wakeup() {
+    local typeahead=$BUFFER
+    builtin eval -- "$_oneagent_qc_restore_key"
+    unset _oneagent_qc_restore_key
+    BUFFER="( builtin eval -- ${(q)_oneagent_qc_pending} )"
+    unset _oneagent_qc_pending
+    zle .accept-line
+    [[ -z $typeahead ]] || zle -U "$typeahead"
 }
 
 # Continuation readers restrict fd widgets; unregister until the main prompt.
@@ -98,13 +92,16 @@ _oneagent_qc_line_init() {
         zle -F "$_oneagent_qc_listener" 2>/dev/null
     fi
 }
-_oneagent_qc_line_finish() { zle -F "$_oneagent_qc_listener" 2>/dev/null }
+_oneagent_qc_line_finish() {
+    zle -F "$_oneagent_qc_listener" 2>/dev/null
+    # An interrupted/abandoned handoff must not leave a user binding changed.
+    if [[ -n $_oneagent_qc_restore_key ]]; then
+        builtin eval -- "$_oneagent_qc_restore_key"
+        unset _oneagent_qc_restore_key _oneagent_qc_pending
+    fi
+}
 _oneagent_qc_search_begin() { _oneagent_qc_searching=1 }
 _oneagent_qc_search_end() { _oneagent_qc_searching=0 }
-
-_oneagent_qc_precmd() {
-    _oneagent_qc_cooked_tty=$(command stty -g < /dev/tty)
-}
 
 _oneagent_qc_cleanup() {
     [[ $ONEAGENT_QC_OWNER == $$ && $ZSH_SUBSHELL == 0 ]] || return 0
@@ -123,13 +120,12 @@ _oneagent_qc_cleanup() {
     typeset -g _oneagent_qc_listener=$listener
     typeset -ga _oneagent_qc_seen=()
     export ONEAGENT_QC_OWNER=$$
-    typeset -g _oneagent_qc_cooked_tty=$(command stty -g < /dev/tty)
+    zle -N _oneagent_qc_wakeup
     zle -N _oneagent_qc_request
     autoload -Uz add-zle-hook-widget
     add-zle-hook-widget line-init _oneagent_qc_line_init
     add-zle-hook-widget line-finish _oneagent_qc_line_finish
     add-zle-hook-widget isearch-update _oneagent_qc_search_begin
     add-zle-hook-widget isearch-exit _oneagent_qc_search_end
-    precmd_functions+=(_oneagent_qc_precmd)
     zshexit_functions+=(_oneagent_qc_cleanup)
 }
