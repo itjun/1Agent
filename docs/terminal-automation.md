@@ -8,7 +8,7 @@
 - 关闭窗口只结束该窗口的会话；有前台命令或 SSH 会话时显示确认。退出应用会保存全部窗口，再停止 Agent 会话。
 - Finder 的“在此新建 1Agent 标签”每次新建终端；“在此新建 1Agent 窗口”创建独立窗口。选择文件时进入其父目录，多选目录时共用该新窗口。
 - “系统集成 → 外部目录打开方式”控制 GitHub Desktop、`open` 和 Finder 打开文件夹时用新标签还是新窗口；未在请求里写 `--tab` / `--new-window` / `window=` 时生效。GitHub Desktop 自定义 Shell：Path 为 `/Applications/1Agent.app`，Arguments 为 `%TARGET_PATH%`。把侧栏终端拖到另一窗口可合并，不使用 macOS 标题栏标签。
-- 快速终端默认快捷键为 `⌃` 加反引号，可在“热键”中修改。从“系统集成 → 窗口与自动化”也可显示或隐藏。隐藏保留原 PTY 与进程。
+- 快速终端默认快捷键为 `⌃` 加反引号，仅在 1Agent 前台时生效（无系统全局热键），可在“热键”中修改。从“系统集成 → 窗口与自动化”也可显示或隐藏。隐藏保留原 PTY 与进程。
 - 安全键盘输入支持本机规范模式下的密码输入检测，也可手动打开。输入框、弹窗、其他应用获得焦点，或退出时，释放本应用持有的安全输入引用。远端密码可手动启用。
 
 ## 命令行
@@ -61,7 +61,7 @@ make test-terminal-compatibility
 make test-terminal-stress
 ```
 
-`test-terminal-windows` 使用隔离偏好与原生 AppKit 窗口，Shell 夹具仅运行 `cat` 或本测试自身；覆盖窗口归属、跨窗口移动、保存与恢复、缩放、脚本对象描述符、Carbon 回调和安全输入生命周期。`test-terminal-automation` 操作已安装应用，只向新建的测试终端输入，不退出应用。
+`test-terminal-windows` 使用隔离偏好与原生 AppKit 窗口，Shell 夹具仅运行 `cat` 或本测试自身；覆盖窗口归属、跨窗口移动、保存与恢复、缩放、脚本对象描述符、快速终端显示/隐藏和安全输入生命周期。`test-terminal-automation` 操作已安装应用，只向新建的测试终端输入，不退出应用。
 
 `test-terminal-compatibility` 需要 GNU Bash、fish、Elvish、Nushell 和 tmux（可通过 Homebrew 安装），另使用系统 Zsh/Vim。它运行真实 PTY、内嵌引擎、协议回包、剪贴板权限判断、TUI、原生窗口及全屏测试，默认功能与全部功能关闭各测一次。测试打开临时窗口并短暂进入全屏；HOME、XDG 及偏好隔离，IP 网络被禁止，tmux 使用自己的 Unix socket。剪贴板仅写入测试标记，并在没有其他应用改写时恢复原内容。
 

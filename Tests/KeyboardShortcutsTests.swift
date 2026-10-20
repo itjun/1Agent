@@ -14,6 +14,7 @@ enum KeyboardShortcutsTests {
         conflicts()
         reservedKeys()
         modifierRule()
+        expect(AppShortcutID.quickTerminal.defaultChord == KeyChord(key: "`", modifiers: [.control]), "quick terminal defaults to app-focused ⌃`")
         print("ok")
     }
 

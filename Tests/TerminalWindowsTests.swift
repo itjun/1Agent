@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 import Darwin
 import Foundation
 import GhosttyTerminal
@@ -31,7 +30,7 @@ import ObjectiveC
                     print("TerminalCompatibilityTests passed")
                 } else {
                     try await run()
-                    print("TerminalWindowsTests passed: 24 windows, 720 AppKit resizes, ownership, recovery, quick-terminal callback and secure input lifecycle")
+                    print("TerminalWindowsTests passed: 24 windows, 720 AppKit resizes, ownership, recovery, quick-terminal toggle and secure input lifecycle")
                 }
                 exit(0)
             }
@@ -117,21 +116,16 @@ import ObjectiveC
     }
 
     @MainActor static func platformIntegration(_ model: AppModel, home: String) async throws {
-        try check(QuickTerminalController.keyCode(for: String(UnicodeScalar(NSF1FunctionKey)!)) == 122 && QuickTerminalController.keyCode(for: String(UnicodeScalar(NSF19FunctionKey)!)) == 80, "Global shortcuts support recorded function keys")
-        try check(QuickTerminalController.keyCode(for: KeyChord.forwardDelete) == 117, "Global navigation key mapping")
         let state = model.createWindow()
         state.isQuickTerminal = true
         let terminal = try await model.createScriptTerminal(configuration: TerminalCreationConfiguration(record: ["workingDirectory": home]), in: state)
         installTerminal(terminal, home: home, passwordFixture: true)
         guard let native = MainWindowManager.shared.window(for: state) else { throw Failure(message: "Missing quick window") }
-        // Keep this isolated test's global registration distinct from the running user's binding.
-        AppShortcuts.setChords([.quickTerminal: KeyChord(key: "g", modifiers: [.control, .shift, .option])])
         QuickTerminalController.shared.start(model: model)
-        try check(QuickTerminalController.shared.registrationError == nil, "Carbon hotkey registration succeeds")
         try check(!native.isVisible, "Quick terminal starts hidden")
-        try sendHotKeyEvent()
+        QuickTerminalController.shared.toggle()
         try await Task.sleep(for: .milliseconds(200))
-        try check(native.isVisible, "The native Carbon callback must show the quick terminal")
+        try check(native.isVisible, "Toggle must show the quick terminal")
         let view = SSHTerminalRegistry.automationView("\(terminal.uuidString)#0")!
         for _ in 0..<100 {
             if view.processHost?.process.isPasswordInput == true { break }
@@ -168,16 +162,17 @@ import ObjectiveC
         TerminalSecureInput.shared.refresh()
         try check(TerminalSecureInput.shared.isEnabled, "Manual input resumes when terminal focus returns")
         TerminalSecureInput.shared.manual = false
-        try sendHotKeyEvent()
+        native.makeKeyAndOrderFront(nil)
+        QuickTerminalController.shared.toggle()
         try await Task.sleep(for: .milliseconds(150))
         TerminalSecureInput.shared.refresh()
         try check(!native.isVisible && !TerminalSecureInput.shared.isEnabled, "Hiding quick terminal releases secure input")
-        try sendHotKeyEvent()
+        QuickTerminalController.shared.toggle()
         try await Task.sleep(for: .milliseconds(150))
         try check(native.isVisible && view.processHost?.process === process && kill(process.shellPid, 0) == 0, "Showing quick terminal preserves the exact PTY process")
         MainWindowManager.shared.close(state)
         try check(!native.isVisible && model.window(for: state.id) != nil && view.processHost?.process === process, "The quick terminal close button hides its window and preserves its PTY")
-        try sendHotKeyEvent()
+        QuickTerminalController.shared.toggle()
         try await Task.sleep(for: .milliseconds(150))
         try check(native.isVisible && view.processHost?.process === process, "A closed quick window can be shown again without restarting")
         QuickTerminalController.shared.hideForSettings()
@@ -187,16 +182,6 @@ import ObjectiveC
         try check(!TerminalSecureInput.shared.isEnabled, "Quit releases secure input")
         MainWindowManager.shared.closeImmediately(state)
         try check(!model.tabs.contains { $0.id == terminal }, "Closing quick window explicitly releases its own terminal")
-    }
-
-    static func sendHotKeyEvent() throws {
-        var event: EventRef?
-        try check(CreateEvent(nil, OSType(kEventClassKeyboard), UInt32(kEventHotKeyPressed), 0, 0, &event) == noErr, "Create hotkey event")
-        guard let event else { throw Failure(message: "No Carbon event") }
-        defer { ReleaseEvent(event) }
-        var identity = EventHotKeyID(signature: 0x31416774, id: 1)
-        try check(SetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), MemoryLayout<EventHotKeyID>.size, &identity) == noErr, "Set hotkey identity")
-        try check(SendEventToEventTarget(event, GetApplicationEventTarget()) == noErr, "Deliver Carbon event through the production handler")
     }
 
     /// Real renderer and PTY, with cat instead of the user's login shell/configuration.

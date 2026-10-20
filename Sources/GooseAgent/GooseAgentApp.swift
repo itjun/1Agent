@@ -124,7 +124,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         appliedShortcutsRevision = revision
-        QuickTerminalController.shared.refreshRegistration()
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
                 TerminalCommands.applySelectAllShortcut()

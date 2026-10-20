@@ -347,9 +347,7 @@ import ObjectiveC
         try await wait("Quick terminal test snapshot did not restore") { model.tabs.count == 1 }
         guard let quick = model.window(for: windowID) else { throw Failure("Missing quick terminal state") }
         defer { MainWindowManager.shared.closeImmediately(quick) }
-        AppShortcuts.setChords([.quickTerminal: KeyChord(key: "g", modifiers: [.control, .shift, .option])])
         QuickTerminalController.shared.start(model: model)
-        try check(QuickTerminalController.shared.registrationError == nil, "Fullscreen test hotkey could not register")
         let full = Fixture()
         defer { full.close() }
         try await full.ready()
@@ -369,7 +367,7 @@ import ObjectiveC
         print("FULLSCREEN_IMAGE_READY: native Kitty RGB image displayed")
         fflush(stdout)
         try await hold(suffix: ".image")
-        try TerminalWindowsTests.sendHotKeyEvent()
+        QuickTerminalController.shared.toggle()
         guard let native = MainWindowManager.shared.window(for: quick) else { throw Failure("Missing fullscreen auxiliary quick terminal") }
         try await wait("Quick terminal is not visible in the active fullscreen Space") { native.isVisible && native.isOnActiveSpace && native.occlusionState.contains(.visible) }
         let terminal = SSHTerminalRegistry.automationView("\(id.uuidString)#0")!
@@ -378,7 +376,8 @@ import ObjectiveC
         print("FULLSCREEN_READY: native fullscreen and auxiliary quick terminal visible")
         fflush(stdout)
         try await hold(suffix: "")
-        try TerminalWindowsTests.sendHotKeyEvent()
+        native.makeKeyAndOrderFront(nil)
+        QuickTerminalController.shared.toggle()
         try await wait("Quick terminal did not hide in fullscreen") { !native.isVisible }
         full.window.toggleFullScreen(nil)
         try await wait("Native window did not complete fullscreen exit", seconds: 15) { exited }

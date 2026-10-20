@@ -137,6 +137,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         switch self {
         case .newWindow: return KeyChord(key: "n", modifiers: [.command])
         case .closeWindow: return KeyChord(key: "w", modifiers: [.command, .shift])
+        // App-focused only (menu key equivalent). Ghostty has no default for this; community configs often use ⌃`.
         case .quickTerminal: return KeyChord(key: "`", modifiers: [.control])
         case .newTab: return KeyChord(key: "t", modifiers: .command)
         case .newLocalTerminal: return KeyChord(key: "t", modifiers: [.command, .shift])
