@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// `oneagent://` links, plus folders and scripts from `open`, Finder, or the Dock.
     func application(_ application: NSApplication, open urls: [URL]) {
+        model.noteExternalOpen()
         var files: [URL] = []
         for url in urls {
             if !url.isFileURL {

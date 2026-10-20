@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// What another app (1Panel) asked for through `oneagent://open?…`.
@@ -43,6 +44,23 @@ struct ExternalRunRequest: Equatable {
     var command: String?
     var waitAfterCommand = false
     var newWindow = false
+    /// True only when `--new-window`, `--tab`, or `window=new|tab` chose the placement explicitly.
+    /// An unspecified request follows the user's external-open preference.
+    var windowSpecified = false
+}
+
+/// Where Finder, `open`, and GitHub Desktop place a folder when the request itself does not say.
+enum ExternalOpenPlacement: String {
+    case tab
+    case window
+
+    static let defaultsKey = "externalOpenPlacement"
+
+    static func stored(in defaults: UserDefaults = .standard) -> ExternalOpenPlacement {
+        guard let raw = defaults.string(forKey: defaultsKey),
+              let placement = ExternalOpenPlacement(rawValue: raw) else { return .tab }
+        return placement
+    }
 }
 
 /// What a second instance leaves for the running one in the hand-off folder. The notification only
@@ -137,12 +155,13 @@ enum ExternalOpen {
             case "wait":
                 request.waitAfterCommand = ExternalOpen.isTrue(value)
             case "window":
-                request.newWindow = value == "new"
+                request.newWindow = ExternalOpen.windowPlacement(value)
+                request.windowSpecified = true
             default:
                 continue
             }
         }
-        if request.directory == nil && request.command == nil && !request.newWindow {
+        if request.directory == nil && request.command == nil && !request.windowSpecified {
             return nil
         }
         return request
@@ -162,7 +181,9 @@ enum ExternalOpen {
         if request.waitAfterCommand {
             items.append(URLQueryItem(name: "wait", value: "1"))
         }
-        if request.newWindow { items.append(URLQueryItem(name: "window", value: "new")) }
+        if request.windowSpecified {
+            items.append(URLQueryItem(name: "window", value: request.newWindow ? "new" : "tab"))
+        }
         components.queryItems = items
         return components.url
     }
@@ -190,20 +211,59 @@ enum ExternalOpen {
                 }
                 break
             }
-            if argument == "--new-window" { request.newWindow = true }
-            if argument == "--tab" { request.newWindow = false }
+            if argument == "--new-window" || argument == "--tab" {
+                request.newWindow = argument == "--new-window"
+                request.windowSpecified = true
+            }
             if argument.hasPrefix("--working-directory=") {
                 let value = String(argument.dropFirst("--working-directory=".count))
                 request.directory = value
+            } else if argument == "--working-directory", index + 1 < arguments.count {
+                // GitHub Desktop / Alacritty-style: `--working-directory %TARGET_PATH%`
+                request.directory = arguments[index + 1]
+                index += 1
             } else if argument.hasPrefix("--wait-after-command") {
                 request.waitAfterCommand = !argument.hasSuffix("=false")
             }
             index += 1
         }
-        if request.directory == nil && request.command == nil && !request.newWindow {
+        if request.directory == nil && request.command == nil && !request.windowSpecified {
             return nil
         }
         return request
+    }
+
+    /// An explicit window flag wins. Otherwise the request follows the stored preference.
+    static func resolvedNewWindow(_ request: ExternalRunRequest, preference: ExternalOpenPlacement) -> Bool {
+        request.windowSpecified ? request.newWindow : preference == .window
+    }
+
+    /// Which window should receive an external folder opened as a tab.
+    /// Prefer the key window when it already has terminals; otherwise any occupied window
+    /// (visible first). Empty leftover windows must not steal GitHub Desktop / `open` tabs.
+    static func preferredTabWindowIndex(keyIndex: Int?, occupied: [Bool], visible: [Bool]) -> Int {
+        precondition(!occupied.isEmpty && occupied.count == visible.count)
+        if let keyIndex, occupied.indices.contains(keyIndex), occupied[keyIndex] {
+            return keyIndex
+        }
+        if let index = occupied.indices.first(where: { occupied[$0] && visible[$0] }) {
+            return index
+        }
+        if let index = occupied.indices.first(where: { occupied[$0] }) {
+            return index
+        }
+        if let keyIndex, occupied.indices.contains(keyIndex) {
+            return keyIndex
+        }
+        return 0
+    }
+
+    /// AppKit can create an untitled window before the folder arrives. That window is discarded only
+    /// when it was not requested by a key or mouse event and an external open arrives quickly.
+    static func shouldDeferUntitledWindow(hasDirectory: Bool, event: NSEvent?) -> Bool {
+        if hasDirectory { return false }
+        guard let event else { return true }
+        return event.type != .keyDown && event.type != .leftMouseDown && event.type != .rightMouseDown
     }
 
     /// The first argument before `-e` that is not a flag and names an existing folder, made absolute
@@ -255,6 +315,12 @@ enum ExternalOpen {
         return matches.last?.id
     }
 
+    /// A plain external folder may focus a live shell already standing in that directory.
+    /// A command or typed input always gets its own shell.
+    static func canReuseExistingTerminal(directory: String?, command: String?, initialInput: String?) -> Bool {
+        directory != nil && command == nil && initialInput == nil
+    }
+
     /// What the new shell types for `-e`. Like Ghostty, the command replaces the shell (`exec`), so the
     /// terminal closes when it ends; `--wait-after-command` keeps the shell and the terminal instead.
     /// The leading space keeps the line out of history when the shell ignores space-prefixed lines.
@@ -300,5 +366,9 @@ enum ExternalOpen {
     private static func isTrue(_ value: String) -> Bool {
         let lowered = value.lowercased()
         return lowered == "1" || lowered == "true" || lowered == "yes" || lowered.isEmpty
+    }
+
+    private static func windowPlacement(_ value: String) -> Bool {
+        value.lowercased() == "new"
     }
 }

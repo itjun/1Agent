@@ -7,6 +7,7 @@ struct SystemIntegrationSettingsPage: View {
     @State private var showsScriptTypes = false
     @State private var showsAutomation = false
     @AppStorage(TerminalAutomation.enabledKey) private var automationEnabled = true
+    @AppStorage(ExternalOpenPlacement.defaultsKey) private var externalOpenPlacement = ExternalOpenPlacement.tab.rawValue
     @ObservedObject private var quickTerminal = QuickTerminalController.shared
     @ObservedObject private var secureInput = TerminalSecureInput.shared
     @State private var commandLineFeedback: String?
@@ -73,6 +74,36 @@ struct SystemIntegrationSettingsPage: View {
             }
 
             line
+            VStack(alignment: .leading, spacing: Theme.Space.s) {
+                Text("External Folder Opens")
+                    .font(Theme.Font.sectionTitle)
+                    .foregroundStyle(chrome.text)
+                Text("GitHub Desktop, Finder, and open use this when they do not ask for a tab or window.")
+                    .font(Theme.Font.rowMeta)
+                    .foregroundStyle(chrome.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: Theme.Space.m) {
+                    Text("Open In")
+                    FamilyPicker(
+                        value: Binding(
+                            get: { ExternalOpenPlacement(rawValue: externalOpenPlacement) ?? .tab },
+                            set: { externalOpenPlacement = $0.rawValue }
+                        ),
+                        options: [
+                            (.tab, String(localized: "New Tab")),
+                            (.window, String(localized: "New Window")),
+                        ]
+                    )
+                    .frame(width: SettingsLayout.integrationAppColumn)
+                    .accessibilityIdentifier("systemIntegration.externalOpenPlacement")
+                }
+                Text("In GitHub Desktop, set Shell to Configure Custom Shell, Path to /Applications/1Agent.app, and Arguments to %TARGET_PATH%. Drag a sidebar terminal into another window to merge it.")
+                    .font(Theme.Font.rowMeta)
+                    .foregroundStyle(chrome.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            line
             HStack(alignment: .top, spacing: Theme.Space.l) {
                 Text("Finder services create new terminals and independent windows.")
                     .font(Theme.Font.rowMeta)
@@ -94,9 +125,6 @@ struct SystemIntegrationSettingsPage: View {
                     HStack {
                         Text("Quick Terminal Shortcut")
                         Text(verbatim: AppShortcuts.display(for: .quickTerminal)).foregroundStyle(chrome.secondary)
-                    }
-                    if let error = quickTerminal.registrationError {
-                        Text(verbatim: error).foregroundStyle(chrome.danger).fixedSize(horizontal: false, vertical: true)
                     }
                     Toggle("Enable Terminal Automation", isOn: $automationEnabled)
                     Text("AppleScript and Shortcuts address windows and terminals by ID.")
