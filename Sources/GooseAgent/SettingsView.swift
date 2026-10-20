@@ -127,9 +127,11 @@ struct SettingsView: View {
 
     private var sidebarChrome: WindowChrome { chrome }
     private let onClose: () -> Void
+    private let onRestart: () -> Void
 
-    init(onClose: @escaping () -> Void) {
+    init(onClose: @escaping () -> Void, onRestart: @escaping () -> Void) {
         self.onClose = onClose
+        self.onRestart = onRestart
     }
 
     private var appearance: TerminalAppearance {
@@ -256,6 +258,20 @@ struct SettingsView: View {
                 .padding(.horizontal, Theme.Space.s)
             }
             Spacer(minLength: 0)
+            Button(action: onRestart) {
+                Label("Restart 1Agent", systemImage: "arrow.clockwise")
+                    .font(Theme.Font.row)
+                    .foregroundStyle(sidebarChrome.secondary)
+                    .padding(.horizontal, Theme.Space.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: SettingsLayout.navRowHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FamilyButtonStyle())
+            .help(String(localized: "Terminal sessions are saved and restored after the restart. Running commands will be interrupted."))
+            .accessibilityIdentifier("settings.restart")
+            .padding(.horizontal, Theme.Space.s)
+            .padding(.bottom, Theme.Space.m)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)

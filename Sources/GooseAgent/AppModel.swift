@@ -102,6 +102,8 @@ final class AppModel: ObservableObject {
     /// Set once the app starts quitting. Windows then close without taking their terminals along,
     /// so the snapshot written at exit still lists every session.
     var isQuitting = false
+    /// Set by Restart; the relaunch starts only once termination is certain.
+    var isRestarting = false
     private var lastExternalKey = ""
     private var lastExternalAt = Date.distantPast
     /// Writes wait until the saved session has been read, so an empty launch cannot erase it.
@@ -1274,6 +1276,21 @@ final class AppModel: ObservableObject {
         guard showingSettings else { return }
         ThemePreview.shared.cancel()
         showingSettings = false
+    }
+
+    /// Quits through the normal path (sessions and logs are saved first), then opens the app again.
+    func requestRestart() {
+        guard !isQuitting, let window = MainWindowManager.shared.window(for: mainWindow) else { return }
+        let alert = FamilyAlert()
+        alert.messageText = String(localized: "Restart 1Agent?")
+        alert.informativeText = String(localized: "Terminal sessions are saved and restored after the restart. Running commands will be interrupted.")
+        alert.addButton(withTitle: String(localized: "Restart"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.beginSheetModal(for: window) { response in
+            guard response == .alertFirstButtonReturn else { return }
+            self.isRestarting = true
+            NSApp.terminate(nil)
+        }
     }
 
     // MARK: - Reconnect

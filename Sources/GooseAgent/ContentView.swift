@@ -73,7 +73,7 @@ struct RootView: View {
             .accessibilityHidden(model.showingSettings)
             .overlay {
                 if model.showingSettings {
-                    SettingsView(onClose: { model.closeSettings() })
+                    SettingsView(onClose: { model.closeSettings() }, onRestart: { model.requestRestart() })
                         .environment(\.windowChrome, chrome)
                         .tint(chrome.accent).font(Theme.Font.body)
                         .ignoresSafeArea(edges: .top)

@@ -383,6 +383,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 sender.reply(toApplicationShouldTerminate: true)
             } catch {
                 model.isQuitting = false
+                model.isRestarting = false
                 model.persistSessionIfReady()
                 sender.reply(toApplicationShouldTerminate: false)
                 let alert = FamilyAlert()
@@ -399,6 +400,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         model.persistSessionIfReady()
         RemoteShell.closeSharedConnections()
+        if model.isRestarting {
+            // Waits for this process to exit, so the new copy does not hand its launch back to us.
+            let relaunch = Process()
+            relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
+            relaunch.arguments = [
+                "-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$2\"",
+                "sh", String(ProcessInfo.processInfo.processIdentifier), Bundle.main.bundlePath,
+            ]
+            try? relaunch.run()
+        }
     }
 }
 
