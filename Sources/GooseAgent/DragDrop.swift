@@ -129,18 +129,27 @@ final class CanvasDropRelay: ObservableObject {
         dragEnded(windowPoint: windowPoint)
     }
 
-    /// Shows the landing preview while the pointer is inside this window; outside there is nothing to land on.
+    /// Shows the landing preview while the pointer is over any 1Agent window; desktop drops are ignored.
     func dragMoved(windowPoint: NSPoint) {
         guard let payload = ownPayload, let source = nsWindow else { return }
         let screenPoint = source.convertPoint(toScreen: windowPoint)
-        let inside = MainActor.assumeIsolated {
-            MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil) != nil
-        }
-        guard inside else {
+        MainActor.assumeIsolated {
+            guard let hit = MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil) else {
+                Self.clearForeignPreviews(except: nil)
+                hidePreview()
+                return
+            }
+            let (targetState, targetNative) = hit
+            let targetPoint = targetNative.convertPoint(fromScreen: screenPoint)
+            if targetState.id == windowBox?.id {
+                Self.clearForeignPreviews(except: targetState.id)
+                showPreview(for: payload, windowPoint: windowPoint)
+                return
+            }
             hidePreview()
-            return
+            Self.clearForeignPreviews(except: targetState.id)
+            targetState.relay?.showPreview(for: payload, windowPoint: targetPoint)
         }
-        showPreview(for: payload, windowPoint: windowPoint)
     }
 
     func dragEnded(windowPoint: NSPoint) {
@@ -153,10 +162,25 @@ final class CanvasDropRelay: ObservableObject {
             defer {
                 window.filesDropTarget = nil
                 model.endDrag(in: window)
+                Self.clearForeignPreviews(except: nil)
             }
             // Dropped on the desktop or another app: nothing happens.
-            guard MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil) != nil else { return }
-            performDrop(of: payload, windowPoint: windowPoint, model: model)
+            guard let (targetState, targetNative) = MainWindowManager.shared.windowState(atScreenPoint: screenPoint, except: nil) else { return }
+            let targetPoint = targetNative.convertPoint(fromScreen: screenPoint)
+            if targetState.id == window.id {
+                performDrop(of: payload, windowPoint: windowPoint, model: model)
+            } else {
+                targetState.relay?.performDrop(of: payload, windowPoint: targetPoint, model: model)
+            }
+        }
+    }
+
+    /// Clears drop chrome in every other terminal window so a cross-window drag leaves one preview.
+    @MainActor
+    private static func clearForeignPreviews(except keep: UUID?) {
+        guard let model = TerminalAutomation.model else { return }
+        for state in model.windows where state.id != keep {
+            state.relay?.hidePreview()
         }
     }
 
