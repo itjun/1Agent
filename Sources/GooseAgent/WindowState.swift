@@ -151,7 +151,6 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
         for window in NSApp.windows where window.identifier == windowID {
             window.tabbingMode = .disallowed
-            window.collectionBehavior.insert(.moveToActiveSpace)
         }
     }
 
