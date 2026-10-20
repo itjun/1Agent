@@ -1258,29 +1258,16 @@ final class AppModel: ObservableObject {
     }
 
     func toggleSettings() {
-        if showingSettings {
-            closeSettings()
-        } else {
-            showSettings()
-        }
-    }
-
-    /// Settings covers the main window's content; it never opens a window of its own.
-    func showSettings() {
-        mainWindow.hostPickerPresented = false
-        showingSettings = true
-        activate(mainWindow)
-    }
-
-    func closeSettings() {
-        guard showingSettings else { return }
-        ThemePreview.shared.cancel()
-        showingSettings = false
+        SettingsWindowController.shared.toggle(model: self)
     }
 
     /// Quits through the normal path (sessions and logs are saved first), then opens the app again.
     func requestRestart() {
-        guard !isQuitting, let window = MainWindowManager.shared.window(for: mainWindow) else { return }
+        var sheetParent = MainWindowManager.shared.window(for: mainWindow)
+        if let settings = SettingsWindowController.shared.window, settings.isVisible {
+            sheetParent = settings
+        }
+        guard !isQuitting, let window = sheetParent else { return }
         let alert = FamilyAlert()
         alert.messageText = String(localized: "Restart 1Agent?")
         alert.informativeText = String(localized: "Terminal sessions are saved and restored after the restart. Running commands will be interrupted.")

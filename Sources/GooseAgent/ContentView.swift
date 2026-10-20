@@ -69,18 +69,6 @@ struct RootView: View {
 
                 }
             }
-            .allowsHitTesting(!model.showingSettings)
-            .accessibilityHidden(model.showingSettings)
-            .overlay {
-                if model.showingSettings {
-                    SettingsView(onClose: { model.closeSettings() }, onRestart: { model.requestRestart() })
-                        .environment(\.windowChrome, chrome)
-                        .tint(chrome.accent).font(Theme.Font.body)
-                        .ignoresSafeArea(edges: .top)
-                        .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-                        .accessibilityIdentifier("settings.page")
-                }
-            }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
         .frame(minWidth: 880, minHeight: 520)
@@ -131,18 +119,8 @@ struct RootView: View {
                     .tint(chrome.accent).font(Theme.Font.body)
                 .preferredColorScheme(appearanceDriver.interfaceColorScheme)
         }
-        .onChange(of: model.showingSettings) { _, showing in
-            if showing {
-                // The terminal underneath would otherwise keep receiving typed keys.
-                MainWindowManager.shared.window(for: window)?.makeFirstResponder(nil)
-            } else if !filesMode, let tab = model.selectedTab(in: window) {
-                SSHTerminalRegistry.focus(tab.sessionID)
-            }
-        }
-        .onChange(of: window.selectedTabID) { _, _ in model.closeSettings() }
-        .onChange(of: filesMode) { _, _ in model.closeSettings() }
         .onChange(of: window.hostPickerPresented) { _, presented in
-            if !presented && !filesMode && !model.showingSettings {
+            if !presented && !filesMode {
                 if let tab = model.selectedTab(in: window) {
                     SSHTerminalRegistry.focus(tab.sessionID)
                 }

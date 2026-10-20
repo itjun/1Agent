@@ -173,7 +173,7 @@ enum GhosttyConfigImport {
             defaults.set(true, forKey: GhosttyConfigImport.promptShownKey)
             if response == .alertFirstButtonReturn {
                 GhosttyImportRequests.shared.previewPending = true
-                model.showSettings()
+                SettingsWindowController.shared.show(model: model)
             }
         }
         if let window = MainWindowManager.shared.window(for: model.mainWindow), window.isVisible {
