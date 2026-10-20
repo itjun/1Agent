@@ -1393,6 +1393,7 @@ final class AppModel: ObservableObject {
         await SSHTerminalRegistry.stopAgentsForApplicationExit()
         try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
         persistSession()
+        await SSHTerminalRegistry.killProcessesForApplicationExit()
     }
 
     func toggleSettings() {

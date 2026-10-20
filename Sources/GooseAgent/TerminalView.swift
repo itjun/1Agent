@@ -590,6 +590,40 @@ enum SSHTerminalRegistry {
         }
     }
 
+    /// ⌘Q ends every terminal's whole PTY session, including jobs that ignore the hang-up.
+    /// Runs after output and the snapshot are saved; the sessions are recreated at next launch.
+    static func killProcessesForApplicationExit() async {
+        var shells = Set<pid_t>()
+        for view in views.values {
+            if let pid = view.processHost?.process.shellPid, pid > 0 { shells.insert(pid) }
+        }
+        guard !shells.isEmpty else { return }
+        // forkpty makes each shell a session leader, so its session ID is its pid.
+        var members = Array(shells)
+        let capacity = Int(proc_listallpids(nil, 0)) + 64
+        var all = [pid_t](repeating: 0, count: capacity)
+        let count = Int(proc_listallpids(&all, Int32(capacity * MemoryLayout<pid_t>.size)))
+        for pid in all.prefix(max(0, count)) where pid > 0 && !shells.contains(pid) && shells.contains(getsid(pid)) {
+            members.append(pid)
+        }
+        // Silences exit reporting first, so the hang-up cannot close tabs in the saved session.
+        for view in views.values { view.processHost?.terminate() }
+        for pid in members { kill(pid, SIGHUP) }
+        let deadline = Date().addingTimeInterval(1)
+        while Date() < deadline, members.contains(where: { SSHTerminalRegistry.isRunning($0) }) {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        for pid in members where SSHTerminalRegistry.isRunning(pid) { kill(pid, SIGKILL) }
+    }
+
+    /// A zombie child still answers `kill(pid, 0)` until it is reaped; it no longer runs.
+    private static func isRunning(_ pid: pid_t) -> Bool {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return false }
+        return info.pbi_status != UInt32(SZOMB)
+    }
+
     static func saveOutputForApplicationExit(tabs: [TerminalTab], store: TerminalOutputStore = .shared) throws {
         let terminals = tabs.filter(\.hasTerminal)
         for tab in terminals {
