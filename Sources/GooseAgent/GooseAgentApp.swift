@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GhosttyRuntime.removeLeftoverConfigFiles()
         GhosttyRuntime.applyTerminalSettings()
         MainWindowManager.shared.attach(model: model)
+        MainWindowManager.disableNativeWindowTabs()
         TerminalAutomation.model = model
         TerminalActivity.shared.model = model
         TerminalNotifications.shared.install()

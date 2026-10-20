@@ -119,6 +119,8 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        // 1Agent uses its own sidebar terminals, never AppKit title-bar tabs.
+        window.tabbingMode = .disallowed
         window.isRestorable = false
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -131,6 +133,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
             window.center()
         }
         windows[state.id] = window
+        Self.disableNativeWindowTabs()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
         // AppKit otherwise picks the first sidebar search field when the new
@@ -140,6 +143,14 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
                   let tab = model.selectedTab(in: state) else { return }
             window.contentView?.layoutSubtreeIfNeeded()
             SSHTerminalRegistry.focus(tab.sessionID)
+        }
+    }
+
+    /// AppKit can still merge windows into horizontal title-bar tabs. Keep every 1Agent window independent.
+    static func disableNativeWindowTabs() {
+        NSWindow.allowsAutomaticWindowTabbing = false
+        for window in NSApp.windows where window.identifier == windowID {
+            window.tabbingMode = .disallowed
         }
     }
 
@@ -201,6 +212,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
 
     func windowDidBecomeKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow, let state = state(for: window) else { return }
+        Self.disableNativeWindowTabs()
         model?.windowBecameKey(state)
     }
 
