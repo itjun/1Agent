@@ -96,6 +96,7 @@
 		983049074A7D2DF8A76E5085 /* TextFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2222F4287412ADA926A0AFC /* TextFile.swift */; };
 		9B069FD4F9697A0C757333EF /* QuickCommandActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */; };
 		9C827CD4FE4427CB1881372E /* ApplicationIcons in Resources */ = {isa = PBXBuildFile; fileRef = FBE87DE2ED5872092C13985A /* ApplicationIcons */; };
+		9FADDB74A9AD4B176FAD12D9 /* TerminalOutputStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE46E65EB8A003B3D6ABFAD5 /* TerminalOutputStore.swift */; };
 		A017C648B0C6B7A50F41DBF9 /* QuickCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F081A460F13779B2F87B39CA /* QuickCommand.swift */; };
 		A89071147FC25805E84361A6 /* FamilyMenuControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC04379ABB1F67A2FA6C90F0 /* FamilyMenuControls.swift */; };
 		A904414E0A56E36983D165D3 /* PreviewSyntax.js in Resources */ = {isa = PBXBuildFile; fileRef = 00BF2C9913789DC6BE4D0051 /* PreviewSyntax.js */; };
@@ -290,6 +291,7 @@
 		D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewPane.swift; sourceTree = "<group>"; };
 		DA0C5AD90ACC70094360B818 /* TerminalIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalIntents.swift; sourceTree = "<group>"; };
 		DB25B10A2B15E7127307F842 /* UploadCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadCheck.swift; sourceTree = "<group>"; };
+		DE46E65EB8A003B3D6ABFAD5 /* TerminalOutputStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalOutputStore.swift; sourceTree = "<group>"; };
 		DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsView.swift; sourceTree = "<group>"; };
 		E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
 		E513AE207C91AAB81A8D5279 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
@@ -520,6 +522,7 @@
 				3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */,
 				C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */,
 				DA0C5AD90ACC70094360B818 /* TerminalIntents.swift */,
+				DE46E65EB8A003B3D6ABFAD5 /* TerminalOutputStore.swift */,
 				1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */,
 				80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */,
 				79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */,
@@ -791,6 +794,7 @@
 				EBF6CF1BD4B5817CD589D2BA /* TerminalEvents.swift in Sources */,
 				DB3CE4CD31111689FAE6C7E6 /* TerminalFind.swift in Sources */,
 				DAF38D6E94140385B26CB56B /* TerminalIntents.swift in Sources */,
+				9FADDB74A9AD4B176FAD12D9 /* TerminalOutputStore.swift in Sources */,
 				18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */,
 				29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */,
 				74B09B24A21C58B67ABB214A /* TerminalPlatformIntegration.swift in Sources */,

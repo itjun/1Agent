@@ -10,6 +10,7 @@ enum TerminalRestorationTests {
         Task { @MainActor in
             do {
                 try snapshots()
+                try outputStore()
                 try await terminal(restoration: TerminalRestoration(departedAt: Date(timeIntervalSince1970: 0)))
                 try await terminal(restoration: nil)
                 print("TerminalRestorationTests passed: legacy/dated snapshots, timezone, unknown departure, deferred startup, one-time output, PTY input, reconnect and new terminals")
@@ -20,6 +21,36 @@ enum TerminalRestorationTests {
             }
         }
         NSApp.run()
+    }
+
+    static func outputStore() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("oneagent-output-store-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = TerminalOutputStore(directory: folder)
+        let first = UUID(), second = UUID()
+        expect(store.load(first) == nil, "Old sessions without a log archive must still open")
+        try store.save("中文日志\ncommand text\u{1b}]52;c;payload\u{7}\u{9b}2J\n", for: first)
+        let text = store.load(first)!
+        expect(text.contains("中文日志") && !text.contains("\u{1b}") && !text.contains("\u{7}") && !text.contains("\u{9b}"), "Archives must contain inert display text only")
+        let file = folder.appendingPathComponent(first.uuidString + ".txt")
+        let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+        expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600, "Saved logs must be private")
+        let long = String(repeating: "中文", count: TerminalOutputStore.byteLimit / 6 + 100)
+        try store.save(long, for: first)
+        expect(store.load(first)!.utf8.count <= TerminalOutputStore.byteLimit && store.load(first)!.hasSuffix("中文"), "Byte limits must keep the newest complete UTF-8 characters")
+        try store.save((0..<(TerminalOutputStore.lineLimit + 5)).map { "line_\($0)" }.joined(separator: "\n"), for: first)
+        expect(store.load(first)!.components(separatedBy: "\n").count == TerminalOutputStore.lineLimit && store.load(first)!.hasPrefix("line_5\n"), "Line limits must retain the newest output")
+        try store.save("second terminal", for: second)
+        store.prune(keeping: [second])
+        expect(store.load(first) == nil && store.load(second) == "second terminal", "Cleanup must preserve every saved terminal, including unmounted ones")
+        try Data([0xff]).write(to: folder.appendingPathComponent(second.uuidString + ".txt"))
+        expect(store.load(second) == nil, "A corrupt archive must not prevent startup")
+        let blocked = folder.appendingPathComponent("blocked")
+        try Data().write(to: blocked)
+        do {
+            try TerminalOutputStore(directory: blocked).save("logs", for: UUID())
+            throw NSError(domain: "RestorationTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "Save failure was hidden"])
+        } catch let error as NSError { expect(error.domain != "RestorationTests", "Write failures must reach the quit flow") }
     }
 
     static func snapshots() throws {
