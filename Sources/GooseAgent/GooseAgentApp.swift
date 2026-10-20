@@ -106,14 +106,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Clicking the Dock icon (or `open` without arguments) with the main window hidden brings it back.
-    /// `flag` is also true when only Settings is on screen, so the main window is checked itself.
+    /// Dock icon / `open` without arguments. Always bring a regular terminal forward: AppKit may
+    /// report visible windows yet leave another app frontmost unless we activate explicitly.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        let hasTerminalWindow = model.windows.contains { MainWindowManager.shared.window(for: $0)?.isVisible == true }
-        if !flag || !hasTerminalWindow {
-            MainWindowManager.shared.show(model.keyWindow ?? model.mainWindow, model: model)
-        }
+        model.revealForReopen()
         return true
+    }
+
+    /// Cmd-Tab / Dock can activate the app while the terminal stays on another Space.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        let key = NSApp.keyWindow
+        let keyOnActiveSpace = key?.isOnActiveSpace == true && key?.isVisible == true && !(key is FamilyModalWindow)
+        if !keyOnActiveSpace {
+            model.revealForReopen()
+        }
     }
 
     /// SwiftUI menus follow the revision themselves; Edit → Select All is an AppKit item and is re-bound

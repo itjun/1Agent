@@ -127,6 +127,7 @@ final class AppModel: ObservableObject {
     private var deferredUntitledWindow: WindowState?
     private var deferredUntitledTask: Task<Void, Never>?
     private var externalOpenPending = false
+    private var externalOpenPendingTask: Task<Void, Never>?
 
     static let maxAutoReconnectAttempts = 3
     /// Backoff before automatic attempt 1, 2, 3.
@@ -173,9 +174,38 @@ final class AppModel: ObservableObject {
     }
 
     /// Called before handling a folder, URL, or command handed in by another app.
+    /// Keeps a short pending window so AppKit's automatic untitled window can be discarded,
+    /// then clears itself so later Dock / New Window actions are not swallowed.
     func noteExternalOpen() {
         externalOpenPending = true
         cancelDeferredUntitledWindow()
+        externalOpenPendingTask?.cancel()
+        externalOpenPendingTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.externalOpenPending = false
+            self.externalOpenPendingTask = nil
+        }
+    }
+
+    /// Dock icon / `open -b` with no path: bring a real terminal window forward.
+    func revealForReopen() {
+        externalOpenPendingTask?.cancel()
+        externalOpenPendingTask = nil
+        externalOpenPending = false
+        cancelDeferredUntitledWindow()
+        let target = regularKeyWindow ?? mainWindow
+        if sidebarOrder(in: target).isEmpty {
+            openLocalTerminal(at: nil, in: target)
+        } else {
+            activate(target)
+        }
+        // Pull every regular window onto the Space the user is looking at.
+        for state in regularWindows {
+            guard let native = MainWindowManager.shared.window(for: state) else { continue }
+            MainWindowManager.bringToActiveSpace(native)
+        }
+        NSRunningApplication.current.activate(options: [.activateAllWindows])
     }
 
     func createScriptTerminal(configuration: TerminalCreationConfiguration, in target: WindowState,

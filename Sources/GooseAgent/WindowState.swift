@@ -109,8 +109,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         self.model = model
         model.windowBecameKey(state)
         if let window = windows[state.id] {
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
+            Self.bringToActiveSpace(window)
             return
         }
         let controller = NSHostingController(rootView: RootView(model: model, window: state))
@@ -121,6 +120,8 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         // 1Agent uses its own sidebar terminals, never AppKit title-bar tabs.
         window.tabbingMode = .disallowed
+        // Dock / Mission Control: follow the Space the user is looking at.
+        window.collectionBehavior.insert(.moveToActiveSpace)
         window.isRestorable = false
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -134,8 +135,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         }
         windows[state.id] = window
         Self.disableNativeWindowTabs()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        Self.bringToActiveSpace(window)
         // AppKit otherwise picks the first sidebar search field when the new
         // hosting hierarchy becomes key. Restore terminal focus after layout.
         DispatchQueue.main.async { [weak window, weak model, weak state] in
@@ -151,7 +151,18 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
         for window in NSApp.windows where window.identifier == windowID {
             window.tabbingMode = .disallowed
+            window.collectionBehavior.insert(.moveToActiveSpace)
         }
+    }
+
+    /// Dock click / reopen: deminiaturize, pull onto the active Space, and force key focus.
+    static func bringToActiveSpace(_ window: NSWindow) {
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
     }
 
     func close(_ state: WindowState) {
