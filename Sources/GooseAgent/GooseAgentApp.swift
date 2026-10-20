@@ -375,9 +375,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.persistSessionIfReady()
         FileTransferQueue.shared.interruptForTermination()
         Task { @MainActor in
-            await SSHTerminalRegistry.stopAgentsForApplicationExit()
-            model.persistSessionIfReady()
-            sender.reply(toApplicationShouldTerminate: true)
+            do {
+                try await model.prepareForApplicationExit()
+                sender.reply(toApplicationShouldTerminate: true)
+            } catch {
+                model.isQuitting = false
+                model.persistSessionIfReady()
+                sender.reply(toApplicationShouldTerminate: false)
+                let alert = FamilyAlert()
+                alert.alertStyle = .warning
+                alert.messageText = String(localized: "Could not save terminal logs")
+                alert.informativeText = String(localized: "The app is still open to preserve your logs. Check free disk space and folder permissions, then try quitting again.")
+                alert.addButton(withTitle: String(localized: "OK"))
+                alert.runModal()
+            }
         }
         return .terminateLater
     }

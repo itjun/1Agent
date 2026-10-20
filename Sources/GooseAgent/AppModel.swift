@@ -1223,7 +1223,7 @@ final class AppModel: ObservableObject {
                 if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
                     return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false,
                                        remoteDirectory: item.remoteDirectory,
-                                       restoration: TerminalRestoration(departedAt: snapshot.departedAt),
+                                       restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id),
                                        agentConversation: item.agentConversation)
                 }
                 if let directory = item.directory?.trimmingCharacters(in: .whitespacesAndNewlines), !directory.isEmpty {
@@ -1233,7 +1233,7 @@ final class AppModel: ObservableObject {
                         directory: LocalTerminal.launchDirectory(directory),
                         generation: 0,
                         exited: false,
-                        restoration: TerminalRestoration(departedAt: snapshot.departedAt),
+                        restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id),
                         agentConversation: item.agentConversation
                     )
                 }
@@ -1295,6 +1295,14 @@ final class AppModel: ObservableObject {
     }
 
     func persistSessionIfReady() {
+        persistSession()
+    }
+
+    /// Flush the final output while native surfaces still exist, then commit
+    /// the matching session metadata. No disk export runs during normal typing.
+    func prepareForApplicationExit() async throws {
+        await SSHTerminalRegistry.stopAgentsForApplicationExit()
+        try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
         persistSession()
     }
 

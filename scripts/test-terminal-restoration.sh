@@ -21,3 +21,7 @@ sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path
 # Isolated native terminals may run only cat; no login shell or SSH connection is opened.
 /usr/bin/sandbox-exec -p "(version 1) (allow default) (deny network*) (deny process-exec) (allow process-exec (literal \"/bin/cat\")) (allow process-exec (literal \"/usr/bin/env\") (literal \"$test_executable\"))" \
     /usr/bin/env CFFIXED_USER_HOME="$test_dir/home" "$test_executable"
+for phase in --save-output --restore-output --restore-output; do
+    /usr/bin/sandbox-exec -p "(version 1) (allow default) (deny network*) (deny process-exec) (allow process-exec (literal \"/bin/cat\")) (allow process-exec (literal \"/usr/bin/env\") (literal \"$test_executable\"))" \
+        /usr/bin/env CFFIXED_USER_HOME="$test_dir/home" ONEAGENT_TEST_HOME="$test_dir/home" "$test_executable" "$phase"
+done

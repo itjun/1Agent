@@ -1,5 +1,6 @@
 import AppKit
 import GhosttyTerminal
+import ObjectiveC
 @testable import GooseAgent
 
 @main
@@ -9,6 +10,10 @@ enum TerminalRestorationTests {
         NSApp.setActivationPolicy(.prohibited)
         Task { @MainActor in
             do {
+                if CommandLine.arguments.contains("--save-output") || CommandLine.arguments.contains("--restore-output") {
+                    try await persistedOutput()
+                    exit(0)
+                }
                 try snapshots()
                 try outputStore()
                 try await terminal(restoration: TerminalRestoration(departedAt: Date(timeIntervalSince1970: 0)))
@@ -51,6 +56,89 @@ enum TerminalRestorationTests {
             try TerminalOutputStore(directory: blocked).save("logs", for: UUID())
             throw NSError(domain: "RestorationTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "Save failure was hidden"])
         } catch let error as NSError { expect(error.domain != "RestorationTests", "Write failures must reach the quit flow") }
+    }
+
+    /// Two separate processes exercise the production quit snapshot and cold launch.
+    @MainActor static func persistedOutput() async throws {
+        guard let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"], home.hasPrefix("/private/tmp/oneagent-restoration.") else {
+            throw NSError(domain: "RestorationTests", code: 1)
+        }
+        let defaults = UserDefaults(suiteName: "oneagent.output-restoration.tests")!
+        let getter = class_getClassMethod(UserDefaults.self, #selector(getter: UserDefaults.standard))!
+        let old = method_setImplementation(getter, imp_implementationWithBlock({ _ in defaults } as @convention(block) (AnyObject) -> UserDefaults))
+        defer { method_setImplementation(getter, old) }
+        let saving = CommandLine.arguments.contains("--save-output")
+        let snapshotURL = URL(fileURLWithPath: home).appendingPathComponent("snapshot.json")
+        let ids = (1...2).map { UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", $0))! }
+        let windowID = UUID(uuidString: "00000000-0000-0000-0000-000000000099")!
+        if saving {
+            let initial = SessionSnapshot(tabs: ids.map { .init(id: $0, directory: home) }, workspaces: [], windows: [
+                .init(id: windowID, blocks: [.localGroup, .ungrouped], localGroup: ids, ungrouped: [], selected: ids[0])
+            ], keyWindow: windowID)
+            defaults.set(try JSONEncoder().encode(initial), forKey: SessionSnapshot.storageKey)
+        } else { defaults.set(try Data(contentsOf: snapshotURL), forKey: SessionSnapshot.storageKey) }
+        var views: [UUID: SSHTerminalNSView] = [:]
+        for id in ids {
+            views[id] = SSHTerminalRegistry.view(for: "\(id.uuidString)#0") {
+                let host = TerminalProcessHost()
+                let view = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 900, height: 400))
+                view.sessionID = "\(id.uuidString)#0"
+                view.processHost = host
+                view.eventRelay.terminal = view
+                view.delegate = view.eventRelay
+                view.controller = GhosttyRuntime.controller
+                view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
+                return view
+            }
+        }
+        let model = AppModel()
+        MainWindowManager.shared.attach(model: model)
+        model.restoreLastSession()
+        for _ in 0..<250 { if model.tabs.count == ids.count { break }; try await Task.sleep(for: .milliseconds(20)) }
+        expect(model.tabs.count == ids.count, "All saved terminals must reopen")
+        let state = model.window(for: windowID)!
+        let native = MainWindowManager.shared.window(for: state)!
+        native.setContentSize(NSSize(width: 1000, height: 600))
+        defer { for id in ids { SSHTerminalRegistry.destroy("\(id.uuidString)#0") }; native.orderOut(nil) }
+        for id in ids {
+            let host = views[id]!.processHost!
+            host.start(TerminalLaunch(executable: "/bin/cat", args: [], environment: ["PATH=/usr/bin:/bin"], directory: home),
+                       restoration: model.tabs.first(where: { $0.id == id })!.restoration)
+        }
+        for _ in 0..<250 { if views.values.allSatisfy({ $0.processHost!.process.shellPid > 0 }) { break }; try await Task.sleep(for: .milliseconds(20)) }
+        for (index, id) in ids.enumerated() {
+            let host = views[id]!.processHost!
+            expect(host.process.shellPid > 0, "Restored terminal must accept input")
+            if saving {
+                // The begin marker scrolls offscreen; logs include color and CJK text.
+                host.session.receive("\u{1b}[32mLOG_\(index)_BEGIN 中文日志\u{1b}[0m\r\n" + (0..<180).map { "第 \($0) 行\r\n" }.joined() + "LOG_\(index)_END\r\n")
+            }
+            host.session.waitForPendingOutput()
+            let text = host.session.readScreenText()?.text ?? ""
+            expect(text.contains("LOG_\(index)_BEGIN 中文日志") && text.contains("LOG_\(index)_END"), "Cold restore must preserve previous visible and scrolled-off logs")
+            expect(text.components(separatedBy: "LOG_\(index)_BEGIN").count - 1 == 1, "Repeated launches must not duplicate previous output")
+            expect(!text.contains("LOG_\(1 - index)_BEGIN"), "Terminal logs must never cross sessions")
+            if !saving {
+                expect(text.range(of: "LOG_\(index)_END")!.lowerBound < text.range(of: String(localized: "Restored at %@").components(separatedBy: "%@")[0], options: .backwards)!.lowerBound,
+                       "Old output must precede the current restoration notice")
+                host.startWhenReady()
+                host.session.waitForPendingOutput()
+                expect(host.session.readScreenText()!.text.components(separatedBy: "LOG_\(index)_BEGIN").count - 1 == 1, "Startup callbacks must replay history only once")
+                let revision = host.process.commandInputRevision
+                expect(revision == 0, "Restoration must not send historical commands to the PTY")
+                host.process.write(Data("FRESH_INPUT_\(index)\n".utf8))
+                for _ in 0..<100 {
+                    host.session.waitForPendingOutput()
+                    if host.session.readScreenText()?.text.contains("FRESH_INPUT_\(index)") == true { break }
+                    try await Task.sleep(for: .milliseconds(20))
+                }
+                expect(host.session.readScreenText()?.text.contains("FRESH_INPUT_\(index)") == true, "Input must work after old output is restored")
+            }
+        }
+        model.isQuitting = true
+        try await model.prepareForApplicationExit()
+        try defaults.data(forKey: SessionSnapshot.storageKey)!.write(to: snapshotURL)
+        print("PASS \(saving ? "save" : "cold restore"): two independent terminals, scrollback, Unicode, no duplication and no PTY replay")
     }
 
     static func snapshots() throws {

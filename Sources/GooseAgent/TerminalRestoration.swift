@@ -3,6 +3,13 @@ import Foundation
 /// Exists only on tabs reopened from the previous app session, never on new terminals.
 struct TerminalRestoration: Equatable {
     let departedAt: Date?
+    var outputID: UUID? = nil
+
+    /// Display-only input to Ghostty, never stdin for the restored shell/SSH.
+    var previousOutput: String? {
+        guard let outputID, let text = TerminalOutputStore.shared.load(outputID), !text.isEmpty else { return nil }
+        return text.replacingOccurrences(of: "\n", with: "\r\n") + "\r\n"
+    }
 
     func notice(restoredAt: Date = Date(), timeZone: TimeZone = .current) -> String {
         let formatter = DateFormatter()

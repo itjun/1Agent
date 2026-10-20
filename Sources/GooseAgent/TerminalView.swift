@@ -327,6 +327,7 @@ final class TerminalProcessHost {
         hasStarted = true
         if let restoration = pendingRestoration {
             pendingRestoration = nil
+            if let output = restoration.previousOutput { session.receive(output) }
             session.receive(restoration.notice())
         }
         startProcess(initialLaunch ?? launch)
@@ -540,6 +541,17 @@ enum SSHTerminalRegistry {
         while Date() < deadline, pids.contains(where: { kill($0, 0) == 0 }) {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
+    }
+
+    static func saveOutputForApplicationExit(tabs: [TerminalTab], store: TerminalOutputStore = .shared) throws {
+        let terminals = tabs.filter(\.hasTerminal)
+        for tab in terminals {
+            guard let host = views[tab.sessionID]?.processHost, host.session.hasAttachedSurface else { continue }
+            host.session.waitForPendingOutput()
+            guard let output = host.session.readScreenText(maxRows: TerminalOutputStore.lineLimit, maxBytes: TerminalOutputStore.byteLimit) else { continue }
+            try store.save(output.text, for: tab.id)
+        }
+        store.prune(keeping: Set(terminals.map(\.id)))
     }
 
     static func quickCommandReady(_ id: String) async -> Bool {
