@@ -7,8 +7,6 @@ struct SystemIntegrationSettingsPage: View {
     @State private var showsScriptTypes = false
     @State private var showsAutomation = false
     @AppStorage(TerminalAutomation.enabledKey) private var automationEnabled = true
-    @AppStorage(ExternalOpenPlacement.defaultsKey) private var externalOpenPlacement = ExternalOpenPlacement.tab.rawValue
-    @ObservedObject private var quickTerminal = QuickTerminalController.shared
     @ObservedObject private var secureInput = TerminalSecureInput.shared
     @State private var commandLineFeedback: String?
 
@@ -78,26 +76,7 @@ struct SystemIntegrationSettingsPage: View {
                 Text("External Folder Opens")
                     .font(Theme.Font.sectionTitle)
                     .foregroundStyle(chrome.text)
-                Text("GitHub Desktop, Finder, and open use this when they do not ask for a tab or window.")
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: Theme.Space.m) {
-                    Text("Open In")
-                    FamilyPicker(
-                        value: Binding(
-                            get: { ExternalOpenPlacement(rawValue: externalOpenPlacement) ?? .tab },
-                            set: { externalOpenPlacement = $0.rawValue }
-                        ),
-                        options: [
-                            (.tab, String(localized: "New Tab")),
-                            (.window, String(localized: "New Window")),
-                        ]
-                    )
-                    .frame(width: SettingsLayout.integrationAppColumn)
-                    .accessibilityIdentifier("systemIntegration.externalOpenPlacement")
-                }
-                Text("In GitHub Desktop, set Shell to Configure Custom Shell, Path to /Applications/1Agent.app, and Arguments to %TARGET_PATH%. Drag a sidebar terminal into another window to merge it.")
+                Text("GitHub Desktop, Finder, and open add folders as new terminals in the 1Agent window. In GitHub Desktop, set Shell to Configure Custom Shell, Path to /Applications/1Agent.app, and Arguments to %TARGET_PATH%.")
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -105,7 +84,7 @@ struct SystemIntegrationSettingsPage: View {
 
             line
             HStack(alignment: .top, spacing: Theme.Space.l) {
-                Text("Finder services create new terminals and independent windows.")
+                Text("Finder services create new terminals in the 1Agent window.")
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -115,17 +94,8 @@ struct SystemIntegrationSettingsPage: View {
                     .accessibilityIdentifier("systemIntegration.services")
             }
 
-            DisclosureGroup("Windows and Automation", isExpanded: $showsAutomation) {
+            DisclosureGroup("Automation", isExpanded: $showsAutomation) {
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
-                    HStack {
-                        Button("New Window") { TerminalAutomation.model?.newWindow() }
-                        Button("Toggle Quick Terminal") { quickTerminal.toggle() }
-                    }
-                    .buttonStyle(FamilyButtonStyle(kind: .secondary))
-                    HStack {
-                        Text("Quick Terminal Shortcut")
-                        Text(verbatim: AppShortcuts.display(for: .quickTerminal)).foregroundStyle(chrome.secondary)
-                    }
                     Toggle("Enable Terminal Automation", isOn: $automationEnabled)
                     Text("AppleScript and Shortcuts address windows and terminals by ID.")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
@@ -274,7 +244,7 @@ struct SystemIntegrationSettingsPage: View {
     private func showFinderServices() {
         let alert = FamilyAlert()
         alert.messageText = String(localized: "Finder Directory Services")
-        alert.informativeText = String(localized: "Select a file or folder in Finder, then open the Services menu.\n\nNew 1Agent Tab Here always creates a new terminal in the selected folder, or a file’s parent folder.\n\nNew 1Agent Window Here creates an independent window. Multiple folders share that new window.")
+        alert.informativeText = String(localized: "Select a file or folder in Finder, then open the Services menu.\n\nNew 1Agent Tab Here creates a new terminal in the 1Agent window, in the selected folder or a file’s parent folder.")
         alert.addButton(withTitle: String(localized: "OK"))
         if let window = NSApp.keyWindow { alert.beginSheetModal(for: window) { _ in } }
         else { alert.runModal() }

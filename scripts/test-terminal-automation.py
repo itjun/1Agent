@@ -29,18 +29,21 @@ def quoted(text):
 before_windows, before_terminals = ids('window'), ids('terminal')
 with tempfile.TemporaryDirectory(prefix='oneagent-automation-验收 空格-', dir='/private/tmp') as folder:
     root = pathlib.Path(folder)
-    window_id = None
+    tab_ids = []
     try:
+        assert len(before_windows) == 1, '1Agent has exactly one window'
+        window_id = next(iter(before_windows))
         command = 'printf "%s" "$ONEAGENT_AUTOMATION_TEST" > env-marker; read -r value; printf "%s" "$value" > key-marker; exec /bin/cat'
-        window_id = apple(f'''set cfg to new surface configuration
+        first_tab = apple(f'''set cfg to new surface configuration
 set initial working directory of cfg to {quoted(folder)}
 set command of cfg to {quoted(command)}
 set environment variables of cfg to {{"ONEAGENT_AUTOMATION_TEST=verified"}}
-set win to new window with configuration cfg
-return id of win''')
-        assert window_id and window_id not in before_windows
-        result = apple(f'''set win to window id {quoted(window_id)}
-set firstTerm to focused terminal of selected tab of win
+set firstTab to new tab with configuration cfg
+return id of firstTab''')
+        assert first_tab
+        tab_ids.append(first_tab)
+        second_tab = apple(f'''set win to window id {quoted(window_id)}
+set firstTerm to focused terminal of tab id {quoted(first_tab)}
 send key "A" to firstTerm
 send key "enter" to firstTerm
 set cfg to new surface configuration
@@ -63,31 +66,32 @@ send mouse button left button to splitTerm action release
 send mouse scroll to splitTerm x 0 y 1
 close splitTerm
 if (count of terminals of nextTab) is not 1 then error "Closing a pane must preserve its sibling"
-close tab nextTab
-if (count of tabs of win) is not 1 then error "Closing a tab must preserve the other tab"
-return id of firstTerm''')
-        assert result
+return id of nextTab''')
+        assert second_tab
+        tab_ids.append(second_tab)
         for _ in range(100):
             if (root / 'key-marker').exists():
                 break
             time.sleep(.05)
         assert (root / 'env-marker').read_text() == 'verified'
         assert (root / 'key-marker').read_text() == 'A', 'Physical key input must preserve uppercase'
-        apple(f'close window (window id {quoted(window_id)})')
-        assert window_id not in ids('window')
-        window_id = None
+        assert ids('window') == before_windows, 'Automation must never open another window'
         for body in [f'''set cfg to new surface configuration
 set initial working directory of cfg to {quoted(folder + '/missing')}
-new window with configuration cfg''', 'focus (terminal id "00000000-0000-0000-0000-000000000001")']:
+new tab with configuration cfg''', 'focus (terminal id "00000000-0000-0000-0000-000000000001")',
+                f'perform action "new_window" on (focused terminal of tab id {quoted(first_tab)})']:
             try:
                 apple(body)
             except RuntimeError:
                 pass
             else:
-                raise AssertionError('Invalid object/directory must return an ordinary script error')
-        assert before_windows <= ids('window')
+                raise AssertionError('Invalid object/directory/new window must return an ordinary script error')
+        assert ids('window') == before_windows, 'Rejected requests must not open another window'
         assert before_terminals <= ids('terminal')
-        print('TerminalAutomation passed: stable object replies, windows/tabs/splits, explicit text/key/mouse targets, uppercase, command pipeline, environment, invalid references and original-session preservation')
+        print('TerminalAutomation passed: stable object replies, one window, tabs/splits, explicit text/key/mouse targets, uppercase, command pipeline, environment, invalid references, new_window rejection and original-session preservation')
     finally:
-        if window_id and window_id in ids('window'):
-            apple(f'close window (window id {quoted(window_id)})')
+        for tab_id in tab_ids:
+            try:
+                apple(f'close tab (tab id {quoted(tab_id)})')
+            except RuntimeError:
+                pass

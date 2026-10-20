@@ -122,12 +122,6 @@ final class AppModel: ObservableObject {
     private var stableConnectionTasks: [UUID: Task<Void, Never>] = [:]
     /// Reserve a cwd synchronously while its shell environment is loading.
     private var pendingLocalOpens = Set<String>()
-    /// AppKit may ask for an untitled window before the folder from `open` arrives. Hold that window
-    /// until the external request either uses or cancels it.
-    private var deferredUntitledWindow: WindowState?
-    private var deferredUntitledTask: Task<Void, Never>?
-    private var externalOpenPending = false
-    private var externalOpenPendingTask: Task<Void, Never>?
 
     static let maxAutoReconnectAttempts = 3
     /// Backoff before automatic attempt 1, 2, 3.
@@ -148,61 +142,14 @@ final class AppModel: ObservableObject {
 
     func windowBecameKey(_ state: WindowState) { lastKeyWindowID = state.id }
 
-    @discardableResult
-    func createWindow() -> WindowState {
-        if windows.count == 1, sidebarOrder(in: mainWindow).isEmpty,
-           MainWindowManager.shared.window(for: mainWindow) == nil {
-            activate(mainWindow)
-            return mainWindow
-        }
-        let state = WindowState()
-        windows.append(state)
-        activate(state)
-        persistSession()
-        return state
-    }
-
-    func newWindow(at directory: String? = nil) {
-        let cwd = directory ?? keyWindow.flatMap { selectedTab(in: $0) }.flatMap { $0.isLocal ? localFolder(of: $0) : nil }
-        if ExternalOpen.shouldDeferUntitledWindow(hasDirectory: directory != nil, event: NSApp.currentEvent) {
-            deferUntitledWindow()
-            return
-        }
-        cancelDeferredUntitledWindow()
-        let state = createWindow()
-        openLocalTerminal(at: cwd, in: state)
-    }
-
-    /// Called before handling a folder, URL, or command handed in by another app.
-    /// Keeps a short pending window so AppKit's automatic untitled window can be discarded,
-    /// then clears itself so later Dock / New Window actions are not swallowed.
-    func noteExternalOpen() {
-        externalOpenPending = true
-        cancelDeferredUntitledWindow()
-        externalOpenPendingTask?.cancel()
-        externalOpenPendingTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            guard !Task.isCancelled, let self else { return }
-            self.externalOpenPending = false
-            self.externalOpenPendingTask = nil
-        }
-    }
-
-    /// Dock icon / `open -b` with no path: bring a real terminal window forward.
+    /// Dock icon / `open -b` with no path: bring the one terminal window forward.
     func revealForReopen() {
-        externalOpenPendingTask?.cancel()
-        externalOpenPendingTask = nil
-        externalOpenPending = false
-        cancelDeferredUntitledWindow()
-        let target = regularKeyWindow ?? mainWindow
-        if sidebarOrder(in: target).isEmpty {
-            openLocalTerminal(at: nil, in: target)
+        if sidebarOrder(in: mainWindow).isEmpty {
+            openLocalTerminal(at: nil, in: mainWindow)
         } else {
-            activate(target)
+            activate(mainWindow)
         }
-        // Pull every regular window onto the Space the user is looking at.
-        for state in regularWindows {
-            guard let native = MainWindowManager.shared.window(for: state) else { continue }
+        if let native = MainWindowManager.shared.window(for: mainWindow) {
             MainWindowManager.bringToActiveSpace(native)
         }
         NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -734,7 +681,7 @@ final class AppModel: ObservableObject {
     /// ⌘T. Another terminal like the selected one, as its own sidebar row.
     /// With nothing selected, start a local shell in the user's home directory.
     func newTab(in window: WindowState? = nil) {
-        guard let target = window ?? regularKeyWindow else { return }
+        guard let target = window ?? keyWindow else { return }
         if target.hostPickerPresented { return }
         if let tab = selectedTab(in: target) {
             duplicateAsTab(tab.id, in: target)
@@ -903,7 +850,7 @@ final class AppModel: ObservableObject {
         }
         guard !aliases.isEmpty else { return }
 
-        let target = request.newWindow ? createWindow() : (keyWindow ?? mainWindow)
+        let target = mainWindow
         if request.destination == .files {
             let workspace = fileWorkspace(for: target)
             for alias in aliases { workspace.openRemote(host: alias, at: request.path) }
@@ -1077,13 +1024,13 @@ final class AppModel: ObservableObject {
 
     private func reusableLocalTerminal(at directory: String, in window: WindowState, searchAllWindows: Bool = false) -> UUID? {
         let owned = searchAllWindows
-            ? Set(regularWindows.flatMap { sidebarOrder(in: $0) })
+            ? Set(windows.flatMap { sidebarOrder(in: $0) })
             : Set(sidebarOrder(in: window))
         let candidates = tabs.filter { owned.contains($0.id) && $0.isLocal && $0.hasTerminal }.map { tab in
             LocalTerminalCandidate(id: tab.id, directory: localFolder(of: tab) ?? tab.directory ?? "",
                                    isRunning: !tab.exited)
         }
-        let recent = searchAllWindows ? regularWindows.flatMap(\.terminalMRU) : window.terminalMRU
+        let recent = searchAllWindows ? windows.flatMap(\.terminalMRU) : window.terminalMRU
         return ExternalOpen.reusableLocalTerminal(at: directory, candidates: candidates, mostRecentFirst: recent)
     }
 
@@ -1097,87 +1044,18 @@ final class AppModel: ObservableObject {
         alert.runModal()
     }
 
-    /// Finder "New 1Agent Tab/Window Here", `open` of a folder or script, and `-e` from the
-    /// command line. Waits for the saved session on a cold launch, then adds and selects.
-    /// Multiple folders from "Window Here" share a workspace with independent panels;
-    /// a single folder opens as a plain local terminal either way.
-    func openLocalTerminals(at directories: [String], asWorkspace: Bool, initialInput: String? = nil,
-                            newWindow: Bool? = nil, reuseExisting: Bool = true) {
+    /// Finder "New 1Agent Tab Here", `open` of a folder or script, and `-e` from the command line.
+    /// Waits for the saved session on a cold launch, then adds and selects in the main window.
+    func openLocalTerminals(at directories: [String], initialInput: String? = nil, reuseExisting: Bool = true) {
         guard !directories.isEmpty else { return }
-        let opensInNewWindow = newWindow == true
         runAfterRestore { [weak self] in
             guard let self else { return }
             NSApp.activate()
-            let target: WindowState
-            if opensInNewWindow {
-                target = self.createWindow()
-            } else {
-                target = self.targetWindowForExternalTab()
-                // Drop empty leftover windows so GitHub Desktop lands in the working window.
-                self.closeEmptyRegularWindows(except: target.id)
-            }
-            if asWorkspace && directories.count >= 2 && initialInput == nil {
-                self.openLocalWorkspace(directories, in: target, reuseExisting: reuseExisting)
-                return
-            }
             for directory in directories {
-                self.openLocalTerminal(at: directory, initialInput: initialInput, in: target,
+                self.openLocalTerminal(at: directory, initialInput: initialInput, in: self.mainWindow,
                                        reuseExisting: reuseExisting && initialInput == nil,
-                                       searchAllWindows: reuseExisting && initialInput == nil && !opensInNewWindow)
+                                       searchAllWindows: reuseExisting && initialInput == nil)
             }
-        }
-    }
-
-    /// Prefer a window that already has terminals over an empty window that happens to be key.
-    private func targetWindowForExternalTab() -> WindowState {
-        let candidates = regularWindows
-        guard !candidates.isEmpty else { return mainWindow }
-        let keyIndex = regularKeyWindow.flatMap { key in candidates.firstIndex(where: { $0.id == key.id }) }
-        let occupied = candidates.map { !sidebarOrder(in: $0).isEmpty }
-        let visible = candidates.map { MainWindowManager.shared.window(for: $0)?.isVisible == true }
-        let index = ExternalOpen.preferredTabWindowIndex(keyIndex: keyIndex, occupied: occupied, visible: visible)
-        return candidates[index]
-    }
-
-    private func closeEmptyRegularWindows(except keep: UUID) {
-        let empties = regularWindows.filter { $0.id != keep && sidebarOrder(in: $0).isEmpty }
-        for state in empties {
-            MainWindowManager.shared.closeImmediately(state)
-        }
-    }
-
-    private func openLocalWorkspace(_ directories: [String], in target: WindowState, reuseExisting: Bool) {
-        var validDirectories: [String] = []
-        for directory in directories {
-            guard let valid = ExternalOpen.validatedDirectory(directory) else { reportInvalidDirectory(directory); continue }
-            if !validDirectories.contains(valid) { validDirectories.append(valid) }
-        }
-        guard !validDirectories.isEmpty else { return }
-        target.hostPickerPresented = false
-        activate(target)
-        showSection(.terminals, in: target)
-        Task {
-            let environment = await SSHLaunchEnvironment.shared.get()
-            guard !Task.isCancelled else { return }
-            launchEnvironment = environment
-            var created: [UUID] = []
-            for directory in validDirectories {
-                if reuseExisting, let existing = reusableLocalTerminal(at: directory, in: target) {
-                    created.append(existing)
-                    continue
-                }
-                let tab = TerminalTab(
-                    id: UUID(),
-                    alias: nil,
-                    directory: directory,
-                    generation: 0,
-                    exited: false
-                )
-                tabs.append(tab)
-                created.append(tab.id)
-            }
-            createWorkspace(from: created, atBlockIndex: target.blocks.count, in: target)
-            persistSession()
         }
     }
 
@@ -1185,7 +1063,6 @@ final class AppModel: ObservableObject {
     /// a shell in its folder and types the quoted path plus Return, so a script runs and the shell stays.
     /// Files only run after the user allows them; the prompt waits for the restored session on a cold launch.
     func openFiles(_ urls: [URL]) {
-        noteExternalOpen()
         var items: [(path: String, isDirectory: Bool)] = []
         for url in urls {
             let path = url.standardizedFileURL.path
@@ -1194,11 +1071,10 @@ final class AppModel: ObservableObject {
             items.append((path: path, isDirectory: isDirectory.boolValue))
         }
         let opened = ExternalOpen.splitOpenedPaths(items)
-        let opensInNewWindow = ExternalOpenPlacement.stored() == .window
         for directory in opened.directories {
             // Finder / `open -b` / GitHub Desktop pass the folder as a document URL.
             // Always open that folder; do not reuse a shell that may have since left it.
-            openLocalTerminals(at: [directory], asWorkspace: false, newWindow: opensInNewWindow, reuseExisting: false)
+            openLocalTerminals(at: [directory], reuseExisting: false)
         }
         if opened.files.isEmpty {
             return
@@ -1211,7 +1087,7 @@ final class AppModel: ObservableObject {
             for path in opened.files {
                 let folder = (path as NSString).deletingLastPathComponent
                 let input = ExternalOpen.shellQuoted(path) + "\r"
-                self.openLocalTerminals(at: [folder], asWorkspace: false, initialInput: input)
+                self.openLocalTerminals(at: [folder], initialInput: input)
             }
         }
     }
@@ -1233,15 +1109,12 @@ final class AppModel: ObservableObject {
 
     /// `--working-directory` / `-e` from the command line, possibly handed over by a second instance.
     func openRunRequest(_ request: ExternalRunRequest) {
-        noteExternalOpen()
         let directory = request.directory ?? LocalTerminal.homeDirectory
         let input = ExternalOpen.initialInput(for: request)
-        let newWindow = ExternalOpen.resolvedNewWindow(request, preference: ExternalOpenPlacement.stored())
         // A bare folder from GitHub Desktop / `1agent` should land in that directory, not focus a
         // shell that started there and later moved. Commands still get their own shell.
         let reuseExisting = false
-        openLocalTerminals(at: [directory], asWorkspace: false, initialInput: input,
-                           newWindow: newWindow, reuseExisting: reuseExisting)
+        openLocalTerminals(at: [directory], initialInput: input, reuseExisting: reuseExisting)
     }
 
     /// Hands a new local shell its one-time input. Nil for every later call.
@@ -1341,29 +1214,15 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// 1Agent has exactly one terminal window. Sessions saved from several windows
+    /// (including a former quick terminal) are merged into its sidebar.
     private func restoreWindowStates(_ snapshot: SessionSnapshot) {
-        let known = Set(snapshot.tabs.map(\.id))
-        guard let stored = snapshot.windows, !stored.isEmpty else {
-            snapshot.apply(to: mainWindow, keeping: known)
-            return
-        }
-        let first = mainWindow
-        windows = stored.enumerated().map { index, entry in
-            let state = index == 0 && first.id == entry.id ? first : WindowState(id: entry.id)
-            state.isQuickTerminal = entry.quickTerminal ?? false
-            var single = snapshot
-            single.windows = [entry]
-            single.keyWindow = entry.id
-            single.apply(to: state, keeping: known)
-            return state
-        }
-        lastKeyWindowID = snapshot.keyWindow
+        snapshot.apply(to: mainWindow, keeping: Set(snapshot.tabs.map(\.id)))
+        lastKeyWindowID = mainWindow.id
     }
 
     private func showRestoredWindows() {
-        let restoredKeyWindowID = lastKeyWindowID
-        for state in windows { MainWindowManager.shared.show(state, model: self) }
-        if let restoredKeyWindowID, let state = window(for: restoredKeyWindowID) { activate(state) }
+        activate(mainWindow)
     }
 
     private func finishRestore() {
@@ -2474,53 +2333,6 @@ final class AppModel: ObservableObject {
         MainWindowManager.shared.show(window, model: self)
     }
 
-    private var regularWindows: [WindowState] {
-        windows.filter { !$0.isQuickTerminal }
-    }
-
-    /// The key window for an external open, never the floating quick terminal.
-    private var regularKeyWindow: WindowState? {
-        if let keyWindow, !keyWindow.isQuickTerminal { return keyWindow }
-        return regularWindows.first
-    }
-
-    private func deferUntitledWindow() {
-        guard deferredUntitledWindow == nil else { return }
-        let state = createWindow()
-        MainWindowManager.shared.window(for: state)?.orderOut(nil)
-        deferredUntitledWindow = state
-        deferredUntitledTask?.cancel()
-        deferredUntitledTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            guard !Task.isCancelled, let self, self.deferredUntitledWindow?.id == state.id else { return }
-            self.deferredUntitledWindow = nil
-            self.deferredUntitledTask = nil
-            if self.externalOpenPending {
-                self.externalOpenPending = false
-                self.discardDeferredWindow(state)
-            } else {
-                self.openLocalTerminal(at: nil, in: state)
-                self.activate(state)
-            }
-        }
-    }
-
-    private func cancelDeferredUntitledWindow() {
-        guard let state = deferredUntitledWindow else { return }
-        deferredUntitledTask?.cancel()
-        deferredUntitledTask = nil
-        deferredUntitledWindow = nil
-        discardDeferredWindow(state)
-    }
-
-    private func discardDeferredWindow(_ state: WindowState) {
-        guard sidebarOrder(in: state).isEmpty else { return }
-        MainWindowManager.shared.closeImmediately(state)
-        windows.removeAll { $0.id == state.id }
-        if lastKeyWindowID == state.id { lastKeyWindowID = regularWindows.last?.id }
-        persistSession()
-    }
-
     /// Shell integration is optional; the owned local process still exposes its current directory.
     func refreshLocalWorkingDirectories() {
         if syncLocalWorkingDirectories() { persistSession() }
@@ -2577,8 +2389,7 @@ final class AppModel: ObservableObject {
                     panelTitles: window.panelTitles,
                     terminalMRU: window.terminalMRU,
                     zoomedPanes: window.zoomedPanes,
-                    filesSourceTabID: window.filesSourceTabID,
-                    quickTerminal: window.isQuickTerminal
+                    filesSourceTabID: window.filesSourceTabID
                 )
             },
             keyWindow: keyWindow?.id,
@@ -2639,7 +2450,6 @@ struct SessionSnapshot: Codable {
         var terminalMRU: [UUID]? = nil
         var zoomedPanes: [UUID: UUID]? = nil
         var filesSourceTabID: UUID? = nil
-        var quickTerminal: Bool? = nil
     }
 
     static let storageKey = "session.openTabs"

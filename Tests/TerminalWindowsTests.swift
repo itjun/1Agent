@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import Darwin
 import Foundation
 import GhosttyTerminal
@@ -30,7 +31,7 @@ import ObjectiveC
                     print("TerminalCompatibilityTests passed")
                 } else {
                     try await run()
-                    print("TerminalWindowsTests passed: 24 windows, 720 AppKit resizes, ownership, recovery, quick-terminal toggle and secure input lifecycle")
+                    print("TerminalWindowsTests passed: saved windows merge into one, 24 terminals, 720 AppKit resizes, ownership, recovery and secure input lifecycle")
                 }
                 exit(0)
             }
@@ -72,60 +73,45 @@ import ObjectiveC
         MainWindowManager.shared.attach(model: model)
         model.restoreLastSession()
         for _ in 0..<500 { if model.tabs.count == 2 { break }; try await Task.sleep(nanoseconds: 10_000_000) }
-        try check(model.windows.count == 2, "Saved windows must not merge")
-        try check(model.keyWindow?.id == firstWindow, "Restore must preserve the saved front window, not the last window in the loop")
+        try check(model.windows.count == 1, "Saved windows merge into the one 1Agent window")
+        let main = model.mainWindow
+        try check(main.id == firstWindow && model.keyWindow?.id == firstWindow, "The merged window keeps the first saved window identity")
+        try check(Set(model.sidebarOrder(in: main)) == [firstTab, secondTab], "Every saved terminal is listed in the one sidebar")
         let scriptWindow = TerminalAutomation.window(firstWindow)
         try check(scriptWindow.objectSpecifier?.descriptor != nil, "A returned script window must serialize to a real Apple event object reference")
         try check((scriptWindow.objectSpecifier?.objectsByEvaluatingSpecifier as? ScriptTerminalWindow)?.uuid == firstWindow, "Returned script object references must resolve by stable ID")
-        try check(model.sidebarOrder(in: model.window(for: firstWindow)!) == [firstTab], "First window owns only its terminal")
-        try check(model.sidebarOrder(in: model.window(for: secondWindow)!) == [secondTab], "Second window owns only its terminal")
-        let first = model.window(for: firstWindow)!, second = model.window(for: secondWindow)!
-        model.moveToLooseGroup([secondTab], .localGroup, in: first, beside: firstTab, after: true)
-        try check(model.window(containing: secondTab)?.id == firstWindow && model.sidebarOrder(in: second).isEmpty, "A loose row moves across windows without duplication")
-        model.moveToLooseGroup([secondTab], .localGroup, in: second, beside: nil, after: true)
-        model.createWorkspace(from: [firstTab, secondTab], atBlockIndex: 0, in: second)
+        model.createWorkspace(from: [firstTab, secondTab], atBlockIndex: 0, in: main)
         let grouped = model.workspaces.first(where: \.isGrouped)!
-        try check(Set(model.sidebarOrder(in: second)) == [firstTab, secondTab] && model.sidebarOrder(in: first).isEmpty, "A cross-window group owns both complete rows")
-        model.dropBlock(.workspace(grouped.id), from: second, intoGap: 0, of: first)
-        try check(model.window(containing: secondTab)?.id == firstWindow && model.sidebarOrder(in: second).isEmpty, "A whole workspace moves across windows")
+        try check(Set(model.sidebarOrder(in: main)) == [firstTab, secondTab], "A group owns both complete rows")
         model.dissolveWorkspace(grouped.id)
-        model.moveToLooseGroup([secondTab], .localGroup, in: second, beside: nil, after: true)
+        let native = MainWindowManager.shared.window(for: main)!
         for iteration in 0..<24 {
-            let state = model.createWindow()
-            let native = MainWindowManager.shared.window(for: state)!
             let config = try TerminalCreationConfiguration(record: ["workingDirectory": home])
-            let terminal = try await model.createScriptTerminal(configuration: config, in: state)
+            let terminal = try await model.createScriptTerminal(configuration: config, in: main)
             installTerminal(terminal, home: home)
-            try check(model.window(containing: terminal)?.id == state.id, "A new terminal must belong to its requested window")
-            try check(!model.sidebarOrder(in: model.window(for: firstWindow)!).contains(terminal), "A new window cannot steal or duplicate main-window membership")
+            try check(model.windows.count == 1 && model.window(containing: terminal)?.id == main.id, "A new terminal joins the one window")
             for frame in 0..<30 {
                 native.setContentSize(NSSize(width: 900 + (frame * 17) % 300, height: 560 + (frame * 11) % 180))
                 native.contentView?.layoutSubtreeIfNeeded()
                 try await Task.sleep(nanoseconds: 2_000_000)
             }
-            MainWindowManager.shared.closeImmediately(state)
+            model.closeTab(terminal)
             try await Task.sleep(nanoseconds: 10_000_000)
-            try check(model.tabs.contains { $0.id == firstTab } && model.tabs.contains { $0.id == secondTab }, "Closing window \(iteration) must preserve unrelated sessions")
-            try check(!model.tabs.contains { $0.id == terminal }, "Closed window must release only its owned terminal")
+            try check(model.tabs.contains { $0.id == firstTab } && model.tabs.contains { $0.id == secondTab }, "Closing terminal \(iteration) must preserve unrelated sessions")
+            try check(!model.tabs.contains { $0.id == terminal }, "Closed terminal \(iteration) must be released")
         }
         model.persistSessionIfReady()
         let saved = SessionSnapshot.load()!
-        try check(saved.windows?.count == 2 && saved.tabs.count == 2, "Window recovery retains the two original sessions")
-        try await platformIntegration(model, home: home)
-        for state in model.windows { MainWindowManager.shared.window(for: state)?.orderOut(nil) }
+        try check(saved.windows?.count == 1 && saved.tabs.count == 2, "The saved session has one window with the two original sessions")
+        try await secureInput(model, home: home)
+        native.orderOut(nil)
     }
 
-    @MainActor static func platformIntegration(_ model: AppModel, home: String) async throws {
-        let state = model.createWindow()
-        state.isQuickTerminal = true
+    @MainActor static func secureInput(_ model: AppModel, home: String) async throws {
+        let state = model.mainWindow
         let terminal = try await model.createScriptTerminal(configuration: TerminalCreationConfiguration(record: ["workingDirectory": home]), in: state)
         installTerminal(terminal, home: home, passwordFixture: true)
-        guard let native = MainWindowManager.shared.window(for: state) else { throw Failure(message: "Missing quick window") }
-        QuickTerminalController.shared.start(model: model)
-        try check(!native.isVisible, "Quick terminal starts hidden")
-        QuickTerminalController.shared.toggle()
-        try await Task.sleep(for: .milliseconds(200))
-        try check(native.isVisible, "Toggle must show the quick terminal")
+        guard let native = MainWindowManager.shared.window(for: state) else { throw Failure(message: "Missing main window") }
         let view = SSHTerminalRegistry.automationView("\(terminal.uuidString)#0")!
         for _ in 0..<100 {
             if view.processHost?.process.isPasswordInput == true { break }
@@ -161,27 +147,12 @@ import ObjectiveC
         native.makeFirstResponder(view)
         TerminalSecureInput.shared.refresh()
         try check(TerminalSecureInput.shared.isEnabled, "Manual input resumes when terminal focus returns")
-        TerminalSecureInput.shared.manual = false
-        native.makeKeyAndOrderFront(nil)
-        QuickTerminalController.shared.toggle()
-        try await Task.sleep(for: .milliseconds(150))
-        TerminalSecureInput.shared.refresh()
-        try check(!native.isVisible && !TerminalSecureInput.shared.isEnabled, "Hiding quick terminal releases secure input")
-        QuickTerminalController.shared.toggle()
-        try await Task.sleep(for: .milliseconds(150))
-        try check(native.isVisible && view.processHost?.process === process && kill(process.shellPid, 0) == 0, "Showing quick terminal preserves the exact PTY process")
-        MainWindowManager.shared.close(state)
-        try check(!native.isVisible && model.window(for: state.id) != nil && view.processHost?.process === process, "The quick terminal close button hides its window and preserves its PTY")
-        QuickTerminalController.shared.toggle()
-        try await Task.sleep(for: .milliseconds(150))
-        try check(native.isVisible && view.processHost?.process === process, "A closed quick window can be shown again without restarting")
-        QuickTerminalController.shared.hideForSettings()
-        try check(!native.isVisible && view.processHost?.process === process, "Opening Settings cannot be covered by the floating quick terminal or replace its process")
+        field.removeFromSuperview()
         TerminalSecureInput.shared.stop()
         TerminalSecureInput.shared.manual = false
         try check(!TerminalSecureInput.shared.isEnabled, "Quit releases secure input")
-        MainWindowManager.shared.closeImmediately(state)
-        try check(!model.tabs.contains { $0.id == terminal }, "Closing quick window explicitly releases its own terminal")
+        model.closeTab(terminal)
+        try check(!model.tabs.contains { $0.id == terminal }, "Closing the fixture terminal releases it")
     }
 
     /// Real renderer and PTY, with cat instead of the user's login shell/configuration.

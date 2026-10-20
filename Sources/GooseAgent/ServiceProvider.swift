@@ -1,7 +1,7 @@
 import AppKit
 
-/// Finder's Services menu: "New 1Agent Tab Here" and "New 1Agent Window Here".
-/// The selectors are named by `NSMessage` in the Info.plist `NSServices` entries.
+/// Finder's Services menu: "New 1Agent Tab Here".
+/// The selector is named by `NSMessage` in the Info.plist `NSServices` entry.
 @MainActor
 final class ServiceProvider: NSObject {
     private let model: AppModel
@@ -16,20 +16,11 @@ final class ServiceProvider: NSObject {
         userData: String?,
         error: AutoreleasingUnsafeMutablePointer<NSString>
     ) {
-        openTerminals(from: pasteboard, asWorkspace: false, error: error)
-    }
-
-    @objc func openWindow(
-        _ pasteboard: NSPasteboard,
-        userData: String?,
-        error: AutoreleasingUnsafeMutablePointer<NSString>
-    ) {
-        openTerminals(from: pasteboard, asWorkspace: true, error: error)
+        openTerminals(from: pasteboard, error: error)
     }
 
     private func openTerminals(
         from pasteboard: NSPasteboard,
-        asWorkspace: Bool,
         error: AutoreleasingUnsafeMutablePointer<NSString>
     ) {
         var urls = pasteboard.readObjects(
@@ -62,7 +53,6 @@ final class ServiceProvider: NSObject {
             error.pointee = String(localized: "No folder to open.") as NSString
             return
         }
-        model.openLocalTerminals(at: directories, asWorkspace: asWorkspace,
-                                 newWindow: asWorkspace, reuseExisting: false)
+        model.openLocalTerminals(at: directories, reuseExisting: false)
     }
 }

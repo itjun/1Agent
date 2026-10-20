@@ -10,14 +10,13 @@ import Foundation
 /// - `layout=columns|rows|grid|leadingSide|leadingTop`: explicitly combine the opened hosts.
 ///   Without it they share a workspace but keep independent panels.
 /// - `name=<title>`: sidebar title of the workspace created for two or more hosts.
-/// - `window=new`: create an independent terminal window for this request.
+/// Everything opens in the one 1Agent window; a legacy `window=new` is ignored.
 struct ExternalOpenRequest: Equatable {
     var hosts: [String] = []
     var group: String?
     var reuse = false
     var layout: WorkspaceLayout?
     var name: String?
-    var newWindow = false
     var destination: ExternalOpenDestination = .terminal
     var path: String?
 
@@ -43,24 +42,6 @@ struct ExternalRunRequest: Equatable {
     var directory: String?
     var command: String?
     var waitAfterCommand = false
-    var newWindow = false
-    /// True only when `--new-window`, `--tab`, or `window=new|tab` chose the placement explicitly.
-    /// An unspecified request follows the user's external-open preference.
-    var windowSpecified = false
-}
-
-/// Where Finder, `open`, and GitHub Desktop place a folder when the request itself does not say.
-enum ExternalOpenPlacement: String {
-    case tab
-    case window
-
-    static let defaultsKey = "externalOpenPlacement"
-
-    static func stored(in defaults: UserDefaults = .standard) -> ExternalOpenPlacement {
-        guard let raw = defaults.string(forKey: defaultsKey),
-              let placement = ExternalOpenPlacement(rawValue: raw) else { return .tab }
-        return placement
-    }
 }
 
 /// What a second instance leaves for the running one in the hand-off folder. The notification only
@@ -119,8 +100,6 @@ enum ExternalOpen {
                 if !value.isEmpty {
                     request.name = value
                 }
-            case "window":
-                request.newWindow = value.lowercased() == "new"
             case "view":
                 request.destination = ExternalOpenDestination(rawValue: value) ?? .terminal
             case "path":
@@ -154,14 +133,11 @@ enum ExternalOpen {
                 }
             case "wait":
                 request.waitAfterCommand = ExternalOpen.isTrue(value)
-            case "window":
-                request.newWindow = ExternalOpen.windowPlacement(value)
-                request.windowSpecified = true
             default:
                 continue
             }
         }
-        if request.directory == nil && request.command == nil && !request.windowSpecified {
+        if request.directory == nil && request.command == nil {
             return nil
         }
         return request
@@ -180,9 +156,6 @@ enum ExternalOpen {
         }
         if request.waitAfterCommand {
             items.append(URLQueryItem(name: "wait", value: "1"))
-        }
-        if request.windowSpecified {
-            items.append(URLQueryItem(name: "window", value: request.newWindow ? "new" : "tab"))
         }
         components.queryItems = items
         return components.url
@@ -211,10 +184,6 @@ enum ExternalOpen {
                 }
                 break
             }
-            if argument == "--new-window" || argument == "--tab" {
-                request.newWindow = argument == "--new-window"
-                request.windowSpecified = true
-            }
             if argument.hasPrefix("--working-directory=") {
                 let value = String(argument.dropFirst("--working-directory=".count))
                 request.directory = value
@@ -227,43 +196,10 @@ enum ExternalOpen {
             }
             index += 1
         }
-        if request.directory == nil && request.command == nil && !request.windowSpecified {
+        if request.directory == nil && request.command == nil {
             return nil
         }
         return request
-    }
-
-    /// An explicit window flag wins. Otherwise the request follows the stored preference.
-    static func resolvedNewWindow(_ request: ExternalRunRequest, preference: ExternalOpenPlacement) -> Bool {
-        request.windowSpecified ? request.newWindow : preference == .window
-    }
-
-    /// Which window should receive an external folder opened as a tab.
-    /// Prefer the key window when it already has terminals; otherwise any occupied window
-    /// (visible first). Empty leftover windows must not steal GitHub Desktop / `open` tabs.
-    static func preferredTabWindowIndex(keyIndex: Int?, occupied: [Bool], visible: [Bool]) -> Int {
-        precondition(!occupied.isEmpty && occupied.count == visible.count)
-        if let keyIndex, occupied.indices.contains(keyIndex), occupied[keyIndex] {
-            return keyIndex
-        }
-        if let index = occupied.indices.first(where: { occupied[$0] && visible[$0] }) {
-            return index
-        }
-        if let index = occupied.indices.first(where: { occupied[$0] }) {
-            return index
-        }
-        if let keyIndex, occupied.indices.contains(keyIndex) {
-            return keyIndex
-        }
-        return 0
-    }
-
-    /// AppKit can create an untitled window before the folder arrives. That window is discarded only
-    /// when it was not requested by a key or mouse event and an external open arrives quickly.
-    static func shouldDeferUntitledWindow(hasDirectory: Bool, event: NSEvent?) -> Bool {
-        if hasDirectory { return false }
-        guard let event else { return true }
-        return event.type != .keyDown && event.type != .leftMouseDown && event.type != .rightMouseDown
     }
 
     /// The first argument before `-e` that is not a flag and names an existing folder, made absolute
@@ -366,9 +302,5 @@ enum ExternalOpen {
     private static func isTrue(_ value: String) -> Bool {
         let lowered = value.lowercased()
         return lowered == "1" || lowered == "true" || lowered == "yes" || lowered.isEmpty
-    }
-
-    private static func windowPlacement(_ value: String) -> Bool {
-        value.lowercased() == "new"
     }
 }

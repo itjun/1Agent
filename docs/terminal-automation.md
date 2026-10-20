@@ -2,26 +2,24 @@
 
 1Agent 使用自己的应用身份 `com.itjun.1agent`、`oneagent://` 和 `/Applications/1Agent.app`。终端引擎随应用打包，运行窗口、命令行与 AppleScript 不需要安装 Ghostty。
 
-## 窗口与快速终端
+## 单窗口
 
-- “文件 → 新建窗口”创建独立窗口。终端、分屏、工作区、选择、位置与恢复状态按窗口保存。
-- 关闭窗口只结束该窗口的会话；有前台命令或 SSH 会话时显示确认。退出应用会保存全部窗口，再停止 Agent 会话。
-- Finder 的“在此新建 1Agent 标签”每次新建终端；“在此新建 1Agent 窗口”创建独立窗口。选择文件时进入其父目录，多选目录时共用该新窗口。
-- “系统集成 → 外部目录打开方式”控制 GitHub Desktop、`open` 和 Finder 打开文件夹时用新标签还是新窗口；未在请求里写 `--tab` / `--new-window` / `window=` 时生效。GitHub Desktop 自定义 Shell：Path 为 `/Applications/1Agent.app`，Arguments 为 `%TARGET_PATH%`。把侧栏终端拖到另一窗口可合并，不使用 macOS 标题栏标签。
-- 快速终端默认快捷键为 `⌃` 加反引号，仅在 1Agent 前台时生效（无系统全局热键），可在“热键”中修改。从“系统集成 → 窗口与自动化”也可显示或隐藏。隐藏保留原 PTY 与进程。
+- 1Agent 只有一个终端窗口。所有终端都在这个窗口里，用左侧侧栏的垂直标签切换；不提供横向标签（macOS 标题栏标签），也不提供新建窗口或浮动的快速终端。
+- 关闭窗口（红色按钮、⇧⌘W）不确认，只隐藏窗口，会话继续运行；点 Dock 图标恢复。⌘Q 先保存输出、会话快照并停止 Agent 会话，再结束所有终端会话及其进程（包括忽略挂断信号的后台任务），下次启动时恢复。旧版本保存的多个窗口（含快速终端）在启动时合并进这个窗口。
+- Finder 的“在此新建 1Agent 标签”每次在窗口中新建终端；选择文件时进入其父目录。
+- GitHub Desktop、`open` 和 Finder 打开的文件夹都作为新终端加入窗口。GitHub Desktop 自定义 Shell：Path 为 `/Applications/1Agent.app`，Arguments 为 `%TARGET_PATH%`。旧的 `--new-window`、`--tab` 和 `window=` 参数会被忽略。
 - 安全键盘输入支持本机规范模式下的密码输入检测，也可手动打开。输入框、弹窗、其他应用获得焦点，或退出时，释放本应用持有的安全输入引用。远端密码可手动启用。
 
 ## 命令行
 
-在“系统集成 → 窗口与自动化”安装命令行工具，位置为 `~/.local/bin/1agent`。
+在“系统集成 → 自动化”安装命令行工具，位置为 `~/.local/bin/1agent`。
 
 ```sh
 1agent --working-directory="$PWD"
-1agent --tab --working-directory="$PWD"
 1agent --wait-after-command -e /usr/bin/printf '%s\n' '带 空格的参数'
 ```
 
-默认新建窗口；`--tab` 在当前终端窗口新建。运行中的实例确认接收后返回，交接超时会返回失败。冷启动返回 LaunchServices 的启动请求状态。程序参数在 `-e` 后保留原有边界与引用。
+每次在 1Agent 窗口中新建终端。运行中的实例确认接收后返回，交接超时会返回失败。冷启动返回 LaunchServices 的启动请求状态。程序参数在 `-e` 后保留原有边界与引用。
 
 ## AppleScript
 
@@ -31,15 +29,15 @@
 tell application id "com.itjun.1agent"
     set cfg to new surface configuration
     set initial working directory of cfg to "/tmp"
-    set win to new window with configuration cfg
-    set term to focused terminal of selected tab of win
+    set newTab to new tab with configuration cfg
+    set term to focused terminal of newTab
     input text "printf 'hello\\n'" to term
     send key "enter" to term
     return id of term
 end tell
 ```
 
-脚本字典提供新建窗口、标签、分屏、聚焦、选择与关闭，以及文本、物理键、鼠标与引擎动作。配置支持初始目录、命令、初始输入、环境变量、字号和命令结束后保留 Shell。命令与环境覆盖只用于这一次创建，不会在会话恢复时重新执行。
+脚本字典提供新建标签、分屏、聚焦、选择与关闭（没有新建窗口命令，`new_window` 动作返回脚本错误），以及文本、物理键、鼠标与引擎动作。配置支持初始目录、命令、初始输入、环境变量、字号和命令结束后保留 Shell。命令与环境覆盖只用于这一次创建，不会在会话恢复时重新执行。
 
 `input text` 使用粘贴语义；执行需要明确的 Enter。`send key` 支持字符、功能键与命名物理键；`action release` 在传统终端模式中通常不产生字节。原生输入法仍由实际终端视图处理。
 
@@ -61,7 +59,7 @@ make test-terminal-compatibility
 make test-terminal-stress
 ```
 
-`test-terminal-windows` 使用隔离偏好与原生 AppKit 窗口，Shell 夹具仅运行 `cat` 或本测试自身；覆盖窗口归属、跨窗口移动、保存与恢复、缩放、脚本对象描述符、快速终端显示/隐藏和安全输入生命周期。`test-terminal-automation` 操作已安装应用，只向新建的测试终端输入，不退出应用。
+`test-terminal-windows` 使用隔离偏好与原生 AppKit 窗口，Shell 夹具仅运行 `cat` 或本测试自身；覆盖多窗口存档合并为单窗口、终端归属、保存与恢复、缩放、脚本对象描述符和安全输入生命周期。`test-terminal-automation` 操作已安装应用，只向新建的测试终端输入，不退出应用。
 
 `test-terminal-compatibility` 需要 GNU Bash、fish、Elvish、Nushell 和 tmux（可通过 Homebrew 安装），另使用系统 Zsh/Vim。它运行真实 PTY、内嵌引擎、协议回包、剪贴板权限判断、TUI、原生窗口及全屏测试，默认功能与全部功能关闭各测一次。测试打开临时窗口并短暂进入全屏；HOME、XDG 及偏好隔离，IP 网络被禁止，tmux 使用自己的 Unix socket。剪贴板仅写入测试标记，并在没有其他应用改写时恢复原内容。
 

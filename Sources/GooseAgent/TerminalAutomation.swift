@@ -55,9 +55,10 @@ struct TerminalCreationConfiguration {
 }
 
 enum AutomationFailure: LocalizedError {
-    case missingObject, invalidDirectory, invalidConfiguration, invalidInput, unavailable, disabled
+    case missingObject, invalidDirectory, invalidConfiguration, invalidInput, unavailable, disabled, singleWindow
     var errorDescription: String? {
         switch self {
+        case .singleWindow: String(localized: "1Agent has only one window. Create a new tab instead.")
         case .missingObject: String(localized: "The requested window or terminal no longer exists.")
         case .invalidDirectory: String(localized: "The requested working directory is unavailable.")
         case .invalidConfiguration: String(localized: "The terminal creation configuration is invalid.")
@@ -234,13 +235,8 @@ final class TerminalScriptCommand: NSScriptCommand {
         }
         switch name {
         case "new surface configuration": return configuration.record
-        case "new window":
-            let state = model.createWindow()
-            do { _ = try await model.createScriptTerminal(configuration: configuration, in: state) }
-            catch { MainWindowManager.shared.closeImmediately(state); throw error }
-            return TerminalAutomation.window(state.id)
         case "new tab":
-            let state = try args["window"].map { try window($0) } ?? model.keyWindow ?? model.createWindow()
+            let state = try args["window"].map { try window($0) } ?? model.mainWindow
             let id = try await model.createScriptTerminal(configuration: configuration, in: state)
             return TerminalAutomation.tab(id)
         case "split":
@@ -271,12 +267,7 @@ final class TerminalScriptCommand: NSScriptCommand {
         case "perform action":
             let object = try terminal(args["on"])
             guard let action = direct as? String else { throw AutomationFailure.invalidInput }
-            if action == "new_window" {
-                let directory = object.tab?.isLocal == true && !object.workingDirectory.isEmpty
-                    ? object.workingDirectory : LocalTerminal.homeDirectory
-                model.newWindow(at: directory)
-                return true
-            }
+            if action == "new_window" { throw AutomationFailure.singleWindow }
             if action == "new_tab", let state = model.window(containing: object.uuid) { model.duplicateAsTab(object.uuid, in: state); return true }
             if action.hasPrefix("set_tab_title:"), let state = model.window(containing: object.uuid), let row = model.panelRow(for: object.uuid, in: state) { model.renamePanel(row.id, to: String(action.dropFirst(14)), in: state); return true }
             return try await TerminalAutomation.readyView(object.uuid).performBindingAction(action)

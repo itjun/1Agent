@@ -22,7 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// `oneagent://` links, plus folders and scripts from `open`, Finder, or the Dock.
     func application(_ application: NSApplication, open urls: [URL]) {
-        model.noteExternalOpen()
         var files: [URL] = []
         for url in urls {
             if !url.isFileURL {
@@ -62,7 +61,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task.detached(priority: .utility) { _ = await SSHLaunchEnvironment.shared.get() }
         model.watchSSHConfig()
         model.restoreLastSession()
-        QuickTerminalController.shared.start(model: model)
         TerminalSecureInput.shared.start()
         NSApp.servicesProvider = ServiceProvider(model: model)
         NSUpdateDynamicServices()
@@ -106,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Dock icon / `open` without arguments. Always bring a regular terminal forward: AppKit may
+    /// Dock icon / `open` without arguments. Always bring the terminal window forward: AppKit may
     /// report visible windows yet leave another app frontmost unless we activate explicitly.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         model.revealForReopen()
@@ -577,8 +575,6 @@ struct GooseAgentApp: App {
         .commands {
             let _ = shortcutsRevision
             CommandGroup(replacing: .newItem) {
-                Button("New Window") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.newWindow() } }
-                    .keyboardShortcut(AppShortcuts.chord(for: .newWindow).keyboardShortcut)
                 Button("Close Window") {
                     guard !(NSApp.keyWindow is FamilyModalWindow), let state = appDelegate.model.keyWindow else { return }
                     MainWindowManager.shared.close(state)
@@ -595,8 +591,6 @@ struct GooseAgentApp: App {
                     .keyboardShortcut(AppShortcuts.chord(for: .openHost).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
-                Button("Toggle Quick Terminal") { QuickTerminalController.shared.toggle() }
-                    .keyboardShortcut(AppShortcuts.chord(for: .quickTerminal).keyboardShortcut)
                 Toggle("Secure Keyboard Input", isOn: Binding(
                     get: { TerminalSecureInput.shared.manual },
                     set: { TerminalSecureInput.shared.manual = $0 }

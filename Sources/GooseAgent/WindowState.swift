@@ -46,7 +46,6 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var zoomedPanes: [UUID: UUID] = [:]
     /// Last known frame on screen, restored at launch.
     var frame: CGRect?
-    var isQuickTerminal = false
     /// The drop relay of this window's view.
     weak var relay: CanvasDropRelay?
     var dropEpoch = 0
@@ -171,14 +170,6 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
 
     func closeImmediately(_ state: WindowState) { windows[state.id]?.close() }
 
-    private func hide(_ window: NSWindow) {
-        if let state = state(for: window) {
-            state.frame = window.frame
-        }
-        window.orderOut(nil)
-        model?.persistSessionIfReady()
-    }
-
     /// Screen point → the Ghostty window under it. `except` skips that window. Nil when the pointer is outside.
     func windowState(atScreenPoint point: NSPoint, except: UUID?) -> (WindowState, NSWindow)? {
         for window in NSApp.orderedWindows where window.identifier == Self.windowID && window.isVisible {
@@ -205,19 +196,13 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         model?.persistSessionIfReady()
     }
 
+    /// Closing only hides the one window; its sessions keep running until ⌘Q.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard let model, !model.isQuitting, let state = state(for: sender) else { return true }
-        if state.isQuickTerminal { hide(sender); return false }
-        let active = model.sidebarOrder(in: state).compactMap { id in model.tabs.first { $0.id == id } }
-            .filter { $0.hasTerminal && !$0.exited && SSHTerminalRegistry.hasRunningCommand($0.sessionID) }
-        guard !active.isEmpty else { return true }
-        let alert = FamilyAlert()
-        alert.messageText = String(localized: "Close this window and its running sessions?")
-        alert.informativeText = String(localized: "Only sessions in this window will be stopped. Other windows stay open.")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        alert.addButton(withTitle: String(localized: "Close Window"))
-        return alert.runModal() == .alertSecondButtonReturn
+        state.frame = sender.frame
+        sender.orderOut(nil)
+        model.persistSessionIfReady()
+        return false
     }
 
     func windowDidBecomeKey(_ notification: Notification) {

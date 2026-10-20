@@ -109,27 +109,6 @@
 				<string>public.plain-text</string>
 			</array>
 		</dict>
-		<dict>
-			<key>NSMenuItem</key>
-			<dict>
-				<key>default</key>
-				<string>New 1Agent Window Here</string>
-				<key>zh-Hans</key>
-				<string>在此新建 1Agent 窗口</string>
-			</dict>
-			<key>NSMessage</key>
-			<string>openWindow</string>
-			<key>NSRequiredContext</key>
-			<dict>
-				<key>NSTextContent</key>
-				<string>FilePath</string>
-			</dict>
-			<key>NSSendTypes</key>
-			<array>
-				<string>NSFilenamesPboardType</string>
-				<string>public.plain-text</string>
-			</array>
-		</dict>
 	</array>
 	<key>OSAScriptingDefinition</key>
 	<string>1Agent.sdef</string>

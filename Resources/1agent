@@ -5,9 +5,8 @@ case "${1-}" in
   --help|-h)
     cat <<'HELP'
 1agent — 打开 1Agent 终端
-用法：1agent [--tab|--new-window] [--working-directory=目录] [-e 程序 参数…]
-  --new-window         新建独立窗口（默认）
-  --tab                在当前窗口新建终端
+用法：1agent [--working-directory=目录] [-e 程序 参数…]
+  在 1Agent 窗口中新建终端（1Agent 只有一个窗口）
   --working-directory  指定工作目录
   --wait-after-command 命令结束后保留终端
   --version            显示版本
@@ -23,8 +22,8 @@ if [ ! -x "$app/Contents/MacOS/1Agent" ]; then
   exit 1
 fi
 # A running app acknowledges the request before this process exits, preserving failure status.
-"$app/Contents/MacOS/1Agent" --handoff-only --new-window --working-directory="$PWD" "$@"
+"$app/Contents/MacOS/1Agent" --handoff-only --working-directory="$PWD" "$@"
 result=$?
 if [ "$result" -ne 2 ]; then exit "$result"; fi
 # No app was running. LaunchServices now starts the actual GUI process.
-exec /usr/bin/open -na "$app" --args --new-window --working-directory="$PWD" "$@"
+exec /usr/bin/open -na "$app" --args --working-directory="$PWD" "$@"

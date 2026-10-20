@@ -14,7 +14,7 @@ enum KeyboardShortcutsTests {
         conflicts()
         reservedKeys()
         modifierRule()
-        expect(AppShortcutID.quickTerminal.defaultChord == KeyChord(key: "`", modifiers: [.control]), "quick terminal defaults to app-focused ⌃`")
+        expect(!AppShortcutID.allCases.contains { $0.rawValue == "newWindow" || $0.rawValue == "quickTerminal" }, "1Agent has no shortcut that opens another window")
         print("ok")
     }
 

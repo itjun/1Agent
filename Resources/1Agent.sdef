@@ -140,16 +140,9 @@
       </parameter>
       <result type="surface configuration" description="The newly created surface configuration." />
     </command>
-    <command name="new window" code="GhstNWin" description="Create a new 1Agent window.">
+    <command name="new tab" code="GhstNTab" description="Create a new 1Agent tab. 1Agent has only one window.">
       <cocoa class="OneAgentScriptCommand" />
-      <parameter name="with configuration" code="GNwS" type="surface configuration" optional="yes" description="Base surface configuration for the initial terminal.">
-        <cocoa key="configuration" />
-      </parameter>
-      <result type="window" description="The newly created window." />
-    </command>
-    <command name="new tab" code="GhstNTab" description="Create a new 1Agent tab.">
-      <cocoa class="OneAgentScriptCommand" />
-      <parameter name="in" code="GNtW" type="window" optional="yes" description="Target window for the new tab.">
+      <parameter name="in" code="GNtW" type="window" optional="yes" description="The 1Agent window.">
         <cocoa key="window" />
       </parameter>
       <parameter name="with configuration" code="GNtS" type="surface configuration" optional="yes" description="Base surface configuration for the initial terminal.">

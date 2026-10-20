@@ -103,15 +103,6 @@ targets:
             NSSendTypes:
               - NSFilenamesPboardType
               - public.plain-text
-          - NSMenuItem:
-              default: New 1Agent Window Here
-              zh-Hans: "在此新建 1Agent 窗口"
-            NSMessage: openWindow
-            NSRequiredContext:
-              NSTextContent: FilePath
-            NSSendTypes:
-              - NSFilenamesPboardType
-              - public.plain-text
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent

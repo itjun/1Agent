@@ -6,7 +6,6 @@ struct Open1AgentTerminalIntent: AppIntent {
     static var description = IntentDescription("Open a new terminal in an explicit local directory.")
     static var openAppWhenRun = true
     @Parameter(title: "Working Directory", default: "") var directory: String
-    @Parameter(title: "New Window", default: false) var newWindow: Bool
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
@@ -14,8 +13,7 @@ struct Open1AgentTerminalIntent: AppIntent {
         guard let model = TerminalAutomation.model else { throw AutomationFailure.unavailable }
         var config = try TerminalCreationConfiguration()
         config.directory = directory.isEmpty ? nil : directory
-        let state = newWindow ? model.createWindow() : (model.keyWindow ?? model.createWindow())
-        return .result(value: try await model.createScriptTerminal(configuration: config, in: state).uuidString)
+        return .result(value: try await model.createScriptTerminal(configuration: config, in: model.mainWindow).uuidString)
     }
 }
 

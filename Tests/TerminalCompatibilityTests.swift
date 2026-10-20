@@ -334,20 +334,6 @@ import ObjectiveC
     }
 
     static func fullScreen() async throws {
-        guard let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"] else { throw Failure("Missing test home") }
-        let id = UUID(), windowID = UUID()
-        TerminalWindowsTests.installTerminal(id, home: home)
-        let snapshot = SessionSnapshot(tabs: [.init(id: id, directory: home)], workspaces: [], windows: [
-            .init(id: windowID, blocks: [.localGroup, .ungrouped], localGroup: [id], ungrouped: [], selected: id, quickTerminal: true)
-        ], keyWindow: windowID)
-        UserDefaults.standard.set(try JSONEncoder().encode(snapshot), forKey: SessionSnapshot.storageKey)
-        let model = AppModel()
-        MainWindowManager.shared.attach(model: model)
-        model.restoreLastSession()
-        try await wait("Quick terminal test snapshot did not restore") { model.tabs.count == 1 }
-        guard let quick = model.window(for: windowID) else { throw Failure("Missing quick terminal state") }
-        defer { MainWindowManager.shared.closeImmediately(quick) }
-        QuickTerminalController.shared.start(model: model)
         let full = Fixture()
         defer { full.close() }
         try await full.ready()
@@ -367,22 +353,14 @@ import ObjectiveC
         print("FULLSCREEN_IMAGE_READY: native Kitty RGB image displayed")
         fflush(stdout)
         try await hold(suffix: ".image")
-        QuickTerminalController.shared.toggle()
-        guard let native = MainWindowManager.shared.window(for: quick) else { throw Failure("Missing fullscreen auxiliary quick terminal") }
-        try await wait("Quick terminal is not visible in the active fullscreen Space") { native.isVisible && native.isOnActiveSpace && native.occlusionState.contains(.visible) }
-        let terminal = SSHTerminalRegistry.automationView("\(id.uuidString)#0")!
-        terminal.processHost?.session.receive("\r\n1Agent 快速终端：全屏空间显示正常\r\n")
-        try check(full.window.styleMask.contains(.fullScreen), "Showing quick terminal exited the original fullscreen window")
-        print("FULLSCREEN_READY: native fullscreen and auxiliary quick terminal visible")
+        try check(full.window.styleMask.contains(.fullScreen), "The terminal window left fullscreen unexpectedly")
+        print("FULLSCREEN_READY: native fullscreen terminal visible")
         fflush(stdout)
         try await hold(suffix: "")
-        native.makeKeyAndOrderFront(nil)
-        QuickTerminalController.shared.toggle()
-        try await wait("Quick terminal did not hide in fullscreen") { !native.isVisible }
         full.window.toggleFullScreen(nil)
         try await wait("Native window did not complete fullscreen exit", seconds: 15) { exited }
         try check(full.session.readScreenText()?.text.contains("原终端内容必须保留") == true, "Fullscreen transition lost terminal contents: viewport=\(String((full.session.readViewportText() ?? "").prefix(400)).debugDescription); screen=\(String((full.session.readScreenText()?.text ?? "").prefix(400)).debugDescription)")
-        print("PASS actual single-display fullscreen entry/exit, quick terminal visibility in active fullscreen Space and original terminal preservation")
+        print("PASS actual single-display fullscreen entry/exit and original terminal preservation")
     }
 
     static func hold(suffix: String) async throws {
