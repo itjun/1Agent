@@ -869,7 +869,51 @@ private struct FilesSidebar: View {
     @Environment(\.windowChrome) private var chrome
 
     var body: some View {
-        PinnedLocationsSidebar(workspace: workspace, dragArea: dragArea) { model.focusFiles(in: window) }
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Text("Opened").font(.system(size: 12, weight: .semibold))
+                Spacer(minLength: 0)
+                Button { model.openHostPicker(in: window, purpose: .files) } label: {
+                    Image(systemName: "plus").frame(width: 22, height: 24)
+                }
+                .help(String(localized: "Open Host…") + " (" + AppShortcuts.display(for: .openHost) + ")")
+                .accessibilityLabel(Text("Open Host…"))
+                .accessibilityIdentifier("files.openedTabs.add")
+            }
+            .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
+            .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 6)
+            openedTabs.layoutPriority(1)
+            Divider().padding(.horizontal, 16)
+            PinnedLocationsSidebar(workspace: workspace, dragArea: dragArea) { model.focusFiles(in: window) }
+        }
+        .onDisappear { workspace.tabDrag.strips.removeAll() }
+    }
+
+    /// Every remote pane's tabs as a vertical list. Each list is its pane's drag strip.
+    private var openedTabs: some View {
+        let remoteGroups = workspace.groupIDs.filter { $0 != workspace.localGroupID && workspace.groups[$0]?.tabs.isEmpty == false }
+        return VStack(spacing: 4) {
+            if remoteGroups.isEmpty {
+                Text("Choose a server")
+                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 11).padding(.vertical, 8)
+            }
+            ForEach(remoteGroups, id: \.self) { groupID in
+                if remoteGroups.first != groupID {
+                    Divider().padding(.horizontal, 10)
+                }
+                VStack(spacing: 4) {
+                    ForEach(workspace.groups[groupID]?.tabs ?? []) { column in
+                        FileTabButton(workspace: workspace, column: column, groupID: groupID, tabDrag: workspace.tabDrag)
+                    }
+                }
+                .background(BoundsAnchor { workspace.tabDrag.strips[groupID] = AnchorBox($0) })
+            }
+        }
+        .padding(.horizontal, 8).padding(.bottom, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("files.openedTabs")
     }
 }
 

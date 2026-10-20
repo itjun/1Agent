@@ -28,7 +28,7 @@ struct FilesDockView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FilePairGrid(workspace: workspace, model: model, window: window, relay: relay)
+            FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
                 .padding(Theme.Space.s)
             FileTransferQueueView()
         }
@@ -78,8 +78,8 @@ private struct FilePairGrid: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     var relay: CanvasDropRelay
+    @ObservedObject var tabDrag: FileTabDragTracker
     @Environment(\.windowChrome) private var chrome
-    @StateObject private var tabDrag = FileTabDragTracker()
     @State private var ratioDrag: (id: UUID, start: CGFloat)?
     @State private var hoveredDividerID: UUID?
 
@@ -193,7 +193,6 @@ private struct FileEndpointPanel: View {
         .onDisappear {
             relay.filesSideAnchors.removeValue(forKey: .group(groupID))
             tabDrag.panes.removeValue(forKey: groupID)
-            tabDrag.strips.removeValue(forKey: groupID)
         }
         .overlay {
             if window.filesDropTarget == .group(groupID) {
@@ -224,37 +223,37 @@ private struct FileEndpointPanel: View {
                     }
                     .accessibilityIdentifier("files.localLocation")
             } else {
-                remoteLocations
+                remoteLocation
             }
         }
         .frame(height: FileBrowserLayout.tabStripHeight)
-        .background(BoundsAnchor { tabDrag.strips[groupID] = AnchorBox($0) })
     }
 
-    /// Remote endpoints are visible as a horizontal tab row; the sidebar owns local pins.
-    private var remoteLocations: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                HStack(spacing: Theme.Space.xs) {
-                    ForEach(workspace.groups[groupID]?.tabs ?? []) { location in
-                        FileTabButton(workspace: workspace, column: location, groupID: groupID, tabDrag: tabDrag)
-                            .id(location.id)
-                    }
-                    if workspace.groups[groupID]?.tabs.isEmpty == true {
-                        Text("Choose a server")
-                            .font(Theme.Font.rowMeta)
-                            .foregroundStyle(chrome.secondary)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-            .onAppear { if let column { proxy.scrollTo(column.id) } }
-            .onChange(of: column?.id) { _, id in
-                if tabDrag.draggingID == nil, let id { proxy.scrollTo(id) }
+    /// Only the pane's current server. Its tabs are listed vertically in the sidebar.
+    private var remoteLocation: some View {
+        HStack(spacing: Theme.Space.s) {
+            Image(systemName: "server.rack")
+                .font(.system(size: 13))
+                .foregroundStyle(chrome.text)
+            if let host = column?.fileSystem.host {
+                Text(verbatim: host)
+                    .font(Theme.Font.body.weight(.semibold)).lineLimit(1)
+                    .foregroundStyle(chrome.text)
+            } else {
+                Text("Choose a server")
+                    .font(Theme.Font.rowMeta)
+                    .foregroundStyle(chrome.secondary)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityIdentifier("files.remoteLocations")
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .familyContextMenu {
+            guard let column else { return [] }
+            return [FamilyMenuItem(title: String(localized: "Open in Terminal"), enabled: !column.directory.isEmpty, action: {
+                workspace.openTerminal([], in: column)
+            })]
+        }
+        .accessibilityIdentifier("files.remoteLocation")
     }
 }
 

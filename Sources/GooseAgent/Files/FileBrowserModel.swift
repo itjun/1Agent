@@ -407,6 +407,8 @@ final class FileWorkspace: ObservableObject {
     private var focusHistory: [UUID] = []
     /// Where hosts chosen in the host picker open; nil picks a pane as `openRemote` does.
     var pickerGroupID: UUID?
+    /// Shared by the sidebar's vertical tab list and the pane grid it drops onto.
+    let tabDrag = FileTabDragTracker()
     weak var model: AppModel?
     weak var windowState: WindowState?
     var onChange: ((Saved) -> Void)?

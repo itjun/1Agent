@@ -10,8 +10,8 @@ struct FileTabMenuItem {
     static var separator: Self { Self(title: "", isSeparator: true) }
 }
 
-/// Tab drags. The strips sit in the title bar band, where SwiftUI drags would move the window, so
-/// each tab tracks the mouse in its own view and reports here. Over its own strip a tab reorders
+/// Tab drags. Each pane's tabs are a vertical list (a "strip") in the sidebar; each tab tracks the
+/// mouse in its own view and reports here. Over its own strip a tab reorders
 /// with an insertion marker; over another pane it shows where it would land (the whole pane to join it, half of it to
 /// split it) and moves there on release.
 @MainActor
@@ -74,10 +74,12 @@ final class FileTabDragTracker: ObservableObject {
             if let strip = strips[id]?.view, Self.contains(strip, windowPoint) {
                 if let scroll = tabs[column.id]?.view?.enclosingScrollView, source == id {
                     let point = scroll.convert(windowPoint, from: nil)
-                    let delta: CGFloat = point.x < 24 ? -14 : point.x > scroll.bounds.width - 24 ? 14 : 0
+                    let fromTop = scroll.isFlipped ? point.y : scroll.bounds.height - point.y
+                    var delta: CGFloat = fromTop < 24 ? -14 : fromTop > scroll.bounds.height - 24 ? 14 : 0
+                    if !scroll.contentView.isFlipped { delta = -delta }
                     if delta != 0, let document = scroll.documentView {
                         var origin = scroll.contentView.bounds.origin
-                        origin.x = min(max(0, origin.x + delta), max(0, document.bounds.width - scroll.contentView.bounds.width))
+                        origin.y = min(max(0, origin.y + delta), max(0, document.bounds.height - scroll.contentView.bounds.height))
                         scroll.contentView.scroll(to: origin)
                         scroll.reflectScrolledClipView(scroll.contentView)
                     }
@@ -287,7 +289,8 @@ final class FileTabHandleView: NSView {
     }
 }
 
-/// A remote file tab with the same native mouse tracking as terminal pane titles.
+/// A remote file tab: one row of the sidebar's vertical list, with the same native mouse tracking
+/// as terminal pane titles.
 struct FileTabButton: View {
     @ObservedObject var workspace: FileWorkspace
     @ObservedObject var column: FileColumn
@@ -296,10 +299,10 @@ struct FileTabButton: View {
     @Environment(\.windowChrome) private var chrome
     @State private var hovering = false
     private static let closeSize: CGFloat = 14
+    private static let rowHeight: CGFloat = 46
 
     private var dragging: Bool { tabDrag.draggingID == column.id }
     private var active: Bool { workspace.groups[groupID]?.activeID == column.id }
-    private var multipleTabs: Bool { (workspace.groups[groupID]?.tabs.count ?? 0) > 1 }
 
     private var title: String {
         if let host = column.fileSystem.host { return host }
@@ -308,13 +311,11 @@ struct FileTabButton: View {
     }
 
     private var fill: Color {
-        if dragging || (active && multipleTabs) { return chrome.accentFill }
+        if dragging || active { return chrome.accentFill }
         return hovering ? chrome.elevated : Color.clear
     }
 
-    private var foreground: Color { active ? (multipleTabs ? chrome.accent : chrome.text) : chrome.secondary }
-
-    private var insertionAtTrailingEdge: Bool? {
+    private var isInsertionBelow: Bool? {
         guard let zone = tabDrag.zone, zone.reordering, zone.before == column.id,
               let tabs = workspace.groups[groupID]?.tabs,
               let source = tabs.firstIndex(where: { $0.id == tabDrag.draggingID }),
@@ -323,29 +324,38 @@ struct FileTabButton: View {
     }
 
     var body: some View {
-        HStack(spacing: Theme.Space.xs) {
-            Text(verbatim: title)
-                .font(Theme.Font.body.weight(active ? .semibold : .regular))
-                .lineLimit(1)
-                .truncationMode(.middle)
-
+        HStack(spacing: 9) {
+            Image(systemName: "server.rack")
+                .font(.system(size: 14)).frame(width: 20)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: title)
+                    .font(.system(size: 14, weight: active ? .semibold : .regular))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(verbatim: column.directory.isEmpty ? column.title : column.directory)
+                    .font(.system(size: 12))
+                    .foregroundStyle(chrome.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "xmark")
                 .font(.system(size: 9, weight: .semibold))
                 .frame(width: Self.closeSize, height: Self.closeSize)
-                .opacity(hovering || active ? 1 : 0)
+                .opacity(hovering ? 1 : 0)
         }
-        .foregroundStyle(foreground)
-        .padding(.horizontal, Theme.Space.s)
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(height: 27)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(fill))
+        .foregroundStyle(active ? chrome.accent : chrome.text)
+        .padding(.horizontal, 11)
+        .frame(maxWidth: .infinity)
+        .frame(height: Self.rowHeight)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(fill))
         .accessibilityHidden(true)
         .zIndex(dragging ? 1 : 0)
         .overlay(FileTabHandle(
             title: title,
             identifier: "files.tab." + column.id.uuidString,
             toolTip: title + ": " + column.directory,
-            closeWidth: Self.closeSize + Theme.Space.s + Theme.Space.xs,
+            closeWidth: Self.closeSize + 11 + Theme.Space.xs,
             menu: menu,
             onClick: { workspace.activate(column) },
             onClose: { workspace.close(column) },
@@ -355,9 +365,9 @@ struct FileTabButton: View {
             onCancel: { tabDrag.cancel() },
             onResolve: { tabDrag.tabs[column.id] = FileTabDragTracker.Entry(view: $0, column: column) }
         ))
-        .overlay(alignment: insertionAtTrailingEdge == true ? .trailing : .leading) {
-            if insertionAtTrailingEdge != nil {
-                Rectangle().fill(chrome.accent).frame(width: 2, height: 27).allowsHitTesting(false)
+        .overlay(alignment: isInsertionBelow == true ? .bottom : .top) {
+            if isInsertionBelow != nil {
+                Rectangle().fill(chrome.accent).frame(height: 2).allowsHitTesting(false)
             }
         }
     }
