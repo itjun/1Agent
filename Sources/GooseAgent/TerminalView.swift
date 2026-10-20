@@ -253,6 +253,11 @@ final class TerminalProcessHost {
             lock.lock(); defer { lock.unlock() }
             return (viewport?.columns ?? 80, viewport?.rows ?? 24)
         }
+        /// Nil until the pane has reported a real grid.
+        func reportedColumns() -> UInt16? {
+            lock.lock(); defer { lock.unlock() }
+            return viewport?.columns
+        }
     }
 
     let session: InMemoryTerminalSession
@@ -263,6 +268,8 @@ final class TerminalProcessHost {
     private var hasStarted = false
     private var pendingInitialInput: Data?
     private var pendingRestoration: TerminalRestoration?
+    /// The previous session's output is not on screen yet; its archive must not be overwritten.
+    private(set) var isAwaitingHistoryReplay = false
     private var terminated = false
     private(set) var commandBridge: LocalCommandBridge?
     private(set) var remoteWorkingDirectory: String?
@@ -325,13 +332,53 @@ final class TerminalProcessHost {
     func startWhenReady() {
         guard !terminated, session.hasAttachedSurface, !hasStarted, let launch else { return }
         hasStarted = true
-        if let restoration = pendingRestoration {
-            pendingRestoration = nil
-            if let output = restoration.previousOutput { session.receive(output) }
-            session.receive(restoration.notice())
+        guard let restoration = pendingRestoration else {
+            startProcess(initialLaunch ?? launch)
+            initialLaunch = nil
+            return
         }
-        startProcess(initialLaunch ?? launch)
-        initialLaunch = nil
+        pendingRestoration = nil
+        guard let output = restoration.previousOutput else {
+            session.receive(restoration.notice())
+            startProcess(initialLaunch ?? launch)
+            initialLaunch = nil
+            return
+        }
+        // Replaying before the pane has its laid-out width soft-wraps long colored lines;
+        // the later reflow keeps those background-filled wrap cells as stray bars.
+        isAwaitingHistoryReplay = true
+        Task { @MainActor [weak self] in
+            await self?.waitForSettledColumns()
+            guard let self else { return }
+            self.isAwaitingHistoryReplay = false
+            guard !self.terminated, self.process.shellPid == 0 else { return }
+            self.session.receive(output)
+            self.session.receive(restoration.notice())
+            self.startProcess(self.initialLaunch ?? launch)
+            self.initialLaunch = nil
+        }
+    }
+
+    /// Returns once the reported column count has held for 200 ms, or after 1.5 s.
+    /// Cancellation ends the wait early so the caller can still replay and start.
+    private func waitForSettledColumns() async {
+        var lastColumns: UInt16?
+        var stablePolls = 0
+        for _ in 0..<30 {
+            let columns = box.reportedColumns()
+            if columns != nil && columns == lastColumns {
+                stablePolls += 1
+                if stablePolls >= 4 { return }
+            } else {
+                stablePolls = 0
+            }
+            lastColumns = columns
+            do {
+                try await Task.sleep(for: .milliseconds(50))
+            } catch {
+                return
+            }
+        }
     }
 
     func sendInitialInput(_ text: String) {
@@ -546,8 +593,14 @@ enum SSHTerminalRegistry {
     static func saveOutputForApplicationExit(tabs: [TerminalTab], store: TerminalOutputStore = .shared) throws {
         let terminals = tabs.filter(\.hasTerminal)
         for tab in terminals {
-            guard let host = views[tab.sessionID]?.processHost, host.session.hasAttachedSurface else { continue }
+            guard let host = views[tab.sessionID]?.processHost, host.session.hasAttachedSurface,
+                  !host.isAwaitingHistoryReplay else { continue }
             host.session.waitForPendingOutput()
+            // Prefer the styled export so prompts and logs keep their colors; plain text is the fallback.
+            if let styled = host.session.readScreenStyledText(), !styled.isEmpty {
+                try store.save(styled, for: tab.id)
+                continue
+            }
             guard let output = host.session.readScreenText(maxRows: TerminalOutputStore.lineLimit, maxBytes: TerminalOutputStore.byteLimit) else { continue }
             try store.save(output.text, for: tab.id)
         }

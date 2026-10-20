@@ -133,6 +133,24 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         } ?? nil
     }
 
+    /// The whole active screen, scrollback included, with colors and styles kept as
+    /// VT escape sequences (ghostty's `copy_to_clipboard:vt`). Nothing reaches the
+    /// pasteboard. Main thread only; leaves the screen selected, so call it only
+    /// right before the surface goes away. Nil when the engine produced no copy.
+    @MainActor
+    public func readScreenStyledText() -> String? {
+        surfaceAccess.withCurrentSurface { surface -> String? in
+            var captured: String?
+            TerminalClipboardCapture.receiver = { captured = $0 }
+            defer { TerminalClipboardCapture.receiver = nil }
+            let selectAll = "select_all"
+            let copy = "copy_to_clipboard:vt"
+            guard ghostty_surface_binding_action(surface, selectAll, UInt(selectAll.utf8.count)),
+                  ghostty_surface_binding_action(surface, copy, UInt(copy.utf8.count)) else { return nil }
+            return captured
+        } ?? nil
+    }
+
     /// Returns the active viewport as a UTF-8 string, or `nil` if no surface
     /// is attached: one line per viewport row, joined with `\n`. The
     /// `ghostty_text_s` lifecycle (allocate via `ghostty_surface_read_text`,

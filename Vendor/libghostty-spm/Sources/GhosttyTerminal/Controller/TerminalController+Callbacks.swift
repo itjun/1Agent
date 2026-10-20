@@ -12,6 +12,12 @@ import GhosttyKit
     import AppKit
 #endif
 
+/// Set only on the main thread around a synchronous host export binding.
+/// While set, ghostty's copy lands here instead of on the user's pasteboard.
+enum TerminalClipboardCapture {
+    nonisolated(unsafe) static var receiver: ((String) -> Void)?
+}
+
 private enum TerminalCallbacks {
     static func wakeup(userdata: UnsafeMutableRawPointer?) {
         guard let userdata else { return }
@@ -93,6 +99,10 @@ private enum TerminalCallbacks {
 
         let payloads = copyClipboardContents(contents, count: contentsLen)
         guard !payloads.isEmpty else { return }
+        if Thread.isMainThread, let receiver = TerminalClipboardCapture.receiver {
+            receiver(firstTextRepresentation(in: payloads) ?? "")
+            return
+        }
 
         TerminalDebugLog.log(
             .input,

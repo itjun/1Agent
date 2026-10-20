@@ -37,6 +37,9 @@ enum TerminalRestorationTests {
         try store.save("中文日志\ncommand text\u{1b}]52;c;payload\u{7}\u{9b}2J\n", for: first)
         let text = store.load(first)!
         expect(text.contains("中文日志") && !text.contains("\u{1b}") && !text.contains("\u{7}") && !text.contains("\u{9b}"), "Archives must contain inert display text only")
+        try store.save("\u{1b}]11;rgb:00/00/00\u{1b}\\\u{1b}[38;2;240;160;180;48;5;3mprompt\u{1b}[0m\u{1b}[2J\u{1b}[?1049h\u{1b}Ptmux\u{1b}\\\u{1b}(Bdone\n", for: first)
+        expect(store.load(first) == "\u{1b}[38;2;240;160;180;48;5;3mprompt\u{1b}[0mdone",
+               "Archives keep only SGR colors; color changes, screen control and string sequences are dropped")
         let file = folder.appendingPathComponent(first.uuidString + ".txt")
         let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
         expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600, "Saved logs must be private")
@@ -119,6 +122,9 @@ enum TerminalRestorationTests {
             expect(text.components(separatedBy: "LOG_\(index)_BEGIN").count - 1 == 1, "Repeated launches must not duplicate previous output")
             expect(!text.contains("LOG_\(1 - index)_BEGIN"), "Terminal logs must never cross sessions")
             if !saving {
+                let styled = host.session.readScreenStyledText() ?? ""
+                expect(styled.range(of: "\u{1b}\\[[0-9;:]*38;[0-9;:]*mLOG_\(index)_BEGIN", options: .regularExpression) != nil,
+                       "Cold restore must keep the previous output's colors")
                 expect(text.range(of: "LOG_\(index)_END")!.lowerBound < text.range(of: String(localized: "Restored at %@").components(separatedBy: "%@")[0], options: .backwards)!.lowerBound,
                        "Old output must precede the current restoration notice")
                 host.startWhenReady()

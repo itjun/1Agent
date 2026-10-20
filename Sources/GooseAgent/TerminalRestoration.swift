@@ -8,7 +8,8 @@ struct TerminalRestoration: Equatable {
     /// Display-only input to Ghostty, never stdin for the restored shell/SSH.
     var previousOutput: String? {
         guard let outputID, let text = TerminalOutputStore.shared.load(outputID), !text.isEmpty else { return nil }
-        return text.replacingOccurrences(of: "\n", with: "\r\n") + "\r\n"
+        // Reset so a style left open by the archive never colors the notice or the new shell.
+        return text.replacingOccurrences(of: "\n", with: "\r\n") + "\u{1b}[0m\r\n"
     }
 
     func notice(restoredAt: Date = Date(), timeZone: TimeZone = .current) -> String {
