@@ -561,7 +561,14 @@ enum SSHTerminalRegistry {
         guard await bridge.query(), views[id] === view, host.process === process, !view.hasMarkedText(),
               host.process.commandInputRevision == revision, host.process.shellIsForeground else { throw QuickCommandError.unavailable }
         guard contextIsCurrent() else { throw QuickCommandError.changedTarget }
-        try await bridge.run(id: request.id, script: request.currentShellCommand, expectedDirectory: directory)
+        let needsWakeup = try await bridge.run(id: request.id, script: request.currentShellCommand, expectedDirectory: directory)
+        if needsWakeup {
+            // Wake only the process that acknowledged this request. The socket
+            // owns the command; this NUL merely lets ZLE accept it outside its
+            // fd callback, so resize cannot redraw a prompt over running output.
+            guard host.process === process, views[id] === view else { throw QuickCommandError.uncertain }
+            process.write(Data([0]))
+        }
     }
 
     /// Text typed at the prompt as a paste. False when the view is gone.

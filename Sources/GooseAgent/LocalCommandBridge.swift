@@ -2,8 +2,9 @@ import Darwin
 import Foundation
 import AppKit
 
-/// A per-process, private Unix socket. No PTY bytes are used to probe or submit commands.
-/// Only the bundled zsh ZLE adapter accepts requests, inside its input-buffer guard.
+/// A per-process, private Unix socket carries commands and readiness probes.
+/// The adapter may request a NUL on the owned PTY to leave zsh's fd polling loop;
+/// command text is never submitted through terminal input.
 final class LocalCommandBridge: @unchecked Sendable {
     let folder: String
     let socketPath: String
@@ -33,9 +34,11 @@ final class LocalCommandBridge: @unchecked Sendable {
 
     func query() async -> Bool { await exchange(action: remote ? "probe" : "query", id: UUID(), script: "", directory: "") == "ready" }
 
-    func run(id: UUID, script: String, expectedDirectory: String) async throws {
+    @discardableResult
+    func run(id: UUID, script: String, expectedDirectory: String) async throws -> Bool {
         let reply = await exchange(action: "run", id: id, script: script, directory: expectedDirectory)
-        if reply == "accepted" { return }
+        if reply == "accepted-wakeup" { return true }
+        if reply == "accepted" { return false } // Already-connected older adapters.
         if reply == "rejected" { throw QuickCommandError.unavailable }
         throw QuickCommandError.uncertain
     }

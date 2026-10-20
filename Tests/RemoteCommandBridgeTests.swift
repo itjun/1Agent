@@ -6,6 +6,7 @@ import Foundation
 @main enum RemoteCommandBridgeTests {
     static func main() async throws {
         for skew in [-3600.0, 3600.0] {
+            let needsWakeup = skew > 0
             let bridge = LocalCommandBridge(remote: true)!
             let listener = socket(AF_UNIX, SOCK_STREAM, 0)
             var address = sockaddr_un()
@@ -33,14 +34,15 @@ import Foundation
                         precondition(Data(base64Encoded: String(fields[4])) == Data("/root/目录".utf8))
                         precondition(Data(base64Encoded: String(fields[5])) == Data("printf fixture".utf8))
                     }
-                    let reply = "\(fields[1])|" + (action == "probe" ? "ready|\(now)" : "accepted") + "\n"
+                    let reply = "\(fields[1])|" + (action == "probe" ? "ready|\(now)" : needsWakeup ? "accepted-wakeup" : "accepted") + "\n"
                     _ = reply.withCString { write(fd, $0, strlen($0)) }
                     close(fd)
                 }
             }
             let ready = await bridge.query()
             precondition(ready, "Remote delay must not become a false busy state")
-            try await bridge.run(id: UUID(), script: "printf fixture", expectedDirectory: "/root/目录")
+            let wakeup = try await bridge.run(id: UUID(), script: "printf fixture", expectedDirectory: "/root/目录")
+            precondition(wakeup == needsWakeup, "Only adapters that request a wakeup may receive PTY input")
             await server.value
         }
         print("Remote command bridge passed: delayed replies, clock ahead/behind, expiry and payload preservation")
