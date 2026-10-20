@@ -756,11 +756,12 @@ struct SettingsWindowRoot: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @ObservedObject private var preview = ThemePreview.shared
+    @ObservedObject private var applicationIcons = ApplicationIconManager.shared
 
     private var chrome: WindowChrome {
         let _ = lightThemeRaw
         let _ = darkThemeRaw
-        return WindowChrome.resolve(isDark: appearanceDriver.isDark)
+        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: applicationIcons.selected)
     }
 
     var body: some View {

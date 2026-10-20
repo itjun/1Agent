@@ -156,19 +156,28 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
-    static func resolve(isDark: Bool) -> WindowChrome { WindowChrome(isDark: isDark) }
+    static func resolve(isDark: Bool, icon: ApplicationIcon = ApplicationIcon.stored()) -> WindowChrome {
+        WindowChrome(isDark: isDark, icon: icon)
+    }
 
-    init(isDark: Bool) {
-        func color(_ light: String, _ dark: String) -> Color {
-            RGBColor(ghosttyHex: isDark ? dark : light)!.color
+    init(isDark: Bool, icon: ApplicationIcon = ApplicationIcon.stored()) {
+        func rgb(_ light: String, _ dark: String) -> RGBColor {
+            RGBColor(ghosttyHex: isDark ? dark : light)!
         }
-        background = color("FFFFFF", "1A1F2B")
-        sidebarBackground = color("F2F3F5", "12161F")
-        elevated = color("F3F4F6", "232A38")
+        func color(_ light: String, _ dark: String) -> Color {
+            rgb(light, dark).color
+        }
+        let backgroundRGB = rgb("FFFFFF", "1A1F2B")
+        let sidebarRGB = rgb("F2F3F5", "12161F")
+        background = backgroundRGB.color
+        sidebarBackground = sidebarRGB.color
+        let elevatedRGB = rgb("F3F4F6", "232A38")
+        let hairlineRGB = rgb("E5E7EB", "2C3445")
+        elevated = elevatedRGB.color
         text = color("1F2937", "E6EBF3")
         secondary = color("636A76", "94A1B5")
         tertiary = secondary
-        hairline = color("E5E7EB", "2C3445")
+        hairline = hairlineRGB.color
         accent = color("0052D9", "4C8DFF")
         accentFill = color("E8EFFF", "1A2C52")
         panelHeader = sidebarBackground
@@ -180,6 +189,40 @@ struct WindowChrome: Equatable {
         focus = color("C5D6FF", "22407A")
         selection = color("C9DAFF", "274A8C")
         lineStrong = color("9CA3AF", "5A6478")
+
+        guard let palette = icon.palette else { return }
+        let white = RGBColor(red: 1, green: 1, blue: 1)
+        let black = RGBColor(red: 0, green: 0, blue: 0)
+        let fill = RGBColor(ghosttyHex: palette.fill)!
+        let ring = RGBColor(ghosttyHex: palette.ring)!
+        let ink = RGBColor(ghosttyHex: palette.ink)!
+        // Accent doubles as button text and checkmarks, so it keeps WCAG AA contrast on the window background.
+        // Hover rows, fields and dividers draw with elevated and hairline, so those carry the palette too.
+        let tone = RGBColor.ensureContrast(
+            isDark ? ring : ink,
+            against: backgroundRGB,
+            toward: isDark ? white : black,
+            minimum: 4.5
+        )
+        accent = tone.color
+        accentHover = tone.mixed(with: white, amount: 0.2).color
+        accentActive = tone.mixed(with: black, amount: isDark ? 0.15 : 0.2).color
+        if isDark {
+            accentFill = ring.mixed(with: backgroundRGB, amount: 0.75).color
+            focus = ring.mixed(with: backgroundRGB, amount: 0.55).color
+            selection = ring.mixed(with: backgroundRGB, amount: 0.45).color
+            sidebarBackground = sidebarRGB.mixed(with: ring, amount: 0.06).color
+            elevated = elevatedRGB.mixed(with: ring, amount: 0.1).color
+            hairline = hairlineRGB.mixed(with: ring, amount: 0.15).color
+        } else {
+            accentFill = fill.mixed(with: white, amount: 0.55).color
+            focus = fill.color
+            selection = fill.mixed(with: ring, amount: 0.3).color
+            sidebarBackground = sidebarRGB.mixed(with: fill, amount: 0.18).color
+            elevated = elevatedRGB.mixed(with: fill, amount: 0.25).color
+            hairline = hairlineRGB.mixed(with: fill, amount: 0.4).color
+        }
+        panelHeader = sidebarBackground
     }
 }
 

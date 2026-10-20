@@ -8,6 +8,7 @@ struct RootView: View {
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @ObservedObject private var themePreview = ThemePreview.shared
     @ObservedObject private var inputFocus = FocusedTerminal.shared
+    @ObservedObject private var applicationIcons = ApplicationIconManager.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
@@ -30,7 +31,7 @@ struct RootView: View {
     @FocusState private var workspaceNameFocused: Bool
 
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearanceDriver.isDark)
+        WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: applicationIcons.selected)
     }
 
     private var sidebarChrome: WindowChrome { chrome }

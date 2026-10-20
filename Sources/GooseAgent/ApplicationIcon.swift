@@ -36,6 +36,30 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
         }
     }
 
+    struct Palette: Equatable {
+        let fill: String
+        let ring: String
+        let ink: String
+    }
+
+    /// Same colors as `Resources/AppIcon/macaron-palettes.json`; the window chrome accent follows them.
+    /// Nil keeps the original blue chrome.
+    var palette: Palette? {
+        switch self {
+        case .original: nil
+        case .strawberryCream: Palette(fill: "F6C3D1", ring: "E7A7BC", ink: "A26D86")
+        case .lavenderMilkshake: Palette(fill: "D9CCF3", ring: "BCA9DD", ink: "82719F")
+        case .mintCandy: Palette(fill: "C6E8D5", ring: "A1CCB8", ink: "678F83")
+        case .cloudSoda: Palette(fill: "BEDDF3", ring: "9FC2DD", ink: "688BA8")
+        case .peachSorbet: Palette(fill: "F7CDB9", ring: "E6AE99", ink: "A9796F")
+        case .lemonPudding: Palette(fill: "F4E3AA", ring: "DDC989", ink: "A28F5E")
+        case .blueberryYogurt: Palette(fill: "C5CFEE", ring: "ACB6DB", ink: "7982A7")
+        case .pistachioMousse: Palette(fill: "DCE7B4", ring: "BFCF96", ink: "889A69")
+        case .strawberrySeaSalt: Palette(fill: "F1C8D2", ring: "D7AABA", ink: "968099")
+        case .taroPeach: Palette(fill: "DACBF2", ring: "BFA9D9", ink: "9077A4")
+        }
+    }
+
     static func stored(defaults: UserDefaults = .standard) -> Self {
         Self(rawValue: defaults.string(forKey: storageKey) ?? "") ?? defaultIcon
     }

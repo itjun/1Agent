@@ -9,7 +9,7 @@ struct ApplicationIconSettingsPage: View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
             SettingsCard("App Icon") {
                 VStack(alignment: .leading, spacing: Theme.Space.l) {
-                    Text("Choose an app icon. Finder, the Dock and the app switcher update together, and your choice is remembered after restarting.")
+                    Text("Choose an app icon. Finder, the Dock and the app switcher update together, the app’s accent colors follow the icon, and your choice is remembered after restarting.")
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.secondary)
                         .fixedSize(horizontal: false, vertical: true)

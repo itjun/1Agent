@@ -60,6 +60,7 @@ enum ApplicationIconTests {
         try check(ApplicationIcon.allCases.count == 11, "The original and all ten approved palettes must ship")
         try check(ApplicationIcon.macaronIcons.count == 10 && !ApplicationIcon.macaronIcons.contains(.original),
                   "All ten macaron alternatives must remain available separately from the original")
+        try checkPalettesMatchBundledJSON(bundle)
         guard let defaultURL = bundle.url(forResource: "AppIcon", withExtension: "icns"),
               let bundledDefault = NSImage(contentsOf: defaultURL),
               let originalImage = manager.image(for: .original) else {
@@ -102,6 +103,35 @@ enum ApplicationIconTests {
 
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) throws {
         if !condition() { throw Failure(message: message) }
+    }
+
+    /// Window chrome reads the same hex triples as icon generation; keep Swift and JSON aligned.
+    static func checkPalettesMatchBundledJSON(_ bundle: Bundle) throws {
+        struct Row: Decodable {
+            let id: String
+            let fill: String
+            let ring: String
+            let ink: String
+        }
+        guard let url = bundle.url(forResource: "macaron-palettes", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let rows = try? JSONDecoder().decode([Row].self, from: data) else {
+            throw Failure(message: "Bundled macaron-palettes.json must be readable")
+        }
+        try check(rows.count == ApplicationIcon.macaronIcons.count, "JSON must list every macaron icon once")
+        for row in rows {
+            guard let icon = ApplicationIcon(rawValue: row.id), let palette = icon.palette else {
+                throw Failure(message: "Missing Swift palette for \(row.id)")
+            }
+            func hex(_ value: String) -> String {
+                value.hasPrefix("#") ? String(value.dropFirst()) : value
+            }
+            try check(
+                palette.fill == hex(row.fill) && palette.ring == hex(row.ring) && palette.ink == hex(row.ink),
+                "Chrome palette for \(row.id) must match macaron-palettes.json"
+            )
+        }
+        try check(ApplicationIcon.original.palette == nil, "Original blue must keep the default chrome")
     }
 
     @MainActor
