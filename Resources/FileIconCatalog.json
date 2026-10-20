@@ -1,0 +1,936 @@
+{
+  "version": 1,
+  "upstream": {
+    "project": "vscode-icons/vscode-icons",
+    "revision": "cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f"
+  },
+  "icons": {
+    "word": {
+      "file": "word.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_word.svg",
+      "sha256": "f720754d0946877157f8391da30f4d23b4e5332f1c96c737995b7c3e391afe73"
+    },
+    "excel": {
+      "file": "excel.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_excel.svg",
+      "sha256": "da165705f28f83920031af3ecf17d6e97fa498c09045bbb7543ffbe3aee2e6c0"
+    },
+    "powerpoint": {
+      "file": "powerpoint.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_powerpoint.svg",
+      "sha256": "77622cd6de9d9512ffd97daa170a3ab52a72768bd77c44b0627ca74bc9b347fd"
+    },
+    "pdf": {
+      "file": "pdf.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_pdf2.svg",
+      "sha256": "e429fcec8a053d2dc1d4f459190ee28c0a9306be9c1fff057af81a814ccb70f0"
+    },
+    "writer": {
+      "file": "writer.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_libreoffice_writer.svg",
+      "sha256": "98e2df3641dd66d45d320d2c76ef9ddc8f8253f8f17953f818067a323e1c974e"
+    },
+    "calc": {
+      "file": "calc.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_libreoffice_calc.svg",
+      "sha256": "24a3fc5b43e03b192bd2a9e40ffde86a8fefefab728d370cfa3ff0608f2b954c"
+    },
+    "impress": {
+      "file": "impress.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_libreoffice_impress.svg",
+      "sha256": "6ca945e6e85a38a218a51f306c571cce5ada3ce326d53d5a7d067b33179600f8"
+    },
+    "xmind": {
+      "file": "xmind.png",
+      "source": "https://framerusercontent.com/images/8nhu9kTFx3RrJMaoWbJcNSY8hOI.png",
+      "sourcePage": "https://xmind.com/",
+      "sha256": "caa86969e816c26f41f41f65b29176783a87aa2415cc68737711113f6986c65c"
+    },
+    "drawio": {
+      "file": "drawio.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_drawio.svg",
+      "sha256": "280058bc23ba7ef9a1be6cc0941626623a1df277f8078a73af8fe3590ef90c9a"
+    },
+    "markdown": {
+      "file": "markdown.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_markdown.svg",
+      "sha256": "fa10b34b3c72cc10ac1c6f7013c366e76b310fa3efab1635b1e382bc6d6f9530"
+    },
+    "java": {
+      "file": "java.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_java.svg",
+      "sha256": "6883a1fd2c8907f9c2368b8b411cdd73646391d65471ec1d087c723499b92bd9"
+    },
+    "python": {
+      "file": "python.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_python.svg",
+      "sha256": "6ff4984f20c2edb883042275c9316cfc499937b7846ab0daea8e1f94f185417a"
+    },
+    "javascript": {
+      "file": "javascript.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_js_official.svg",
+      "sha256": "1edbd187d7fef660769063b92fbf4e7f09724c083b76d147990a9c64dfd85b97"
+    },
+    "typescript": {
+      "file": "typescript.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_typescript_official.svg",
+      "sha256": "90827f88f9ec084c54e7f0e917f8e27dc2d99a924c8eb55cdcd2ac42cdfa65f3"
+    },
+    "typescript-definition": {
+      "file": "typescript-definition.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_typescriptdef_official.svg",
+      "sha256": "ebcc08ba3c559c982e1a7bf063195bad242de9ec67ed3b0772b9f0be9f1aeed6"
+    },
+    "react-javascript": {
+      "file": "react-javascript.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_reactjs.svg",
+      "sha256": "535b1b8579129cd44597e7888d2e5bb6141995f7b4717b7abaa907ce1f8866db"
+    },
+    "react-typescript": {
+      "file": "react-typescript.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_reactts.svg",
+      "sha256": "7fe69153e20ef4e0656e4852e59dbc9a1bcb001d0fe679c13091b8d9430f7447"
+    },
+    "vue": {
+      "file": "vue.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_vue.svg",
+      "sha256": "00a343b88a4f754e2724d4b7dcca1506140b5963ffe36eee9f7c8a924d4664b7"
+    },
+    "svelte": {
+      "file": "svelte.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_svelte.svg",
+      "sha256": "c027e8621f2d5a8d03b33cf6f60d197c398a0ced022cc180a40c5fc60be3cd2b"
+    },
+    "astro": {
+      "file": "astro.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_astro.svg",
+      "light": "astro-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_astro.svg",
+      "sha256": "3909d5157d903ebaaea3eeb612e2ba1160b90a169e0efa82e9dd109bd434416e",
+      "lightSha256": "9d9d9a1312cae844c8d98e5ee324aa20b9fbdad3b3759159dadaece3c09e846e"
+    },
+    "html": {
+      "file": "html.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_html.svg",
+      "sha256": "831b0a8ab1ca3ac0032d6f3ca57026725f16a9f360e898130c7289fa61dc161f"
+    },
+    "css": {
+      "file": "css.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_css.svg",
+      "sha256": "60770fec4356ea426c1757d2563f055861188bf3f2d3417652484ed5d633df2a"
+    },
+    "sass": {
+      "file": "sass.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_sass.svg",
+      "sha256": "9b08e317de8f398bdff23250bd8184e0437cbfedb17ba904681f253023de31b6"
+    },
+    "scss": {
+      "file": "scss.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_scss.svg",
+      "sha256": "34d60b741aea31a0df4cd330c29fc68d9dae21e8228921643d48cd16f0030d04"
+    },
+    "less": {
+      "file": "less.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_less.svg",
+      "sha256": "e26e110eda9d85f9ead04a4352afb29fedf279573905f449baacb9ab8117f7fb"
+    },
+    "c": {
+      "file": "c.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_c.svg",
+      "sha256": "5eeaa3d6b7c97f0ee882db28dcc5152ee28ef8e840de44684c36a1838a363848"
+    },
+    "cpp": {
+      "file": "cpp.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_cpp.svg",
+      "sha256": "9177dcd31db0cea77352d4cea482d125c2906cbffdc446e1a8adf5541d8228b8"
+    },
+    "csharp": {
+      "file": "csharp.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_csharp.svg",
+      "sha256": "7f6b1a627927408fd5047ece4bc5527a5cc04c03b0e9c610f732e39a2c7f9a4b"
+    },
+    "objective-c": {
+      "file": "objective-c.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_objectivec.svg",
+      "sha256": "41d414ef86282bd87bb63049b2dce819cbaa3391fd34cd123394e0722ae88289"
+    },
+    "swift": {
+      "file": "swift.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_swift.svg",
+      "sha256": "e6a8891c70dd3d41a04241179bbb0989cf5be1652b9b22cb0c9ed593a8df0952"
+    },
+    "go": {
+      "file": "go.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_go.svg",
+      "sha256": "c65b22695ea0d0df4e533d33e9af7e5aaf9c8c51d99959a589c5271d6598ddd1"
+    },
+    "rust": {
+      "file": "rust.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_rust.svg",
+      "light": "rust-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_rust.svg",
+      "sha256": "e3b757d00621b208470a24894170f2798c7014d24452c4c0b81625c5e00dfe09",
+      "lightSha256": "c4fec77f64e232c4c74afbf66d4076d9cd45ec0a0002b7ef769ed42ef8d58a45"
+    },
+    "kotlin": {
+      "file": "kotlin.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_kotlin.svg",
+      "sha256": "6f10e38fa7866a53d4e7ea62474855a7cbc19d26a796f0ed275127e8123445c6"
+    },
+    "dart": {
+      "file": "dart.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_dartlang.svg",
+      "sha256": "d0b819c4b3fb475652fa00f66c780ab098e26f302c76f7f02a4039c1dd27cf9f"
+    },
+    "ruby": {
+      "file": "ruby.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_ruby.svg",
+      "sha256": "30fb5a074f1b9b9c3066db836df8ca9917cddd6ff255902c4780eb60d32af3d7"
+    },
+    "php": {
+      "file": "php.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_php.svg",
+      "sha256": "084bdb387b71d02c33a94e101b609c9992450f5cc964ba6faf0721aeec038fb1"
+    },
+    "lua": {
+      "file": "lua.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_lua.svg",
+      "sha256": "b2ed0c40f1106ce199a148f391e714472e5472163c75b01adef84f2effac075d"
+    },
+    "shell": {
+      "file": "shell.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_shell.svg",
+      "sha256": "d163b782ad9a6e8a1ce59a1768cf8660f14b259a960d7532b406966826cef165"
+    },
+    "zsh": {
+      "file": "zsh.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_zsh.svg",
+      "sha256": "67955f4b7d0c726534dd4f0f5e08440f03f4f41dfdc59c5fdf9fbbdf1fbe29a8"
+    },
+    "powershell": {
+      "file": "powershell.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_powershell.svg",
+      "sha256": "64cdd0e6586f5f5feabc2f04c6feefc2a55468f1bf0d430bd13b3db4490a68e1"
+    },
+    "bat": {
+      "file": "bat.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_bat.svg",
+      "sha256": "b15fbf29c4560d8c4bb7a5d348b5bc70272da084506820a04502b5fd01916b09"
+    },
+    "r": {
+      "file": "r.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_r.svg",
+      "sha256": "b8d08c135ed3a5dfd99dd2ed45319ee06d7818b965368fd02227e951e8be06a3"
+    },
+    "scala": {
+      "file": "scala.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_scala.svg",
+      "sha256": "b6c14b23e9a01c049863dc93ef0574482b6320f490f28853170f553b7689abd7"
+    },
+    "perl": {
+      "file": "perl.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_perl.svg",
+      "sha256": "9daf6ab5fbc27d6d7da1788edee4f9e0099ce06072a0a860677621ffa784be5b"
+    },
+    "elixir": {
+      "file": "elixir.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_elixir.svg",
+      "sha256": "84fe99b6fd8ac1fd760e679c8ea7ed2d6c455643a831db58c5ca696ab0458b5c"
+    },
+    "erlang": {
+      "file": "erlang.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_erlang.svg",
+      "sha256": "47883b2cc3b40e9a21802a5224b60565f76e222dd0fb79f33a624d75cd128a11"
+    },
+    "haskell": {
+      "file": "haskell.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_haskell.svg",
+      "sha256": "3a0b87616c3f033cf4973ad33964acc464f836e031e77ef5aee345d854861073"
+    },
+    "clojure": {
+      "file": "clojure.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_clojure.svg",
+      "sha256": "a25f5faa0f2a8ba2575685f585e83a1036fd21c9c48fc6fe7fb6d99233e74f61"
+    },
+    "julia": {
+      "file": "julia.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_julia.svg",
+      "sha256": "15b88ebcfa7e8b1c2b631bbba4a162a5530c6417680217b27132b8dc67ae557c"
+    },
+    "zig": {
+      "file": "zig.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_zig.svg",
+      "sha256": "45f3754b6139ac989fb7da480f921aec76add2e8a8a16152dfc3c2953c607d40"
+    },
+    "wasm": {
+      "file": "wasm.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_wasm.svg",
+      "sha256": "5ae520dc1f59be53dee8ed08cfc99b8a08098ef49c03aa0c0804f1d5afb69194"
+    },
+    "jupyter": {
+      "file": "jupyter.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_jupyter.svg",
+      "sha256": "c93552d13d30e18b39ccde1af8f9f3d7917b85594c68ccbd211d9445593de2de"
+    },
+    "json": {
+      "file": "json.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_json.svg",
+      "light": "json-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_json.svg",
+      "sha256": "89efce449a8e2d6224cd0984263ab7c5bf518b9bedaee3267a3049e320389652",
+      "lightSha256": "4715b67680b95e5a3e1c5b40bc1977772f4dd1c9a35812d03061c7437e2c6253"
+    },
+    "xml": {
+      "file": "xml.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_xml.svg",
+      "sha256": "df7248047bf4faa5a22bceca27e34d7a40cec1e84c611fa2ebefe54af05e85b8"
+    },
+    "yaml": {
+      "file": "yaml.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_yaml_official.svg",
+      "light": "yaml-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_yaml_official.svg",
+      "sha256": "56d4844897a66106d9fa242c719a9b738f647ab1b9e8c5c581b32215812d895b",
+      "lightSha256": "c2e488e8c2dcbf0e9761169c0db682b9ce7ab69e0c297d873f7494b8eafcc43b"
+    },
+    "toml": {
+      "file": "toml.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_toml.svg",
+      "light": "toml-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_toml.svg",
+      "sha256": "54af3f2d60a54a8a9d121c727a94827710790bb3a14ca599dbb1cb6f59d4cf94",
+      "lightSha256": "8e2b1051c5f403e103f48b28de9bd2c76149b4382291f27c2d7058ed87726360"
+    },
+    "gradle": {
+      "file": "gradle.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_gradle.svg",
+      "light": "gradle-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_gradle.svg",
+      "sha256": "4b2fff97be45bb3b6b6e14e8cd284dedb7515537f9a1437a388864b27e2f75db",
+      "lightSha256": "28022dbe855c66f9cf1f58fa2f853d3982b01bbbfe18c32b1da51b487359d10a"
+    },
+    "git": {
+      "file": "git.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_git.svg",
+      "sha256": "273a5c8719145b01e0e490629459b0c79b4a07b67220cb2bcec2c0f0f7feaf73"
+    },
+    "environment": {
+      "file": "environment.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_dotenv.svg",
+      "sha256": "dcb75ca2ff5baae8fad58fb53da582c767660ed658fad6b925dc9b186ea612c3"
+    },
+    "sqlite": {
+      "file": "sqlite.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_sqlite.svg",
+      "sha256": "2b4cd8b8912ce200586df811d8b9b8ea2d9b7da0a4f58bb253d7afa419f21df0"
+    },
+    "sql": {
+      "file": "sql.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_sql.svg",
+      "sha256": "62b0eaabf2856133bf75e990f39cea16f502770e6058374e1edf2a75dde2d0db"
+    },
+    "database": {
+      "file": "database.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_db.svg",
+      "light": "database-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_db.svg",
+      "sha256": "bb10ba74e5e1788a4e4ea5fbe13749d1998e4da5e35128e695ce71e58eacccad",
+      "lightSha256": "5322edf4f95df9e8e371c4c521ace717e240d15f516bdc9a8328761ff12db87f"
+    },
+    "image": {
+      "file": "image.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_image.svg",
+      "sha256": "5c893f16ace217a90a646fe8c590a9331e3a165e492ef1a7e14ce701eb9a9b59"
+    },
+    "svg": {
+      "file": "svg.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_svg.svg",
+      "sha256": "21c503e72ebdf1f67865d03548e9ceafebf6fe9204305cbb13f6b4c350f85ec1"
+    },
+    "photoshop": {
+      "file": "photoshop.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_photoshop.svg",
+      "sha256": "21344b4293296bfaa00e1e97966a26bf6f406c3142a532be5a9ef8bedd98e815"
+    },
+    "illustrator": {
+      "file": "illustrator.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_ai.svg",
+      "sha256": "1f139cffa8acc42df2d4f69c649686d7527496352a98f346a6bd8b0574f2a08c"
+    },
+    "sketch": {
+      "file": "sketch.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_sketch.svg",
+      "sha256": "a5f3ca41955090046605983060b6620c00d2e16f4dc53a8c9a1d519cf62ee721"
+    },
+    "archive": {
+      "file": "archive.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_zip.svg",
+      "sha256": "9f172503d7d7e9d3f08b0045e446af3d97bbff783fbe7224db72f4ee186d35f8"
+    },
+    "audio": {
+      "file": "audio.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_audio.svg",
+      "sha256": "cdf7cea276b5c2cf3cdeb919a22c928a63390bfdcf4451a54046ee1193abb5db"
+    },
+    "video": {
+      "file": "video.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_video.svg",
+      "sha256": "3e9211489debc391e2672c129929785960f25ea21e2e2e398acca56a3efaf6f2"
+    },
+    "config": {
+      "file": "config.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_config.svg",
+      "light": "config-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_config.svg",
+      "sha256": "789e40a179398f81b944f330e5da08e1562cbf1f037417c62441ba3174407c96",
+      "lightSha256": "da286660dea11d3f09de6d160fdfc7437e5ebbb8aac3ae7912eddbc5a29b859a"
+    },
+    "csv": {
+      "file": "csv.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_csv.svg",
+      "sha256": "80c4dfa78ab0a2f1d9c251409d82c824181394313673edd7c981c3fe0ce15f81"
+    },
+    "text": {
+      "file": "text.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_text.svg",
+      "sha256": "2d4d4b3039b6b85ab7ea34580cb4bd861dc0f24cf040d44449251d20960be790"
+    },
+    "binary": {
+      "file": "binary.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_binary.svg",
+      "sha256": "3480ded49729a9c2acd66fccbaae710817417299c3b23dfeef9a9c3bf245e849"
+    },
+    "debian": {
+      "file": "debian.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_debian.svg",
+      "sha256": "32f09ddfb4c54e9f744c7a872ea44b2261e2114bf6e28e7860a130c474eb3724"
+    },
+    "font": {
+      "file": "font.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_font.svg",
+      "light": "font-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_font.svg",
+      "sha256": "1e34c2c5c4df5039f65ac699d8d3558e0ef6192ee8a849166581fc027b72570c",
+      "lightSha256": "a9603a161c2bff516d644b840697d579781d708936d466b59fbd5d9c63fdd008"
+    },
+    "certificate": {
+      "file": "certificate.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_cert.svg",
+      "sha256": "388d775d5473a1eeb96bcf9178ae614615904258dadf6fa31c9405548c361f66"
+    },
+    "docker": {
+      "file": "docker.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_docker.svg",
+      "sha256": "8d19e1a20124f9ace8b8055aa00144de7c5e58977274a368b18fa2be67290753"
+    },
+    "npm": {
+      "file": "npm.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_npm.svg",
+      "sha256": "ed62774c5d922bad05dd8bb9f0d2f0cf78e29fc92fbf04520c582901ddfb43ba"
+    },
+    "yarn": {
+      "file": "yarn.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_yarn.svg",
+      "sha256": "611fae654275208650cf593439c120c4b43688d78276197a79591ceea680baeb"
+    },
+    "bun": {
+      "file": "bun.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_bun.svg",
+      "sha256": "94ba8aa65e4837d81718860016cce40a933c46842940d36938718a016d124505"
+    },
+    "maven": {
+      "file": "maven.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_maven.svg",
+      "sha256": "79cea5f61c64091d8fe274dd2c214f5a45ba4190b51dff71d98083cde41ba320"
+    },
+    "nginx": {
+      "file": "nginx.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_nginx.svg",
+      "sha256": "20a3ec1782ecf5de819d3bacbf03163a96fb9f1261562fbcb906091f8b0fee3a"
+    },
+    "vite": {
+      "file": "vite.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_vite.svg",
+      "light": "vite-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_vite.svg",
+      "sha256": "a5ac06154c27d578a51f52e21a78334fcfb9583c7367f333e9b9f233624f410c",
+      "lightSha256": "059a4c1bc3fa24e85c91be9b31784344f111f33232f2fc4afdf349619e2866c0"
+    },
+    "eslint": {
+      "file": "eslint.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_eslint.svg",
+      "sha256": "dc565a79e4ed14c72f0601e1034748a7c5c8e9837ab39c24ab27993a23d8d8e2"
+    },
+    "prettier": {
+      "file": "prettier.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_prettier.svg",
+      "light": "prettier-light.svg",
+      "lightSource": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_light_prettier.svg",
+      "sha256": "b5fe26ca20b98969e14d48be58f38c9bb10b969982a152797cdac155cf3ac23c",
+      "lightSha256": "279c2af683b7e1a0c73911e877b47a6eb9872e7fd552f3f93c980cc39a0f3935"
+    },
+    "tsconfig": {
+      "file": "tsconfig.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_tsconfig_official.svg",
+      "sha256": "6335d6344fb9b2903a81389c6a923f023bfa452cb36fc28ed2311bd53f86e54b"
+    },
+    "cargo": {
+      "file": "cargo.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_cargo.svg",
+      "sha256": "16def072e56d9f034e3849c6dbcdfddc85c26f28b03c58b8e81cd5a906c3e6e0"
+    },
+    "go-package": {
+      "file": "go-package.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_go_package.svg",
+      "sha256": "eb5558646466538f3fdce30e9fae03ae1393ab2d90cc1eba3a38d225bc253abe"
+    },
+    "cmake": {
+      "file": "cmake.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_cmake.svg",
+      "sha256": "a2b213f6309a537d0f9b712490c86c1367ca5c4b7b4e1ab63cee476eb189c84c"
+    },
+    "editorconfig": {
+      "file": "editorconfig.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_editorconfig.svg",
+      "sha256": "f2af601ce8a37c2de08133e8ea76469a65a2219405c088f743d09165c3444d67"
+    },
+    "readme": {
+      "file": "readme.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/file_type_readme.svg",
+      "sha256": "8d8541e30b056d6cad35fd936713f0defbd133c31e0ee64dcce717ba6cd888cd"
+    },
+    "file": {
+      "file": "file.svg",
+      "source": "https://raw.githubusercontent.com/vscode-icons/vscode-icons/cd934f2d451fafce2ff9ad294f4e5767c5ca4e2f/icons/default_file.svg",
+      "sha256": "06d28856c58270cc05c7885ea6bc6b3b15855e75eeeded56372af08e82a4ad5b"
+    }
+  },
+  "names": {
+    "dockerfile": "docker",
+    "containerfile": "docker",
+    "docker-compose.yml": "docker",
+    "docker-compose.yaml": "docker",
+    "compose.yml": "docker",
+    "compose.yaml": "docker",
+    ".dockerignore": "docker",
+    "pom.xml": "maven",
+    "settings.xml": "maven",
+    "gradlew": "gradle",
+    "gradlew.bat": "gradle",
+    "gradle.properties": "gradle",
+    "settings.gradle": "gradle",
+    "settings.gradle.kts": "gradle",
+    "build.gradle": "gradle",
+    "build.gradle.kts": "gradle",
+    "package.json": "npm",
+    "package-lock.json": "npm",
+    "npm-shrinkwrap.json": "npm",
+    ".npmrc": "npm",
+    "yarn.lock": "yarn",
+    ".yarnrc": "yarn",
+    ".yarnrc.yml": "yarn",
+    "bun.lock": "bun",
+    "bun.lockb": "bun",
+    "bunfig.toml": "bun",
+    "requirements.txt": "python",
+    "pyproject.toml": "python",
+    "setup.py": "python",
+    "setup.cfg": "python",
+    "pipfile": "python",
+    "pipfile.lock": "python",
+    "poetry.lock": "python",
+    "uv.lock": "python",
+    ".python-version": "python",
+    "cargo.toml": "cargo",
+    "cargo.lock": "cargo",
+    "rust-toolchain": "rust",
+    "rust-toolchain.toml": "rust",
+    "go.mod": "go-package",
+    "go.sum": "go-package",
+    "go.work": "go-package",
+    "go.work.sum": "go-package",
+    ".gitignore": "git",
+    ".gitattributes": "git",
+    ".gitmodules": "git",
+    ".gitconfig": "git",
+    ".env": "environment",
+    "nginx.conf": "nginx",
+    ".nginx.conf": "nginx",
+    ".editorconfig": "editorconfig",
+    ".eslintrc": "eslint",
+    ".eslintignore": "eslint",
+    ".prettierrc": "prettier",
+    ".prettierignore": "prettier",
+    ".bashrc": "shell",
+    ".bash_profile": "shell",
+    ".bash_login": "shell",
+    ".bash_logout": "shell",
+    ".profile": "shell",
+    ".zshrc": "zsh",
+    ".zprofile": "zsh",
+    ".zshenv": "zsh",
+    ".zlogin": "zsh",
+    ".zlogout": "zsh",
+    "cmakelists.txt": "cmake",
+    "makefile": "config",
+    "gnumakefile": "config",
+    "justfile": "config",
+    "hosts": "config",
+    "config": "config",
+    "gemfile": "ruby",
+    "gemfile.lock": "ruby",
+    "rakefile": "ruby",
+    "readme": "readme",
+    "readme.md": "readme",
+    "readme.markdown": "readme",
+    "readme.txt": "readme",
+    "readme.rst": "readme",
+    "license": "text",
+    "licence": "text",
+    "copying": "text",
+    "changelog": "text",
+    "authors": "text",
+    "notice": "text"
+  },
+  "patterns": [
+    {
+      "prefix": ".env.",
+      "icon": "environment"
+    },
+    {
+      "prefix": "dockerfile.",
+      "icon": "docker"
+    },
+    {
+      "prefix": "containerfile.",
+      "icon": "docker"
+    },
+    {
+      "prefix": "docker-compose.",
+      "suffix": ".yml",
+      "icon": "docker"
+    },
+    {
+      "prefix": "docker-compose.",
+      "suffix": ".yaml",
+      "icon": "docker"
+    },
+    {
+      "prefix": "tsconfig.",
+      "suffix": ".json",
+      "icon": "tsconfig"
+    },
+    {
+      "prefix": "vite.config.",
+      "icon": "vite"
+    },
+    {
+      "prefix": "eslint.config.",
+      "icon": "eslint"
+    },
+    {
+      "prefix": ".eslintrc.",
+      "icon": "eslint"
+    },
+    {
+      "prefix": "prettier.config.",
+      "icon": "prettier"
+    },
+    {
+      "prefix": ".prettierrc.",
+      "icon": "prettier"
+    },
+    {
+      "suffix": ".nginx.conf",
+      "icon": "nginx"
+    }
+  ],
+  "extensions": {
+    "doc": "word",
+    "docx": "word",
+    "docm": "word",
+    "dot": "word",
+    "dotx": "word",
+    "dotm": "word",
+    "wll": "word",
+    "xls": "excel",
+    "xlsx": "excel",
+    "xlsm": "excel",
+    "xlsb": "excel",
+    "xlt": "excel",
+    "xltx": "excel",
+    "xltm": "excel",
+    "ppt": "powerpoint",
+    "pptx": "powerpoint",
+    "pptm": "powerpoint",
+    "pps": "powerpoint",
+    "ppsx": "powerpoint",
+    "ppsm": "powerpoint",
+    "pot": "powerpoint",
+    "potx": "powerpoint",
+    "potm": "powerpoint",
+    "pdf": "pdf",
+    "odt": "writer",
+    "ott": "writer",
+    "fodt": "writer",
+    "ods": "calc",
+    "ots": "calc",
+    "fods": "calc",
+    "odp": "impress",
+    "otp": "impress",
+    "fodp": "impress",
+    "xmind": "xmind",
+    "drawio": "drawio",
+    "dio": "drawio",
+    "md": "markdown",
+    "markdown": "markdown",
+    "mdx": "markdown",
+    "mdown": "markdown",
+    "mkd": "markdown",
+    "java": "java",
+    "class": "java",
+    "jar": "java",
+    "war": "java",
+    "ear": "java",
+    "jmod": "java",
+    "py": "python",
+    "pyw": "python",
+    "pyi": "python",
+    "pyc": "python",
+    "pyd": "python",
+    "js": "javascript",
+    "mjs": "javascript",
+    "cjs": "javascript",
+    "ts": "typescript",
+    "mts": "typescript",
+    "cts": "typescript",
+    "d.ts": "typescript-definition",
+    "d.mts": "typescript-definition",
+    "d.cts": "typescript-definition",
+    "jsx": "react-javascript",
+    "tsx": "react-typescript",
+    "vue": "vue",
+    "svelte": "svelte",
+    "astro": "astro",
+    "html": "html",
+    "htm": "html",
+    "xhtml": "html",
+    "css": "css",
+    "sass": "sass",
+    "scss": "scss",
+    "less": "less",
+    "c": "c",
+    "h": "c",
+    "cc": "cpp",
+    "cpp": "cpp",
+    "cxx": "cpp",
+    "c++": "cpp",
+    "hpp": "cpp",
+    "hxx": "cpp",
+    "hh": "cpp",
+    "h++": "cpp",
+    "cs": "csharp",
+    "csx": "csharp",
+    "m": "objective-c",
+    "mm": "objective-c",
+    "swift": "swift",
+    "go": "go",
+    "rs": "rust",
+    "kt": "kotlin",
+    "kts": "kotlin",
+    "dart": "dart",
+    "rb": "ruby",
+    "erb": "ruby",
+    "gemspec": "ruby",
+    "rake": "ruby",
+    "php": "php",
+    "phtml": "php",
+    "php3": "php",
+    "php4": "php",
+    "php5": "php",
+    "lua": "lua",
+    "sh": "shell",
+    "bash": "shell",
+    "fish": "shell",
+    "ksh": "shell",
+    "csh": "shell",
+    "zsh": "zsh",
+    "ps1": "powershell",
+    "psm1": "powershell",
+    "psd1": "powershell",
+    "bat": "bat",
+    "cmd": "bat",
+    "r": "r",
+    "rmd": "r",
+    "scala": "scala",
+    "sc": "scala",
+    "pl": "perl",
+    "pm": "perl",
+    "ex": "elixir",
+    "exs": "elixir",
+    "erl": "erlang",
+    "hrl": "erlang",
+    "hs": "haskell",
+    "lhs": "haskell",
+    "clj": "clojure",
+    "cljs": "clojure",
+    "cljc": "clojure",
+    "edn": "clojure",
+    "jl": "julia",
+    "zig": "zig",
+    "zon": "zig",
+    "wasm": "wasm",
+    "wat": "wasm",
+    "ipynb": "jupyter",
+    "json": "json",
+    "jsonc": "json",
+    "json5": "json",
+    "xml": "xml",
+    "xsl": "xml",
+    "xslt": "xml",
+    "xsd": "xml",
+    "dtd": "xml",
+    "yaml": "yaml",
+    "yml": "yaml",
+    "toml": "toml",
+    "gradle": "gradle",
+    "gradle.kts": "gradle",
+    "git": "git",
+    "gitignore": "git",
+    "gitattributes": "git",
+    "gitmodules": "git",
+    "env": "environment",
+    "sqlite": "sqlite",
+    "sqlite3": "sqlite",
+    "db3": "sqlite",
+    "sql": "sql",
+    "db": "database",
+    "mdb": "database",
+    "accdb": "database",
+    "dump": "database",
+    "jpg": "image",
+    "jpeg": "image",
+    "png": "image",
+    "gif": "image",
+    "webp": "image",
+    "avif": "image",
+    "heic": "image",
+    "heif": "image",
+    "bmp": "image",
+    "tif": "image",
+    "tiff": "image",
+    "ico": "image",
+    "icns": "image",
+    "eps": "image",
+    "raw": "image",
+    "dng": "image",
+    "svg": "svg",
+    "svgz": "svg",
+    "psd": "photoshop",
+    "psb": "photoshop",
+    "ai": "illustrator",
+    "ait": "illustrator",
+    "sketch": "sketch",
+    "zip": "archive",
+    "rar": "archive",
+    "7z": "archive",
+    "tar": "archive",
+    "gz": "archive",
+    "tgz": "archive",
+    "bz": "archive",
+    "bz2": "archive",
+    "tbz": "archive",
+    "tbz2": "archive",
+    "xz": "archive",
+    "txz": "archive",
+    "zst": "archive",
+    "zstd": "archive",
+    "tzst": "archive",
+    "lz": "archive",
+    "lzma": "archive",
+    "lz4": "archive",
+    "cab": "archive",
+    "tar.gz": "archive",
+    "tar.bz2": "archive",
+    "tar.xz": "archive",
+    "tar.zst": "archive",
+    "mp3": "audio",
+    "wav": "audio",
+    "flac": "audio",
+    "aac": "audio",
+    "m4a": "audio",
+    "ogg": "audio",
+    "opus": "audio",
+    "aiff": "audio",
+    "aif": "audio",
+    "wma": "audio",
+    "mid": "audio",
+    "midi": "audio",
+    "mp4": "video",
+    "m4v": "video",
+    "mov": "video",
+    "mkv": "video",
+    "avi": "video",
+    "webm": "video",
+    "wmv": "video",
+    "flv": "video",
+    "mpeg": "video",
+    "mpg": "video",
+    "3gp": "video",
+    "ini": "config",
+    "conf": "config",
+    "config": "config",
+    "cfg": "config",
+    "properties": "config",
+    "plist": "config",
+    "lock": "config",
+    "service": "config",
+    "socket": "config",
+    "timer": "config",
+    "desktop": "config",
+    "reg": "config",
+    "csv": "csv",
+    "tsv": "csv",
+    "txt": "text",
+    "text": "text",
+    "log": "text",
+    "out": "text",
+    "rst": "text",
+    "adoc": "text",
+    "rtf": "text",
+    "pages": "text",
+    "numbers": "text",
+    "key": "text",
+    "tex": "text",
+    "iso": "binary",
+    "dmg": "binary",
+    "img": "binary",
+    "sparseimage": "binary",
+    "sparsebundle": "binary",
+    "vhd": "binary",
+    "vhdx": "binary",
+    "vmdk": "binary",
+    "qcow": "binary",
+    "qcow2": "binary",
+    "exe": "binary",
+    "msi": "binary",
+    "msix": "binary",
+    "app": "binary",
+    "apk": "binary",
+    "rpm": "binary",
+    "pkg": "binary",
+    "bin": "binary",
+    "deb": "debian",
+    "ttf": "font",
+    "otf": "font",
+    "woff": "font",
+    "woff2": "font",
+    "eot": "font",
+    "pem": "certificate",
+    "crt": "certificate",
+    "cer": "certificate",
+    "p12": "certificate",
+    "pfx": "certificate",
+    "keychain": "certificate"
+  }
+}

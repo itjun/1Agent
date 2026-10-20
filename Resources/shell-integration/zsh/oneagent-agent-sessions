@@ -1,0 +1,21 @@
+# Per-terminal invocation adapters. Aliases still expand normally; custom functions are respected.
+[[ -n $ONEAGENT_AGENT_HELPER && -n $ONEAGENT_AGENT_STATE && -x $ONEAGENT_AGENT_HELPER && -z $ONEAGENT_AGENT_INVOCATION ]] || return 0
+
+_oneagent_agent_run() {
+    emulate -L zsh
+    local agent=$1
+    shift
+    local executable=${commands[$agent]}
+    if [[ -z $executable ]]; then
+        command "$agent" "$@"
+        return $?
+    fi
+    "$ONEAGENT_AGENT_HELPER" run "$agent" "$executable" "$@"
+}
+
+for _oneagent_agent_name in grok pi omp codex claude; do
+    if (( ! $+functions[$_oneagent_agent_name] )); then
+        functions[$_oneagent_agent_name]="_oneagent_agent_run ${_oneagent_agent_name} \"\$@\""
+    fi
+done
+unset _oneagent_agent_name

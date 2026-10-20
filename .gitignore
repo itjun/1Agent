@@ -1,0 +1,29 @@
+.DS_Store
+build/
+design/
+Packages/GooseKit/.build/
+Packages/GooseSSH/.build/
+Packages/GooseTailcat/.build/
+*.xcuserstate
+.swiftpm/
+xcuserdata/
+build-rel/
+build-ios/
+
+# 本地凭据与私钥；仅保留明确脱敏的环境变量示例。
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+known_hosts
+
+# 实机验收截图与私人验收记录不得提交。
+/docs/qa-captures*/
+/docs/qa-flat*/
+/design-qa.md

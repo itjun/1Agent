@@ -1,0 +1,153 @@
+name: 1Agent
+options:
+  bundleIdPrefix: com.itjun
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  developmentRegion: en
+  knownRegions:
+    - en
+    - zh-Hans
+packages:
+  GhosttyTerminal:
+    # Reviewed Swift wrapper; the binary URL and checksum remain pinned upstream.
+    path: Vendor/libghostty-spm
+targets:
+  1Agent:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/GooseAgent
+      - Sources/AgentSessions
+      - path: Resources
+        buildPhase: resources
+        excludes:
+          - Localizable.xcstrings
+          - shell-integration/**
+          - ApplicationIcons/**
+          - agent-sessions/**
+      - path: Resources/agent-sessions
+        type: folder
+        buildPhase: resources
+      - path: Resources/ApplicationIcons
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localizable.xcstrings
+      # A folder reference keeps the directory layout and hidden files such as zsh/.zshenv.
+      - path: Resources/shell-integration
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: AgentSessionHelper
+        embed: false
+      - package: GhosttyTerminal
+        product: GhosttyTerminal
+      - package: GhosttyTerminal
+        product: GhosttyTheme
+    postBuildScripts:
+      - name: Embed Agent session helper
+        script: |
+          mkdir -p "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
+          cp "$BUILT_PRODUCTS_DIR/oneagent-agent-session" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/oneagent-agent-session"
+        inputFiles:
+          - "$(BUILT_PRODUCTS_DIR)/oneagent-agent-session"
+        outputFiles:
+          - "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/oneagent-agent-session"
+    info:
+      path: Sources/GooseAgent/Info.plist
+      properties:
+        CFBundleName: "1Agent"
+        CFBundleDisplayName: "1Agent"
+        CFBundleIconName: AppIcon
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSApplicationCategoryType: public.app-category.developer-tools
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NSPrincipalClass: NSApplication
+        NSAppleScriptEnabled: true
+        OSAScriptingDefinition: 1Agent.sdef
+        NSHumanReadableCopyright: "© 2026 eachann1024"
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+          - en
+          - zh-Hans
+        CFBundleURLTypes:
+          - CFBundleURLName: com.itjun.1agent
+            CFBundleURLSchemes:
+              - oneagent
+        CFBundleDocumentTypes:
+          - CFBundleTypeExtensions:
+              - command
+              - tool
+              - sh
+              - zsh
+              - csh
+              - pl
+            CFBundleTypeName: Terminal scripts
+            CFBundleTypeRole: Editor
+          - CFBundleTypeName: Folders
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.directory
+          - CFBundleTypeRole: Shell
+            LSItemContentTypes:
+              - public.unix-executable
+        NSServices:
+          - NSMenuItem:
+              default: New 1Agent Tab Here
+              zh-Hans: "在此新建 1Agent 标签"
+            NSMessage: openTab
+            NSRequiredContext:
+              NSTextContent: FilePath
+            NSSendTypes:
+              - NSFilenamesPboardType
+              - public.plain-text
+          - NSMenuItem:
+              default: New 1Agent Window Here
+              zh-Hans: "在此新建 1Agent 窗口"
+            NSMessage: openWindow
+            NSRequiredContext:
+              NSTextContent: FilePath
+            NSSendTypes:
+              - NSFilenamesPboardType
+              - public.plain-text
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent
+        PRODUCT_NAME: "1Agent"
+        PRODUCT_MODULE_NAME: GooseAgent
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_VERSION: "5.10"
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/GooseAgent/GooseAgent-Bridging-Header.h
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        COMBINE_HIDPI_IMAGES: YES
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: NCFNX3LJ83
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "Developer ID Application: MOE AI LLC (NCFNX3LJ83)"
+          ONLY_ACTIVE_ARCH: YES
+        Release:
+          CODE_SIGN_IDENTITY: "Developer ID Application: MOE AI LLC (NCFNX3LJ83)"
+          ONLY_ACTIVE_ARCH: NO
+          ARCHS: "arm64 x86_64"
+  AgentSessionHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - Sources/AgentSessionHelper
+      - Sources/AgentSessions
+    settings:
+      base:
+        PRODUCT_NAME: oneagent-agent-session
+        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent.agent-session
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_VERSION: "5.10"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: YES

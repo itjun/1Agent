@@ -1,0 +1,131 @@
+# Session-only ZLE bridge, local or forwarded through this SSH session. Nothing is written to the user's shell configuration.
+# Nested shells must not impersonate the owned login shell's endpoint.
+[[ -n $ONEAGENT_QC_SOCKET && -n $ONEAGENT_QC_TOKEN && -z $ONEAGENT_QC_OWNER ]] || return 0
+zmodload zsh/net/socket 2>/dev/null || return 0
+zmodload zsh/datetime 2>/dev/null || return 0
+
+_oneagent_qc_ready() {
+    [[ -z $_oneagent_qc_pending && $_oneagent_qc_searching != 1 && $CONTEXT == start && -z $BUFFER && $KEYMAP != isearch && $KEYMAP != menuselect &&
+       $KEYMAP != command && $KEYMAP != visual && $KEYMAP != viopp &&
+       ${PENDING:-0} == 0 && ${KEYS_QUEUED_COUNT:-0} == 0 && ${REGION_ACTIVE:-0} == 0 &&
+       $ZSH_SUBSHELL == 0 ]]
+}
+
+_oneagent_qc_reply() {
+    setopt localtraps
+    trap '' PIPE
+    print -r -u "$1" -- "$2" 2>/dev/null
+}
+
+_oneagent_qc_request() {
+    emulate -L zsh
+    setopt extendedglob
+    local client token request action deadline directory payload line decoded expected
+    zsocket -a -t "$1" 2>/dev/null || return 0
+    client=$REPLY
+    if ! IFS= read -r -t ${ONEAGENT_QC_READ_TIMEOUT:-0.3} -u "$client" line || (( ${#line} > 100000 )); then
+        exec {client}>&-
+        return 0
+    fi
+    IFS='|' read -r token request action deadline directory payload <<< "$line"
+    if [[ $token != $ONEAGENT_QC_TOKEN || $request != [A-Fa-f0-9-]## ||
+          $deadline != <->.<-> ]] || { [[ $action != probe ]] && (( EPOCHREALTIME > deadline )); }; then
+        exec {client}>&-
+        return 0
+    fi
+    if [[ $action == probe ]]; then
+        # Readiness only: return this host's clock so execution deadlines tolerate clock skew.
+        if _oneagent_qc_ready; then
+            _oneagent_qc_reply "$client" "$request|ready|$EPOCHREALTIME"
+        else
+            _oneagent_qc_reply "$client" "$request|rejected|$EPOCHREALTIME"
+        fi
+    elif [[ $action == query ]]; then
+        if _oneagent_qc_ready; then
+            _oneagent_qc_reply "$client" "$request|ready"
+        else
+            _oneagent_qc_reply "$client" "$request|rejected"
+        fi
+    elif [[ $action == run ]] && _oneagent_qc_ready && [[ ${_oneagent_qc_seen[(Ie)$request]} == 0 ]]; then
+        # Decoding happens before the final guard; neither payload nor cwd is evaluated here.
+        decoded=$(print -rn -- "$payload" | /usr/bin/base64 -d 2>/dev/null)
+        expected=$(print -rn -- "$directory" | /usr/bin/base64 -d 2>/dev/null)
+        if [[ -n $decoded && ( $PWD == $expected || ${PWD:A} == $expected ) ]] && (( EPOCHREALTIME <= deadline )) && _oneagent_qc_ready; then
+            _oneagent_qc_seen+=($request)
+            # Leave ZLE before executing: a child run inside an fd widget lets
+            # SIGWINCH redraw the old prompt over that child's output. zsh 5.9
+            # polls the tty again after an fd callback, so the host sends one
+            # NUL wakeup (no command bytes) to enter the accept widget.
+            typeset -g _oneagent_qc_pending=$decoded
+            typeset -g _oneagent_qc_restore_key=$(bindkey -L -M "$KEYMAP" '^@')
+            bindkey -M "$KEYMAP" '^@' _oneagent_qc_wakeup
+            _oneagent_qc_reply "$client" "$request|accepted-wakeup"
+            exec {client}>&-
+            return 0
+        fi
+        _oneagent_qc_reply "$client" "$request|rejected"
+    else
+        _oneagent_qc_reply "$client" "$request|rejected"
+    fi
+    exec {client}>&-
+}
+
+# The command stays separate from the editor buffer until the owned process
+# receives its wakeup. Restore the user's NUL binding before accepting the line.
+_oneagent_qc_wakeup() {
+    local typeahead=$BUFFER
+    builtin eval -- "$_oneagent_qc_restore_key"
+    unset _oneagent_qc_restore_key
+    BUFFER="( builtin eval -- ${(q)_oneagent_qc_pending} )"
+    unset _oneagent_qc_pending
+    zle .accept-line
+    [[ -z $typeahead ]] || zle -U "$typeahead"
+}
+
+# Continuation readers restrict fd widgets; unregister until the main prompt.
+# Incremental search has its own guard and remains unavailable on ambiguous aborts.
+_oneagent_qc_line_init() {
+    _oneagent_qc_searching=0
+    if [[ $CONTEXT == start ]]; then
+        zle -F -w "$_oneagent_qc_listener" _oneagent_qc_request
+    else
+        zle -F "$_oneagent_qc_listener" 2>/dev/null
+    fi
+}
+_oneagent_qc_line_finish() {
+    zle -F "$_oneagent_qc_listener" 2>/dev/null
+    # An interrupted/abandoned handoff must not leave a user binding changed.
+    if [[ -n $_oneagent_qc_restore_key ]]; then
+        builtin eval -- "$_oneagent_qc_restore_key"
+        unset _oneagent_qc_restore_key _oneagent_qc_pending
+    fi
+}
+_oneagent_qc_search_begin() { _oneagent_qc_searching=1 }
+_oneagent_qc_search_end() { _oneagent_qc_searching=0 }
+
+_oneagent_qc_cleanup() {
+    [[ $ONEAGENT_QC_OWNER == $$ && $ZSH_SUBSHELL == 0 ]] || return 0
+    zle -F "$_oneagent_qc_listener" 2>/dev/null
+    exec {_oneagent_qc_listener}>&-
+    command rm -f -- "$ONEAGENT_QC_SOCKET"
+}
+
+() {
+    local old_umask=$(umask)
+    umask 077
+    zsocket -l "$ONEAGENT_QC_SOCKET" 2>/dev/null
+    local result=$? listener=$REPLY
+    umask "$old_umask"
+    (( result == 0 )) || return 0
+    typeset -g _oneagent_qc_listener=$listener
+    typeset -ga _oneagent_qc_seen=()
+    export ONEAGENT_QC_OWNER=$$
+    zle -N _oneagent_qc_wakeup
+    zle -N _oneagent_qc_request
+    autoload -Uz add-zle-hook-widget
+    add-zle-hook-widget line-init _oneagent_qc_line_init
+    add-zle-hook-widget line-finish _oneagent_qc_line_finish
+    add-zle-hook-widget isearch-update _oneagent_qc_search_begin
+    add-zle-hook-widget isearch-exit _oneagent_qc_search_end
+    zshexit_functions+=(_oneagent_qc_cleanup)
+}
