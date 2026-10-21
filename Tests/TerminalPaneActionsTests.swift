@@ -89,10 +89,9 @@ enum TerminalPaneActionsTests {
         expect(titles.contains { $0.contains("vim build.sh") }, "the running command is listed")
         expect(titles.contains { $0.contains("make build") && $0.contains(String(format: String(localized: "Exit Code %lld"), 2)) },
                "the last command and its exit code are listed")
-        expect(menu.filter { !$0.isSeparator && $0.title != String(localized: "Switch Tab") }.allSatisfy { !$0.enabled },
-               "status lines are information, not actions")
-        expect(menu.last?.title == String(localized: "Switch Tab"), "tab navigation stays at the end")
-        expect(TerminalPaneActions.titleItems(model: model, window: window).count == 1, "menus without a pane keep only tab navigation")
+        expect(menu.allSatisfy { !$0.enabled }, "status lines are information, not actions")
+        expect(!menu.contains { $0.title == String(localized: "Switch Tab") }, "the title card does not switch tabs")
+        expect(TerminalPaneActions.titleItems(model: model, window: window).isEmpty, "a title click without a pane shows nothing")
         if let path = ProcessInfo.processInfo.environment["ONEAGENT_REMOTE_MENU_SNAPSHOT"] {
             let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
                                  styleMask: [.titled], backing: .buffered, defer: false)
@@ -258,22 +257,15 @@ enum TerminalPaneActionsTests {
         let first = window.selectedTabID!
         model.open(.preview(path: "/tmp/title-second"), placement: .newTab, beside: first, in: window)
         let second = window.selectedTabID!
-        let menu = TerminalPaneActions.titleItems(model: model, window: window)
-        let tabs = item("Switch Tab", in: menu)!
-        expect(tabs.children.count == 2 && tabs.children[1].checked, "title menu lists this window's tabs with the active checkmark")
-        tabs.children[0].action()
-        expect(window.selectedTabID == first, "title-menu tab selection targets the selected menu entry")
+        expect(TerminalPaneActions.titleItems(model: model, window: window, tabID: first).isEmpty,
+               "a local title click does not offer tab switching")
         let context = TerminalPaneActions.items(tab: model.tabs.first { $0.id == first }!, model: model, window: window)
         model.selectOnly(second, in: window, focusTerminal: false)
         context.first { $0.title == AppShortcutID.closeTab.title }!.action()
         expect(!model.tabs.contains { $0.id == first } && model.tabs.contains { $0.id == second },
                "Close from a terminal context menu retains its captured pane rather than closing the newly focused tab")
-        let staleSelection = window.selectedTabID
-        tabs.children[0].action()
-        expect(window.selectedTabID == staleSelection, "closed tab entries cannot resurrect a stale selection")
-        expect(menu.count == 1 && menu.first?.title == String(localized: "Switch Tab"), "pane titles only expose tab navigation")
         model.open(.preview(path: "/tmp/title-third"), placement: .newTab, beside: second, in: window)
-        expect(window.selectedTabID != second, "keyboard navigation starts on a different tab")
+        expect(window.selectedTabID != second, "opening another tab leaves the closed pane closed")
         let local = TerminalTab(id: UUID(), alias: nil, directory: "/tmp/path with spaces", generation: 0, exited: false)
         var remote = TerminalTab(id: UUID(), alias: "fixture", directory: local.directory, generation: 0, exited: false)
         remote.remoteDirectory = "/srv/project"
@@ -285,26 +277,23 @@ enum TerminalPaneActionsTests {
                "lower split panes retain their own title and drag handle")
         let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
                              styleMask: [.titled], backing: .buffered, defer: false)
+        let anchor = NSView(frame: NSRect(x: 390, y: 540, width: 120, height: 32))
+        owner.contentView?.addSubview(anchor)
         let presenter = FamilyMenuPresenter.shared
-        presenter.show(TerminalPaneActions.titleItems(model: model, window: window),
-                       at: NSPoint(x: 600, y: 700), owner: owner)
-        expect(presenter.panels.count == 1, "the production title menu creates a popup")
+        presenter.show([FamilyMenuItem(title: "fixture-host", enabled: false)], centeredBelow: anchor)
+        expect(presenter.panels.count == 1, "the title card opens under its anchor")
+        let panel = presenter.panels[0]
+        let anchorScreen = owner.convertToScreen(anchor.convert(anchor.bounds, to: nil))
+        expect(abs(panel.frame.midX - anchorScreen.midX) < 1, "the title card is centered under the title")
+        expect(abs(panel.frame.maxY - (anchorScreen.minY - 4)) < 1, "the title card sits just below the title")
         if let path = ProcessInfo.processInfo.environment["ONEAGENT_MENU_SNAPSHOT"],
-           let view = presenter.panels.first?.contentView,
+           let view = panel.contentView,
            let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
             view.cacheDisplay(in: view.bounds, to: bitmap)
             try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
         }
-        for keyCode: UInt16 in [115, 124, 115, 36] {
-            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
-                                        windowNumber: owner.windowNumber, context: nil, characters: "",
-                                        charactersIgnoringModifiers: "", isARepeat: false, keyCode: keyCode)!
-            expect(presenter.handleKey(event), "title popup handles navigation keys")
-        }
-        expect(window.selectedTabID == second && presenter.panels.isEmpty,
-               "keyboard selection dispatches Switch Tab and dismisses every popup")
+        presenter.dismiss()
         owner.orderOut(nil)
-
     }
 
     @MainActor private static func item(_ key: String.LocalizationValue, in items: [FamilyMenuItem]) -> FamilyMenuItem? {

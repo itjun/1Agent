@@ -81,12 +81,20 @@ final class FamilyMenuPresenter {
         self.onDismiss = onDismiss
     }
 
+    /// `point.x` is the horizontal center of the view; the card's top sits just under it.
+    func show(_ items: [FamilyMenuItem], centeredBelow view: NSView) {
+        guard let window = view.window else { return }
+        let rect = window.convertToScreen(view.convert(view.bounds, to: nil))
+        show(items, at: NSPoint(x: rect.midX, y: rect.minY - 4), owner: window, centered: true)
+        trigger = view
+    }
+
     func show(_ items: [FamilyMenuItem], at point: NSPoint, owner: NSWindow,
-              minWidth: CGFloat = 180, maxHeight: CGFloat = 640, above: CGFloat? = nil) {
+              minWidth: CGFloat = 180, maxHeight: CGFloat = 640, above: CGFloat? = nil, centered: Bool = false) {
         dismiss()
         guard items.contains(where: { !$0.isSeparator }) else { return }
         self.owner = owner
-        append(items, at: point, minWidth: minWidth, maxHeight: maxHeight, above: above)
+        append(items, at: point, minWidth: minWidth, maxHeight: maxHeight, above: above, centered: centered)
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]) { [weak self] event in
             guard let self, !self.panels.isEmpty else { return event }
             if event.type == .keyDown { return self.handleKey(event) ? nil : event }
@@ -143,7 +151,7 @@ final class FamilyMenuPresenter {
     }
 
     private func append(_ items: [FamilyMenuItem], at point: NSPoint, minWidth: CGFloat = 180,
-                        maxHeight: CGFloat = 640, above: CGFloat? = nil, parentRect: NSRect? = nil) {
+                        maxHeight: CGFloat = 640, above: CGFloat? = nil, parentRect: NSRect? = nil, centered: Bool = false) {
         guard let owner else { return }
         let depth = panels.count
         let screen = NSScreen.screens.first { $0.frame.contains(point) } ?? owner.screen ?? NSScreen.main
@@ -156,7 +164,8 @@ final class FamilyMenuPresenter {
             self.highlight(index, depth: depth, expand: true)
         }
         content.onPress = { [weak self] index in self?.activate(index, depth: depth) }
-        var origin = NSPoint(x: point.x, y: point.y - content.frame.height)
+        let originX = centered ? point.x - content.frame.width / 2 : point.x
+        var origin = NSPoint(x: originX, y: point.y - content.frame.height)
         if let parentRect, origin.x + content.frame.width > safe.maxX {
             origin.x = parentRect.minX - content.frame.width - 4
         }

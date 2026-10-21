@@ -446,14 +446,12 @@ struct RootView: View {
         return ZStack(alignment: .topLeading) {
             chrome.panelHeader
             if filesMode || topTabs.isEmpty {
-                FamilyMenu(items: { TerminalPaneActions.titleItems(model: model, window: window) }) {
-                    Text(filesMode ? "Files" : "Terminal")
-                        .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)
-                        .padding(.horizontal, 8).frame(height: Theme.PaneStyle.titlebarHeight)
-                }
-                .accessibilityIdentifier("workspace.titleMenu")
-                .frame(width: detailWidth, height: Theme.PaneStyle.titlebarHeight)
-                .offset(x: inset)
+                Text(filesMode ? "Files" : "Terminal")
+                    .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)
+                    .padding(.horizontal, 8)
+                    .frame(width: detailWidth, height: Theme.PaneStyle.titlebarHeight, alignment: .leading)
+                    .accessibilityIdentifier("workspace.titleMenu")
+                    .offset(x: inset)
             } else {
                 ForEach(topTabs) { tab in
                     if let frame = frames[tab.id] {
@@ -522,21 +520,22 @@ struct RootView: View {
         }
             .font(Theme.Font.paneTitle)
             .padding(.horizontal, 8)
+            .fixedSize(horizontal: true, vertical: false)
             .frame(maxWidth: 520, maxHeight: .infinity)
             .allowsHitTesting(false)
             .overlay {
                 // Use the same native event tracking as lower split headers: it owns
                 // the press before AppKit can turn a titlebar drag into a window drag.
                 TabDragHandle(
-                    onClick: { _, _ in TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) },
+                    onClick: { _, _ in },
+                    onActivate: { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id, anchor: $0) },
                     onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
                     onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                     onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    onSecondaryClick: { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) },
                     freezesWindow: true
                 )
             }
-            .help("Click the title to switch tabs. Drag it to move the pane.")
+            .help("Click the title for session details. Drag it to move the pane.")
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) }

@@ -829,6 +829,8 @@ struct TabContextMenu {
 
 final class TabDragHandleView: NSView {
     var onClick: (Bool, Bool) -> Void = { _, _ in }
+    /// Left click and secondary click. The view is the title, so a card can hang from its center.
+    var onActivate: ((NSView) -> Void)?
     var onHover: (Bool) -> Void = { _ in }
     var dragEnabled = true
     var onBegan: () -> Void = {}
@@ -959,9 +961,15 @@ final class TabDragHandleView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if event.modifierFlags.contains(.control), let onSecondaryClick {
-            onSecondaryClick()
-            return
+        if event.modifierFlags.contains(.control) {
+            if let onActivate {
+                onActivate(self)
+                return
+            }
+            if let onSecondaryClick {
+                onSecondaryClick()
+                return
+            }
         }
         guard let window else { return }
         // The pane title sits in the transparent titlebar. Keep the window still
@@ -995,6 +1003,8 @@ final class TabDragHandleView: NSView {
             if event.type == .leftMouseUp {
                 if dragging {
                     self.onEnded(point)
+                } else if let onActivate = self.onActivate {
+                    onActivate(self)
                 } else {
                     self.onClick(command, shift)
                 }
@@ -1023,6 +1033,11 @@ final class TabDragHandleView: NSView {
             window?.isMovable = false
         }
         // Match native context menus: open on press, and do not reopen on release.
+        if let onActivate {
+            onActivate(self)
+            restoreWindowMovementIfPointerLeft()
+            return
+        }
         if let onSecondaryClick {
             onSecondaryClick()
             restoreWindowMovementIfPointerLeft()
@@ -1171,6 +1186,7 @@ final class TabDragHandleView: NSView {
 
 struct TabDragHandle: NSViewRepresentable {
     var onClick: (Bool, Bool) -> Void
+    var onActivate: ((NSView) -> Void)? = nil
     var onHover: (Bool) -> Void = { _ in }
     var onBegan: () -> Void
     var onMoved: (NSPoint) -> Void
@@ -1185,6 +1201,7 @@ struct TabDragHandle: NSViewRepresentable {
 
     func updateNSView(_ view: TabDragHandleView, context: Context) {
         view.onClick = onClick
+        view.onActivate = onActivate
         view.onHover = onHover
         view.onBegan = onBegan
         view.onMoved = onMoved

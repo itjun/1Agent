@@ -1,29 +1,17 @@
 import AppKit
 
-/// Terminal context actions and the separate pane-title tab picker.
+/// Terminal context actions and the pane-title status card.
 /// Actions keep the pane identity that opened the menu; they never act on whichever
 /// terminal happens to own the keyboard when the popup dismisses.
 @MainActor
 enum TerminalPaneActions {
-    /// Titles only switch tabs; terminal actions live in the terminal's context menu.
-    /// A remote terminal's title also lists what its shell reported, above the switcher.
+    /// A remote title lists what its shell reported. It does not switch tabs.
     static func titleItems(model: AppModel, window: WindowState, tabID: UUID? = nil) -> [FamilyMenuItem] {
-        let tabs = model.sidebarOrder(in: window).compactMap { id in model.tabs.first { $0.id == id } }
-        let tabItems = tabs.map { target in
-            FamilyMenuItem(title: title(of: target), checked: target.id == window.selectedTabID, action: {
-                guard model.sidebarOrder(in: window).contains(target.id) else { return }
-                model.selectOnly(target.id, in: window)
-            })
+        guard let tabID, model.sidebarOrder(in: window).contains(tabID),
+              let tab = currentTab(tabID, model: model), let host = model.remoteHostDescription(tab) else { return [] }
+        return RemoteShellStatus.shared.detailLines(of: tab, host: host).map { line in
+            FamilyMenuItem(title: line, enabled: false)
         }
-        var items: [FamilyMenuItem] = []
-        if let tabID, let tab = currentTab(tabID, model: model), let host = model.remoteHostDescription(tab) {
-            for line in RemoteShellStatus.shared.detailLines(of: tab, host: host) {
-                items.append(FamilyMenuItem(title: line, enabled: false))
-            }
-            items.append(.separator)
-        }
-        items.append(FamilyMenuItem(title: String(localized: "Switch Tab"), enabled: !tabItems.isEmpty, children: tabItems))
-        return items
     }
 
     static func title(of tab: TerminalTab) -> String {
@@ -32,11 +20,18 @@ enum TerminalPaneActions {
         return workingDirectory(of: tab).map(LocalTerminal.displayPath) ?? String(localized: "This Mac")
     }
 
-    static func showTitleContext(model: AppModel, window: WindowState, tabID: UUID? = nil) {
-        guard let owner = MainWindowManager.shared.window(for: window) else { return }
-        let point = NSEvent.mouseLocation
+    /// The card hangs from the middle of the title. A click with no anchor uses the window's title band.
+    static func showTitleContext(model: AppModel, window: WindowState, tabID: UUID? = nil, anchor: NSView? = nil) {
+        guard let owner = anchor?.window ?? MainWindowManager.shared.window(for: window) else { return }
+        let items = titleItems(model: model, window: window, tabID: tabID)
+        guard items.contains(where: { !$0.isSeparator }) else { return }
         DispatchQueue.main.async {
-            FamilyMenuPresenter.shared.show(titleItems(model: model, window: window, tabID: tabID), at: point, owner: owner)
+            if let anchor, anchor.window != nil {
+                FamilyMenuPresenter.shared.show(items, centeredBelow: anchor)
+            } else {
+                let top = owner.frame.maxY - Theme.PaneStyle.titlebarHeight - 4
+                FamilyMenuPresenter.shared.show(items, at: NSPoint(x: owner.frame.midX, y: top), owner: owner, centered: true)
+            }
         }
     }
 
