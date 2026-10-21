@@ -490,7 +490,13 @@ private struct SwitcherBoxFrameKey: PreferenceKey {
 
 private struct SwitcherResultsFrameKey: PreferenceKey {
     static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
+    /// Views that never report keep the default; they must not wipe the results frame.
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero {
+            value = next
+        }
+    }
 }
 
 struct TerminalSwitcherView: View {
