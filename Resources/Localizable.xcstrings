@@ -2710,18 +2710,25 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已打开的终端" } }
       }
     },
-    "Release modifiers to switch · Esc to cancel" : {
+    "Release modifiers to switch · Double-click a card to switch · Esc to go back" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Release modifiers to switch · Esc to cancel" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "松开修饰键切换 · Esc 取消" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Release modifiers to switch · Double-click a card to switch · Esc to go back" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "松开修饰键切换 · 双击卡片切换 · Esc 返回原处" } }
       }
     },
-    "Return or click to switch · Esc to cancel" : {
+    "Click to preview · Double-click or Return to switch · Esc to go back" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Return or click to switch · Esc to cancel" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "回车或点击切换 · Esc 取消" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Click to preview · Double-click or Return to switch · Esc to go back" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "单击预览 · 双击或回车切换 · Esc 返回原处" } }
+      }
+    },
+    "Original Location" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Original Location" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "原位置" } }
       }
     },
     "%@. Keep both copies, or replace the existing items?" : {

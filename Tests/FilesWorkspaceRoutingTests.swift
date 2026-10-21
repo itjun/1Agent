@@ -688,7 +688,7 @@ private struct FilesWorkspaceRoutingTests {
         try require(switcher.open(model: model, window: state, chord: chord, host: window), "Preview must open")
         try require(switcher.items.filter { $0.kind == .terminals }.count == model.panelRows(in: state).count, "One preview card per panel, not per split leaf")
         try require(switcher.items.contains { $0.panes.count > 1 }, "Preview must include the fixture's split layout")
-        try require(state.selectedTabID == beforePreview, "Highlighting previews must not switch live terminals")
+        try require(state.selectedTabID == beforePreview, "Opening must not switch live terminals before the highlight rests")
         try await settle()
         guard let previewView = window.childWindows?.first?.contentView else {
             throw TestFailure(description: "Switcher preview window must be attached to the host")
@@ -732,6 +732,18 @@ private struct FilesWorkspaceRoutingTests {
         _ = switcher.handle(try previewEvent(.keyDown, flags: [.control], key: 53))
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [], key: 59))
         try require(!switcher.isOpen && state.selectedTabID == committed, "Escape cancels and later release cannot commit")
+        try require(switcher.open(model: model, window: state, chord: chord, host: window), "Reopen live preview")
+        switcher.scope = .terminals
+        if switcher.filteredItems.first(where: { $0.id == switcher.highlighted })?.targetID == committed {
+            switcher.move(by: 1)
+        }
+        let previewTarget = switcher.filteredItems.first { $0.id == switcher.highlighted }?.targetID
+        try require(previewTarget != nil && previewTarget != committed, "Live preview fixture requires a second terminal panel")
+        try await eventually("the window behind follows the resting highlight") { state.selectedTabID == previewTarget }
+        try require(switcher.isOpen && state.section == .terminals, "Live preview keeps the switcher open")
+        _ = switcher.handle(try previewEvent(.keyDown, flags: [.control], key: 53))
+        try require(!switcher.isOpen && state.selectedTabID == committed && state.section == .terminals,
+                    "Escape returns to the terminal selected before the switcher opened")
         let files = model.fileWorkspace(for: state)
         let fileColumn = files.localColumn
         let historicalLocal = files.addLocalTab(at: fileColumn.savedPath)

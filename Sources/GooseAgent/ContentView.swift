@@ -1080,6 +1080,10 @@ enum FileBrowserLayout {
 enum SwitcherLayout {
     /// Gap between the switcher panel and the main window's edges.
     static let windowInset: CGFloat = 24
+    /// Dimming over the whole window, light enough to see the item previewed behind it.
+    static let maskOpacity: CGFloat = 0.35
+    /// Corner radius of a titled window without a toolbar, so the dimming does not poke past its corners.
+    static let windowCornerRadius: CGFloat = 16
     /// Padding inside the panel around the grid and the hint line.
     static let panelPadding: CGFloat = 20
     static let panelCornerRadius: CGFloat = 14

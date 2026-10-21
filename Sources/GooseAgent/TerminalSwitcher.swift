@@ -42,14 +42,31 @@ struct SwitcherPane: Identifiable, Equatable {
     let textColumns: Int
 }
 
-/// Hold the switcher's modifiers to preview panels; release to commit, Escape to cancel.
-/// The main terminal retains focus but receives no key-down events while the picker is visible.
+/// Where the window was when the switcher opened; cancelling returns here.
+private struct SwitcherOrigin {
+    let section: AppSection
+    let selectedTabID: UUID?
+    let sidebarSelection: Set<UUID>
+    let sidebarAnchor: UUID?
+    let fileColumnID: UUID?
+}
+
+/// Hold the switcher's modifiers to cycle panels; the window behind follows the highlight.
+/// Release to keep it, Escape to return to where the switcher opened.
+/// The main terminal receives no key-down events while the picker is visible.
 @MainActor
 final class TerminalSwitcher: ObservableObject {
     static let shared = TerminalSwitcher()
+    /// Rapid ⌃⇥ presses only load the item the highlight rests on.
+    private static let previewDelay: TimeInterval = 0.12
 
     @Published private(set) var items: [SwitcherItem] = []
-    @Published private(set) var highlighted: UUID?
+    @Published private(set) var highlighted: UUID? {
+        didSet {
+            if highlighted != oldValue && highlighted != nil && isOpen { schedulePreview() }
+        }
+    }
+    @Published private(set) var originID: UUID?
     @Published var query = "" { didSet { reconcileHighlight() } }
     @Published var scope: SwitcherScope = .all { didSet { reconcileHighlight() } }
     @Published private(set) var isSearching = false
@@ -94,6 +111,9 @@ final class TerminalSwitcher: ObservableObject {
     private var releaseModifiers: NSEvent.ModifierFlags = []
     private var observers: [NSObjectProtocol] = []
     private var subscriptions: Set<AnyCancellable> = []
+    private var origin: SwitcherOrigin?
+    private var previewedID: UUID?
+    private var pendingPreview: DispatchWorkItem?
 
     var isOpen: Bool { panel != nil }
 
@@ -123,10 +143,18 @@ final class TerminalSwitcher: ObservableObject {
             window.section == .files ? item.kind == .files && item.id == fileID :
                 item.kind == .terminals && window.selectedTabID.map { PaneLayout.contains($0, in: item.layout) } == true
         } ?? -1
+        origin = SwitcherOrigin(section: window.section, selectedTabID: window.selectedTabID,
+                                sidebarSelection: window.sidebarSelection, sidebarAnchor: window.sidebarAnchor,
+                                fileColumnID: fileID)
+        if current >= 0 {
+            originID = items[current].id
+        }
+        previewedID = originID
         let step = chord.modifiers.contains(.shift) ? -1 : 1
         highlighted = items[searching ? max(0, current) : Self.wrapped(current + step, count: items.count)].id
         showPanel(over: host)
         watch(model: model, window: window, host: host)
+        schedulePreview()
         if searching { beginSearch() }
         return true
     }
@@ -186,8 +214,55 @@ final class TerminalSwitcher: ObservableObject {
         }
     }
 
+    /// Closes the switcher and puts the window back where it was when the switcher opened.
     func cancel() {
+        let model = self.model
+        let window = windowState
+        let origin = self.origin
+        let isMoved = previewedID != originID
         close()
+        guard isMoved, let model, let window, let origin else { return }
+        if let id = origin.selectedTabID, model.tabs.contains(where: { $0.id == id }) {
+            model.selectTab(id, in: window, focusTerminal: false)
+        }
+        window.sidebarSelection = origin.sidebarSelection
+        window.sidebarAnchor = origin.sidebarAnchor
+        if let workspace = FileBrowserStore.shared.existingWorkspace(for: window),
+           let column = workspace.openColumns.first(where: { $0.id == origin.fileColumnID }) {
+            workspace.activate(column)
+        }
+        model.showSection(origin.section, in: window)
+    }
+
+    /// Shows the highlighted item in the window behind immediately, dropping any pending preview.
+    func previewNow() {
+        pendingPreview?.cancel()
+        pendingPreview = nil
+        guard isOpen, let model, let window = windowState,
+              let item = items.first(where: { $0.id == highlighted }), item.id != previewedID else { return }
+        previewedID = item.id
+        if item.kind == .files {
+            guard let workspace = FileBrowserStore.shared.existingWorkspace(for: window),
+                  let column = workspace.openColumns.first(where: { $0.id == item.targetID }) else { return }
+            if window.section != .files {
+                model.showSection(.files, in: window)
+            }
+            workspace.activate(column)
+        } else if model.sidebarOrder(in: window).contains(item.targetID) {
+            model.selectOnly(item.targetID, in: window, focusTerminal: false)
+            if window.section != .terminals {
+                model.showSection(.terminals, in: window)
+            }
+        }
+    }
+
+    private func schedulePreview() {
+        pendingPreview?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.previewNow() }
+        }
+        pendingPreview = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.previewDelay, execute: work)
     }
 
     // MARK: - Panel
@@ -205,7 +280,11 @@ final class TerminalSwitcher: ObservableObject {
         panel.isReleasedWhenClosed = false
         panel.appearance = host.appearance
         let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark)
-        let root = TerminalSwitcherView(switcher: self, chrome: chrome)
+        var cornerRadius = SwitcherLayout.windowCornerRadius
+        if host.styleMask.contains(.fullScreen) {
+            cornerRadius = 0
+        }
+        let root = TerminalSwitcherView(switcher: self, chrome: chrome, windowCornerRadius: cornerRadius)
             .environment(\.windowChrome, chrome)
             .preferredColorScheme(AppearanceDriver.shared.interfaceColorScheme)
         panel.contentView = FirstMouseHostingView(rootView: root)
@@ -213,8 +292,9 @@ final class TerminalSwitcher: ObservableObject {
         self.panel = panel
     }
 
+    /// The dimming covers the whole window, title bar included.
     private static func panelFrame(over host: NSWindow) -> NSRect {
-        host.frame.insetBy(dx: SwitcherLayout.windowInset, dy: SwitcherLayout.windowInset)
+        host.frame
     }
 
     private func watch(model: AppModel, window: WindowState, host: NSWindow) {
@@ -258,7 +338,8 @@ final class TerminalSwitcher: ObservableObject {
         }
     }
 
-    /// A card switches to its terminal, the rest of the panel does nothing, anywhere else cancels.
+    /// A click on a card shows it behind the panel, a double-click switches to it, the rest of the panel
+    /// does nothing, anywhere else cancels.
     private func click(_ event: NSEvent, in panel: NSPanel) -> Bool {
         guard event.window === panel, let view = panel.contentView else {
             cancel()
@@ -268,7 +349,12 @@ final class TerminalSwitcher: ObservableObject {
         if !view.isFlipped { point.y = view.bounds.height - point.y }
         guard boxFrame.contains(point) else { cancel(); return true }
         if resultsFrame.contains(point), let hit = cardFrames.first(where: { $0.value.contains(point) }) {
-            commit(hit.key)
+            if event.type == .leftMouseDown && event.clickCount >= 2 {
+                commit(hit.key)
+            } else {
+                highlighted = hit.key
+                previewNow()
+            }
             return true
         }
         // Native search/picker controls must receive their mouse event and can take keyboard focus.
@@ -315,6 +401,11 @@ final class TerminalSwitcher: ObservableObject {
         subscriptions = []
         items = []
         highlighted = nil
+        pendingPreview?.cancel()
+        pendingPreview = nil
+        origin = nil
+        originID = nil
+        previewedID = nil
         cardFrames = [:]
         boxFrame = .zero
     }
@@ -406,19 +497,21 @@ struct TerminalSwitcherView: View {
     static let space = "terminalSwitcher"
     @ObservedObject var switcher: TerminalSwitcher
     let chrome: WindowChrome
+    var windowCornerRadius: CGFloat = 0
 
     var body: some View {
         GeometryReader { proxy in
-            let width = max(1, min(1080, proxy.size.width - 2 * SwitcherLayout.panelPadding))
+            let width = max(1, min(1080, proxy.size.width - 2 * (SwitcherLayout.panelPadding + SwitcherLayout.windowInset)))
             let count = max(1, min(5, Int((width + 14) / 204)))
             let grid = SwitcherLayout.Grid(columns: count, cardWidth: (width - CGFloat(count - 1) * 14) / CGFloat(count), scrolls: true)
             let sections = [SwitcherScope.terminals, .files].filter { kind in switcher.filteredItems.contains { $0.kind == kind } }
             let rows = sections.reduce(0) { total, kind in
                 total + (switcher.filteredItems.filter { $0.kind == kind }.count + count - 1) / count
             }
-            let height = min(max(100, proxy.size.height - 176), max(130, CGFloat(rows) * (grid.cardHeight + 14) + CGFloat(sections.count) * 34))
+            let height = min(max(100, proxy.size.height - 176 - 2 * SwitcherLayout.windowInset), max(130, CGFloat(rows) * (grid.cardHeight + 14) + CGFloat(sections.count) * 34))
             ZStack {
-                Color.black.opacity(0.6)
+                RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
+                    .fill(Color.black.opacity(SwitcherLayout.maskOpacity))
                 VStack(spacing: 12) {
                     HStack {
                         Text("Open Items Overview").font(Theme.Font.body.weight(.semibold))
@@ -447,7 +540,8 @@ struct TerminalSwitcherView: View {
                                         }.font(Theme.Font.rowMeta)
                                         LazyVGrid(columns: Array(repeating: GridItem(.fixed(grid.cardWidth), spacing: 14), count: count), spacing: 14) {
                                             ForEach(entries) { item in
-                                                SwitcherCard(item: item, grid: grid, highlighted: item.id == switcher.highlighted, chrome: chrome)
+                                                SwitcherCard(item: item, grid: grid, highlighted: item.id == switcher.highlighted,
+                                                             isOrigin: item.id == switcher.originID, chrome: chrome)
                                                     .id(item.id)
                                                     .accessibilityAction { switcher.commit(item.id) }
                                                     .background(GeometryReader { card in
@@ -468,7 +562,7 @@ struct TerminalSwitcherView: View {
                             if let id { reader.scrollTo(id) }
                         }
                     }
-                    Text(LocalizedStringKey(switcher.isSearching ? "Return or click to switch · Esc to cancel" : "Release modifiers to switch · Esc to cancel"))
+                    Text(LocalizedStringKey(switcher.isSearching ? "Click to preview · Double-click or Return to switch · Esc to go back" : "Release modifiers to switch · Double-click a card to switch · Esc to go back"))
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                 }
                 .frame(width: width).padding(SwitcherLayout.panelPadding)
@@ -523,6 +617,7 @@ private struct SwitcherCard: View {
     let item: SwitcherItem
     let grid: SwitcherLayout.Grid
     let highlighted: Bool
+    let isOrigin: Bool
     let chrome: WindowChrome
     @State private var hovered = false
 
@@ -549,6 +644,12 @@ private struct SwitcherCard: View {
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if item.panes.count > 1 { Text(verbatim: "\(item.panes.count)").foregroundStyle(chrome.secondary) }
+                if isOrigin {
+                    Text("Original Location").font(.system(size: 10)).foregroundStyle(chrome.secondary)
+                        .lineLimit(1).fixedSize()
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Capsule().fill(chrome.hairline.opacity(0.6)))
+                }
             }.frame(width: grid.thumbnailWidth, height: 18)
             Text(verbatim: item.subtitle).font(.system(size: 10)).foregroundStyle(chrome.secondary)
                 .lineLimit(1).truncationMode(.middle).frame(width: grid.thumbnailWidth, height: 12, alignment: .leading)
