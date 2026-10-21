@@ -510,15 +510,19 @@ struct RootView: View {
     }
 
     private func paneTitleMenu(_ tab: TerminalTab) -> some View {
-        Text(verbatim: sessionTitle(tab))
+        HStack(spacing: 8) {
+            Text(verbatim: sessionTitle(tab))
+                .fontWeight(window.selectedTabID == tab.id ? .semibold : .medium)
+                .foregroundStyle(tab.hasTerminal
+                    ? (inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary)
+                    : (window.selectedTabID == tab.id ? chrome.text : chrome.secondary))
+                .lineLimit(1).truncationMode(.middle)
+                .layoutPriority(1)
+            RemoteTitleStatus(tab: tab)
+        }
             .font(Theme.Font.paneTitle)
-            .fontWeight(window.selectedTabID == tab.id ? .semibold : .medium)
-            .foregroundStyle(tab.hasTerminal
-                ? (inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary)
-                : (window.selectedTabID == tab.id ? chrome.text : chrome.secondary))
-            .lineLimit(1).truncationMode(.middle)
             .padding(.horizontal, 8)
-            .frame(maxWidth: 360, maxHeight: .infinity)
+            .frame(maxWidth: 520, maxHeight: .infinity)
             .allowsHitTesting(false)
             .overlay {
                 // Use the same native event tracking as lower split headers: it owns

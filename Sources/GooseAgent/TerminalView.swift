@@ -282,6 +282,8 @@ final class TerminalProcessHost {
         return agentContext?.conversation
     }
     var onRemoteDirectory: ((String) -> Void)?
+    /// Command start, name and finish from the remote shell integration.
+    var onRemoteCommand: ((RemoteShellEvent) -> Void)?
     private var remotePreparation: Task<Void, Never>?
     private var cancelForwarding: (() -> Void)?
 
@@ -426,11 +428,15 @@ final class TerminalProcessHost {
         process.onOutput = { [weak self, weak process, session] data in
             session.receive(data)
             guard launch.integratesRemoteShell else { return }
-            for path in tracker.receive(data) {
+            for event in tracker.receive(data) {
                 Task { @MainActor [weak self, weak process] in
                     guard let self, let process, self.process === process else { return }
-                    self.remoteWorkingDirectory = path
-                    self.onRemoteDirectory?(path)
+                    if case .directory(let path) = event {
+                        self.remoteWorkingDirectory = path
+                        self.onRemoteDirectory?(path)
+                    } else {
+                        self.onRemoteCommand?(event)
+                    }
                 }
             }
         }
@@ -1680,6 +1686,7 @@ struct SSHTerminalView: NSViewRepresentable {
         view.processHost = host
         view.eventRelay.terminal = view
         host.onRemoteDirectory = { [weak view] path in view?.eventRelay.terminalDidChangeWorkingDirectory(path) }
+        host.onRemoteCommand = { [weak view] event in view?.eventRelay.terminalDidReportRemoteCommand(event) }
         view.delegate = view.eventRelay
         view.registerForDraggedTypes(SSHTerminalNSView.dropTypes)
         view.controller = GhosttyRuntime.controller

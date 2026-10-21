@@ -256,6 +256,9 @@ struct TerminalCanvas: View {
                         .fontWeight(selected ? .semibold : .medium)
                         .foregroundStyle(hostTitleColor(focused: focused))
                         .lineLimit(1)
+                        .layoutPriority(1)
+                    RemoteTitleStatus(tab: tab)
+                        .font(Theme.Font.paneTitle)
                     if tab.reconnecting {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
@@ -307,6 +310,9 @@ struct TerminalCanvas: View {
                         .foregroundStyle(chrome.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .layoutPriority(1)
+                    RemoteTitleStatus(tab: tab)
+                        .font(Theme.Font.paneTitle)
                     if tab.reconnecting {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))

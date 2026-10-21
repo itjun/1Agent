@@ -18,15 +18,35 @@ import Foundation
         }
         var tracker = RemoteDirectoryTracker()
         let frame = Data("\u{1b}]7;file://fixture-build/root/a%20b/%E4%B8%AD\u{7}".utf8)
-        var paths: [String] = []
+        var paths: [RemoteShellEvent] = []
         for byte in frame { paths += tracker.receive(Data([byte])) }
-        precondition(paths == ["/root/a b/中"])
-        precondition(tracker.receive(Data("\u{1b}]7;kitty-shell-cwd://fixture-build/root/100% dir\u{1b}\\".utf8)) == ["/root/100% dir"])
+        precondition(paths == [.directory("/root/a b/中")])
+        precondition(tracker.receive(Data("\u{1b}]7;kitty-shell-cwd://fixture-build/root/100% dir\u{1b}\\".utf8)) == [.directory("/root/100% dir")])
         for invalid in ["\u{1b}]0;/root/fake\u{7}", "\u{1b}]7;file:///root/%0Aevil\u{7}", "\u{1b}]7;file:///root/a?b\u{7}", "prompt ~/dir"] {
             precondition(tracker.receive(Data(invalid.utf8)).isEmpty)
         }
         precondition(tracker.receive(Data(("\u{1b}]7;file:///" + String(repeating: "x", count: 20_000) + "\u{7}").utf8)).isEmpty)
         precondition(tracker.receive(frame) == paths, "oversized OSC must not poison the next report")
+        // Zsh: the prompt's directory title comes before 133;A, the command title after 133;C.
+        let zsh = "\u{1b}]7;kitty-shell-cwd://h/root/x\u{7}\u{1b}]2;~/x\u{7}\u{1b}]133;A;cl=line\u{7}$ \u{1b}]133;B\u{7}"
+            + "\u{1b}]133;C\u{7}\u{1b}]2;vim build.sh\u{7}" + "\u{1b}]2;build.sh - VIM\u{7}"
+            + "\u{1b}]133;D;0\u{7}\u{1b}]7;kitty-shell-cwd://h/root/x\u{7}\u{1b}]2;~/x\u{7}"
+        var zshTracker = RemoteDirectoryTracker()
+        var zshEvents: [RemoteShellEvent] = []
+        for byte in Data(zsh.utf8) { zshEvents += zshTracker.receive(Data([byte])) }
+        precondition(zshEvents == [.directory("/root/x"), .commandStarted(nil), .commandNamed("vim build.sh"),
+                                   .commandFinished(exitCode: 0), .directory("/root/x")], "zsh command: \(zshEvents)")
+        // Bash: the directory title follows 133;A, the command title comes before 133;C.
+        let bash = "\u{1b}]133;A\u{7}\u{1b}]7;file://h/root/x\u{7}\u{1b}]2;~/x\u{7}$ \u{1b}]133;B\u{7}"
+            + "\u{1b}]2;make build\u{7}\u{1b}]133;C\u{7}out\u{1b}]2;other\u{7}" + "\u{1b}]133;D;2\u{7}\u{1b}]133;A\u{7}"
+        var bashTracker = RemoteDirectoryTracker()
+        let bashEvents = bashTracker.receive(Data(bash.utf8))
+        precondition(bashEvents == [.directory("/root/x"), .commandStarted("make build"), .commandFinished(exitCode: 2)], "bash command: \(bashEvents)")
+        var markTracker = RemoteDirectoryTracker()
+        let long = String(repeating: "y", count: 500)
+        let marks = markTracker.receive(Data(("\u{1b}]133;D;0\u{7}\u{1b}]133;B\u{7}\u{1b}]133;C\u{7}\u{1b}]0;" + long + "\u{7}\u{1b}]133;A\u{7}").utf8))
+        precondition(marks == [.commandStarted(nil), .commandNamed(String(repeating: "y", count: RemoteDirectoryTracker.maxCommandLength)),
+                               .commandFinished(exitCode: nil)], "lone D is ignored; A ends an unfinished command: \(marks)")
         let resources = FileManager.default.currentDirectoryPath + "/Resources"
         let token = UUID().uuidString
         let launch = RemoteShellIntegration.prepare(arguments: ["-F", "/dev/null", "--", "fixture", "printf test"],
@@ -46,6 +66,7 @@ import Foundation
         precondition(RemoteShellIntegration.prepare(arguments: ["-F", folder.path, "--", "fixture"], environment: [],
                                                    resources: resources, socket: "/tmp/fixture-socket", token: token) == nil,
                      "explicit SSH RemoteCommand must retain its behavior")
-        print("Remote shell integration: chunked cwd, Unicode, invalid frames, launch forwarding and custom RemoteCommand passed")
+        precondition(launch?.arguments.last?.contains("GHOSTTY_SHELL_FEATURES=path,title") == true, "remote shells must report command titles")
+        print("Remote shell integration: chunked cwd, Unicode, invalid frames, zsh/bash commands, launch forwarding and custom RemoteCommand passed")
     }
 }

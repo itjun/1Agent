@@ -86,6 +86,12 @@ final class TerminalEventRelay: TerminalSurfaceLifecycleDelegate,
         guard let sessionID = terminal?.sessionID else { return }
         TerminalActivity.shared.model?.noteWorkingDirectory(path, forSession: sessionID)
     }
+
+    /// OSC 133 and the command title, parsed from a remote session's output.
+    func terminalDidReportRemoteCommand(_ event: RemoteShellEvent) {
+        guard let sessionID = terminal?.sessionID else { return }
+        RemoteShellStatus.shared.report(event, sessionID: sessionID)
+    }
 }
 
 /// Links opened from a terminal. A program can print any link, so only common schemes open at once;
@@ -176,6 +182,131 @@ final class TerminalProgress: ObservableObject {
         expiry[sessionID]?.cancel()
         expiry[sessionID] = nil
         reports[sessionID] = nil
+    }
+}
+
+struct RemoteShellState: Equatable {
+    /// Shown once the command has run for `RemoteShellStatus.showDelay`.
+    var isRunning = false
+    /// Nil when the shell did not name the command.
+    var runningCommand: String?
+    var startedAt: Date?
+    var hasFinished = false
+    var lastCommand: String?
+    var lastExitCode: Int?
+    var lastDuration: TimeInterval = 0
+}
+
+/// What a remote shell is doing, per session. Memory only, like `TerminalProgress`, so a command
+/// starting or ending redraws only the views that show it.
+@MainActor
+final class RemoteShellStatus: ObservableObject {
+    static let shared = RemoteShellStatus()
+    /// Shorter commands such as `ls` or `cd` never replace the directory, so the title does not flicker.
+    static let showDelay: TimeInterval = 0.5
+
+    @Published private(set) var states: [String: RemoteShellState] = [:]
+    private var started: [String: (date: Date, command: String?)] = [:]
+    private var reveals: [String: DispatchWorkItem] = [:]
+
+    func report(_ event: RemoteShellEvent, sessionID: String) {
+        switch event {
+        case .directory:
+            return
+        case .commandStarted(let command):
+            reveals[sessionID]?.cancel()
+            started[sessionID] = (Date(), command)
+            let work = DispatchWorkItem {
+                MainActor.assumeIsolated {
+                    RemoteShellStatus.shared.reveal(sessionID: sessionID)
+                }
+            }
+            reveals[sessionID] = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + RemoteShellStatus.showDelay, execute: work)
+        case .commandNamed(let command):
+            guard started[sessionID] != nil else { return }
+            started[sessionID]?.command = command
+            if states[sessionID]?.isRunning == true {
+                states[sessionID]?.runningCommand = command
+            }
+        case .commandFinished(let exitCode):
+            reveals[sessionID]?.cancel()
+            reveals[sessionID] = nil
+            guard let start = started.removeValue(forKey: sessionID) else { return }
+            var state = states[sessionID] ?? RemoteShellState()
+            state.isRunning = false
+            state.runningCommand = nil
+            state.startedAt = nil
+            state.hasFinished = true
+            state.lastCommand = start.command
+            state.lastExitCode = exitCode
+            state.lastDuration = Date().timeIntervalSince(start.date)
+            states[sessionID] = state
+        }
+    }
+
+    private func reveal(sessionID: String) {
+        reveals[sessionID] = nil
+        guard let start = started[sessionID] else { return }
+        var state = states[sessionID] ?? RemoteShellState()
+        state.isRunning = true
+        state.runningCommand = start.command
+        state.startedAt = start.date
+        states[sessionID] = state
+    }
+
+    /// The tab closed, or its connection is about to restart.
+    func forget(sessionID: String) {
+        reveals[sessionID]?.cancel()
+        reveals[sessionID] = nil
+        started[sessionID] = nil
+        states[sessionID] = nil
+    }
+
+    /// The command of a connected remote terminal, once it has run for `showDelay`.
+    func runningCommand(of tab: TerminalTab) -> String? {
+        guard !tab.isLocal, tab.hasTerminal, !tab.exited, !tab.reconnecting,
+              let state = states[tab.sessionID], state.isRunning else { return nil }
+        return state.runningCommand ?? String(localized: "Running")
+    }
+
+    /// The last two folders, so the end of a deep path stays readable.
+    static func shortDirectory(_ path: String) -> String {
+        let components = path.split(separator: "/")
+        if components.count <= 2 {
+            return path
+        }
+        return "…/" + components.suffix(2).joined(separator: "/")
+    }
+}
+
+/// After a remote host's title: the running command, or else the remote directory.
+struct RemoteTitleStatus: View {
+    @Environment(\.windowChrome) private var chrome
+    @ObservedObject private var status = RemoteShellStatus.shared
+    var tab: TerminalTab
+
+    var body: some View {
+        if let command = status.runningCommand(of: tab) {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(chrome.accent)
+                    .frame(width: 6, height: 6)
+                Text(verbatim: command)
+                    .fontWeight(.regular)
+                    .foregroundStyle(chrome.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: String(format: String(localized: "Running: %@"), command)))
+        } else if !tab.isLocal, tab.hasTerminal, let directory = tab.remoteDirectory {
+            Text(verbatim: RemoteShellStatus.shortDirectory(directory))
+                .fontWeight(.regular)
+                .foregroundStyle(chrome.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
     }
 }
 

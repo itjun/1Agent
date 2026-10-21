@@ -69,7 +69,7 @@ enum RemoteAgentBootstrap {
         export ONEAGENT_AGENT_RESTORE_ERROR=\(quote(restoreError + "\n"))
         export ONEAGENT_SHELL_PATH="${SHELL:-/bin/sh}" ONEAGENT_AGENT_SHELL_START="$d/launch-shell"
         if [ "${ZDOTDIR+x}" = x ]; then export GHOSTTY_ZSH_ZDOTDIR="$ZDOTDIR"; else unset GHOSTTY_ZSH_ZDOTDIR; fi
-        export ZDOTDIR="$d/shell-integration/zsh" GHOSTTY_RESOURCES_DIR="$d" GHOSTTY_SHELL_FEATURES=path
+        export ZDOTDIR="$d/shell-integration/zsh" GHOSTTY_RESOURCES_DIR="$d" GHOSTTY_SHELL_FEATURES=path,title
         export ONEAGENT_QC_SOCKET="$d/s" ONEAGENT_QC_TOKEN=\(quote(token)) ONEAGENT_QC_READ_TIMEOUT=5
         unset ONEAGENT_QC_OWNER ONEAGENT_AGENT_INVOCATION
         "$py" "$d/agent-sessions/remote-agent-session.py" serve </dev/null >/dev/null 2>&1 &

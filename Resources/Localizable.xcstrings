@@ -1,6 +1,8 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Running" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Running"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "运行中"}}}},
+    "Running: %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Running: %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在运行：%@"}}}},
     "Automation" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Automation"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "自动化"}}}},
     "GitHub Desktop, Finder, and open add folders as new terminals in the 1Agent window. In GitHub Desktop, set Shell to Configure Custom Shell, Path to /Applications/1Agent.app, and Arguments to %TARGET_PATH%." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "GitHub Desktop, Finder, and open add folders as new terminals in the 1Agent window. In GitHub Desktop, set Shell to Configure Custom Shell, Path to /Applications/1Agent.app, and Arguments to %TARGET_PATH%."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "GitHub Desktop、Finder 和 open 打开的文件夹会作为新终端加入 1Agent 窗口。在 GitHub Desktop 中，将 Shell 设为 Configure Custom Shell，Path 填 /Applications/1Agent.app，Arguments 填 %TARGET_PATH%。"}}}},
     "Finder services create new terminals in the 1Agent window." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Finder services create new terminals in the 1Agent window."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "Finder 服务会在 1Agent 窗口中新建终端。"}}}},

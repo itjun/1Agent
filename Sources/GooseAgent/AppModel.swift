@@ -1399,6 +1399,7 @@ final class AppModel: ObservableObject {
         }
         tabs[index].reconnecting = false
         tabs[index].exited = false
+        RemoteShellStatus.shared.forget(sessionID: tabs[index].sessionID)
         if !SSHTerminalRegistry.restart(tabs[index].sessionID, notice: notice) {
             // No live terminal to reuse (should not happen); fall back to a fresh surface.
             SSHTerminalRegistry.destroy(tabs[index].sessionID)
@@ -1497,6 +1498,7 @@ final class AppModel: ObservableObject {
         TerminalFind.shared.forget(tabs[index].sessionID)
         TerminalActivity.shared.forget(sessionID: tabs[index].sessionID)
         TerminalProgress.shared.forget(sessionID: tabs[index].sessionID)
+        RemoteShellStatus.shared.forget(sessionID: tabs[index].sessionID)
         SSHTerminalRegistry.destroy(tabs[index].sessionID)
         tabs.remove(at: index)
         workspaces = WorkspaceBoard.extract(id, from: workspaces)

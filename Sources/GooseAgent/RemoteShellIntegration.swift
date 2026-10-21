@@ -53,7 +53,7 @@ enum RemoteShellIntegration {
         mkdir -p "$d/shell-integration/zsh" || exit 1
         \(writes.joined(separator: "\n"))
         if [ "${ZDOTDIR+x}" = x ]; then export GHOSTTY_ZSH_ZDOTDIR="$ZDOTDIR"; else unset GHOSTTY_ZSH_ZDOTDIR; fi
-        export ZDOTDIR="$d/shell-integration/zsh" GHOSTTY_RESOURCES_DIR="$d" GHOSTTY_SHELL_FEATURES=path
+        export ZDOTDIR="$d/shell-integration/zsh" GHOSTTY_RESOURCES_DIR="$d" GHOSTTY_SHELL_FEATURES=path,title
         export ONEAGENT_QC_SOCKET="$d/s" ONEAGENT_QC_TOKEN=\(quote(token))
         export ONEAGENT_QC_READ_TIMEOUT=5
         unset ONEAGENT_QC_OWNER
@@ -85,36 +85,65 @@ enum RemoteShellIntegration {
     private static func quote(_ text: String) -> String { "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 }
 
+/// What the remote shell integration reported.
+enum RemoteShellEvent: Equatable {
+    /// OSC 7.
+    case directory(String)
+    /// OSC 133;C. The command line when its title already arrived (Bash sends it first).
+    case commandStarted(String?)
+    /// The command line, when its title came after the start mark (Zsh).
+    case commandNamed(String)
+    /// OSC 133;D.
+    case commandFinished(exitCode: Int?)
+}
+
 /// The in-memory terminal engine does not emit PWD callbacks for these OSC 7 reports.
 /// Parse only bounded OSC frames, across arbitrary PTY chunk boundaries, on the output queue.
+/// With the `title` feature the shell sets the title to the command line around 133;C, and to the
+/// directory at the prompt; only the first title of a command is its command line.
 struct RemoteDirectoryTracker {
+    static let maxCommandLength = 200
     private enum State { case text, escape, osc, oscEscape, discard, discardEscape }
     private var state = State.text
     private var buffer = Data()
+    /// Title set after input started and before the command did.
+    private var pendingTitle: String?
+    private var isAtInput = false
+    private var isRunning = false
+    private var isNamed = false
 
-    mutating func receive(_ data: Data) -> [String] {
-        var paths: [String] = []
+    mutating func receive(_ data: Data) -> [RemoteShellEvent] {
+        var events: [RemoteShellEvent] = []
         for byte in data {
             switch state {
             case .text: if byte == 27 { state = .escape }
             case .escape: state = byte == 93 ? .osc : byte == 27 ? .escape : .text; buffer.removeAll(keepingCapacity: true)
             case .osc:
-                if byte == 7 { finish(into: &paths) }
+                if byte == 7 { finish(into: &events) }
                 else if byte == 27 { state = .oscEscape }
                 else if buffer.count < 16_384 { buffer.append(byte) }
                 else { buffer.removeAll(keepingCapacity: true); state = .discard }
             case .oscEscape:
-                if byte == 92 { finish(into: &paths) }
+                if byte == 92 { finish(into: &events) }
                 else { buffer.removeAll(keepingCapacity: true); state = byte == 93 ? .osc : .text }
             case .discard: if byte == 7 { state = .text } else if byte == 27 { state = .discardEscape }
             case .discardEscape: state = byte == 92 ? .text : .discard
             }
         }
-        return paths
+        return events
     }
-    private mutating func finish(into paths: inout [String]) {
+    private mutating func finish(into events: inout [RemoteShellEvent]) {
         defer { state = .text; buffer.removeAll(keepingCapacity: true) }
-        guard let value = String(data: buffer, encoding: .utf8), value.hasPrefix("7;") else { return }
+        guard let value = String(data: buffer, encoding: .utf8) else { return }
+        if value.hasPrefix("0;") || value.hasPrefix("2;") {
+            noteTitle(String(value.dropFirst(2)), into: &events)
+            return
+        }
+        if value.hasPrefix("133;") {
+            noteMark(value.dropFirst(4).split(separator: ";", omittingEmptySubsequences: false), into: &events)
+            return
+        }
+        guard value.hasPrefix("7;") else { return }
         let report = String(value.dropFirst(2))
         let path: String?
         if report.hasPrefix("kitty-shell-cwd://") {
@@ -125,6 +154,53 @@ struct RemoteDirectoryTracker {
         } else { path = nil }
         guard let path, path.hasPrefix("/"),
               !path.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return }
-        paths.append(path)
+        events.append(.directory(path))
+    }
+
+    private mutating func noteTitle(_ raw: String, into events: inout [RemoteShellEvent]) {
+        let visible = String(String.UnicodeScalarView(raw.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }))
+        let title = String(visible.trimmingCharacters(in: .whitespaces).prefix(RemoteDirectoryTracker.maxCommandLength))
+        guard !title.isEmpty else { return }
+        if isRunning {
+            // Later titles come from the program itself, such as vim naming its file.
+            if !isNamed {
+                isNamed = true
+                events.append(.commandNamed(title))
+            }
+        } else if isAtInput {
+            pendingTitle = title
+        }
+    }
+
+    /// The directory title at a prompt arrives before input starts (133;B), so it never names a command.
+    private mutating func noteMark(_ parts: [Substring], into events: inout [RemoteShellEvent]) {
+        switch parts.first {
+        case "A":
+            if isRunning {
+                isRunning = false
+                events.append(.commandFinished(exitCode: nil))
+            }
+            isAtInput = false
+            pendingTitle = nil
+        case "B":
+            isAtInput = true
+            pendingTitle = nil
+        case "C":
+            isRunning = true
+            isNamed = pendingTitle != nil
+            events.append(.commandStarted(pendingTitle))
+            isAtInput = false
+            pendingTitle = nil
+        case "D":
+            guard isRunning else { return }
+            isRunning = false
+            var exitCode: Int?
+            if parts.count > 1 {
+                exitCode = Int(parts[1])
+            }
+            events.append(.commandFinished(exitCode: exitCode))
+        default:
+            return
+        }
     }
 }
