@@ -526,7 +526,15 @@ struct TerminalSwitcherView: View {
                         Button { switcher.cancel() } label: { Image(systemName: "xmark") }
                             .buttonStyle(.plain).accessibilityLabel(Text("Close"))
                     }
-                    SwitcherSearchField(switcher: switcher).frame(height: 30)
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(chrome.secondary)
+                        SwitcherSearchField(switcher: switcher, chrome: chrome)
+                    }
+                        .padding(.horizontal, 8)
+                        .frame(height: 30)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.background.opacity(0.6)))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control)
+                            .stroke(switcher.isSearching ? chrome.accent : chrome.hairline, lineWidth: switcher.isSearching ? 1.5 : 1))
                     FamilySegments(value: $switcher.scope, options: SwitcherScope.allCases.map { ($0, $0.title) })
                         .accessibilityLabel(Text("Content Type")).frame(maxWidth: 300, alignment: .leading)
                     ScrollViewReader { reader in
@@ -590,13 +598,26 @@ struct TerminalSwitcherView: View {
 }
 
 /// A real field editor provides selection, clipboard shortcuts and Chinese input composition.
+/// The native bezel and focus ring stay off so the surrounding view can draw the window chrome colors.
 private struct SwitcherSearchField: NSViewRepresentable {
     @ObservedObject var switcher: TerminalSwitcher
+    let chrome: WindowChrome
     func makeCoordinator() -> Coordinator { Coordinator(switcher) }
     func makeNSView(context: Context) -> NSSearchField {
         let field = NSSearchField()
-        field.placeholderString = String(localized: "Search name, host, IP or path")
-        field.setAccessibilityLabel(field.placeholderString)
+        field.isBezeled = false
+        field.isBordered = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        (field.cell as? NSSearchFieldCell)?.searchButtonCell = nil
+        field.font = .systemFont(ofSize: 13)
+        field.textColor = NSColor(chrome.text)
+        let placeholder = String(localized: "Search name, host, IP or path")
+        field.placeholderAttributedString = NSAttributedString(string: placeholder, attributes: [
+            .foregroundColor: NSColor(chrome.secondary),
+            .font: NSFont.systemFont(ofSize: 13),
+        ])
+        field.setAccessibilityLabel(placeholder)
         field.setAccessibilityIdentifier("switcher.search")
         field.delegate = context.coordinator
         field.sendsSearchStringImmediately = true
