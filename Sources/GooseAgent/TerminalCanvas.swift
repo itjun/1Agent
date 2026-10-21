@@ -427,6 +427,7 @@ struct TerminalCanvas: View {
                         .background(Capsule().fill(chrome.accent))
                 }
                 .buttonStyle(.plain)
+                .help(AppShortcuts.display(for: .reconnect))
             }
         }
         .padding(.horizontal, Theme.Space.m)

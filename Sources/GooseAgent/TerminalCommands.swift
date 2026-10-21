@@ -194,5 +194,15 @@ struct TerminalWorkspaceMenu: View {
         Button("Open Files") {
             if let tab { model.showFiles(for: tab.id, in: window) }
         }.disabled(!available)
+        Button(AppShortcutID.reconnect.title) {
+            guard !(NSApp.keyWindow is FamilyModalWindow), let tab, tab.showsDisconnected else { return }
+            if tab.isLocal {
+                model.reopenLocalTerminal(tab.id)
+            } else {
+                model.reconnect(tab.id)
+            }
+        }
+        .keyboardShortcut(AppShortcuts.chord(for: .reconnect).keyboardShortcut)
+        .disabled(!available || tab?.showsDisconnected != true)
     }
 }

@@ -42,6 +42,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case decreaseFontSize
     case resetFontSize
     case clearScreen
+    case reconnect
     case scrollToTop
     case scrollToBottom
     case scrollPageUp
@@ -68,7 +69,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
              .paneLeft, .paneRight, .paneUp, .paneDown,
              .movePaneLeft, .movePaneRight, .movePaneUp, .movePaneDown:
             return .pane
-        case .increaseFontSize, .decreaseFontSize, .resetFontSize, .clearScreen,
+        case .increaseFontSize, .decreaseFontSize, .resetFontSize, .clearScreen, .reconnect,
              .scrollToTop, .scrollToBottom, .scrollPageUp, .scrollPageDown,
              .selectAll, .previousPrompt, .nextPrompt,
              .find, .findNext, .findPrevious, .useSelectionForFind:
@@ -114,6 +115,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .decreaseFontSize: return String(localized: "Decrease Font Size")
         case .resetFontSize: return String(localized: "Reset Font Size")
         case .clearScreen: return String(localized: "Clear Screen")
+        case .reconnect: return String(localized: "Reconnect")
         case .scrollToTop: return String(localized: "Scroll to Top")
         case .scrollToBottom: return String(localized: "Scroll to Bottom")
         case .scrollPageUp: return String(localized: "Page Up")
@@ -171,6 +173,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .decreaseFontSize: return KeyChord(key: "-", modifiers: .command)
         case .resetFontSize: return KeyChord(key: "0", modifiers: .command)
         case .clearScreen: return KeyChord(key: "k", modifiers: .command)
+        case .reconnect: return KeyChord(key: "r", modifiers: .command)
         case .scrollToTop: return KeyChord(key: KeyChord.home, modifiers: .command)
         case .scrollToBottom: return KeyChord(key: KeyChord.end, modifiers: .command)
         case .scrollPageUp: return KeyChord(key: KeyChord.pageUp, modifiers: .command)
