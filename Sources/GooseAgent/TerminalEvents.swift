@@ -270,6 +270,34 @@ final class RemoteShellStatus: ObservableObject {
         return state.runningCommand ?? String(localized: "Running")
     }
 
+    /// Host, directory, running command and last result, read when the title menu opens.
+    func detailLines(of tab: TerminalTab, host: String) -> [String] {
+        var lines = [host]
+        if let directory = tab.remoteDirectory {
+            lines.append(String(format: String(localized: "Directory: %@"), directory))
+        }
+        let state = states[tab.sessionID]
+        let isConnected = !tab.exited && !tab.reconnecting
+        if let command = runningCommand(of: tab), let startedAt = state?.startedAt {
+            let elapsed = TerminalActivity.durationText(Date().timeIntervalSince(startedAt))
+            lines.append(String(format: String(localized: "Running: %@ (for %@)"), command, elapsed))
+        } else if isConnected && (state != nil || tab.remoteDirectory != nil) {
+            lines.append(String(localized: "Idle"))
+        }
+        if let state, state.hasFinished {
+            var parts: [String] = []
+            if let command = state.lastCommand {
+                parts.append(command)
+            }
+            if let exitCode = state.lastExitCode {
+                parts.append(String(format: String(localized: "Exit Code %lld"), exitCode))
+            }
+            parts.append(String(format: String(localized: "Took %@"), TerminalActivity.durationText(state.lastDuration)))
+            lines.append(String(format: String(localized: "Last Command: %@"), parts.joined(separator: " · ")))
+        }
+        return lines
+    }
+
     /// The last two folders, so the end of a deep path stays readable.
     static func shortDirectory(_ path: String) -> String {
         let components = path.split(separator: "/")
@@ -527,7 +555,7 @@ final class TerminalActivity: ObservableObject {
         model.selectOnly(tabID, in: state)
     }
 
-    private static func durationText(_ duration: TimeInterval) -> String {
+    static func durationText(_ duration: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.hour, .minute, .second]
         formatter.unitsStyle = .abbreviated

@@ -6,7 +6,8 @@ import AppKit
 @MainActor
 enum TerminalPaneActions {
     /// Titles only switch tabs; terminal actions live in the terminal's context menu.
-    static func titleItems(model: AppModel, window: WindowState) -> [FamilyMenuItem] {
+    /// A remote terminal's title also lists what its shell reported, above the switcher.
+    static func titleItems(model: AppModel, window: WindowState, tabID: UUID? = nil) -> [FamilyMenuItem] {
         let tabs = model.sidebarOrder(in: window).compactMap { id in model.tabs.first { $0.id == id } }
         let tabItems = tabs.map { target in
             FamilyMenuItem(title: title(of: target), checked: target.id == window.selectedTabID, action: {
@@ -14,9 +15,15 @@ enum TerminalPaneActions {
                 model.selectOnly(target.id, in: window)
             })
         }
-        return [
-            FamilyMenuItem(title: String(localized: "Switch Tab"), enabled: !tabItems.isEmpty, children: tabItems),
-        ]
+        var items: [FamilyMenuItem] = []
+        if let tabID, let tab = currentTab(tabID, model: model), let host = model.remoteHostDescription(tab) {
+            for line in RemoteShellStatus.shared.detailLines(of: tab, host: host) {
+                items.append(FamilyMenuItem(title: line, enabled: false))
+            }
+            items.append(.separator)
+        }
+        items.append(FamilyMenuItem(title: String(localized: "Switch Tab"), enabled: !tabItems.isEmpty, children: tabItems))
+        return items
     }
 
     static func title(of tab: TerminalTab) -> String {
@@ -25,11 +32,11 @@ enum TerminalPaneActions {
         return workingDirectory(of: tab).map(LocalTerminal.displayPath) ?? String(localized: "This Mac")
     }
 
-    static func showTitleContext(model: AppModel, window: WindowState) {
+    static func showTitleContext(model: AppModel, window: WindowState, tabID: UUID? = nil) {
         guard let owner = MainWindowManager.shared.window(for: window) else { return }
         let point = NSEvent.mouseLocation
         DispatchQueue.main.async {
-            FamilyMenuPresenter.shared.show(titleItems(model: model, window: window), at: point, owner: owner)
+            FamilyMenuPresenter.shared.show(titleItems(model: model, window: window, tabID: tabID), at: point, owner: owner)
         }
     }
 

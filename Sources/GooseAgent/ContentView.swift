@@ -528,18 +528,18 @@ struct RootView: View {
                 // Use the same native event tracking as lower split headers: it owns
                 // the press before AppKit can turn a titlebar drag into a window drag.
                 TabDragHandle(
-                    onClick: { _, _ in TerminalPaneActions.showTitleContext(model: model, window: window) },
+                    onClick: { _, _ in TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) },
                     onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
                     onMoved: { dropRelay.dragMoved(windowPoint: $0) },
                     onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    onSecondaryClick: { TerminalPaneActions.showTitleContext(model: model, window: window) },
+                    onSecondaryClick: { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) },
                     freezesWindow: true
                 )
             }
             .help("Click the title to switch tabs. Drag it to move the pane.")
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window) }
+            .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) }
             .accessibilityLabel(Text(verbatim: sessionTitle(tab)))
             .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
     }

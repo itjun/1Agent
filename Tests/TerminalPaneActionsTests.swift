@@ -58,7 +58,57 @@ enum TerminalPaneActionsTests {
         expect(model.tabs.isEmpty, "building and dismissing actions must not launch sessions")
         sidebarState(defaults: defaults)
         titleNavigation()
-        print("ok: merged terminal menu dispatch, directory ownership, split shortcuts, stale target safety and sidebar state preservation")
+        remoteTitleStatus()
+        print("ok: merged terminal menu dispatch, directory ownership, split shortcuts, stale target safety, sidebar state preservation and remote title status")
+    }
+
+    @MainActor private static func remoteTitleStatus() {
+        let model = AppModel()
+        let window = model.mainWindow
+        model.openRemoteTerminal("fixture-host", at: "/srv/fixture", placement: .newTab, beside: UUID(), in: window)
+        let deadline = Date().addingTimeInterval(5)
+        while !model.tabs.contains(where: { $0.alias == "fixture-host" }) && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        let tab = model.tabs.first { $0.alias == "fixture-host" }!
+        let status = RemoteShellStatus.shared
+        status.report(.commandStarted(nil), sessionID: tab.sessionID)
+        status.report(.commandNamed("make build"), sessionID: tab.sessionID)
+        status.report(.commandFinished(exitCode: 2), sessionID: tab.sessionID)
+        expect(status.runningCommand(of: tab) == nil, "a command shorter than the show delay never replaces the directory")
+        status.report(.commandStarted("vim build.sh"), sessionID: tab.sessionID)
+        RunLoop.main.run(until: Date().addingTimeInterval(RemoteShellStatus.showDelay + 0.3))
+        expect(status.runningCommand(of: tab) == "vim build.sh", "a longer command is shown after the delay")
+        expect(RemoteShellStatus.shortDirectory("/root/diteng-knowall/knowall-logs") == "…/diteng-knowall/knowall-logs",
+               "deep directories keep their last two folders")
+
+        let menu = TerminalPaneActions.titleItems(model: model, window: window, tabID: tab.id)
+        let titles = menu.map(\.title)
+        expect(titles.first == "fixture-host", "the remote title menu starts with its host")
+        expect(titles.contains(String(format: String(localized: "Directory: %@"), "/srv/fixture")), "the full remote directory is listed")
+        expect(titles.contains { $0.contains("vim build.sh") }, "the running command is listed")
+        expect(titles.contains { $0.contains("make build") && $0.contains(String(format: String(localized: "Exit Code %lld"), 2)) },
+               "the last command and its exit code are listed")
+        expect(menu.filter { !$0.isSeparator && $0.title != String(localized: "Switch Tab") }.allSatisfy { !$0.enabled },
+               "status lines are information, not actions")
+        expect(menu.last?.title == String(localized: "Switch Tab"), "tab navigation stays at the end")
+        expect(TerminalPaneActions.titleItems(model: model, window: window).count == 1, "menus without a pane keep only tab navigation")
+        if let path = ProcessInfo.processInfo.environment["ONEAGENT_REMOTE_MENU_SNAPSHOT"] {
+            let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
+                                 styleMask: [.titled], backing: .buffered, defer: false)
+            FamilyMenuPresenter.shared.show(menu, at: NSPoint(x: 600, y: 700), owner: owner)
+            if let view = FamilyMenuPresenter.shared.panels.first?.contentView,
+               let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                view.cacheDisplay(in: view.bounds, to: bitmap)
+                try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+            }
+            FamilyMenuPresenter.shared.dismiss()
+        }
+
+        status.report(.commandFinished(exitCode: 0), sessionID: tab.sessionID)
+        expect(status.runningCommand(of: tab) == nil, "a finished command gives the title back to the directory")
+        model.closeTab(tab.id)
+        expect(status.states[tab.sessionID] == nil, "closing the tab forgets its remote status")
     }
 
     @MainActor private static func mergedContextMenu(tab: TerminalTab, model: AppModel, window: WindowState) {

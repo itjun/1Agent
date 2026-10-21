@@ -324,6 +324,15 @@ final class AppModel: ObservableObject {
             .filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
+    /// First line of a remote terminal's title menu. Nil for anything else.
+    func remoteHostDescription(_ tab: TerminalTab) -> String? {
+        if tab.isLocal || !tab.hasTerminal {
+            return nil
+        }
+        let alias = tab.alias ?? ""
+        return host(alias)?.sessionBadge ?? alias
+    }
+
     /// The pane is drawn in the main window right now, and that window is on screen.
     func isPaneOnScreen(_ id: UUID) -> Bool {
         guard let owner = window(containing: id), let nsWindow = MainWindowManager.shared.window(for: owner),
