@@ -631,7 +631,7 @@ struct RootView: View {
                         Text(verbatim: panelDisplayTitle(row)).font(.system(size: 14, weight: selected ? .semibold : .regular))
                             .lineLimit(1).truncationMode(.middle)
                     }
-                    Text(verbatim: labeledSubtitle).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
+                    SidebarSessionSubtitle(tab: tab, location: labeledSubtitle).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
                         .foregroundStyle(sidebarChrome.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 if row.isSplit {
@@ -1179,6 +1179,21 @@ struct SidebarBellMark: View {
                 .foregroundStyle(chrome.warning)
                 .frame(width: 14, height: 14)
                 .accessibilityLabel(Text("Bell Rang"))
+        }
+    }
+}
+
+/// The session's location, or a remote command that has been running for a moment.
+struct SidebarSessionSubtitle: View {
+    @ObservedObject private var status = RemoteShellStatus.shared
+    var tab: TerminalTab
+    var location: String
+
+    var body: some View {
+        if let command = status.runningCommand(of: tab) {
+            Text(verbatim: String(format: String(localized: "Running · %@"), command))
+        } else {
+            Text(verbatim: location)
         }
     }
 }

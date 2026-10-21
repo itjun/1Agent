@@ -315,8 +315,12 @@ final class AppModel: ObservableObject {
             return [String(localized: "This Mac"), LocalTerminal.displayPath(tab.directory ?? "~")]
                 .joined(separator: " · ")
         }
+        // The narrow sidebar row fits only the directory; the pane title's menu names the host.
+        if let directory = tab.remoteDirectory {
+            return [String(localized: "Remote"), directory].joined(separator: " · ")
+        }
         let alias = tab.alias ?? ""
-        return [String(localized: "Remote"), host(alias)?.sessionBadge ?? alias, tab.remoteDirectory ?? ""]
+        return [String(localized: "Remote"), host(alias)?.sessionBadge ?? alias]
             .filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
