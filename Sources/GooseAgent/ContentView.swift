@@ -14,6 +14,7 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
+    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @Environment(\.controlActiveState) private var controlActiveState
     @StateObject private var dropRelay = CanvasDropRelay()
     @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
@@ -30,8 +31,12 @@ struct RootView: View {
     @State private var toolSidebarDragStart: Double?
     @FocusState private var workspaceNameFocused: Bool
 
+    /// A selected remote terminal switches the whole window to the remote palette; otherwise it follows the app icon.
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: applicationIcons.selected)
+        if let id = window.selectedTabID, model.connectionGroup(for: [id]) == .remote {
+            return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: RemotePalette.palette(raw: remotePaletteRaw))
+        }
+        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: applicationIcons.selected)
     }
 
     private var sidebarChrome: WindowChrome { chrome }

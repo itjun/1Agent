@@ -70,6 +70,24 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
     }
 }
 
+/// Macaron palette the window takes while a remote terminal is selected; local terminals follow the app icon.
+enum RemotePalette {
+    static let storageKey = "appearance.remotePalette"
+    static let defaultPalette: ApplicationIcon = .peachSorbet
+
+    static func stored(defaults: UserDefaults = .standard) -> ApplicationIcon {
+        RemotePalette.palette(raw: defaults.string(forKey: storageKey))
+    }
+
+    /// Only macaron palettes qualify; the original blue icon has no palette to tint with.
+    static func palette(raw: String?) -> ApplicationIcon {
+        if let icon = ApplicationIcon(rawValue: raw ?? ""), icon.palette != nil {
+            return icon
+        }
+        return defaultPalette
+    }
+}
+
 /// Keep the running icon and Finder's persistent custom icon on the same saved palette.
 /// NSWorkspace writes Finder metadata at the bundle root; signed Contents and its resources stay intact.
 @MainActor

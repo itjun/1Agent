@@ -4644,6 +4644,34 @@
         }
       }
     },
+    "Remote Terminal Colors" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Remote Terminal Colors" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "远程终端配色" } }
+      }
+    },
+    "Local terminals follow the app icon’s colors. When you switch to a remote terminal, the sidebar, title bar and accents change to the palette below." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Local terminals follow the app icon’s colors. When you switch to a remote terminal, the sidebar, title bar and accents change to the palette below." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本机终端跟随应用图标配色；切到远程终端时，侧栏、标题栏和强调色会整体换成下面选择的色系。" } }
+      }
+    },
+    "Restore Default Colors" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore Default Colors" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复默认配色" } }
+      }
+    },
+    "The remote palette matches the app icon, so local and remote terminals look the same." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The remote palette matches the app icon, so local and remote terminals look the same." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "远程配色与当前应用图标相同，本机和远程终端会看起来一样。" } }
+      }
+    },
     "Remote Server" : {
       "localizations" : {
         "en" : {

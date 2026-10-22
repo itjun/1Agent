@@ -3,6 +3,7 @@ import SwiftUI
 struct ApplicationIconSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var icons = ApplicationIconManager.shared
+    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     private let columns = Array(repeating: GridItem(.flexible(), spacing: Theme.Space.s), count: SettingsLayout.appIconColumns)
 
     var body: some View {
@@ -51,6 +52,38 @@ struct ApplicationIconSettingsPage: View {
                 .disabled(defaultIsActive)
                 .accessibilityIdentifier("settings.appIcon.restoreDefault")
             }
+
+            SettingsCard("Remote Terminal Colors") {
+                VStack(alignment: .leading, spacing: Theme.Space.l) {
+                    Text("Local terminals follow the app icon’s colors. When you switch to a remote terminal, the sidebar, title bar and accents change to the palette below.")
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    LazyVGrid(columns: columns, spacing: Theme.Space.m) {
+                        ForEach(ApplicationIcon.macaronIcons) { icon in
+                            paletteTile(icon, selected: remotePalette == icon, identifier: "settings.remotePalette.\(icon.rawValue)") {
+                                remotePaletteRaw = icon.rawValue
+                            }
+                        }
+                    }
+
+                    if remotePalette == icons.selected {
+                        Text("The remote palette matches the app icon, so local and remote terminals look the same.")
+                            .font(Theme.Font.rowMeta)
+                            .foregroundStyle(chrome.warning)
+                    }
+                }
+            } accessory: {
+                Button("Restore Default Colors") {
+                    remotePaletteRaw = RemotePalette.defaultPalette.rawValue
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(remotePalette == RemotePalette.defaultPalette ? chrome.tertiary : chrome.accent)
+                .buttonStyle(FamilyButtonStyle())
+                .disabled(remotePalette == RemotePalette.defaultPalette)
+                .accessibilityIdentifier("settings.remotePalette.restoreDefault")
+            }
         }
     }
 
@@ -58,11 +91,19 @@ struct ApplicationIconSettingsPage: View {
         icons.selected == .defaultIcon && !icons.loadFailed && !icons.finderUpdateFailed
     }
 
+    private var remotePalette: ApplicationIcon {
+        RemotePalette.palette(raw: remotePaletteRaw)
+    }
+
     private func iconButton(_ icon: ApplicationIcon) -> some View {
-        let selected = icons.selected == icon
-        return Button {
+        paletteTile(icon, selected: icons.selected == icon, identifier: "settings.appIcon.\(icon.rawValue)") {
             icons.select(icon)
-        } label: {
+        }
+    }
+
+    /// One icon tile; the app icon grid and the remote palette grid share it.
+    private func paletteTile(_ icon: ApplicationIcon, selected: Bool, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             iconLabel(icon)
             .frame(maxWidth: .infinity)
             .padding(Theme.Space.s)
@@ -85,7 +126,7 @@ struct ApplicationIconSettingsPage: View {
         .buttonStyle(FamilyButtonStyle())
         .accessibilityLabel(Text(verbatim: icon == .original ? icon.title : "\(icon.rawValue) · \(icon.title)"))
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("settings.appIcon.\(icon.rawValue)")
+        .accessibilityIdentifier(identifier)
     }
 
     @ViewBuilder
