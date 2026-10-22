@@ -88,11 +88,34 @@ enum RemotePalette {
     }
 }
 
+/// Settings → Appearance → Icon & widget style.
+/// Regular is the Default style. Dark, Clear, and Tinted are drawn by macOS from the layered app icon.
+enum SystemIconStyle: Equatable {
+    case regular
+    case adaptive
+
+    /// Icon tests pin this so palette checks do not follow the machine's icon style.
+    static var overrideForTests: SystemIconStyle?
+
+    static func current() -> SystemIconStyle {
+        if let overrideForTests { return overrideForTests }
+        guard #available(macOS 26.0, *) else { return .regular }
+        guard let config = NSWorkspace.shared.perform(Selector(("currentIconAppearanceConfiguration")))?.takeUnretainedValue() as? NSObject else {
+            return .regular
+        }
+        // 1 is Regular Light, the Default style. Dark is 0 or 2, Clear is 3...5, Tinted is 6...8.
+        let theme = (config.value(forKey: "iconAppearanceTheme") as? NSNumber)?.intValue ?? 1
+        if theme == 1 { return .regular }
+        return .adaptive
+    }
+}
+
 /// Keep the running icon and Finder's persistent custom icon on the same saved palette.
 /// NSWorkspace writes Finder metadata at the bundle root; signed Contents and its resources stay intact.
+/// A flat custom icon cannot take part in Dark, Clear, or Tinted, so those styles use the layered bundle icon.
 @MainActor
 final class ApplicationIconManager: ObservableObject {
-    static let shared = ApplicationIconManager()
+    static let shared = ApplicationIconManager(observesSystemStyle: true)
 
     @Published private(set) var selected: ApplicationIcon
     @Published private(set) var loadFailed = false
@@ -101,12 +124,21 @@ final class ApplicationIconManager: ObservableObject {
     private let bundle: Bundle
     private let applicationURL: URL
     private var images: [ApplicationIcon: NSImage] = [:]
+    private var lastAppliedStyle: SystemIconStyle?
+    private var styleWatch: SystemIconStyleWatch?
 
-    init(defaults: UserDefaults = .standard, bundle: Bundle = .main, applicationURL: URL? = nil) {
+    init(defaults: UserDefaults = .standard, bundle: Bundle = .main, applicationURL: URL? = nil, observesSystemStyle: Bool = false) {
         self.defaults = defaults
         self.bundle = bundle
         self.applicationURL = applicationURL ?? bundle.bundleURL
         selected = ApplicationIcon.stored(defaults: defaults)
+        if observesSystemStyle {
+            let watch = SystemIconStyleWatch {
+                ApplicationIconManager.shared.applyStoredIcon()
+            }
+            watch.start()
+            styleWatch = watch
+        }
     }
 
     func image(for icon: ApplicationIcon) -> NSImage? {
@@ -121,7 +153,7 @@ final class ApplicationIconManager: ObservableObject {
         guard apply(icon) else {
             // Keep the saved running icon usable if the app was moved to a read-only volume.
             // The settings page reports the Finder failure and lets the user retry.
-            if finderUpdateFailed, let image = image(for: icon) {
+            if SystemIconStyle.current() == .regular, finderUpdateFailed, let image = image(for: icon) {
                 NSApp.applicationIconImage = image
             }
             return
@@ -138,6 +170,22 @@ final class ApplicationIconManager: ObservableObject {
     }
 
     private func apply(_ icon: ApplicationIcon) -> Bool {
+        let style = SystemIconStyle.current()
+        if style == .adaptive {
+            loadFailed = false
+            // A flat image replaces the layered icon, so Dark, Clear, and Tinted never reach the Dock.
+            guard NSWorkspace.shared.setIcon(nil, forFile: applicationURL.path, options: []) else {
+                finderUpdateFailed = true
+                return false
+            }
+            finderUpdateFailed = false
+            NSApp.applicationIconImage = nil
+            if lastAppliedStyle != .adaptive {
+                lastAppliedStyle = .adaptive
+                refreshDockIconCache()
+            }
+            return true
+        }
         guard let image = image(for: icon) else {
             loadFailed = true
             finderUpdateFailed = false
@@ -151,6 +199,65 @@ final class ApplicationIconManager: ObservableObject {
         }
         finderUpdateFailed = false
         NSApp.applicationIconImage = image
+        lastAppliedStyle = .regular
         return true
+    }
+
+    /// The Dock keeps the last flat custom icon until icon appearance is saved again.
+    private func refreshDockIconCache() {
+        guard applicationURL.standardizedFileURL.path == Bundle.main.bundleURL.standardizedFileURL.path else { return }
+        guard let configurationClass = NSClassFromString("SLSIconAppearanceConfiguration") as? NSObject.Type else { return }
+        let fetch = NSSelectorFromString("fetchCurrentIconAppearanceConfiguration")
+        guard configurationClass.responds(to: fetch),
+              let config = configurationClass.perform(fetch)?.takeUnretainedValue() as? NSObject else { return }
+        let save = NSSelectorFromString("save")
+        guard config.responds(to: save) else { return }
+        config.perform(save)
+    }
+}
+
+/// Follows System Settings → Appearance → Icon & widget style while the app is running.
+private final class SystemIconStyleWatch: NSObject {
+    private var token: NSObjectProtocol?
+    private var isStarted = false
+    private let onChange: @MainActor () -> Void
+
+    init(onChange: @escaping @MainActor () -> Void) {
+        self.onChange = onChange
+        super.init()
+    }
+
+    func start() {
+        if isStarted { return }
+        isStarted = true
+        UserDefaults.standard.addObserver(self, forKeyPath: "AppleIconAppearanceTheme", options: [.new], context: nil)
+        token = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: Notification.Name("NSWorkspaceIconAppearanceConfigurationDidChangeNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.deliver()
+        }
+    }
+
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        deliver()
+    }
+
+    private func deliver() {
+        DispatchQueue.main.async { [onChange] in
+            MainActor.assumeIsolated {
+                onChange()
+            }
+        }
+    }
+
+    deinit {
+        if isStarted {
+            UserDefaults.standard.removeObserver(self, forKeyPath: "AppleIconAppearanceTheme")
+        }
+        if let token {
+            NSWorkspace.shared.notificationCenter.removeObserver(token)
+        }
     }
 }

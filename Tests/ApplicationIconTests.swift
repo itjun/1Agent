@@ -17,6 +17,7 @@ enum ApplicationIconTests {
     static func run() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
+        SystemIconStyle.overrideForTests = .regular
         let args = CommandLine.arguments
         let bundle = Bundle(path: args[1])!
         let suite = args[2]
@@ -97,8 +98,25 @@ enum ApplicationIconTests {
         try check(rejected.selected == .cloudSoda && ApplicationIcon.stored(defaults: defaults) == .cloudSoda,
                   "Finder failure must preserve the previous selection and preferences")
         try check(samePixels(NSApp.applicationIconImage, previousImage!), "Finder failure must not partially switch only the Dock")
+
+        try check(manager.select(.mintCandy), "Mint must be applied before the clear-style check")
+        SystemIconStyle.overrideForTests = .adaptive
+        manager.applyStoredIcon()
+        try check(manager.selected == .mintCandy && ApplicationIcon.stored(defaults: defaults) == .mintCandy,
+                  "Clear style keeps the saved palette for window chrome")
+        try check(!samePixels(NSApp.applicationIconImage, manager.image(for: .mintCandy)!),
+                  "Clear style must not keep a flat Dock icon")
+        try check(finderDiffers(applicationURL, manager.image(for: .mintCandy)!),
+                  "Clear style must remove the flat Finder icon")
+        try check(manager.select(.strawberryCream), "Choosing another palette in Clear style must still be saved")
+        try check(ApplicationIcon.stored(defaults: defaults) == .strawberryCream, "Clear style must persist the new palette")
+        try check(!samePixels(NSApp.applicationIconImage, manager.image(for: .strawberryCream)!),
+                  "Clear style must not install the newly chosen flat icon")
+        SystemIconStyle.overrideForTests = .regular
+        try check(manager.select(.defaultIcon), "Restore default after the clear-style check")
+
         defaults.removePersistentDomain(forName: suite)
-        print("ApplicationIconTests passed: original default, 10 alternatives, 11 Finder/Dock icons, saved M05 preservation, persistence and failure handling")
+        print("ApplicationIconTests passed: original default, 10 alternatives, 11 Finder/Dock icons, saved M05 preservation, persistence, failure handling, and clear style")
     }
 
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) throws {
@@ -132,6 +150,15 @@ enum ApplicationIconTests {
             )
         }
         try check(ApplicationIcon.original.palette == nil, "Original blue must keep the default chrome")
+    }
+
+    @MainActor
+    static func finderDiffers(_ target: URL, _ unexpected: NSImage) -> Bool {
+        for _ in 0..<40 {
+            if !samePixels(NSWorkspace.shared.icon(forFile: target.path), unexpected) { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return false
     }
 
     @MainActor
