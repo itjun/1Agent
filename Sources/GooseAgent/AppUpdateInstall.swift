@@ -48,18 +48,40 @@ enum AppUpdateInstall {
     }
 
     private static func extractApp(archive: String, directory: String) -> Result<String, AppUpdateFailure> {
-        let ditto = Process()
-        ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-        ditto.arguments = ["-x", "-k", archive, directory]
-        let pipe = Pipe()
-        ditto.standardError = pipe
+        if archive.lowercased().hasSuffix(".dmg") {
+            return extractDiskImage(archive: archive, directory: directory)
+        }
+        if !run("/usr/bin/ditto", ["-x", "-k", archive, directory]) {
+            return .failure(.extractFailed)
+        }
+        return appBundle(in: directory)
+    }
+
+    /// 挂载 dmg，把里面的 .app 拷出来再卸载，避免替换时还占着映像。
+    private static func extractDiskImage(archive: String, directory: String) -> Result<String, AppUpdateFailure> {
+        let mount = (directory as NSString).appendingPathComponent("mount")
         do {
-            try ditto.run()
+            try FileManager.default.createDirectory(atPath: mount, withIntermediateDirectories: true)
         } catch {
             return .failure(.extractFailed)
         }
-        ditto.waitUntilExit()
-        if ditto.terminationStatus != 0 { return .failure(.extractFailed) }
+        if !run("/usr/bin/hdiutil", ["attach", "-nobrowse", "-readonly", "-mountpoint", mount, archive]) {
+            return .failure(.extractFailed)
+        }
+        defer { _ = run("/usr/bin/hdiutil", ["detach", "-force", mount]) }
+        switch appBundle(in: mount) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let source):
+            let copied = (directory as NSString).appendingPathComponent((source as NSString).lastPathComponent)
+            if !run("/usr/bin/ditto", [source, copied]) {
+                return .failure(.extractFailed)
+            }
+            return appBundle(in: directory)
+        }
+    }
+
+    private static func appBundle(in directory: String) -> Result<String, AppUpdateFailure> {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory) else {
             return .failure(.extractFailed)
         }
@@ -68,16 +90,25 @@ enum AppUpdateInstall {
             var isDirectory: ObjCBool = false
             let macos = (app as NSString).appendingPathComponent("Contents/MacOS")
             if FileManager.default.fileExists(atPath: macos, isDirectory: &isDirectory), isDirectory.boolValue {
-                let xattr = Process()
-                xattr.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
-                xattr.arguments = ["-dr", "com.apple.quarantine", app]
-                try? xattr.run()
-                xattr.waitUntilExit()
+                _ = run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", app])
                 return .success(app)
             }
             return .failure(.incompleteApp)
         }
         return .failure(.noAppInArchive)
+    }
+
+    private static func run(_ executable: String, _ arguments: [String]) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        do {
+            try process.run()
+        } catch {
+            return false
+        }
+        process.waitUntilExit()
+        return process.terminationStatus == 0
     }
 
     private static func swap(target: String, replacement: String) -> Result<Void, AppUpdateFailure> {

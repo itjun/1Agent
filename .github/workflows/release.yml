@@ -43,8 +43,12 @@ jobs:
       - name: Package
         run: |
           app="build/DerivedData.noindex/Build/Products/Release/1Agent.app"
+          stage="$(mktemp -d)"
           mkdir -p dist
-          ditto -c -k --keepParent "$app" "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.zip"
+          ditto "$app" "$stage/1Agent.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname "1Agent" -srcfolder "$stage" -ov -format UDZO -quiet "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.dmg"
+          rm -rf "$stage"
 
       - name: Sign update manifest
         env:
@@ -62,7 +66,7 @@ jobs:
           min="$(python3 -c 'import json; print(json.load(open("release/update-policy.json")).get("minSupportedVersion", ""))')"
           swift scripts/update-manifest.swift \
             --version "$GITHUB_REF_NAME" \
-            --zip "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.zip" \
+            --package "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.dmg" \
             --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}" \
             --notes-file dist/notes.txt \
             --min "$min" \
@@ -73,10 +77,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="$GITHUB_REF_NAME"
-          args=(release create "$tag" "dist/latest.json" "dist/latest.json.sig" "dist/1Agent-${tag}-mac-arm64.zip" --title "$tag" --notes-file dist/notes.txt)
-          if [[ "$tag" == *-* ]]; then
-            args+=(--prerelease --latest=false)
+          dmg="dist/1Agent-${tag}-mac-arm64.dmg"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "dist/latest.json" "dist/latest.json.sig" "$dmg" --clobber
+            gh release delete-asset "$tag" "1Agent-${tag}-mac-arm64.zip" --yes || true
           else
-            args+=(--latest)
+            args=(release create "$tag" "dist/latest.json" "dist/latest.json.sig" "$dmg" --title "$tag" --notes-file dist/notes.txt)
+            if [[ "$tag" == *-* ]]; then
+              args+=(--prerelease --latest=false)
+            else
+              args+=(--latest)
+            fi
+            gh "${args[@]}"
           fi
-          gh "${args[@]}"

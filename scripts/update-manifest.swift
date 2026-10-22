@@ -6,7 +6,7 @@ import Foundation
 
 struct Args {
     var version = ""
-    var zip = ""
+    var package = ""
     var baseURL = ""
     var notesFile = ""
     var minimum = ""
@@ -27,7 +27,7 @@ while index < command.count {
     index += 1
     switch flag {
     case "--version": args.version = value
-    case "--zip": args.zip = value
+    case "--package", "--zip": args.package = value
     case "--base-url": args.baseURL = value
     case "--notes-file": args.notesFile = value
     case "--min": args.minimum = value
@@ -37,8 +37,8 @@ while index < command.count {
         exit(1)
     }
 }
-if args.version.isEmpty || args.zip.isEmpty || args.baseURL.isEmpty || args.out.isEmpty {
-    fputs("用法: update-manifest.swift --version vX.Y.Z --zip app.zip --base-url URL --out dist [--notes-file notes.txt] [--min vX.Y.Z]\n", stderr)
+if args.version.isEmpty || args.package.isEmpty || args.baseURL.isEmpty || args.out.isEmpty {
+    fputs("用法: update-manifest.swift --version vX.Y.Z --package app.dmg --base-url URL --out dist [--notes-file notes.txt] [--min vX.Y.Z]\n", stderr)
     exit(1)
 }
 
@@ -55,13 +55,13 @@ do {
     exit(1)
 }
 
-let zipURL = URL(fileURLWithPath: args.zip)
-guard let zipData = try? Data(contentsOf: zipURL) else {
-    fputs("无法读取安装包 \(args.zip)\n", stderr)
+let packageURL = URL(fileURLWithPath: args.package)
+guard let packageData = try? Data(contentsOf: packageURL) else {
+    fputs("无法读取安装包 \(args.package)\n", stderr)
     exit(1)
 }
-let digest = SHA256.hash(data: zipData).map { String(format: "%02x", $0) }.joined()
-let name = zipURL.lastPathComponent
+let digest = SHA256.hash(data: packageData).map { String(format: "%02x", $0) }.joined()
+let name = packageURL.lastPathComponent
 let base = args.baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 var notes = ""
 if !args.notesFile.isEmpty {
@@ -78,7 +78,7 @@ let manifest: [String: Any] = [
             "name": name,
             "url": base + "/" + name,
             "sha256": digest,
-            "size": zipData.count,
+            "size": packageData.count,
         ],
     ],
 ]
