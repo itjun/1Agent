@@ -105,10 +105,12 @@ with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
         assert request("run", "echo WRONG", lifetime=-1) != "accepted-wakeup"
         marker = pathlib.Path(folder) / "runs"
         ident = str(uuid.uuid4())
-        script = f"( builtin cd -- '{folder}' && eval -- 'printf run >> runs; printf \\\"hello\\\\nworld\\\\n\\\"; exit 7' )"
+        script = "( printf run >> runs; printf 'hello\\nworld\\n'; exit 7 )"
+        start = len(output)
         assert request("run", script, ident=ident) == "accepted-wakeup", bytes(output[-2500:])
         wait_for(lambda: marker.exists())
         assert marker.read_text() == "run"
+        assert script.encode() in output[start:] and b"builtin eval" not in output[start:], "prompt did not show the command as sent"
         wait_for(lambda: request() == "ready", seconds=5)
         assert request("run", script, ident=ident) == "rejected", bytes(output[-2500:])
         assert marker.read_text() == "run"

@@ -82,8 +82,19 @@ struct QuickCommandTests {
         assert(ToolSidebarLayout.visibleWidth(detailWidth: 750, open: true, filesMode: false, preferred: 350) == 349)
         assert(ToolSidebarLayout.visibleWidth(detailWidth: 900, open: true, filesMode: true, preferred: 350) == 0)
         let scriptItem = QuickCommand(alias: "Script", command: "printf '%s\\n' '你好'; exit 7", scope: .local)
-        let request = try QuickCommandRunRequest(item: scriptItem, context: local, directory: "/tmp")
-        assert(request.currentShellCommand.contains("builtin cd -- '/tmp'"))
+        let request = try QuickCommandRunRequest(item: scriptItem, context: local, directory: "/work/project")
+        assert(request.currentShellCommand == scriptItem.command)
+        let sameFolder = try QuickCommandRunRequest(item: item, context: local, directory: "/work/project/")
+        assert(sameFolder.currentShellCommand == "python project.py git pull")
+        do {
+            _ = try QuickCommandRunRequest(item: scriptItem, context: local, directory: "/tmp")
+            fatalError("different directory accepted")
+        } catch QuickCommandError.directoryMismatch(let current, let required) {
+            assert(current == "/work/project" && required == "/tmp")
+        }
+        let child = QuickCommandContext(sessionID: "a#0", directory: "/work/project/child", isLive: true)
+        assert(item.matches(child))
+        do { _ = try QuickCommandRunRequest(item: item, context: child, directory: "/work/project"); fatalError("subdirectory accepted") } catch {}
         assert(request.startupCommand(shell: "/bin/zsh").contains("exec /bin/sh -c"))
         try QuickCommandExecution.claim(request.id)
         do { try QuickCommandExecution.claim(request.id); fatalError("duplicate delivery accepted") } catch {}

@@ -97,8 +97,11 @@ struct QuickCommand: Codable, Equatable, Identifiable, Sendable {
 
 enum QuickCommandError: LocalizedError {
     case invalidCommand, invalidHost, invalidDirectory, invalidBackup, unsupportedVersion, changedTarget, unavailable, uncertain
+    case directoryMismatch(current: String, required: String)
     var errorDescription: String? {
         switch self {
+        case .directoryMismatch(let current, let required):
+            return String(format: String(localized: "The terminal is in %1$@, but this command must run in %2$@. Execution is not allowed."), current, required)
         case .invalidCommand: return String(localized: "Enter an alias and a command up to 64 KiB. Terminal control characters are not allowed.")
         case .invalidHost: return String(localized: "Choose a valid SSH host.")
         case .invalidDirectory: return String(localized: "Choose an available absolute working directory.")
@@ -185,16 +188,17 @@ struct QuickCommandRunRequest: Identifiable, Equatable {
         self.item = try item.validated()
         guard !item.needsRepair, QuickCommand.validPath(directory) else { throw QuickCommandError.invalidDirectory }
         guard item.matches(context) else { throw QuickCommandError.changedTarget }
+        if let current = context.directory, QuickCommand.path(current) != QuickCommand.path(directory) {
+            throw QuickCommandError.directoryMismatch(current: current, required: QuickCommand.path(directory))
+        }
         id = UUID()
         self.context = context
         self.directory = QuickCommand.path(directory)
     }
 
     static func quote(_ value: String) -> String { "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-    /// The user's shell evaluates the script in a subshell, preserving its original cwd.
-    var currentShellCommand: String {
-        "( builtin cd -- " + Self.quote(directory) + " && eval -- " + Self.quote(item.command) + " )"
-    }
+    /// Submitted unchanged, as if typed. The adapter only accepts it while the shell is in `directory`.
+    var currentShellCommand: String { item.command }
 
     /// The supervisor survives the user's `exit`, syntax errors and Ctrl-C. The payload is
     /// passed as one argument, never concatenated with the subsequent interactive shell.

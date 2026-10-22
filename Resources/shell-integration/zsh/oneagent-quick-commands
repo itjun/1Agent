@@ -76,7 +76,7 @@ _oneagent_qc_wakeup() {
     local typeahead=$BUFFER
     builtin eval -- "$_oneagent_qc_restore_key"
     unset _oneagent_qc_restore_key
-    BUFFER="( builtin eval -- ${(q)_oneagent_qc_pending} )"
+    BUFFER=$_oneagent_qc_pending
     unset _oneagent_qc_pending
     zle .accept-line
     [[ -z $typeahead ]] || zle -U "$typeahead"

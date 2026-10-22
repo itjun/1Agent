@@ -162,6 +162,10 @@ struct QuickCommandConfirmation: View {
                         }.font(Theme.Font.rowMeta)
                     }
                     if changed { Text(QuickCommandError.changedTarget.localizedDescription).foregroundStyle(chrome.danger) }
+                    if let current = captured.directory, QuickCommand.path(current) != QuickCommand.path(directory) {
+                        Text(QuickCommandError.directoryMismatch(current: current, required: QuickCommand.path(directory)).localizedDescription)
+                            .foregroundStyle(chrome.danger)
+                    }
                     if let error { Text(verbatim: error).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta) }
                 }
             }
