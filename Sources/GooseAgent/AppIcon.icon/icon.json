@@ -1,16 +1,16 @@
 {
   "fill" : {
-    "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+    "solid" : "extended-srgb:1.00000,1.00000,1.00000,1.00000"
   },
   "groups" : [
     {
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "ghostty-mark.png",
-          "name" : "ghostty-mark",
+          "image-name" : "ghost-glyph.png",
+          "name" : "ghost-glyph",
           "position" : {
-            "scale" : 1,
+            "scale" : 1.12,
             "translation-in-points" : [
               0,
               0
@@ -20,7 +20,7 @@
       ],
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.2
+        "opacity" : 0.25
       },
       "translucency" : {
         "enabled" : false,

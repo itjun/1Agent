@@ -10,8 +10,22 @@ const output = path.join(root, 'Resources/ApplicationIcons');
 const work = path.join(root, 'build/ApplicationIcons.noindex');
 const original = path.join(source, 'macaron-original-mark.png');
 const palettes = JSON.parse(fs.readFileSync(path.join(source, 'macaron-palettes.json'), 'utf8'));
-const mainIcon = path.join(root, 'Sources/GooseAgent/AppIcon.icon');
-const template = JSON.parse(fs.readFileSync(path.join(mainIcon, 'icon.json'), 'utf8'));
+// Flat macaron icons keep the original outlined mark. The installed AppIcon.icon is a
+// separate outline glyph so Dark, Clear, and Tinted stay readable, and this script must not overwrite it.
+const template = {
+  fill: { solid: 'srgb:1.00000,1.00000,1.00000,1.00000' },
+  groups: [{
+    layers: [{
+      glass: false,
+      'image-name': 'ghostty-mark.png',
+      name: 'ghostty-mark',
+      position: { scale: 1, 'translation-in-points': [0, 0] },
+    }],
+    shadow: { kind: 'neutral', opacity: 0.2 },
+    translucency: { enabled: false, value: 0 },
+  }],
+  'supported-platforms': { circles: ['watchOS'], squares: 'shared' },
+};
 const rgb = hex => hex.match(/[\da-f]{2}/gi).map(value => parseInt(value, 16));
 const run = (command, args) => execFileSync(command, args, {
   encoding: 'utf8', env: { ...process.env, DEVELOPER_DIR: '/Applications/Xcode.app/Contents/Developer' },
@@ -33,9 +47,6 @@ fs.copyFileSync(original, path.join(originalIconDir, 'Assets/ghostty-mark.png'))
 const originalIcon = structuredClone(template);
 originalIcon.fill.solid = 'srgb:1.00000,1.00000,1.00000,1.00000';
 compileIcon(originalIconDir, 'Original', originalIcon);
-fs.copyFileSync(original, path.join(mainIcon, 'Assets/ghostty-mark.png'));
-const configPath = path.join(mainIcon, 'icon.json');
-fs.writeFileSync(configPath, fs.readFileSync(configPath, 'utf8').replace(/srgb:[\d.,]+/, originalIcon.fill.solid));
 const square = path.join(source, 'goose-agent-icon-1024.png');
 const rounded = path.join(source, 'goose-agent-icon-rounded.png');
 run('magick', ['-size', '1024x1024', 'xc:#FFFFFF', original, '-composite', square]);
