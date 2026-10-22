@@ -1478,7 +1478,12 @@ final class AppModel: ObservableObject {
     }
 
     func closeTabs(_ ids: [UUID]) {
-        let window = ids.first.flatMap { window(containing: $0) }
+        let window: WindowState?
+        if let id = ids.first {
+            window = self.window(containing: id)
+        } else {
+            window = nil
+        }
         for id in ids {
             closeTab(id, focusNext: false)
         }
