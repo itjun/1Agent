@@ -12,7 +12,7 @@
 
 ## 命令行
 
-在“系统集成 → 自动化”安装命令行工具，位置为 `~/.local/bin/1agent`。
+在“集成 → 自动化”安装命令行工具，位置为 `~/.local/bin/1agent`。
 
 ```sh
 1agent --working-directory="$PWD"
@@ -23,7 +23,7 @@
 
 ## AppleScript
 
-“系统集成”可整体关闭终端自动化。窗口、标签和终端均有稳定 UUID；输入和操作必须指定终端。失效 ID、无效目录与配置返回脚本错误。
+“集成”可整体关闭终端自动化。窗口、标签和终端均有稳定 UUID；输入和操作必须指定终端。失效 ID、无效目录与配置返回脚本错误。
 
 ```applescript
 tell application id "com.itjun.1agent"
