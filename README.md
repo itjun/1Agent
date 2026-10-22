@@ -29,7 +29,7 @@ make build
 
 官方 Ghostty 使用独立的 `com.mitchellh.ghostty` 与 `ghostty://` 身份。Swift 模块名仍为 `GooseAgent`，Xcode 工程和 target 名为 `1Agent`。
 
-GitHub 上的 [CI](https://github.com/itjun/1Agent/actions/workflows/ci.yml) 只编译 macOS 应用，不安装到运行器的 `/Applications`。
+GitHub 上的 [CI](https://github.com/itjun/1Agent/actions/workflows/ci.yml) 只编译 macOS 应用，不安装到运行器的 `/Applications`。推送 `v*` 标签会另外构建安装包，并发布签名的 `latest.json`。已安装的应用会检查这份清单，有新版本时可以下载并替换自己。
 
 ### 第三方组件
 
@@ -61,7 +61,7 @@ The build script installs and launches `/Applications/1Agent.app`. The bundle ID
 
 Official Ghostty keeps its own `com.mitchellh.ghostty` bundle ID and `ghostty://` scheme. The Swift module is still `GooseAgent`. The Xcode project and target are named `1Agent`.
 
-The [CI workflow](https://github.com/itjun/1Agent/actions/workflows/ci.yml) compiles the macOS app. It does not install the app into `/Applications` on the runner.
+The [CI workflow](https://github.com/itjun/1Agent/actions/workflows/ci.yml) compiles the macOS app. It does not install the app into `/Applications` on the runner. Pushing a `v*` tag builds the installable app and publishes a signed `latest.json`. An installed copy checks that manifest and can download and replace itself.
 
 ### Third-party components
 

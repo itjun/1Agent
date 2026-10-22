@@ -1,0 +1,473 @@
+import AppKit
+import Foundation
+import SwiftUI
+import UserNotifications
+
+struct AppUpdateSnapshot: Equatable {
+    var enabled = true
+    var disabledReason = ""
+    var devBuild = false
+    var current = ""
+    var status = AppUpdateStatus.idle
+    var hasUpdate = false
+    var mandatory = false
+    var latest = ""
+    var minSupported = ""
+    var notes = ""
+    var size: Int64 = 0
+    var downloaded: Int64 = 0
+    var total: Int64 = 0
+    var error = ""
+    var lastChecked = ""
+    var releaseURL = ""
+    var checkFailed = false
+    var prompt = false
+    var autoCheck = true
+    var skippedVersion = ""
+}
+
+@MainActor
+final class AppUpdateController: ObservableObject {
+    static let shared = AppUpdateController()
+
+    @Published private(set) var state = AppUpdateSnapshot()
+
+    private var client: AppUpdateClient
+    private var manifest: AppUpdateManifest?
+    private var prefs = AppUpdatePrefs()
+    private var started = false
+    private var lastAttempt = Date.distantPast
+    private var netFailNotified = false
+    private var checkLoop: Task<Void, Never>?
+    private var work: Task<Void, Never>?
+    private let currentBase: String
+    private let devBuild: Bool
+
+    private init() {
+        let directory = AppUpdatePrefs.directory()
+        prefs = AppUpdatePrefs.load(directory: directory)
+        var baseURL = AppUpdate.defaultBaseURL
+        var rawVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        if let override = ProcessInfo.processInfo.environment["ONEAGENT_UPDATE_BASE_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines), !override.isEmpty {
+            baseURL = override
+            if let current = ProcessInfo.processInfo.environment["ONEAGENT_UPDATE_CURRENT_VERSION"]?.trimmingCharacters(in: .whitespacesAndNewlines), !current.isEmpty {
+                rawVersion = current
+            }
+        }
+        let parsed = AppVersionParser.parseCurrent(rawVersion)
+        currentBase = parsed.base
+        devBuild = parsed.dev
+        client = AppUpdateClient(baseURL: baseURL, publicKey: AppUpdate.publicKey, directory: directory)
+        state.current = rawVersion
+        state.devBuild = parsed.dev
+        state.autoCheck = prefs.autoCheck
+        state.skippedVersion = prefs.skippedVersion
+        state.releaseURL = baseURL.hasSuffix("/download") ? String(baseURL.dropLast("/download".count)) : baseURL
+        if baseURL.isEmpty {
+            state.enabled = false
+            state.disabledReason = AppUpdateFailure.noSource.message
+        } else if AppUpdateCrypto.verify(publicKey: AppUpdate.publicKey, data: Data(), signatureText: Data("".utf8)) == .badPublicKey {
+            state.enabled = false
+            state.disabledReason = AppUpdateFailure.badPublicKey.message
+        } else if !parsed.ok {
+            state.enabled = false
+            state.disabledReason = AppUpdateFailure.incomparableVersion.message
+        } else if AppVersionParser.platformKey().isEmpty {
+            state.enabled = false
+            state.disabledReason = AppUpdateFailure.unsupportedPlatform.message
+        } else if case .failure(let error) = AppUpdateInstall.currentBundle() {
+            state.enabled = false
+            state.disabledReason = error.message
+        }
+    }
+
+    func start() {
+        if started { return }
+        started = true
+        AppUpdateInstall.cleanup()
+        if !state.enabled { return }
+        if case .success(let cached) = client.loadCached() {
+            apply(cached)
+            if state.mandatory {
+                state.prompt = true
+                presentUpdate()
+            }
+        }
+        if devBuild { return }
+        checkLoop = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(AppUpdate.firstCheckDelay * 1_000_000_000))
+            while !Task.isCancelled {
+                await self?.check(manual: false)
+                let jitter = Double.random(in: -AppUpdate.checkJitter...AppUpdate.checkJitter)
+                let wait = AppUpdate.checkInterval + jitter
+                try? await Task.sleep(nanoseconds: UInt64(max(wait, 1) * 1_000_000_000))
+            }
+        }
+    }
+
+    func poke() {
+        presentIfNeeded()
+        if !state.enabled || devBuild || !prefs.autoCheck || !started { return }
+        switch state.status {
+        case .checking, .downloading, .installing:
+            return
+        case .idle, .error:
+            break
+        }
+        if Date().timeIntervalSince(lastAttempt) < AppUpdate.pokeMinInterval { return }
+        lastAttempt = Date()
+        Task { await check(manual: false) }
+    }
+
+    func check(manual: Bool) async {
+        if !state.enabled {
+            if manual { state.error = state.disabledReason }
+            return
+        }
+        switch state.status {
+        case .checking, .downloading, .installing:
+            return
+        case .idle, .error:
+            break
+        }
+        let previous = state.status
+        state.status = .checking
+        lastAttempt = Date()
+        let fetched = await client.fetch()
+        switch fetched {
+        case .failure(let error):
+            if previous == .error && !manual {
+                state.status = .error
+            } else {
+                state.status = .idle
+            }
+            if manual || error.isUnreachable {
+                state.error = error.message
+            }
+            if !manual && error.isUnreachable {
+                state.checkFailed = true
+            }
+            let notify = !manual && error.isUnreachable && !netFailNotified
+            if notify { netFailNotified = true }
+            if notify { announceFailure() }
+            return
+        case .success(let manifest):
+            state.status = .idle
+            state.error = ""
+            state.checkFailed = false
+            netFailNotified = false
+            state.lastChecked = ISO8601DateFormatter().string(from: Date())
+            apply(manifest)
+            var prompt = false
+            if !manual && shouldPrompt() {
+                state.prompt = true
+                prompt = true
+            }
+            if state.mandatory {
+                state.prompt = true
+                prompt = true
+            }
+            if manual && state.hasUpdate {
+                state.prompt = true
+                prompt = true
+            }
+            if prompt { announceUpdate() }
+        }
+    }
+
+    func startUpdate() {
+        if !state.enabled {
+            state.error = state.disabledReason
+            return
+        }
+        if state.status == .downloading || state.status == .installing { return }
+        guard state.hasUpdate, let manifest, let asset = manifest.asset(for: AppVersionParser.platformKey()) else {
+            state.error = state.hasUpdate ? AppUpdateFailure.noAsset.message : AppUpdateFailure.alreadyLatest.message
+            return
+        }
+        state.status = .downloading
+        state.error = ""
+        state.downloaded = 0
+        state.total = asset.size
+        work?.cancel()
+        work = Task { [weak self] in
+            guard let self else { return }
+            let downloaded = await self.client.download(asset) { done, total in
+                Task { @MainActor in
+                    self.state.downloaded = done
+                    self.state.total = total
+                }
+            }
+            if Task.isCancelled {
+                self.state.status = .idle
+                return
+            }
+            switch downloaded {
+            case .failure(let error):
+                self.state.status = .error
+                self.state.error = error.message
+            case .success(let path):
+                self.client.pruneDownloads(keeping: (path as NSString).lastPathComponent)
+                self.state.status = .installing
+                let installed = await Task.detached { AppUpdateInstall.apply(archive: path) }.value
+                switch installed {
+                case .failure(let error):
+                    self.state.status = .error
+                    self.state.error = error.message
+                case .success(let bundle):
+                    self.restart(at: bundle)
+                }
+            }
+        }
+    }
+
+    func cancelDownload() {
+        work?.cancel()
+        work = nil
+        if state.status == .downloading {
+            state.status = .idle
+            state.error = ""
+        }
+    }
+
+    func skipVersion() {
+        if state.mandatory {
+            state.error = AppUpdateFailure.cannotSkip.message
+            return
+        }
+        prefs.skippedVersion = AppVersionParser.canonical(state.latest)
+        state.skippedVersion = prefs.skippedVersion
+        state.prompt = false
+        prefs.save()
+        AppUpdatePresenter.close()
+    }
+
+    func remindLater() {
+        if state.mandatory {
+            state.error = AppUpdateFailure.cannotDelay.message
+            return
+        }
+        prefs.remindVersion = state.latest
+        prefs.remindAfter = Date().addingTimeInterval(AppUpdate.remindLater)
+        state.prompt = false
+        prefs.save()
+        AppUpdatePresenter.close()
+    }
+
+    func setAutoCheck(_ on: Bool) {
+        prefs.autoCheck = on
+        state.autoCheck = on
+        prefs.save()
+    }
+
+    func dismissOptional() {
+        if state.mandatory { return }
+        state.prompt = false
+        AppUpdatePresenter.close()
+    }
+
+    func showFromNotification() {
+        NSApp.activate()
+        if state.hasUpdate {
+            presentUpdate()
+            return
+        }
+        if state.checkFailed { presentFailure() }
+    }
+
+    func openReleases() {
+        guard let url = URL(string: state.releaseURL) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    func quit() {
+        NSApp.terminate(nil)
+    }
+
+    private func apply(_ manifest: AppUpdateManifest) {
+        self.manifest = manifest
+        let decision = AppVersionParser.evaluate(current: currentBase, dev: devBuild, manifest: manifest)
+        state.hasUpdate = decision.hasUpdate
+        state.mandatory = decision.mandatory
+        state.latest = manifest.version
+        state.minSupported = manifest.minSupportedVersion
+        state.notes = manifest.notes
+        state.size = manifest.asset(for: AppVersionParser.platformKey())?.size ?? 0
+        if !decision.hasUpdate { state.prompt = false }
+    }
+
+    private func shouldPrompt() -> Bool {
+        AppVersionParser.shouldPrompt(
+            hasUpdate: state.hasUpdate,
+            mandatory: state.mandatory,
+            autoCheck: prefs.autoCheck,
+            latest: state.latest,
+            skipped: prefs.skippedVersion,
+            remindVersion: prefs.remindVersion,
+            remindAfter: prefs.remindAfter,
+            now: Date()
+        )
+    }
+
+    private func announceUpdate() {
+        if windowIsVisible() {
+            presentUpdate()
+            return
+        }
+        let title: String
+        let body: String
+        if state.mandatory {
+            title = String(format: String(localized: "1Agent must update to %@"), state.latest)
+            body = String(localized: "This version is no longer supported. Update to continue.")
+        } else {
+            title = String(format: String(localized: "1Agent %@ is available"), state.latest)
+            body = String(localized: "Click to read the notes and install.")
+        }
+        postNotification(title: title, body: body)
+    }
+
+    private func announceFailure() {
+        if windowIsVisible() {
+            presentFailure()
+            return
+        }
+        postNotification(
+            title: String(localized: "Could not check for updates"),
+            body: String(localized: "Could not reach the update server. Download the new version from the releases page.")
+        )
+    }
+
+    private func presentIfNeeded() {
+        if state.prompt && state.hasUpdate { presentUpdate() }
+    }
+
+    private func presentUpdate() {
+        AppUpdatePresenter.show(failed: false)
+    }
+
+    private func presentFailure() {
+        AppUpdatePresenter.show(failed: true)
+    }
+
+    private func windowIsVisible() -> Bool {
+        if let settings = SettingsWindowController.shared.window, settings.isVisible, !settings.isMiniaturized {
+            return true
+        }
+        for window in NSApp.windows where window.identifier?.rawValue == MainWindowManager.windowID.rawValue {
+            if window.isVisible && !window.isMiniaturized { return true }
+        }
+        return false
+    }
+
+    private func frontWindow() -> NSWindow? {
+        if let settings = SettingsWindowController.shared.window, settings.isVisible { return settings }
+        for window in NSApp.windows where window.identifier?.rawValue == MainWindowManager.windowID.rawValue {
+            if window.isVisible { return window }
+        }
+        return nil
+    }
+
+    private func postNotification(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = [AppUpdate.notificationKey: "show"]
+        let request = UNNotificationRequest(identifier: "oneagent-update", content: content, trigger: nil)
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            center.add(request)
+        }
+    }
+
+    private func restart(at bundle: String) {
+        if let app = NSApp.delegate as? AppDelegate {
+            app.model.isRestarting = true
+            app.relaunchBundlePath = bundle
+        }
+        NSApp.terminate(nil)
+    }
+}
+
+private struct AppUpdatePrefs: Codable {
+    var autoCheck = true
+    var skippedVersion = ""
+    var remindVersion = ""
+    var remindAfter: Date?
+
+    static func directory() -> String {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        return base?.appendingPathComponent("1Agent/update").path ?? ""
+    }
+
+    static func load(directory: String) -> AppUpdatePrefs {
+        let url = URL(fileURLWithPath: directory).appendingPathComponent("prefs.json")
+        guard let data = try? Data(contentsOf: url) else { return AppUpdatePrefs() }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode(AppUpdatePrefs.self, from: data)) ?? AppUpdatePrefs()
+    }
+
+    func save() {
+        let directory = Self.directory()
+        if directory.isEmpty { return }
+        let folder = URL(fileURLWithPath: directory)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(self) else { return }
+        try? data.write(to: folder.appendingPathComponent("prefs.json"), options: .atomic)
+    }
+}
+
+@MainActor
+enum AppUpdatePresenter {
+    private static var presentation: FamilyModalPresentation?
+    private static var failed = false
+
+    static func show(failed: Bool) {
+        if presentation != nil && self.failed == failed { return }
+        close()
+        self.failed = failed
+        let owner = frontWindow()
+        let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark, icon: ApplicationIcon.stored())
+        let root = AnyView(
+            AppUpdateDialogView(failed: failed)
+                .environment(\.windowChrome, chrome)
+                .font(Theme.Font.body)
+                .tint(chrome.accent)
+                .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                .frame(width: SheetLayout.appUpdate, height: SheetLayout.appUpdateHeight)
+                .background(chrome.background)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(chrome.hairline, lineWidth: 1))
+        )
+        let host = NSHostingView(rootView: root)
+        let mandatory = AppUpdateController.shared.state.mandatory && !failed
+        let presentation = FamilyModalPresentation(
+            content: host,
+            size: NSSize(width: SheetLayout.appUpdate, height: SheetLayout.appUpdateHeight),
+            owner: owner
+        ) {
+            if mandatory { return }
+            AppUpdateController.shared.dismissOptional()
+        }
+        self.presentation = presentation
+        presentation.show()
+    }
+
+    static func close() {
+        presentation?.close()
+        presentation = nil
+    }
+
+    private static func frontWindow() -> NSWindow? {
+        if let settings = SettingsWindowController.shared.window, settings.isVisible { return settings }
+        for window in NSApp.windows where window.identifier?.rawValue == MainWindowManager.windowID.rawValue {
+            if window.isVisible { return window }
+        }
+        return NSApp.keyWindow
+    }
+}

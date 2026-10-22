@@ -4,6 +4,8 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
+    /// Set after an update replaces the bundle, so relaunch opens the new app rather than the renamed copy.
+    var relaunchBundlePath: String?
 
     private var shortcutMonitor: Any?
     private var shortcutsObserver: NSObjectProtocol?
@@ -57,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         TerminalAutomation.model = model
         TerminalActivity.shared.model = model
         TerminalNotifications.shared.install()
+        AppUpdateController.shared.start()
         // Reading PATH from a login shell takes a moment; do it now so the first ⌘T does not wait.
         Task.detached(priority: .utility) { _ = await SSHLaunchEnvironment.shared.get() }
         model.watchSSHConfig()
@@ -118,6 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !keyOnActiveSpace {
             model.revealForReopen()
         }
+        AppUpdateController.shared.poke()
     }
 
     /// SwiftUI menus follow the revision themselves; Edit → Select All is an AppKit item and is re-bound
@@ -408,7 +412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
             relaunch.arguments = [
                 "-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$2\"",
-                "sh", String(ProcessInfo.processInfo.processIdentifier), Bundle.main.bundlePath,
+                "sh", String(ProcessInfo.processInfo.processIdentifier), relaunchBundlePath ?? Bundle.main.bundlePath,
             ]
             try? relaunch.run()
         }

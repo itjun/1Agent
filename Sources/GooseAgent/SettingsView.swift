@@ -44,6 +44,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     case shortcuts
     case systemIntegration
     case advanced
+    case about
 
     var id: Self { self }
 
@@ -56,6 +57,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         case .shortcuts: "Hotkeys"
         case .systemIntegration: "System Integration"
         case .advanced: "Advanced"
+        case .about: "About"
         }
     }
 }
@@ -278,6 +280,8 @@ struct SettingsView: View {
                 ShortcutsSettingsPage()
             case .systemIntegration:
                 SystemIntegrationSettingsPage()
+            case .about:
+                AppUpdateSettingsPage()
             case .advanced:
                 AdvancedSettingsPage()
             }

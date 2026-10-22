@@ -612,6 +612,15 @@ final class TerminalNotifications: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        if response.notification.request.content.userInfo[AppUpdate.notificationKey] != nil {
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    AppUpdateController.shared.showFromNotification()
+                }
+                completionHandler()
+            }
+            return
+        }
         let raw = response.notification.request.content.userInfo[TerminalNotifications.tabIDKey] as? String
         let tabID = raw.flatMap { UUID(uuidString: $0) }
         DispatchQueue.main.async {

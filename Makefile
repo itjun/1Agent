@@ -74,6 +74,8 @@ test: test-agent-sessions test-system-integration test-scripting-replies
 	/tmp/oneagent-remote-shell-tests
 	swiftc -parse-as-library -o /tmp/oneagent-remote-palette-tests Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/Theme.swift Tests/RemotePaletteTests.swift
 	/tmp/oneagent-remote-palette-tests
+	swiftc -parse-as-library -o /tmp/oneagent-app-update-tests Sources/GooseAgent/AppUpdate.swift Tests/AppUpdateTests.swift
+	/tmp/oneagent-app-update-tests
 	python3 scripts/test-remote-agent-bootstrap.py
 	ONEAGENT_REMOTE_INTEGRATION_TEST=1 python3 scripts/test-quick-command-bridge.py
 	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandTransfer.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift

@@ -1,0 +1,82 @@
+name: Release
+
+# 打 v* tag 时触发：构建 macOS 安装包，连同签名更新清单一起发布到 GitHub Release。
+# 客户端读取 https://github.com/itjun/1Agent/releases/latest/download/latest.json
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch tag message
+        run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project 1Agent.xcodeproj \
+            -scheme 1Agent \
+            -configuration Release \
+            -derivedDataPath build/DerivedData.noindex \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            -arch arm64 \
+            build \
+            ONLY_ACTIVE_ARCH=YES \
+            ARCHS=arm64 \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            -skipPackagePluginValidation
+
+      - name: Package
+        run: |
+          app="build/DerivedData.noindex/Build/Products/Release/1Agent.app"
+          mkdir -p dist
+          ditto -c -k --keepParent "$app" "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.zip"
+
+      - name: Sign update manifest
+        env:
+          UPDATE_SIGN_KEY: ${{ secrets.UPDATE_SIGN_KEY }}
+        run: |
+          if [ -z "$UPDATE_SIGN_KEY" ]; then
+            echo "::error::未配置 Secret UPDATE_SIGN_KEY，无法签名更新清单"
+            exit 1
+          fi
+          notes="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
+          printf '%s' "$notes" > dist/notes.txt
+          if [ ! -s dist/notes.txt ]; then
+            printf '%s\n' "$GITHUB_REF_NAME" > dist/notes.txt
+          fi
+          min="$(python3 -c 'import json; print(json.load(open("release/update-policy.json")).get("minSupportedVersion", ""))')"
+          swift scripts/update-manifest.swift \
+            --version "$GITHUB_REF_NAME" \
+            --zip "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.zip" \
+            --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}" \
+            --notes-file dist/notes.txt \
+            --min "$min" \
+            --out dist
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          args=(release create "$tag" "dist/latest.json" "dist/latest.json.sig" "dist/1Agent-${tag}-mac-arm64.zip" --title "$tag" --notes-file dist/notes.txt)
+          if [[ "$tag" == *-* ]]; then
+            args+=(--prerelease --latest=false)
+          else
+            args+=(--latest)
+          fi
+          gh "${args[@]}"
