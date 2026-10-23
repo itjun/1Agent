@@ -81,6 +81,38 @@ enum AppUpdateTests {
             try check(false, "The built-in public key must be 32 bytes")
             return
         }
+
+        let feed = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <title>Release notes from 1Agent</title>
+          <entry>
+            <title>v1.2.0</title>
+            <link rel="alternate" type="text/html" href="https://github.com/itjun/1Agent/releases/tag/v1.2.0"/>
+            <content type="html">&lt;p&gt;1.2.0&lt;/p&gt;
+        &lt;p&gt;第二个版本。&lt;/p&gt;
+        &lt;ul&gt;
+        &lt;li&gt;检查更新&lt;/li&gt;
+        &lt;li&gt;显示发布说明&lt;/li&gt;
+        &lt;/ul&gt;</content>
+          </entry>
+          <entry>
+            <title>v1.0.0</title>
+            <content type="html">&lt;p&gt;旧版本&lt;/p&gt;</content>
+          </entry>
+        </feed>
+        """
+        switch AppReleaseFeed.parse(data: Data(feed.utf8)) {
+        case .failure:
+            try check(false, "Release feed should parse")
+        case .success(let post):
+            try check(post.version == "v1.2.0", "Release feed keeps the newest entry")
+            try check(post.pageURL == "https://github.com/itjun/1Agent/releases/tag/v1.2.0", "Release feed keeps the release page")
+            try check(post.notes == "1.2.0\n\n第二个版本。\n\n- 检查更新\n- 显示发布说明", "Release feed keeps the notes: \(post.notes)")
+        }
+        if case .success = AppReleaseFeed.parse(data: Data("<feed></feed>".utf8)) {
+            try check(false, "A feed without a release fails")
+        }
     }
 
     static func check(_ condition: Bool, _ message: String) throws {

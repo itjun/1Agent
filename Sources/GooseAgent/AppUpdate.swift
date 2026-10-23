@@ -8,6 +8,8 @@ enum AppUpdate {
     static let defaultBaseURL = "https://github.com/itjun/1Agent/releases/latest/download"
     static let manifestName = "latest.json"
     static let signatureName = "latest.json.sig"
+    /// 签名清单失败时，仍从这里读取最新发布的标题和说明。不走 api.github.com，避免未登录的接口限额。
+    static let releaseFeedURL = "https://github.com/itjun/1Agent/releases.atom"
     static let notificationKey = "oneagentUpdate"
     static let maxManifestBytes = 1 << 20
 
@@ -420,10 +422,126 @@ enum AppUpdateFiles {
     }
 }
 
+struct AppReleasePost: Equatable, Sendable {
+    var version: String
+    var notes: String
+    var pageURL: String
+}
+
+enum AppReleaseFeed {
+    static func parse(data: Data) -> Result<AppReleasePost, AppUpdateFailure> {
+        let parser = ReleaseFeedParser()
+        guard let post = parser.parse(data) else { return .failure(.manifestParse) }
+        return .success(post)
+    }
+
+    /// GitHub 把发布说明放在 HTML 里。这里只留下段落和列表，供弹窗直接显示。
+    static func plainText(html: String) -> String {
+        var text = html
+        let breaks = ["</p>", "</li>", "</h1>", "</h2>", "</h3>", "<br>", "<br/>", "<br />", "</div>"]
+        for tag in breaks {
+            text = text.replacingOccurrences(of: tag, with: "\n", options: .caseInsensitive)
+        }
+        text = text.replacingOccurrences(of: "<li>", with: "- ", options: .caseInsensitive)
+        var output = ""
+        var isInsideTag = false
+        for character in text {
+            if character == "<" {
+                isInsideTag = true
+                continue
+            }
+            if character == ">" {
+                isInsideTag = false
+                continue
+            }
+            if !isInsideTag { output.append(character) }
+        }
+        output = output.replacingOccurrences(of: "&nbsp;", with: " ")
+        output = output.replacingOccurrences(of: "&amp;", with: "&")
+        output = output.replacingOccurrences(of: "&lt;", with: "<")
+        output = output.replacingOccurrences(of: "&gt;", with: ">")
+        output = output.replacingOccurrences(of: "&quot;", with: "\"")
+        output = output.replacingOccurrences(of: "&#39;", with: "'")
+        let lines = output.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        var collapsed: [String] = []
+        var isPreviousBlank = false
+        for line in lines {
+            if line.isEmpty {
+                if !isPreviousBlank && !collapsed.isEmpty { collapsed.append("") }
+                isPreviousBlank = true
+            } else {
+                if isPreviousBlank && line.hasPrefix("- ") && collapsed.last == "" {
+                    let previous = collapsed.count >= 2 ? collapsed[collapsed.count - 2] : ""
+                    if previous.hasPrefix("- ") { collapsed.removeLast() }
+                }
+                collapsed.append(line)
+                isPreviousBlank = false
+            }
+        }
+        return collapsed.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private final class ReleaseFeedParser: NSObject, XMLParserDelegate {
+    private var post = AppReleasePost(version: "", notes: "", pageURL: "")
+    private var text = ""
+    private var isInEntry = false
+    private var isDone = false
+
+    func parse(_ data: Data) -> AppReleasePost? {
+        let parser = XMLParser(data: data)
+        parser.delegate = self
+        if !parser.parse() || post.version.isEmpty { return nil }
+        post.notes = AppReleaseFeed.plainText(html: post.notes)
+        return post
+    }
+
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String: String] = [:]) {
+        if isDone { return }
+        text = ""
+        if elementName == "entry" { isInEntry = true }
+        if isInEntry && elementName == "link" && attributeDict["rel"] == "alternate" {
+            post.pageURL = attributeDict["href"] ?? ""
+        }
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        if isDone || !isInEntry { return }
+        text += string
+    }
+
+    func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data) {
+        if isDone || !isInEntry { return }
+        if let string = String(data: CDATABlock, encoding: .utf8) { text += string }
+    }
+
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        if isDone || !isInEntry { return }
+        if elementName == "title" && post.version.isEmpty {
+            post.version = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if elementName == "content" { post.notes += text }
+        if elementName == "entry" {
+            isDone = true
+            isInEntry = false
+        }
+    }
+}
+
 struct AppUpdateClient: Sendable {
     var baseURL: String
     var publicKey: String
     var directory: String
+
+    /// 签名清单拿不到时，用发布页的 Atom 补版本号和说明。不能用来安装。
+    func fetchReleasePost() async -> Result<AppReleasePost, AppUpdateFailure> {
+        switch await get(AppUpdate.releaseFeedURL, timeout: 8) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let data):
+            return AppReleaseFeed.parse(data: data)
+        }
+    }
 
     func fetch() async -> Result<AppUpdateManifest, AppUpdateFailure> {
         if baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -534,10 +652,10 @@ struct AppUpdateClient: Sendable {
         baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + name
     }
 
-    private func get(_ raw: String) async -> Result<Data, AppUpdateFailure> {
+    private func get(_ raw: String, timeout: TimeInterval = 20) async -> Result<Data, AppUpdateFailure> {
         guard let url = URL(string: raw) else { return .failure(.badAssetURL) }
         var request = URLRequest(url: url)
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         do {

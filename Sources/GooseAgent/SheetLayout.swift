@@ -25,7 +25,8 @@ enum SheetLayout {
     /// File list in the "convert to UTF-8 + LF before upload" alert.
     static let uploadCheckListWidth: CGFloat = 460
     static let uploadCheckListMaxHeight: CGFloat = 240
-    /// Update notes dialog.
+    /// Update notes dialog. The short height is only used before any release notes are known.
     static let appUpdate: CGFloat = 480
     static let appUpdateHeight: CGFloat = 420
+    static let appUpdateCompactHeight: CGFloat = 220
 }

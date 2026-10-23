@@ -136,20 +136,32 @@ final class AppUpdateController: ObservableObject {
         let fetched = await client.fetch()
         switch fetched {
         case .failure(let error):
+            if case .success(let post) = await client.fetchReleasePost() {
+                applyReleasePost(post)
+            }
             if previous == .error && !manual {
                 state.status = .error
             } else {
                 state.status = .idle
             }
-            if manual || error.isUnreachable {
+            let isAutomaticNotice = !manual && !netFailNotified && (error.isUnreachable || state.hasUpdate)
+            if manual || error.isUnreachable || state.hasUpdate {
                 state.error = error.message
             }
             if !manual && error.isUnreachable {
                 state.checkFailed = true
             }
-            let notify = !manual && error.isUnreachable && !netFailNotified
-            if notify { netFailNotified = true }
-            if notify { announceFailure() }
+            if isAutomaticNotice { netFailNotified = true }
+            if manual || isAutomaticNotice {
+                if state.hasUpdate && state.size > 0 {
+                    if manual { state.prompt = true }
+                    announceUpdate()
+                } else if state.hasUpdate {
+                    announceRelease(manual: manual)
+                } else {
+                    announceFailure()
+                }
+            }
             return
         case .success(let manifest):
             state.status = .idle
@@ -158,6 +170,11 @@ final class AppUpdateController: ObservableObject {
             netFailNotified = false
             state.lastChecked = ISO8601DateFormatter().string(from: Date())
             apply(manifest)
+            if state.notes.isEmpty {
+                if case .success(let post) = await client.fetchReleasePost() {
+                    applyReleasePost(post)
+                }
+            }
             var prompt = false
             if !manual && shouldPrompt() {
                 state.prompt = true
@@ -268,11 +285,11 @@ final class AppUpdateController: ObservableObject {
 
     func showFromNotification() {
         NSApp.activate()
-        if state.hasUpdate {
+        if state.hasUpdate && state.size > 0 {
             presentUpdate()
             return
         }
-        if state.checkFailed { presentFailure() }
+        if state.hasUpdate || state.checkFailed { presentFailure() }
     }
 
     func openReleases() {
@@ -282,6 +299,30 @@ final class AppUpdateController: ObservableObject {
 
     func quit() {
         NSApp.terminate(nil)
+    }
+
+    /// 发布页说明只用于展示。版本不比已有签名清单新时，保留可安装的包。
+    private func applyReleasePost(_ post: AppReleasePost) {
+        guard let version = AppVersionParser.parse(post.version) else { return }
+        let canonical = version.canonical
+        if !state.latest.isEmpty, let order = AppVersionParser.compare(canonical, state.latest) {
+            if order < 0 { return }
+            if order == 0 {
+                if state.notes.isEmpty { state.notes = post.notes }
+                if !post.pageURL.isEmpty { state.releaseURL = post.pageURL }
+                return
+            }
+        }
+        manifest = nil
+        state.latest = canonical
+        state.notes = post.notes
+        state.size = 0
+        state.minSupported = ""
+        if !post.pageURL.isEmpty { state.releaseURL = post.pageURL }
+        let decision = AppVersionParser.evaluate(current: currentBase, dev: devBuild, manifest: AppUpdateManifest(version: canonical))
+        state.hasUpdate = decision.hasUpdate
+        state.mandatory = false
+        if !decision.hasUpdate { state.prompt = false }
     }
 
     private func apply(_ manifest: AppUpdateManifest) {
@@ -324,6 +365,17 @@ final class AppUpdateController: ObservableObject {
             body = String(localized: "Click to read the notes and install.")
         }
         postNotification(title: title, body: body)
+    }
+
+    private func announceRelease(manual: Bool) {
+        if windowIsVisible() || manual {
+            presentFailure()
+            return
+        }
+        postNotification(
+            title: String(format: String(localized: "1Agent %@ is available"), state.latest),
+            body: String(localized: "Click to read the release notes.")
+        )
     }
 
     private func announceFailure() {
@@ -431,6 +483,7 @@ enum AppUpdatePresenter {
         if presentation != nil && self.failed == failed { return }
         close()
         self.failed = failed
+        let height = AppUpdateController.shared.state.notes.isEmpty ? SheetLayout.appUpdateCompactHeight : SheetLayout.appUpdateHeight
         let owner = frontWindow()
         let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark, icon: ApplicationIcon.stored())
         let root = AnyView(
@@ -439,7 +492,7 @@ enum AppUpdatePresenter {
                 .font(Theme.Font.body)
                 .tint(chrome.accent)
                 .buttonStyle(FamilyButtonStyle(kind: .secondary))
-                .frame(width: SheetLayout.appUpdate, height: SheetLayout.appUpdateHeight)
+                .frame(width: SheetLayout.appUpdate, height: height)
                 .background(chrome.background)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(chrome.hairline, lineWidth: 1))
@@ -448,7 +501,7 @@ enum AppUpdatePresenter {
         let mandatory = AppUpdateController.shared.state.mandatory && !failed
         let presentation = FamilyModalPresentation(
             content: host,
-            size: NSSize(width: SheetLayout.appUpdate, height: SheetLayout.appUpdateHeight),
+            size: NSSize(width: SheetLayout.appUpdate, height: height),
             owner: owner
         ) {
             if mandatory { return }

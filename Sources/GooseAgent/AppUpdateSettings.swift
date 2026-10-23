@@ -114,7 +114,7 @@ struct AppUpdateDialogView: View {
                 .font(Theme.Font.body)
                 .foregroundStyle(chrome.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if !failed && !updates.state.notes.isEmpty {
+            if !updates.state.notes.isEmpty {
                 ScrollView {
                     Text(updates.state.notes)
                         .font(Theme.Font.rowMeta)
@@ -123,8 +123,6 @@ struct AppUpdateDialogView: View {
                         .textSelection(.enabled)
                 }
                 .frame(maxHeight: .infinity)
-            } else {
-                Spacer(minLength: 0)
             }
             if updates.state.status == .downloading || updates.state.status == .installing {
                 ProgressView(value: progressValue)
@@ -149,19 +147,35 @@ struct AppUpdateDialogView: View {
     }
 
     private var title: String {
+        if updates.state.hasUpdate {
+            if !failed && updates.state.mandatory {
+                return String(localized: "This update is required to keep using 1Agent.")
+            }
+            return String(format: String(localized: "Version %@ is available."), shownVersion(updates.state.latest))
+        }
         if failed { return String(localized: "Could not check for updates") }
-        if updates.state.mandatory { return String(localized: "This update is required to keep using 1Agent.") }
-        return String(format: String(localized: "Version %@ is available."), updates.state.latest)
+        return String(format: String(localized: "Version %@ is available."), shownVersion(updates.state.latest))
     }
 
     private var message: String {
+        if failed && updates.state.hasUpdate {
+            return String(format: String(localized: "Version %@ is available. The package could not be verified. The notes are below, or download it from the releases page."), shownVersion(updates.state.latest))
+        }
+        if failed && !updates.state.latest.isEmpty {
+            return String(format: String(localized: "This copy is %1$@, and the published release is %2$@. They are the same version. The update server could not be reached."), shownVersion(updates.state.current), shownVersion(updates.state.latest))
+        }
         if failed {
             return String(localized: "Could not reach the update server. Download the new version from the releases page.")
         }
         if updates.state.mandatory {
             return String(localized: "This version is no longer supported. Update to continue.")
         }
-        return String(format: String(localized: "Version %@ is available."), updates.state.latest)
+        return String(format: String(localized: "Version %@ is available."), shownVersion(updates.state.latest))
+    }
+
+    private func shownVersion(_ raw: String) -> String {
+        if let version = AppVersionParser.parse(raw) { return version.canonical }
+        return raw
     }
 
     private var progressValue: Double {
@@ -182,8 +196,13 @@ struct AppUpdateDialogView: View {
 
     @ViewBuilder private var buttons: some View {
         if failed {
+            if updates.state.hasUpdate && updates.state.size > 0 {
+                Button("Update Now") { updates.startUpdate() }
+                    .buttonStyle(FamilyButtonStyle(kind: .primary))
+                    .disabled(updates.state.status == .downloading || updates.state.status == .installing)
+            }
             Button("Open Releases") { updates.openReleases() }
-                .buttonStyle(FamilyButtonStyle(kind: .primary))
+                .buttonStyle(FamilyButtonStyle(kind: updates.state.hasUpdate && updates.state.size > 0 ? .secondary : .primary))
             Button("Close") { updates.dismissOptional() }
                 .buttonStyle(FamilyButtonStyle(kind: .secondary))
         } else if updates.state.mandatory {
