@@ -242,6 +242,7 @@ struct TerminalThemeChoice: Equatable, Hashable {
     /// Copies the old single-theme key into the matching slot once.
     /// Only built-in theme names migrate; obsolete custom names resolve to the slot default.
     static func migrateIfNeeded(defaults: UserDefaults = .standard) {
+        TerminalThemeChoice.restoreIndependentThemes(defaults: defaults)
         let legacy = defaults.string(forKey: TerminalAppearance.legacyThemeKey) ?? ""
         if !legacy.isEmpty {
             if let theme = TerminalThemeChoice(raw: legacy)?.definition {
@@ -251,6 +252,23 @@ struct TerminalThemeChoice: Equatable, Hashable {
                 }
             }
             defaults.removeObject(forKey: TerminalAppearance.legacyThemeKey)
+        }
+    }
+
+    /// Recover themes replaced by icon-following builds without overwriting named selections.
+    private static func restoreIndependentThemes(defaults: UserDefaults) {
+        for target in ["local", "remote"] {
+            for dark in [false, true] {
+                let key = "appearance.terminalTheme.\(target).\(dark ? "dark" : "light")"
+                let raw = defaults.string(forKey: key)
+                if raw == nil || raw == "follow-palette" {
+                    let previousKey = dark ? TerminalAppearance.darkThemeKey : TerminalAppearance.lightThemeKey
+                    let previous = TerminalThemeChoice(raw: defaults.string(forKey: previousKey))
+                        ?? TerminalThemeChoice(raw: defaults.string(forKey: TerminalAppearance.legacyThemeKey))
+                    let choice = TerminalThemeChoice.resolved(raw: previous?.rawValue, dark: dark)
+                    defaults.set(choice.rawValue, forKey: key)
+                }
+            }
         }
     }
 }

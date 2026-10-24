@@ -9,6 +9,7 @@ import ObjectiveC
 @main
 enum FamilyAppearanceTests {
     @MainActor static func main() {
+        checkIndependentTerminalThemes()
         let suite = "oneagent.family.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
@@ -118,6 +119,43 @@ enum FamilyAppearanceTests {
         check(true, true, "cancel follows current system")
         expect(defaults.string(forKey: "sidebar.material") == "liquidGlass", "obsolete preference is ignored, not erased")
         print("FamilyAppearanceTests passed: preview/save/cancel/close/defaults/system, two live native surfaces, palette and buffer preservation")
+    }
+
+    static func checkIndependentTerminalThemes() {
+        let suite = "oneagent.family.independent.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("Ayu Light", forKey: TerminalAppearance.lightThemeKey)
+        defaults.set("TokyoNight", forKey: TerminalAppearance.darkThemeKey)
+        defaults.set(true, forKey: "appearance.terminalTheme.connectionDefaults.v1")
+        for target in ["local", "remote"] {
+            for isDark in [false, true] {
+                defaults.set("follow-palette", forKey: "appearance.terminalTheme.\(target).\(isDark ? "dark" : "light")")
+            }
+        }
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(TerminalThemeChoice(raw: "follow-palette") == nil, "terminal themes never follow icon colors")
+        for target in ["local", "remote"] {
+            for isDark in [false, true] {
+                let key = "appearance.terminalTheme.\(target).\(isDark ? "dark" : "light")"
+                let expected = isDark ? "TokyoNight" : "Ayu Light"
+                expect(defaults.string(forKey: key) == expected, "restore previous terminal theme instead of following icon colors")
+                let configuration = TerminalThemeChoice(raw: expected)!.definition.terminalConfiguration()
+                for icon in ApplicationIcon.macaronIcons {
+                    defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
+                    defaults.set(icon.rawValue, forKey: "appearance.localPalette")
+                    defaults.set(icon.rawValue, forKey: RemotePalette.storageKey)
+                    TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+                    let choice = TerminalThemeChoice(raw: defaults.string(forKey: key))!
+                    expect(choice.definition.terminalConfiguration() == configuration,
+                           "icon and appearance colors never change terminal colors, cursor, selection or ANSI palette")
+                }
+            }
+        }
+        defaults.set("GitHub Dark Default", forKey: "appearance.terminalTheme.remote.dark")
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(defaults.string(forKey: "appearance.terminalTheme.remote.dark") == "GitHub Dark Default",
+               "recovery preserves an explicitly selected connection theme")
     }
 
     @MainActor static func drain() { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
