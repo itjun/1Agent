@@ -10,7 +10,7 @@ struct ApplicationIconSettingsPage: View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
             SettingsCard("App Icon") {
                 VStack(alignment: .leading, spacing: Theme.Space.l) {
-                    Text("Choose an app icon. Finder, the Dock and the app switcher update together, the app’s accent colors follow the icon, and your choice is remembered after restarting. Dark, Clear, and Tinted styles follow the system icon appearance.")
+                    Text("Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance.")
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -53,9 +53,9 @@ struct ApplicationIconSettingsPage: View {
                 .accessibilityIdentifier("settings.appIcon.restoreDefault")
             }
 
-            SettingsCard("Remote Terminal Colors") {
+            SettingsCard("Remote Appearance Colors") {
                 VStack(alignment: .leading, spacing: Theme.Space.l) {
-                    Text("Local terminals follow the app icon’s colors. When you switch to a remote terminal, the sidebar, title bar and accents change to the palette below.")
+                    Text("Choose the remote appearance colors. Terminal themes are configured independently.")
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.secondary)
                         .fixedSize(horizontal: false, vertical: true)

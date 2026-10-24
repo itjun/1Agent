@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择本机外观配色与应用图标，终端主题独立配置。深色、透明和色调图标跟随系统外观。"}}}},
+    "Choose the remote appearance colors. Terminal themes are configured independently." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the remote appearance colors. Terminal themes are configured independently."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择远程外观配色，终端主题独立配置。"}}}},
+    "Remote Appearance Colors" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Remote Appearance Colors"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "远程外观配色"}}}},
     "About" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "About"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关于"}}}},
     "Updates" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Updates"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "应用更新"}}}},
     "Version %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Version %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "版本 %@"}}}},
