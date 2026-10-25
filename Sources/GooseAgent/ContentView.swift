@@ -15,6 +15,7 @@ struct RootView: View {
     @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
     @Environment(\.controlActiveState) private var controlActiveState
+    @Environment(\.accessibilityReduceMotion) private var isMotionReduced
     @StateObject private var dropRelay = CanvasDropRelay()
     @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
     @State private var renamingPanelID: UUID?
@@ -672,7 +673,8 @@ struct RootView: View {
             .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
             .padding(.leading, 11).padding(.trailing, 30).frame(height: 44)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected,
-                hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID)))
+                hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
+                .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
             .background(PanelRowAnchor(ids: row.leafIDs, relay: dropRelay))
             .overlay {
                 TabDragHandle(

@@ -70,6 +70,7 @@ final class TerminalSwitcher: ObservableObject {
     @Published var query = "" { didSet { reconcileHighlight() } }
     @Published var scope: SwitcherScope = .all { didSet { reconcileHighlight() } }
     @Published private(set) var isSearching = false
+    @Published private(set) var isPresented = false
     weak var searchField: NSSearchField?
 
     var filteredItems: [SwitcherItem] {
@@ -107,6 +108,8 @@ final class TerminalSwitcher: ObservableObject {
     private weak var windowState: WindowState?
     private weak var hostWindow: NSWindow?
     private var panel: NSPanel?
+    private var dismissingPanel: NSPanel?
+    private var pendingDismissal: DispatchWorkItem?
     private var mouseMonitor: Any?
     private var releaseModifiers: NSEvent.ModifierFlags = []
     private var observers: [NSObjectProtocol] = []
@@ -125,6 +128,7 @@ final class TerminalSwitcher: ObservableObject {
             move(by: chord.modifiers.contains(.shift) ? -1 : 1)
             return true
         }
+        finishDismissal()
         let rows = model.panelRows(in: window)
         guard let host = host ?? MainWindowManager.shared.window(for: window), host.isVisible else {
             return false
@@ -198,7 +202,7 @@ final class TerminalSwitcher: ObservableObject {
     }
 
     func commit(_ id: UUID? = nil) {
-        guard let item = filteredItems.first(where: { $0.id == (id ?? highlighted) }) else { return }
+        guard isOpen, let item = filteredItems.first(where: { $0.id == (id ?? highlighted) }) else { return }
         let target = item.targetID
         let model = self.model
         let window = windowState
@@ -216,6 +220,7 @@ final class TerminalSwitcher: ObservableObject {
 
     /// Closes the switcher and puts the window back where it was when the switcher opened.
     func cancel() {
+        guard isOpen else { return }
         let model = self.model
         let window = windowState
         let origin = self.origin
@@ -278,6 +283,7 @@ final class TerminalSwitcher: ObservableObject {
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.isReleasedWhenClosed = false
+        panel.animationBehavior = .none
         panel.appearance = host.appearance
         let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark)
         var cornerRadius = SwitcherLayout.windowCornerRadius
@@ -288,8 +294,13 @@ final class TerminalSwitcher: ObservableObject {
             .environment(\.windowChrome, chrome)
             .preferredColorScheme(AppearanceDriver.shared.interfaceColorScheme)
         panel.contentView = FirstMouseHostingView(rootView: root)
-        host.addChildWindow(panel, ordered: .above)
         self.panel = panel
+        host.addChildWindow(panel, ordered: .above)
+        panel.contentView?.layoutSubtreeIfNeeded()
+        DispatchQueue.main.async { [weak self, weak panel] in
+            guard let self, let panel, self.panel === panel else { return }
+            self.isPresented = true
+        }
     }
 
     /// The dimming covers the whole window, title bar included.
@@ -378,16 +389,15 @@ final class TerminalSwitcher: ObservableObject {
     }
 
     private func close() {
-        let restoreKey = panel?.isKeyWindow == true && NSApp.isActive
-        if let panel {
-            hostWindow?.removeChildWindow(panel)
-            panel.orderOut(nil)
-        }
-        panel = nil
+        guard let panel else { return }
+        let restoreKey = panel.isKeyWindow && NSApp.isActive
+        self.panel = nil
+        dismissingPanel = panel
+        isPresented = false
+        // 选择立即生效，退场中的面板不再接收输入。
+        panel.ignoresMouseEvents = true
+        panel.contentView?.setAccessibilityHidden(true)
         if restoreKey { hostWindow?.makeKey() }
-        isSearching = false
-        query = ""
-        scope = .all
         searchField = nil
         releaseModifiers = []
         if let mouseMonitor {
@@ -399,15 +409,41 @@ final class TerminalSwitcher: ObservableObject {
         }
         observers = []
         subscriptions = []
-        items = []
-        highlighted = nil
         pendingPreview?.cancel()
         pendingPreview = nil
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            finishDismissal()
+        } else {
+            let work = DispatchWorkItem { [weak self] in
+                MainActor.assumeIsolated { self?.finishDismissal() }
+            }
+            pendingDismissal = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Motion.overviewOutDuration, execute: work)
+        }
+    }
+
+    /// 重开时先移除旧面板，旧退场回调不能清空新一轮预览。
+    private func finishDismissal() {
+        pendingDismissal?.cancel()
+        pendingDismissal = nil
+        if let dismissingPanel {
+            dismissingPanel.parent?.removeChildWindow(dismissingPanel)
+            dismissingPanel.orderOut(nil)
+            dismissingPanel.contentView = nil
+        }
+        dismissingPanel = nil
+        isPresented = false
+        isSearching = false
+        query = ""
+        scope = .all
+        items = []
+        highlighted = nil
         origin = nil
         originID = nil
         previewedID = nil
         cardFrames = [:]
         boxFrame = .zero
+        resultsFrame = .zero
     }
 
     // MARK: - Items
@@ -501,6 +537,7 @@ private struct SwitcherResultsFrameKey: PreferenceKey {
 
 struct TerminalSwitcherView: View {
     static let space = "terminalSwitcher"
+    @Environment(\.accessibilityReduceMotion) private var isMotionReduced
     @ObservedObject var switcher: TerminalSwitcher
     let chrome: WindowChrome
     var windowCornerRadius: CGFloat = 0
@@ -518,6 +555,7 @@ struct TerminalSwitcherView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
                     .fill(Color.black.opacity(SwitcherLayout.maskOpacity))
+                    .opacity(switcher.isPresented ? 1 : 0)
                 VStack(spacing: 12) {
                     HStack {
                         Text("Open Items Overview").font(Theme.Font.body.weight(.semibold))
@@ -585,7 +623,12 @@ struct TerminalSwitcherView: View {
                 .background(GeometryReader { box in
                     Color.clear.preference(key: SwitcherBoxFrameKey.self, value: box.frame(in: .named(Self.space)))
                 })
+                .scaleEffect(switcher.isPresented || isMotionReduced ? 1 : Theme.Motion.overviewInitialScale)
+                .offset(y: switcher.isPresented || isMotionReduced ? 0 : Theme.Motion.overviewOffset)
+                .opacity(switcher.isPresented ? 1 : 0)
             }
+            .animation(isMotionReduced ? nil : .easeOut(duration: switcher.isPresented
+                ? Theme.Motion.overviewInDuration : Theme.Motion.overviewOutDuration), value: switcher.isPresented)
             .frame(width: proxy.size.width, height: proxy.size.height)
             .coordinateSpace(name: Self.space)
             .onPreferenceChange(SwitcherCardFramesKey.self) { switcher.cardFrames = $0 }
@@ -641,6 +684,7 @@ private struct SwitcherSearchField: NSViewRepresentable {
 }
 
 private struct SwitcherCard: View {
+    @Environment(\.accessibilityReduceMotion) private var isMotionReduced
     let item: SwitcherItem
     let grid: SwitcherLayout.Grid
     let highlighted: Bool
@@ -690,6 +734,7 @@ private struct SwitcherCard: View {
             RoundedRectangle(cornerRadius: SwitcherLayout.cardCornerRadius, style: .continuous)
                 .stroke(highlighted ? chrome.accent : Color.clear, lineWidth: SwitcherLayout.highlightLineWidth)
         )
+        .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: highlighted)
         .contentShape(Rectangle())
         .onHover { hovered = $0 }
         .accessibilityElement(children: .ignore)

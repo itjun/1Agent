@@ -728,7 +728,13 @@ private struct FilesWorkspaceRoutingTests {
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [], key: 59))
         try require(!switcher.isOpen && state.selectedTabID == target, "Control release commits the highlighted panel")
         let committed = state.selectedTabID
+        let retiringPreview = previewView.window
         try require(switcher.open(model: model, window: state, chord: chord, host: window), "Reopen preview")
+        try require(retiringPreview?.isVisible != true,
+                    "Reopening during dismissal must remove the old preview immediately")
+        try await Task.sleep(for: .milliseconds(300))
+        try require(switcher.isOpen && !switcher.items.isEmpty && window.childWindows?.count == 1,
+                    "The previous dismissal must not clear or detach the newly opened preview [open=\(switcher.isOpen), items=\(switcher.items.count), children=\(window.childWindows?.count ?? 0), active=\(NSApp.isActive), key=\(window.isKeyWindow)]")
         _ = switcher.handle(try previewEvent(.keyDown, flags: [.control], key: 53))
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [], key: 59))
         try require(!switcher.isOpen && state.selectedTabID == committed, "Escape cancels and later release cannot commit")
@@ -744,6 +750,9 @@ private struct FilesWorkspaceRoutingTests {
         _ = switcher.handle(try previewEvent(.keyDown, flags: [.control], key: 53))
         try require(!switcher.isOpen && state.selectedTabID == committed && state.section == .terminals,
                     "Escape returns to the terminal selected before the switcher opened")
+        try await eventually("Dismissal removes its panel after the exit animation") {
+            window.childWindows?.isEmpty != false
+        }
         let files = model.fileWorkspace(for: state)
         let fileColumn = files.localColumn
         let historicalLocal = files.addLocalTab(at: fileColumn.savedPath)
