@@ -147,6 +147,7 @@ enum Theme {
 
 /// Fixed family chrome. Terminal themes own only the terminal rendering surface.
 struct WindowChrome: Equatable {
+    let isDark: Bool
     var background: Color
     var sidebarBackground: Color
     var elevated: Color
@@ -166,6 +167,8 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
+    var inactiveIcon: Color { isDark ? RGBColor(ghosttyHex: "878B92")!.color : secondary }
+
     /// 实心控件根据填充选择黑字或白字，避免马卡龙色上的白字失去对比。
     func filledForeground(on fill: Color) -> Color {
         let resolved = NSColor(fill).usingColorSpace(.sRGB)!
@@ -180,6 +183,7 @@ struct WindowChrome: Equatable {
     }
 
     init(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) {
+        self.isDark = isDark
         func rgb(_ light: String, _ dark: String) -> RGBColor {
             RGBColor(ghosttyHex: isDark ? dark : light)!
         }

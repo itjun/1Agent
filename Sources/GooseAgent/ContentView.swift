@@ -637,7 +637,7 @@ struct RootView: View {
             HStack(spacing: 9) {
                 TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID))
                     .font(.system(size: 15)).frame(width: 20)
-                    .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.secondary)
+                    .foregroundStyle(sessionIconColor(tab, isSelected: window.selectedTabID.map { row.leafIDs.contains($0) } ?? false))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
@@ -670,7 +670,7 @@ struct RootView: View {
                         .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
                 }
             }
-            .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
+            .foregroundStyle(sidebarChrome.text)
             .padding(.leading, 11).padding(.trailing, 30).frame(height: 44)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
@@ -713,7 +713,7 @@ struct RootView: View {
         return HStack(spacing: 9) {
             TerminalPanelIcon(layout: .leaf(tab.id))
                 .font(.system(size: 15)).frame(width: 20)
-                .foregroundStyle(isSelected ? sidebarChrome.accent : sidebarChrome.secondary)
+                .foregroundStyle(sessionIconColor(tab, isSelected: isSelected))
                 .accessibilityHidden(true)
             Text(verbatim: numberedSessionTitle(tab))
                 .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
@@ -726,7 +726,7 @@ struct RootView: View {
                     .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
             }
         }
-        .foregroundStyle(isSelected ? sidebarChrome.accent : sidebarChrome.text)
+        .foregroundStyle(sidebarChrome.text)
         .padding(.leading, 29).padding(.trailing, 10)
         .frame(height: Theme.Control.height)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
@@ -856,6 +856,12 @@ struct RootView: View {
     private func workspaceContextItems(_ workspace: Workspace) -> [FamilyMenuItem] {
         SidebarActions.workspaceItems(workspace, model: model, window: window,
             onRename: { beginWorkspaceRename(workspace) })
+    }
+
+    private func sessionIconColor(_ tab: TerminalTab, isSelected: Bool) -> Color {
+        guard isSelected else { return sidebarChrome.inactiveIcon }
+        let palette = tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw)
+        return WindowChrome.resolve(isDark: sidebarChrome.isDark, icon: palette).accent
     }
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {

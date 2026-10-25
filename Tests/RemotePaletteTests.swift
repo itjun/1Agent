@@ -63,11 +63,17 @@ enum RemotePaletteTests {
                     try check(rgb(chrome.focus).contrastRatio(with: rgb(surface)) >= 3,
                               "Keyboard focus stays visible: \(icon.rawValue), dark=\(isDark)")
                 }
+                try check(rgb(chrome.inactiveIcon).contrastRatio(with: rgb(chrome.sidebarBackground)) >= 3,
+                          "Unselected icons remain identifiable: \(icon.rawValue), dark=\(isDark)")
                 for fill in [chrome.accent, chrome.accentHover, chrome.accentActive, chrome.danger] {
                     try check(rgb(chrome.filledForeground(on: fill)).contrastRatio(with: rgb(fill)) >= 4.5,
                               "Black or white control labels stay readable in every state: \(icon.rawValue), dark=\(isDark)")
                 }
                 if isDark {
+                    try check(chrome.inactiveIcon == WindowChrome(isDark: true, icon: .original).inactiveIcon,
+                              "Unselected terminal icons stay neutral across all palettes")
+                    try check(rgb(chrome.inactiveIcon).relativeLuminance < rgb(chrome.accent).relativeLuminance,
+                              "Only the active terminal icon gets the brighter accent")
                     try check(rgb(chrome.sidebarBackground).relativeLuminance < rgb(chrome.background).relativeLuminance
                               && rgb(chrome.background).relativeLuminance < rgb(chrome.elevated).relativeLuminance
                               && rgb(chrome.elevated).relativeLuminance < rgb(chrome.hairline).relativeLuminance
