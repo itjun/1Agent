@@ -3,11 +3,10 @@ import SwiftUI
 /// A miniature of the actual split tree, shared by the sidebar and open-items overview.
 struct TerminalPanelIcon: View {
     let layout: PaneNode
-    var isRemote = false
 
     var body: some View {
         if case .leaf = layout {
-            Image(systemName: isRemote ? SidebarConnectionGroup.remote.symbol : "terminal")
+            Image(systemName: "terminal")
         } else {
             GeometryReader { geometry in
                 let bounds = CGRect(origin: .zero, size: geometry.size).insetBy(dx: 0.5, dy: 0.5)

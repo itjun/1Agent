@@ -634,8 +634,10 @@ struct RootView: View {
                 : !Set(row.leafIDs).isDisjoint(with: window.sidebarSelection)
             let labeledSubtitle = model.sessionSubtitle(tab)
             HStack(spacing: 9) {
-                TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID), isRemote: model.connectionGroup(for: [tab.id]) == .remote)
+                TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID))
                     .font(.system(size: 15)).frame(width: 20)
+                    .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.secondary)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
                         TextField("Rename", text: $panelNameDraft, prompt: Text(verbatim: sessionTitle(tab)))
