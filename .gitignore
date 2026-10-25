@@ -9,6 +9,7 @@ Packages/GooseTailcat/.build/
 xcuserdata/
 build-rel/
 build-ios/
+/dist/
 
 # 本地凭据与私钥；仅保留明确脱敏的环境变量示例。
 .env
