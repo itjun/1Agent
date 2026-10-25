@@ -2,81 +2,101 @@
   {
     "id": "M01",
     "name": "草莓奶霜",
-    "bg": "#FFF1F4",
-    "fill": "#F6C3D1",
-    "ring": "#E7A7BC",
-    "ink": "#A26D86"
+    "bg": "#FFF2F7",
+    "fill": "#EDAFC9",
+    "ring": "#C389A4",
+    "ink": "#98627E",
+    "terminalBackground": "#24151F",
+    "terminalForeground": "#F8E9F0"
   },
   {
     "id": "M02",
-    "name": "薰衣草奶昔",
-    "bg": "#F4F0FC",
-    "fill": "#D9CCF3",
-    "ring": "#BCA9DD",
-    "ink": "#82719F"
+    "name": "杏桃奶酪",
+    "bg": "#FFF5EC",
+    "fill": "#F0BD91",
+    "ring": "#C5976F",
+    "ink": "#9A704C",
+    "terminalBackground": "#261C13",
+    "terminalForeground": "#F8EEDF"
   },
   {
     "id": "M03",
-    "name": "薄荷奶糖",
-    "bg": "#EFF9F2",
-    "fill": "#C6E8D5",
-    "ring": "#A1CCB8",
-    "ink": "#678F83"
+    "name": "香草奶黄",
+    "bg": "#FFFBEA",
+    "fill": "#EEDB8D",
+    "ring": "#C2B06A",
+    "ink": "#958447",
+    "terminalBackground": "#211D10",
+    "terminalForeground": "#F5F1DF"
   },
   {
     "id": "M04",
-    "name": "云朵苏打",
-    "bg": "#EEF6FC",
-    "fill": "#BEDDF3",
-    "ring": "#9FC2DD",
-    "ink": "#688BA8"
+    "name": "开心果绿",
+    "bg": "#F7FAEC",
+    "fill": "#C8D98F",
+    "ring": "#A1B36F",
+    "ink": "#7A8D4E",
+    "terminalBackground": "#1B2112",
+    "terminalForeground": "#F0F3E1"
   },
   {
     "id": "M05",
-    "name": "蜜桃雪酪",
-    "bg": "#FFF3EB",
-    "fill": "#F7CDB9",
-    "ring": "#E6AE99",
-    "ink": "#A9796F"
+    "name": "薄荷奶糖",
+    "bg": "#EFF9F2",
+    "fill": "#A5D7B4",
+    "ring": "#80B18F",
+    "ink": "#5A8A69",
+    "terminalBackground": "#13241B",
+    "terminalForeground": "#E4F3E9"
   },
   {
     "id": "M06",
-    "name": "柠檬布丁",
-    "bg": "#FFF9EA",
-    "fill": "#F4E3AA",
-    "ring": "#DDC989",
-    "ink": "#A28F5E"
+    "name": "云朵苏打",
+    "bg": "#EFF9FA",
+    "fill": "#96D4D8",
+    "ring": "#74ADB2",
+    "ink": "#52858B",
+    "terminalBackground": "#122329",
+    "terminalForeground": "#E1F1F4"
   },
   {
     "id": "M07",
-    "name": "蓝莓酸奶",
-    "bg": "#F2F2FC",
-    "fill": "#C5CFEE",
-    "ring": "#ACB6DB",
-    "ink": "#7982A7"
+    "name": "晴空蓝",
+    "bg": "#F1F6FD",
+    "fill": "#A8C4EB",
+    "ring": "#85A1C8",
+    "ink": "#617DA4",
+    "terminalBackground": "#0D1B2E",
+    "terminalForeground": "#E6EDF8"
   },
   {
     "id": "M08",
-    "name": "开心果慕斯",
-    "bg": "#F5F8EB",
-    "fill": "#DCE7B4",
-    "ring": "#BFCF96",
-    "ink": "#889A69"
+    "name": "香芋奶昔",
+    "bg": "#F8F2FC",
+    "fill": "#C6ACE0",
+    "ring": "#A589BF",
+    "ink": "#84659E",
+    "terminalBackground": "#21182C",
+    "terminalForeground": "#F1E9F8"
   },
   {
     "id": "M09",
-    "name": "草莓海盐",
-    "bg": "#EDF7F4",
-    "fill": "#F1C8D2",
-    "ring": "#D7AABA",
-    "ink": "#968099"
+    "name": "珊瑚蜜桃",
+    "bg": "#FFF1EB",
+    "fill": "#EDA99A",
+    "ring": "#C8887A",
+    "ink": "#A26759",
+    "terminalBackground": "#281913",
+    "terminalForeground": "#F9EAE5"
   },
   {
     "id": "M10",
-    "name": "香芋蜜桃",
-    "bg": "#FDF0EA",
-    "fill": "#DACBF2",
-    "ring": "#BFA9D9",
-    "ink": "#9077A4"
+    "name": "可可奶茶",
+    "bg": "#F9F4EE",
+    "fill": "#CDB59F",
+    "ring": "#AD947F",
+    "ink": "#8C735F",
+    "terminalBackground": "#231C17",
+    "terminalForeground": "#F1E9E1"
   }
 ]

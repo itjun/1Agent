@@ -29,9 +29,9 @@ enum ApplicationIconTests {
         if phase == "save" {
             let manager = ApplicationIconManager(defaults: defaults, bundle: bundle, applicationURL: applicationURL)
             try check(manager.select(.mintCandy), "Saved icon must be applied")
-            try check(finderMatches(applicationURL, manager.image(for: .mintCandy)!), "Finder must use M03 before the app exits")
+            try check(finderMatches(applicationURL, manager.image(for: .mintCandy)!), "Finder must use M05 before the app exits")
             defaults.synchronize()
-            print("Saved M03 for a fresh process")
+            print("Saved M05 for a fresh process")
             return
         }
         if phase == "restore" {
@@ -45,7 +45,7 @@ enum ApplicationIconTests {
             try check(finderMatches(applicationURL, manager.image(for: .mintCandy)!), "Startup must restore Finder after bundle replacement")
             try check(manager.select(.defaultIcon), "Fixture default must be restored after restart verification")
             defaults.removePersistentDomain(forName: suite)
-            print("Fresh process verified persistent Finder metadata and restored M03 after simulated reinstall")
+            print("Fresh process verified persistent Finder metadata and restored M05 after simulated reinstall")
             return
         }
 
@@ -54,7 +54,7 @@ enum ApplicationIconTests {
         defaults.set("unknown-palette", forKey: ApplicationIcon.storageKey)
         try check(ApplicationIcon.stored(defaults: defaults) == .original, "Unknown preferences fall back to the original")
         defaults.set("M05", forKey: ApplicationIcon.storageKey)
-        try check(ApplicationIcon.stored(defaults: defaults) == .peachSorbet, "Changing the default must preserve an existing M05 selection")
+        try check(ApplicationIcon.stored(defaults: defaults) == .mintCandy, "Changing the default must preserve an existing M05 selection")
         defaults.removeObject(forKey: ApplicationIcon.storageKey)
 
         let manager = ApplicationIconManager(defaults: defaults, bundle: bundle, applicationURL: applicationURL)
@@ -62,12 +62,12 @@ enum ApplicationIconTests {
         try check(ApplicationIcon.macaronIcons.count == 10 && !ApplicationIcon.macaronIcons.contains(.original),
                   "All ten macaron alternatives must remain available separately from the original")
         try checkPalettesMatchBundledJSON(bundle)
-        guard let defaultURL = bundle.url(forResource: "AppIcon", withExtension: "icns"),
+        guard let defaultURL = bundle.url(forResource: "Original", withExtension: "icns", subdirectory: "ApplicationIcons"),
               let bundledDefault = NSImage(contentsOf: defaultURL),
               let originalImage = manager.image(for: .original) else {
             throw Failure(message: "The bundled default and original icon must both exist")
         }
-        try check(samePixels(bundledDefault, originalImage), "The installed app's default icon must match the original settings option")
+        try check(samePixels(bundledDefault, originalImage), "The original settings option must use Original.icns independently of the system's layered AppIcon")
         manager.applyStoredIcon()
         try check(finderMatches(applicationURL, manager.image(for: .original)!), "First launch must apply the original icon to Finder")
         for icon in ApplicationIcon.allCases {
@@ -103,7 +103,7 @@ enum ApplicationIconTests {
         SystemIconStyle.overrideForTests = .adaptive
         manager.applyStoredIcon()
         try check(manager.selected == .mintCandy && ApplicationIcon.stored(defaults: defaults) == .mintCandy,
-                  "Clear style keeps the saved palette for window chrome")
+                  "Clear style keeps the saved icon palette")
         try check(!samePixels(NSApp.applicationIconImage, manager.image(for: .mintCandy)!),
                   "Clear style must not keep a flat Dock icon")
         try check(finderDiffers(applicationURL, manager.image(for: .mintCandy)!),
@@ -130,6 +130,8 @@ enum ApplicationIconTests {
             let fill: String
             let ring: String
             let ink: String
+            let terminalBackground: String
+            let terminalForeground: String
         }
         guard let url = bundle.url(forResource: "macaron-palettes", withExtension: "json"),
               let data = try? Data(contentsOf: url),
@@ -145,7 +147,9 @@ enum ApplicationIconTests {
                 value.hasPrefix("#") ? String(value.dropFirst()) : value
             }
             try check(
-                palette.fill == hex(row.fill) && palette.ring == hex(row.ring) && palette.ink == hex(row.ink),
+                palette.fill == hex(row.fill) && palette.ring == hex(row.ring) && palette.ink == hex(row.ink)
+                    && palette.terminalBackground == hex(row.terminalBackground)
+                    && palette.terminalForeground == hex(row.terminalForeground),
                 "Chrome palette for \(row.id) must match macaron-palettes.json"
             )
         }

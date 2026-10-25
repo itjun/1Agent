@@ -18,13 +18,13 @@ enum RemotePaletteTests {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        try check(RemotePalette.stored(defaults: defaults) == .peachSorbet, "Remote must default to M05")
+        try check(RemotePalette.stored(defaults: defaults) == .vanillaCustard, "Remote must default to M03")
 
         defaults.set(ApplicationIcon.original.rawValue, forKey: RemotePalette.storageKey)
-        try check(RemotePalette.stored(defaults: defaults) == .peachSorbet, "Original has no palette, so remote falls back to M05")
+        try check(RemotePalette.stored(defaults: defaults) == .vanillaCustard, "Original has no palette, so remote falls back to M03")
 
         defaults.set("M99", forKey: RemotePalette.storageKey)
-        try check(RemotePalette.stored(defaults: defaults) == .peachSorbet, "An unknown value falls back to M05")
+        try check(RemotePalette.stored(defaults: defaults) == .vanillaCustard, "An unknown value falls back to M03")
 
         defaults.set(ApplicationIcon.cloudSoda.rawValue, forKey: RemotePalette.storageKey)
         try check(RemotePalette.stored(defaults: defaults) == .cloudSoda, "A saved macaron palette must be kept")

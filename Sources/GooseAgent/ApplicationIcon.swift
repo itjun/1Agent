@@ -4,15 +4,15 @@ import Combine
 enum ApplicationIcon: String, CaseIterable, Identifiable {
     case original = "Original"
     case strawberryCream = "M01"
-    case lavenderMilkshake = "M02"
-    case mintCandy = "M03"
-    case cloudSoda = "M04"
-    case peachSorbet = "M05"
-    case lemonPudding = "M06"
-    case blueberryYogurt = "M07"
-    case pistachioMousse = "M08"
-    case strawberrySeaSalt = "M09"
-    case taroPeach = "M10"
+    case apricotCream = "M02"
+    case vanillaCustard = "M03"
+    case pistachioGreen = "M04"
+    case mintCandy = "M05"
+    case cloudSoda = "M06"
+    case clearSkyBlue = "M07"
+    case taroMilkshake = "M08"
+    case coralPeach = "M09"
+    case cocoaMilkTea = "M10"
 
     static let storageKey = "appearance.applicationIcon"
     static let defaultIcon: Self = .original
@@ -24,15 +24,15 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
         switch self {
         case .original: String(localized: "Original Blue")
         case .strawberryCream: String(localized: "Strawberry Cream")
-        case .lavenderMilkshake: String(localized: "Lavender Milkshake")
+        case .apricotCream: String(localized: "Apricot Cream")
+        case .vanillaCustard: String(localized: "Vanilla Custard")
+        case .pistachioGreen: String(localized: "Pistachio Green")
         case .mintCandy: String(localized: "Mint Candy")
         case .cloudSoda: String(localized: "Cloud Soda")
-        case .peachSorbet: String(localized: "Peach Sorbet")
-        case .lemonPudding: String(localized: "Lemon Pudding")
-        case .blueberryYogurt: String(localized: "Blueberry Yogurt")
-        case .pistachioMousse: String(localized: "Pistachio Mousse")
-        case .strawberrySeaSalt: String(localized: "Strawberry Sea Salt")
-        case .taroPeach: String(localized: "Taro Peach")
+        case .clearSkyBlue: String(localized: "Clear Sky Blue")
+        case .taroMilkshake: String(localized: "Taro Milkshake")
+        case .coralPeach: String(localized: "Coral Peach")
+        case .cocoaMilkTea: String(localized: "Cocoa Milk Tea")
         }
     }
 
@@ -40,23 +40,27 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
         let fill: String
         let ring: String
         let ink: String
+        let terminalBackground: String
+        let terminalForeground: String
+
+        var terminalAccent: String { fill }
     }
 
-    /// Same colors as `Resources/AppIcon/macaron-palettes.json`; the window chrome accent follows them.
-    /// Nil keeps the original blue chrome.
+    /// Shared identity colors for app icons, window chrome, and terminal palettes.
+    /// Raw IDs stay stable when an installed palette receives a redesigned appearance.
     var palette: Palette? {
         switch self {
         case .original: nil
-        case .strawberryCream: Palette(fill: "F6C3D1", ring: "E7A7BC", ink: "A26D86")
-        case .lavenderMilkshake: Palette(fill: "D9CCF3", ring: "BCA9DD", ink: "82719F")
-        case .mintCandy: Palette(fill: "C6E8D5", ring: "A1CCB8", ink: "678F83")
-        case .cloudSoda: Palette(fill: "BEDDF3", ring: "9FC2DD", ink: "688BA8")
-        case .peachSorbet: Palette(fill: "F7CDB9", ring: "E6AE99", ink: "A9796F")
-        case .lemonPudding: Palette(fill: "F4E3AA", ring: "DDC989", ink: "A28F5E")
-        case .blueberryYogurt: Palette(fill: "C5CFEE", ring: "ACB6DB", ink: "7982A7")
-        case .pistachioMousse: Palette(fill: "DCE7B4", ring: "BFCF96", ink: "889A69")
-        case .strawberrySeaSalt: Palette(fill: "F1C8D2", ring: "D7AABA", ink: "968099")
-        case .taroPeach: Palette(fill: "DACBF2", ring: "BFA9D9", ink: "9077A4")
+        case .strawberryCream: Palette(fill: "EDAFC9", ring: "C389A4", ink: "98627E", terminalBackground: "24151F", terminalForeground: "F8E9F0")
+        case .apricotCream: Palette(fill: "F0BD91", ring: "C5976F", ink: "9A704C", terminalBackground: "261C13", terminalForeground: "F8EEDF")
+        case .vanillaCustard: Palette(fill: "EEDB8D", ring: "C2B06A", ink: "958447", terminalBackground: "211D10", terminalForeground: "F5F1DF")
+        case .pistachioGreen: Palette(fill: "C8D98F", ring: "A1B36F", ink: "7A8D4E", terminalBackground: "1B2112", terminalForeground: "F0F3E1")
+        case .mintCandy: Palette(fill: "A5D7B4", ring: "80B18F", ink: "5A8A69", terminalBackground: "13241B", terminalForeground: "E4F3E9")
+        case .cloudSoda: Palette(fill: "96D4D8", ring: "74ADB2", ink: "52858B", terminalBackground: "122329", terminalForeground: "E1F1F4")
+        case .clearSkyBlue: Palette(fill: "A8C4EB", ring: "85A1C8", ink: "617DA4", terminalBackground: "0D1B2E", terminalForeground: "E6EDF8")
+        case .taroMilkshake: Palette(fill: "C6ACE0", ring: "A589BF", ink: "84659E", terminalBackground: "21182C", terminalForeground: "F1E9F8")
+        case .coralPeach: Palette(fill: "EDA99A", ring: "C8887A", ink: "A26759", terminalBackground: "281913", terminalForeground: "F9EAE5")
+        case .cocoaMilkTea: Palette(fill: "CDB59F", ring: "AD947F", ink: "8C735F", terminalBackground: "231C17", terminalForeground: "F1E9E1")
         }
     }
 
@@ -70,16 +74,15 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
     }
 }
 
-/// Macaron palette the window takes while a remote terminal is selected; local terminals follow the app icon.
+/// Remote terminal identity keeps its existing preference key through the palette redesign.
 enum RemotePalette {
     static let storageKey = "appearance.remotePalette"
-    static let defaultPalette: ApplicationIcon = .peachSorbet
+    static let defaultPalette: ApplicationIcon = .vanillaCustard
 
     static func stored(defaults: UserDefaults = .standard) -> ApplicationIcon {
         RemotePalette.palette(raw: defaults.string(forKey: storageKey))
     }
 
-    /// Only macaron palettes qualify; the original blue icon has no palette to tint with.
     static func palette(raw: String?) -> ApplicationIcon {
         if let icon = ApplicationIcon(rawValue: raw ?? ""), icon.palette != nil {
             return icon

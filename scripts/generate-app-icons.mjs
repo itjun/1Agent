@@ -9,6 +9,7 @@ const source = path.join(root, 'Resources/AppIcon');
 const output = path.join(root, 'Resources/ApplicationIcons');
 const work = path.join(root, 'build/ApplicationIcons.noindex');
 const original = path.join(source, 'macaron-original-mark.png');
+const isMacaronsOnly = process.argv.includes('--macarons-only');
 const palettes = JSON.parse(fs.readFileSync(path.join(source, 'macaron-palettes.json'), 'utf8'));
 // Flat macaron icons keep the original outlined mark. The installed AppIcon.icon is a
 // separate outline glyph so Dark, Clear, and Tinted stay readable, and this script must not overwrite it.
@@ -40,24 +41,26 @@ function compileIcon(iconDir, id, icon) {
   fs.copyFileSync(path.join(compiled, `${id}.icns`), path.join(output, `${id}.icns`));
 }
 
-// The bundled default always uses the untouched original mark on a white background.
-const originalIconDir = path.join(work, 'Original.icon');
-fs.mkdirSync(path.join(originalIconDir, 'Assets'), { recursive: true });
-fs.copyFileSync(original, path.join(originalIconDir, 'Assets/ghostty-mark.png'));
-const originalIcon = structuredClone(template);
-originalIcon.fill.solid = 'srgb:1.00000,1.00000,1.00000,1.00000';
-compileIcon(originalIconDir, 'Original', originalIcon);
-const square = path.join(source, 'goose-agent-icon-1024.png');
-const rounded = path.join(source, 'goose-agent-icon-rounded.png');
-run('magick', ['-size', '1024x1024', 'xc:#FFFFFF', original, '-composite', square]);
-run('magick', [square, '(', rounded, '-alpha', 'extract', ')', '-alpha', 'off', '-compose', 'CopyOpacity', '-composite', rounded]);
-fs.writeFileSync(path.join(source, 'goose-agent-icon.svg'), `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+if (!isMacaronsOnly) {
+  // The bundled default always uses the untouched original mark on a white background.
+  const originalIconDir = path.join(work, 'Original.icon');
+  fs.mkdirSync(path.join(originalIconDir, 'Assets'), { recursive: true });
+  fs.copyFileSync(original, path.join(originalIconDir, 'Assets/ghostty-mark.png'));
+  const originalIcon = structuredClone(template);
+  originalIcon.fill.solid = 'srgb:1.00000,1.00000,1.00000,1.00000';
+  compileIcon(originalIconDir, 'Original', originalIcon);
+  const square = path.join(source, 'goose-agent-icon-1024.png');
+  const rounded = path.join(source, 'goose-agent-icon-rounded.png');
+  run('magick', ['-size', '1024x1024', 'xc:#FFFFFF', original, '-composite', square]);
+  run('magick', [square, '(', rounded, '-alpha', 'extract', ')', '-alpha', 'off', '-compose', 'CopyOpacity', '-composite', rounded]);
+  fs.writeFileSync(path.join(source, 'goose-agent-icon.svg'), `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <rect width="1024" height="1024" fill="#FFFFFF"/>
   <image href="ghostty-source.svg" x="152" y="152" width="720" height="720"
          preserveAspectRatio="xMidYMid meet"/>
 </svg>
 `);
-console.log('Original: white and blue default restored; original mark unchanged');
+  console.log('Original: white and blue default restored; original mark unchanged');
+}
 
 for (const palette of palettes) {
   const ink = rgb(palette.ink), fill = rgb(palette.fill), ring = rgb(palette.ring);
