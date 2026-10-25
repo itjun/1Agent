@@ -130,7 +130,7 @@ final class AppUpdateController: ObservableObject {
         Task { await check(manual: false) }
     }
 
-    func check(manual: Bool) async {
+    func check(manual: Bool, showResult: Bool = false) async {
         if !manual && (!prefs.autoCheck || Task.isCancelled) { return }
         if !state.enabled {
             if manual { state.error = state.disabledReason }
@@ -146,15 +146,15 @@ final class AppUpdateController: ObservableObject {
         state.status = .checking
         lastAttempt = Date()
         if manual {
-            await performCheck(manual: true, previous: previous)
+            await performCheck(manual: true, showResult: showResult, previous: previous)
         } else {
-            let task = Task { await self.performCheck(manual: false, previous: previous) }
+            let task = Task { await self.performCheck(manual: false, showResult: false, previous: previous) }
             automaticCheck = task
             await task.value
         }
     }
 
-    private func performCheck(manual: Bool, previous: AppUpdateStatus) async {
+    private func performCheck(manual: Bool, showResult: Bool, previous: AppUpdateStatus) async {
         defer {
             if state.status == .checking { state.status = .idle }
         }
@@ -213,6 +213,7 @@ final class AppUpdateController: ObservableObject {
                 prompt = true
             }
             if prompt { announceUpdate(manual: manual) }
+            else if manual && showResult { presentUpdate() }
         }
     }
 
@@ -526,7 +527,8 @@ enum AppUpdatePresenter {
         if presentation != nil && self.failed == failed { return }
         close()
         self.failed = failed
-        let height = AppUpdateController.shared.state.notes.isEmpty ? SheetLayout.appUpdateCompactHeight : SheetLayout.appUpdateHeight
+        let state = AppUpdateController.shared.state
+        let height = !state.hasUpdate || state.notes.isEmpty ? SheetLayout.appUpdateCompactHeight : SheetLayout.appUpdateHeight
         let owner = frontWindow()
         let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark, icon: ApplicationIcon.stored())
         let root = AnyView(

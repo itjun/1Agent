@@ -1,5 +1,18 @@
 import SwiftUI
 
+struct AppUpdateCommands: Commands {
+    @ObservedObject private var updates = AppUpdateController.shared
+
+    var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") {
+                Task { await updates.check(manual: true, showResult: true) }
+            }
+            .disabled(!updates.state.enabled || updates.state.status == .checking || updates.state.status == .downloading || updates.state.status == .installing)
+        }
+    }
+}
+
 struct AppUpdateSettingsPage: View {
     @ObservedObject private var updates = AppUpdateController.shared
     @Environment(\.windowChrome) private var chrome
@@ -114,7 +127,7 @@ struct AppUpdateDialogView: View {
                 .font(Theme.Font.body)
                 .foregroundStyle(chrome.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if !updates.state.notes.isEmpty {
+            if updates.state.hasUpdate && !updates.state.notes.isEmpty {
                 ScrollView {
                     Text(updates.state.notes)
                         .font(Theme.Font.rowMeta)
@@ -154,7 +167,7 @@ struct AppUpdateDialogView: View {
             return String(format: String(localized: "Version %@ is available."), shownVersion(updates.state.latest))
         }
         if failed { return String(localized: "Could not check for updates") }
-        return String(format: String(localized: "Version %@ is available."), shownVersion(updates.state.latest))
+        return String(localized: "1Agent is up to date.")
     }
 
     private var message: String {
@@ -166,6 +179,9 @@ struct AppUpdateDialogView: View {
         }
         if failed {
             return String(localized: "Could not reach the update server. Download the new version from the releases page.")
+        }
+        if !updates.state.hasUpdate {
+            return String(format: String(localized: "Version %@"), shownVersion(updates.state.current))
         }
         if updates.state.mandatory {
             return String(localized: "This version is no longer supported. Update to continue.")
@@ -205,6 +221,9 @@ struct AppUpdateDialogView: View {
                 .buttonStyle(FamilyButtonStyle(kind: updates.state.hasUpdate && updates.state.size > 0 ? .secondary : .primary))
             Button("Close") { updates.dismissOptional() }
                 .buttonStyle(FamilyButtonStyle(kind: .secondary))
+        } else if !updates.state.hasUpdate {
+            Button("Close") { updates.dismissOptional() }
+                .buttonStyle(FamilyButtonStyle(kind: .primary))
         } else if updates.state.mandatory {
             if updates.state.status == .downloading {
                 Button("Cancel Download") { updates.cancelDownload() }

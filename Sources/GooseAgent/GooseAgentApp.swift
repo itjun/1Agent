@@ -591,6 +591,7 @@ struct GooseAgentApp: App {
         }
         .commands {
             let _ = shortcutsRevision
+            AppUpdateCommands()
             CommandGroup(replacing: .newItem) {
                 Button("Close Window") {
                     guard !(NSApp.keyWindow is FamilyModalWindow), let state = appDelegate.model.keyWindow else { return }

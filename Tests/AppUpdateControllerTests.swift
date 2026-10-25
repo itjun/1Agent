@@ -117,7 +117,7 @@ enum AppUpdateControllerTests {
             try? await Task.sleep(nanoseconds: 10_200_000_000)
             require(UpdateFixtureProtocol.requestCount == 0, "disabled automatic checks must not make any update requests")
             require(!isDialogVisible(), "disabled automatic checks must not show dialogs")
-            await updates.check(manual: true)
+            await updates.check(manual: true, showResult: true)
             require(UpdateFixtureProtocol.requestCount > 0 && isDialogVisible(), "manual checks still work when automatic checks are disabled")
             print("AppUpdateControllerTests passed: disabled")
             return
@@ -142,7 +142,7 @@ enum AppUpdateControllerTests {
         await updates.check(manual: false)
         require(!isDialogVisible(), "repeated automatic failures stay quiet: \(scenario)")
 
-        await updates.check(manual: true)
+        await updates.check(manual: true, showResult: true)
         require(isDialogVisible(), "a manual check still displays the failure")
         print("AppUpdateControllerTests passed: \(scenario)")
     }
