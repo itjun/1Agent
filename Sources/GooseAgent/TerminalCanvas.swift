@@ -397,58 +397,17 @@ struct TerminalCanvas: View {
         return banner + find
     }
 
-    /// Strip under the title bar for an exited terminal. Only its recovery button takes clicks;
-    /// the rest lets the terminal keep its text selection.
+    /// Recovery stays inside the reserved strip; it never covers the terminal or takes focus.
     private func connectionBanner(_ tab: TerminalTab) -> some View {
-        let tint: Color
-        let message: String
-        if tab.reconnecting {
-            tint = chrome.warning
-            if tab.reconnectAttempts > 0 {
-                message = String(
-                    format: String(localized: "Connection lost, reconnecting (%lld/%lld)"),
-                    tab.reconnectAttempts,
-                    AppModel.maxAutoReconnectAttempts
-                )
-            } else {
-                message = String(localized: "Reconnecting…")
-            }
-        } else {
-            tint = chrome.danger
-            message = tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")
-        }
-        return HStack(spacing: Theme.Space.s) {
-            Text(message)
-                .font(Theme.Font.body)
-                .foregroundStyle(chrome.text)
-                .lineLimit(1)
-                .allowsHitTesting(false)
-            Spacer(minLength: 0)
-            if tab.showsDisconnected {
-                Button {
-                    if tab.isLocal { model.reopenLocalTerminal(tab.id) }
-                    else { model.reconnect(tab.id) }
-                } label: {
-                    Text(tab.isLocal ? String(localized: "Reopen Terminal") : String(localized: "Reconnect"))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(chrome.background)
-                        .padding(.horizontal, Theme.Space.m)
-                        .padding(.vertical, Theme.Space.xs)
-                        .background(Capsule().fill(chrome.accent))
-                }
-                .buttonStyle(.plain)
-                .help(AppShortcuts.display(for: .reconnect))
-            }
-        }
-        .padding(.horizontal, Theme.Space.m)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            ZStack {
-                chrome.background
-                tint.opacity(Theme.PaneStyle.bannerTintOpacity)
-            }
-            .allowsHitTesting(false)
-        }
+        TerminalConnectionBanner(tab: tab, onRecover: {
+            // A queued second click must not restart a terminal that has already recovered.
+            guard let current = model.tabs.first(where: { $0.id == tab.id }), current.showsDisconnected else { return }
+            if current.isLocal { model.reopenLocalTerminal(current.id) }
+            else { model.reconnect(current.id) }
+        }, menuItems: {
+            TerminalPaneActions.items(tab: tab, model: model, window: window)
+        })
+        .environment(\.windowChrome, terminalChrome(tab))
     }
 
     private func numberedPaneTitle(_ tab: TerminalTab) -> String {

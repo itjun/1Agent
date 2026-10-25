@@ -84,7 +84,7 @@ enum Theme {
         static let focusRailTopInset: CGFloat = 8
         static let titlebarAccessoryInset: CGFloat = 44
         /// Disconnected / reconnecting banner shown under the title bar.
-        static let bannerHeight: CGFloat = 28
+        static let bannerHeight: CGFloat = 48
         /// Icon size next to the pane title (reconnecting / disconnected).
         static let statusIconSize: CGFloat = 11
         /// Opacity of the warning / danger tint over the banner background.

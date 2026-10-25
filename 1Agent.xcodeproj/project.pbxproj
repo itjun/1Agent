@@ -39,6 +39,7 @@
 		3CFD4C61C9572EF64DF11BE9 /* ApplicationIconSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43AC2234E9399E765452B45C /* ApplicationIconSettingsPage.swift */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
+		416014875AEC9FB700D4AC69 /* TerminalConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A01572B5CD98B6FE9E0DE8 /* TerminalConnectionBanner.swift */; };
 		44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */; };
 		454601CCC7894A948CE872FC /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */; };
 		469C2A9F9A8D0FFAC417BED2 /* shell-integration in Resources */ = {isa = PBXBuildFile; fileRef = 11B7BE5E018ED46FA154243C /* shell-integration */; };
@@ -234,6 +235,7 @@
 		8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */ = {isa = PBXFileReference; path = "goose-agent-icon.svg"; sourceTree = "<group>"; };
 		906AFAE30A9BC239EE0FB97B /* FileWorkspaceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkspaceState.swift; sourceTree = "<group>"; };
 		9287816E82C9C005D220C098 /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
+		92A01572B5CD98B6FE9E0DE8 /* TerminalConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConnectionBanner.swift; sourceTree = "<group>"; };
 		97958BC6F31945F5729782D0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTextPreview.swift; sourceTree = "<group>"; };
 		A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMenus.swift; sourceTree = "<group>"; };
@@ -474,6 +476,7 @@
 				BDD19F7BC748240DBEB43285 /* TerminalCommandLine.swift */,
 				68F8FB8424C9121A1D861F18 /* TerminalCommandPalette.swift */,
 				24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */,
+				92A01572B5CD98B6FE9E0DE8 /* TerminalConnectionBanner.swift */,
 				3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */,
 				C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */,
 				DA0C5AD90ACC70094360B818 /* TerminalIntents.swift */,
@@ -686,6 +689,7 @@
 				EBF4B19BD9F6786A86FA222C /* TerminalCommandLine.swift in Sources */,
 				21AF7290436D16AF9D2BA8A0 /* TerminalCommandPalette.swift in Sources */,
 				5DEEF6A3D6B4A511C449594D /* TerminalCommands.swift in Sources */,
+				416014875AEC9FB700D4AC69 /* TerminalConnectionBanner.swift in Sources */,
 				EBF6CF1BD4B5817CD589D2BA /* TerminalEvents.swift in Sources */,
 				DB3CE4CD31111689FAE6C7E6 /* TerminalFind.swift in Sources */,
 				DAF38D6E94140385B26CB56B /* TerminalIntents.swift in Sources */,
