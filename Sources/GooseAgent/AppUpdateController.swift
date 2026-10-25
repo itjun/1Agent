@@ -144,17 +144,14 @@ final class AppUpdateController: ObservableObject {
             } else {
                 state.status = .idle
             }
-            let isAutomaticNotice = !manual && !netFailNotified && (error.isUnreachable || state.hasUpdate)
-            if manual || error.isUnreachable || state.hasUpdate {
-                state.error = error.message
-            }
-            if !manual && error.isUnreachable {
-                state.checkFailed = true
-            }
+            // 后台请求失败只在设置页反馈；仅确认有新版本且符合提醒偏好时才打扰用户。
+            let isAutomaticNotice = !manual && !netFailNotified && shouldPrompt()
+            state.error = error.message
+            state.checkFailed = true
             if isAutomaticNotice { netFailNotified = true }
             if manual || isAutomaticNotice {
                 if state.hasUpdate && state.size > 0 {
-                    if manual { state.prompt = true }
+                    state.prompt = true
                     announceUpdate()
                 } else if state.hasUpdate {
                     announceRelease(manual: manual)

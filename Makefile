@@ -5,6 +5,7 @@
 .PHONY: test-terminal-windows test-scripting-replies
 .PHONY: test-terminal-automation
 .PHONY: test-terminal-compatibility test-terminal-stress
+.PHONY: test-app-update-controller
 
 test-terminal-automation:
 	python3 scripts/test-terminal-automation.py
@@ -49,6 +50,9 @@ generate-app-icons:
 
 test-app-icons:
 	bash scripts/test-app-icons.sh
+
+test-app-update-controller:
+	bash scripts/test-app-update-controller.sh
 
 # Compile, then install into /Applications (quit → replace → relaunch if needed).
 build: gen
