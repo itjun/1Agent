@@ -55,7 +55,9 @@ enum GhosttyConfigImport {
             TerminalAppearance.lightThemeKey,
             TerminalAppearance.darkThemeKey,
             AppShortcuts.storageKey,
-        ]
+        ] + TerminalThemeTarget.allCases.flatMap { target in
+            [false, true].map { TerminalAppearance.themeKey(for: target, dark: $0) }
+        }
     }
 
     static func hasBackup(defaults: UserDefaults = .standard) -> Bool {
@@ -70,11 +72,13 @@ enum GhosttyConfigImport {
 
         plan.newSettings.save(to: defaults)
 
-        if let light = plan.theme.light, let choice = TerminalThemeChoice(raw: light.name) {
-            defaults.set(choice.name, forKey: TerminalAppearance.lightThemeKey)
-        }
-        if let dark = plan.theme.dark, let choice = TerminalThemeChoice(raw: dark.name) {
-            defaults.set(choice.name, forKey: TerminalAppearance.darkThemeKey)
+        for target in TerminalThemeTarget.allCases {
+            if let light = plan.theme.light, let choice = TerminalThemeChoice(raw: light.name) {
+                defaults.set(choice.name, forKey: TerminalAppearance.themeKey(for: target, dark: false))
+            }
+            if let dark = plan.theme.dark, let choice = TerminalThemeChoice(raw: dark.name) {
+                defaults.set(choice.name, forKey: TerminalAppearance.themeKey(for: target, dark: true))
+            }
         }
 
         var chords: [AppShortcutID: KeyChord] = [:]

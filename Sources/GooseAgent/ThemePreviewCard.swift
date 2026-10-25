@@ -7,6 +7,7 @@ import SwiftUI
 struct ThemePreviewCard: View {
     let definition: GhosttyThemeDefinition
     let selected: Bool
+    var isRemote = false
     let onSelect: () -> Void
 
     @Environment(\.windowChrome) private var chrome
@@ -67,10 +68,10 @@ struct ThemePreviewCard: View {
         let cursor = definition.cursorColor.flatMap { Color(ghosttyHex: $0) } ?? foreground
 
         return VStack(alignment: .leading, spacing: 3) {
-            Text(verbatim: "itjun").foregroundColor(palette(2))
+            Text(verbatim: isRemote ? "operator" : "developer").foregroundColor(palette(2))
                 + Text(verbatim: "@").foregroundColor(foreground)
-                + Text(verbatim: "mac").foregroundColor(palette(4))
-                + Text(verbatim: " ~/iLearn").foregroundColor(palette(6))
+                + Text(verbatim: isRemote ? "server" : "mac").foregroundColor(palette(4))
+                + Text(verbatim: isRemote ? " /srv/app" : " ~/workspace").foregroundColor(palette(6))
             Text(verbatim: "$ ").foregroundColor(palette(5))
                 + Text(verbatim: "ls --color").foregroundColor(foreground)
             Text(verbatim: "src  ").foregroundColor(palette(4))

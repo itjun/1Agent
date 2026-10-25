@@ -109,8 +109,6 @@ struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
     @State private var selectedPage: SettingsPage = .appearance
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
-    @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
     @AppStorage(TerminalSettings.fontThickenKey) private var fontThicken = TerminalSettings.defaults.fontThicken
@@ -125,6 +123,7 @@ struct SettingsView: View {
     @State private var themeQuery = ""
     @FocusState private var themeSearchFocused: Bool
     @State private var themeFilter: ThemeFilter = .all
+    @State private var selectedThemeTarget: TerminalThemeTarget = .local
     /// User theme waiting for the Move to Trash confirmation.
 
     private var sidebarChrome: WindowChrome { chrome }
@@ -338,8 +337,8 @@ struct SettingsView: View {
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast
         GhosttyRuntime.applyTerminalSettings()
-        if !preview.showsDefaults {
-            preview.showDefaults()
+        for target in [TerminalThemeTarget.local, .remote] where !preview.showsDefaults(for: target) {
+            preview.showDefaults(for: target)
         }
     }
 
@@ -572,11 +571,11 @@ struct SettingsView: View {
         }
     }
 
-    /// Previews the GitHub light and dark defaults together; the action bar then saves or cancels them.
+    /// Restores only the terminal kind currently being edited; Save / Cancel applies to all drafts.
     private var restoreDefaultThemesButton: some View {
-        let disabled = preview.showsDefaults
+        let disabled = preview.showsDefaults(for: selectedThemeTarget)
         return Button {
-            preview.showDefaults()
+            preview.showDefaults(for: selectedThemeTarget)
         } label: {
             Text("Restore Default Themes")
                 .font(.system(size: 13, weight: .medium))
@@ -589,14 +588,16 @@ struct SettingsView: View {
     }
 
     /// The two themes in use (or being previewed) stay on top; clicking one lists that slot's themes.
-    /// The list opens on typing or on Dark / Light; clicking a card previews it in every window without saving.
+    /// The list opens on typing or on Dark / Light; previews affect only the chosen terminal kind.
     private var themePicker: some View {
         let results = matchingThemes
         return VStack(alignment: .leading, spacing: Theme.Space.l) {
+            themeTargetPicker
+
             // 与下方结果网格共用列定义，两张卡占前两列并与结果卡对齐。
             LazyVGrid(columns: themeColumns, alignment: .leading, spacing: Theme.Space.m) {
-                currentThemeCard(title: "Current light theme", choice: preview.effectiveLight(), filter: .light)
-                currentThemeCard(title: "Current dark theme", choice: preview.effectiveDark(), filter: .dark)
+                currentThemeCard(title: "Current light theme", choice: preview.effectiveLight(for: selectedThemeTarget), filter: .light)
+                currentThemeCard(title: "Current dark theme", choice: preview.effectiveDark(for: selectedThemeTarget), filter: .dark)
             }
 
             HStack(spacing: Theme.Space.m) {
@@ -620,14 +621,26 @@ struct SettingsView: View {
                     ForEach(results) { definition in
                         ThemePreviewCard(
                             definition: definition,
-                            selected: isInUse(definition)
+                            selected: isInUse(definition),
+                            isRemote: selectedThemeTarget == .remote
                         ) {
-                            preview.show(definition)
+                            preview.show(definition, for: selectedThemeTarget)
                         }
                     }
                 }
             }
         }
+    }
+
+    private var themeTargetPicker: some View {
+        Picker("Terminal Colors", selection: $selectedThemeTarget) {
+            Text("This Mac").tag(TerminalThemeTarget.local)
+            Text("Remote").tag(TerminalThemeTarget.remote)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: SettingsLayout.rowControlWidth)
+        .accessibilityIdentifier("settings.appearance.themeTarget")
     }
 
     private var themeSearchField: some View {
@@ -708,7 +721,11 @@ struct SettingsView: View {
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(chrome.secondary)
-            ThemePreviewCard(definition: choice.definition, selected: themeFilter == filter) {
+            ThemePreviewCard(
+                definition: choice.definition,
+                selected: themeFilter == filter,
+                isRemote: selectedThemeTarget == .remote
+            ) {
                 themeQuery = ""
                 themeFilter = filter
             }
@@ -718,7 +735,8 @@ struct SettingsView: View {
     }
 
     private func isInUse(_ definition: GhosttyThemeDefinition) -> Bool {
-        definition.name == preview.effectiveLight().name || definition.name == preview.effectiveDark().name
+        definition.name == preview.effectiveLight(for: selectedThemeTarget).name
+            || definition.name == preview.effectiveDark(for: selectedThemeTarget).name
     }
 
     private var previewActionBar: some View {
@@ -731,11 +749,13 @@ struct SettingsView: View {
             Button("Cancel") {
                 preview.cancel()
             }
+            .accessibilityIdentifier("settings.appearance.preview.cancel")
             Button("Save") {
                 preview.save()
             }
             .keyboardShortcut("s", modifiers: .command)
             .buttonStyle(FamilyButtonStyle(kind: .primary))
+            .accessibilityIdentifier("settings.appearance.preview.save")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)

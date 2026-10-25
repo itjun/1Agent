@@ -8,6 +8,9 @@ struct TerminalCanvas: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @ObservedObject private var find = TerminalFind.shared
+    @ObservedObject private var themePreview = ThemePreview.shared
+    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
+    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @ObservedObject private var inputFocus = FocusedTerminal.shared
     @AppStorage(TerminalSettings.paddingXKey) private var terminalPaddingX = TerminalSettings.defaults.paddingX
     var dropRelay: CanvasDropRelay
@@ -53,7 +56,7 @@ struct TerminalCanvas: View {
                         directory: tab.isLocal ? tab.directory : nil,
                         remoteDirectory: tab.remoteDirectory,
                         environment: ShellIntegrationEnvironment.merged(model.launchEnvironment, overrides: tab.creationEnvironment),
-                        dark: dark,
+                        dark: terminalIsDark(tab),
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
                         isPresented: visible && !window.presentation.fullFilesWorkspace,
@@ -141,6 +144,15 @@ struct TerminalCanvas: View {
                 lastContentFrame = lastContentFrame.filter { ids.contains($0.key) }
             }
         }
+    }
+
+    private func terminalIsDark(_ tab: TerminalTab) -> Bool {
+        themePreview.previewingDark(for: tab.isLocal ? .local : .remote) ?? TerminalAppearance.stored().resolvesDark()
+    }
+
+    private func terminalChrome(_ tab: TerminalTab) -> WindowChrome {
+        WindowChrome.resolve(isDark: terminalIsDark(tab),
+            icon: tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
     }
 
     private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {
@@ -235,6 +247,7 @@ struct TerminalCanvas: View {
 
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
+        let chrome = tab.hasTerminal ? terminalChrome(tab) : self.chrome
         let selected = window.selectedTabID == tab.id
         let focused = tab.hasTerminal ? inputFocus.receivesInput(tab, in: window) : selected
         if isSplit && headerHeight > 0 {

@@ -53,6 +53,10 @@ enum TerminalAppearance: String, CaseIterable, Identifiable {
     /// Previous single-theme choice, copied into the matching light or dark slot once.
     static let legacyThemeKey = "appearance.terminalTheme"
 
+    static func themeKey(for target: TerminalThemeTarget, dark: Bool) -> String {
+        "appearance.terminalTheme.\(target.rawValue).\(dark ? "dark" : "light")"
+    }
+
     var id: String { rawValue }
 
     var title: LocalizedStringKey {
@@ -137,11 +141,11 @@ final class AppearanceDriver: ObservableObject {
     func reapply() {
         let mode = TerminalAppearance.stored()
         let dark = mode.resolvesDark()
-        let terminalDark = ThemePreview.shared.previewingDark ?? dark
+        let terminalDark = ThemePreview.shared.previewingDark(for: .local) ?? dark
         TerminalAppearance.applyAppKit(isDark: dark)
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
-        GhosttyRuntime.controller.setColorScheme(terminalDark ? .dark : .light)
+        GhosttyRuntime.applyColorSchemes(isDark: dark)
     }
 }
 
@@ -173,74 +177,71 @@ private final class SystemThemeWatcher: NSObject {
 }
 
 
-/// What fills one appearance slot: a named theme from Ghostty's built-in catalog.
-/// Stored as the plain catalog name; custom files are never loaded.
-/// Empty or unknown names fall back to the GitHub theme for the slot.
+enum TerminalThemeTarget: String, CaseIterable, Identifiable {
+    case local
+    case remote
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .local: String(localized: "This Mac")
+        case .remote: String(localized: "Remote")
+        }
+    }
+}
+
+/// Terminal themes are independent of app icons and window appearance colors.
 struct TerminalThemeChoice: Equatable, Hashable {
     static let defaultLightName = "GitHub Light Default"
     static let defaultDarkName = "GitHub Dark Default"
+    static let migrationKey = "appearance.terminalTheme.connectionDefaults.v1"
 
     let name: String
 
     var rawValue: String { name }
     var title: String { name }
 
-    /// Nil when the string is empty or absent from the official catalog.
     init?(raw: String?) {
         let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if trimmed.isEmpty {
-            return nil
-        }
         guard GhosttyThemeCatalog.theme(named: trimmed) != nil else { return nil }
         name = trimmed
     }
 
-    private init(defaultNamed name: String) {
+    private init(name: String) {
         self.name = name
     }
 
     static func slotDefault(dark: Bool) -> TerminalThemeChoice {
-        if dark {
-            return TerminalThemeChoice(defaultNamed: TerminalThemeChoice.defaultDarkName)
-        }
-        return TerminalThemeChoice(defaultNamed: TerminalThemeChoice.defaultLightName)
+        TerminalThemeChoice(name: dark ? TerminalThemeChoice.defaultDarkName : TerminalThemeChoice.defaultLightName)
     }
 
-    /// The bundled GitHub themes always exist in the catalog; the forced unwrap guards that assumption.
     var definition: GhosttyThemeDefinition {
-        if let theme = GhosttyThemeCatalog.theme(named: name) {
-            return theme
-        }
-        return GhosttyThemeCatalog.theme(named: TerminalThemeChoice.defaultLightName)!
+        GhosttyThemeCatalog.theme(named: name)!
     }
 
     func terminalConfiguration() -> TerminalConfiguration {
         definition.terminalConfiguration()
     }
 
-    // MARK: Storage
-
-    static func storedLight(defaults: UserDefaults = .standard) -> TerminalThemeChoice {
-        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.lightThemeKey), dark: false)
+    static func storedLight(for target: TerminalThemeTarget = .local, defaults: UserDefaults = .standard) -> TerminalThemeChoice {
+        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.themeKey(for: target, dark: false)), dark: false)
     }
 
-    static func storedDark(defaults: UserDefaults = .standard) -> TerminalThemeChoice {
-        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.darkThemeKey), dark: true)
+    static func storedDark(for target: TerminalThemeTarget = .local, defaults: UserDefaults = .standard) -> TerminalThemeChoice {
+        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.themeKey(for: target, dark: true)), dark: true)
     }
 
-    /// A catalog theme only counts for the slot whose brightness it matches. Anything else is the slot default.
     static func resolved(raw: String?, dark: Bool) -> TerminalThemeChoice {
-        guard let choice = TerminalThemeChoice(raw: raw) else {
-            return TerminalThemeChoice.slotDefault(dark: dark)
-        }
+        guard let choice = TerminalThemeChoice(raw: raw) else { return TerminalThemeChoice.slotDefault(dark: dark) }
         if choice.definition.isLightBackground == dark {
             return TerminalThemeChoice.slotDefault(dark: dark)
         }
         return choice
     }
 
-    /// Copies the old single-theme key into the matching slot once.
-    /// Only built-in theme names migrate; obsolete custom names resolve to the slot default.
+    /// Restore themes replaced by icon-following defaults; retain explicit per-connection choices.
+    /// Old preference values remain available for recovery.
     static func migrateIfNeeded(defaults: UserDefaults = .standard) {
         if defaults.object(forKey: LocalPalette.storageKey) == nil {
             let icon = ApplicationIcon.stored(defaults: defaults)
@@ -248,17 +249,9 @@ struct TerminalThemeChoice: Equatable, Hashable {
                 forKey: LocalPalette.storageKey)
         }
         TerminalThemeChoice.restoreIndependentThemes(defaults: defaults)
-        let legacy = defaults.string(forKey: TerminalAppearance.legacyThemeKey) ?? ""
-        if !legacy.isEmpty {
-            if let theme = TerminalThemeChoice(raw: legacy)?.definition {
-                let key = theme.isLightBackground ? TerminalAppearance.lightThemeKey : TerminalAppearance.darkThemeKey
-                if (defaults.string(forKey: key) ?? "").isEmpty {
-                    defaults.set(legacy, forKey: key)
-                }
-            }
-            defaults.removeObject(forKey: TerminalAppearance.legacyThemeKey)
-        }
+        defaults.set(true, forKey: TerminalThemeChoice.migrationKey)
     }
+
 
     /// Recover themes replaced by icon-following builds without overwriting named selections.
     private static func restoreIndependentThemes(defaults: UserDefaults) {
@@ -276,85 +269,89 @@ struct TerminalThemeChoice: Equatable, Hashable {
             }
         }
     }
+
+
 }
 
-/// A theme the user clicked in Settings but has not saved. Terminal surfaces show it at once;
-/// nothing is written to defaults until Save. Cancel, or closing Settings, drops it.
+/// Preview transactions span both connection types without changing the other type's appearance.
 @MainActor
 final class ThemePreview: ObservableObject {
     static let shared = ThemePreview()
 
-    @Published private(set) var light: TerminalThemeChoice?
-    @Published private(set) var dark: TerminalThemeChoice?
-    /// Slot of the theme clicked last. A light theme only shows in light mode (and dark in dark),
-    /// so terminal surfaces switch until Save or Cancel; nil means follow the stored mode.
-    @Published private(set) var previewingDark: Bool?
-
-    var isActive: Bool {
-        light != nil || dark != nil
+    private struct Slot: Hashable {
+        let target: TerminalThemeTarget
+        let dark: Bool
     }
 
-    /// Names shown in the action bar, light slot first.
+    @Published private var choices: [Slot: TerminalThemeChoice] = [:]
+    @Published private var appearances: [TerminalThemeTarget: Bool] = [:]
+
+    var light: TerminalThemeChoice? { choices[Slot(target: .local, dark: false)] }
+    var dark: TerminalThemeChoice? { choices[Slot(target: .local, dark: true)] }
+    var previewingDark: Bool? { previewingDark(for: .local) }
+    var isActive: Bool { !choices.isEmpty }
+
     var previewedNames: [String] {
-        [light, dark].compactMap { $0?.name }
-    }
-
-    func effectiveLight() -> TerminalThemeChoice {
-        light ?? TerminalThemeChoice.storedLight()
-    }
-
-    func effectiveDark() -> TerminalThemeChoice {
-        dark ?? TerminalThemeChoice.storedDark()
-    }
-
-    /// A light-background theme previews in the light slot, anything else in the dark slot.
-    func show(_ definition: GhosttyThemeDefinition) {
-        guard let choice = TerminalThemeChoice(raw: definition.name) else { return }
-        if definition.isLightBackground {
-            light = choice
-        } else {
-            dark = choice
+        TerminalThemeTarget.allCases.flatMap { target in
+            [false, true].compactMap { dark in
+                choices[Slot(target: target, dark: dark)].map { choice in
+                    let appearance = dark ? String(localized: "Dark theme") : String(localized: "Light theme")
+                    return "\(target.title) · \(appearance) · \(choice.title)"
+                }
+            }
         }
-        previewingDark = !definition.isLightBackground
-        GhosttyRuntime.applySelectedThemes()
-        AppearanceDriver.shared.reapply()
     }
 
-    /// Both effective slots already show the GitHub defaults, so restoring would change nothing.
-    var showsDefaults: Bool {
-        effectiveLight() == TerminalThemeChoice.slotDefault(dark: false)
-            && effectiveDark() == TerminalThemeChoice.slotDefault(dark: true)
+    func previewingDark(for target: TerminalThemeTarget) -> Bool? {
+        appearances[target]
     }
 
-    /// Previews both slot defaults at once; Save writes them, Cancel restores the saved themes.
-    /// Both slots change, so the app keeps the stored light/dark mode instead of forcing one.
-    func showDefaults() {
-        light = TerminalThemeChoice.slotDefault(dark: false)
-        dark = TerminalThemeChoice.slotDefault(dark: true)
-        previewingDark = nil
-        GhosttyRuntime.applySelectedThemes()
-        AppearanceDriver.shared.reapply()
+    func effectiveLight(for target: TerminalThemeTarget = .local) -> TerminalThemeChoice {
+        choices[Slot(target: target, dark: false)] ?? TerminalThemeChoice.storedLight(for: target)
+    }
+
+    func effectiveDark(for target: TerminalThemeTarget = .local) -> TerminalThemeChoice {
+        choices[Slot(target: target, dark: true)] ?? TerminalThemeChoice.storedDark(for: target)
+    }
+
+    func show(_ definition: GhosttyThemeDefinition, for target: TerminalThemeTarget = .local) {
+        guard let choice = TerminalThemeChoice(raw: definition.name) else { return }
+        let dark = !definition.isLightBackground
+        choices[Slot(target: target, dark: dark)] = choice
+        appearances[target] = dark
+        apply()
+    }
+
+    var showsDefaults: Bool { showsDefaults(for: .local) }
+
+    func showsDefaults(for target: TerminalThemeTarget) -> Bool {
+        effectiveLight(for: target) == .slotDefault(dark: false) && effectiveDark(for: target) == .slotDefault(dark: true)
+    }
+
+    func showDefaults(for target: TerminalThemeTarget = .local) {
+        choices[Slot(target: target, dark: false)] = .slotDefault(dark: false)
+        choices[Slot(target: target, dark: true)] = .slotDefault(dark: true)
+        appearances.removeValue(forKey: target)
+        apply()
     }
 
     func save(defaults: UserDefaults = .standard) {
-        if let light {
-            defaults.set(light.rawValue, forKey: TerminalAppearance.lightThemeKey)
+        for (slot, choice) in choices {
+            defaults.set(choice.rawValue, forKey: TerminalAppearance.themeKey(for: slot.target, dark: slot.dark))
         }
-        if let dark {
-            defaults.set(dark.rawValue, forKey: TerminalAppearance.darkThemeKey)
-        }
-        light = nil
-        dark = nil
-        previewingDark = nil
-        GhosttyRuntime.applySelectedThemes()
-        AppearanceDriver.shared.reapply()
+        choices.removeAll()
+        appearances.removeAll()
+        apply()
     }
 
     func cancel() {
         guard isActive else { return }
-        light = nil
-        dark = nil
-        previewingDark = nil
+        choices.removeAll()
+        appearances.removeAll()
+        apply()
+    }
+
+    private func apply() {
         GhosttyRuntime.applySelectedThemes()
         AppearanceDriver.shared.reapply()
     }
