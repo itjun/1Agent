@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import SwiftUI
 
 @main
 enum RemotePaletteTests {
@@ -46,6 +47,31 @@ enum RemotePaletteTests {
             try check(local.sidebarBackground != remote.sidebarBackground, "Local and remote chrome must differ (dark: \(isDark))")
             try check(local.accent != remote.accent, "Local and remote focus accents must differ (dark: \(isDark))")
         }
+        for isDark in [false, true] {
+            var backgrounds: [Color] = []
+            for icon in ApplicationIcon.allCases {
+                let chrome = WindowChrome(isDark: isDark, icon: icon)
+                if icon != .original {
+                    try check(!backgrounds.contains(chrome.sidebarBackground), "Each macaron appearance keeps its own surface: \(icon.rawValue)")
+                    backgrounds.append(chrome.sidebarBackground)
+                }
+                for surface in [chrome.background, chrome.sidebarBackground, chrome.elevated, chrome.hairline, chrome.accentFill] {
+                    for foreground in [chrome.text, chrome.secondary, chrome.accent] {
+                        try check(rgb(foreground).contrastRatio(with: rgb(surface)) >= 4.5,
+                                  "Text and selected icons stay readable on every surface: \(icon.rawValue), dark=\(isDark)")
+                    }
+                    try check(rgb(chrome.focus).contrastRatio(with: rgb(surface)) >= 3,
+                              "Keyboard focus stays visible: \(icon.rawValue), dark=\(isDark)")
+                }
+                if isDark {
+                    try check(rgb(chrome.sidebarBackground).relativeLuminance < rgb(chrome.background).relativeLuminance
+                              && rgb(chrome.background).relativeLuminance < rgb(chrome.elevated).relativeLuminance
+                              && rgb(chrome.elevated).relativeLuminance < rgb(chrome.hairline).relativeLuminance
+                              && rgb(chrome.hairline).relativeLuminance < rgb(chrome.accentFill).relativeLuminance,
+                              "Dark surfaces, hover and selection retain a clear luminance hierarchy: \(icon.rawValue)")
+                }
+            }
+        }
         for icon in ApplicationIcon.macaronIcons {
             let palette = icon.palette!
             let background = RGBColor(ghosttyHex: palette.terminalBackground)!
@@ -55,10 +81,26 @@ enum RemotePaletteTests {
                       "Terminal body text must remain readable for \(icon.rawValue)")
             try check(accent.contrastRatio(with: background) >= 4.5,
                       "Focus borders and identity labels must remain clear for \(icon.rawValue)")
+            let light = WindowChrome(isDark: false, icon: icon)
+            let dark = WindowChrome(isDark: true, icon: icon)
+            try check(rgb(light.sidebarBackground).relativeLuminance > 0.8 && rgb(dark.sidebarBackground).relativeLuminance < 0.03,
+                      "Every existing appearance has a light and dark counterpart: \(icon.rawValue)")
+            try check(saturation(rgb(dark.background)) < saturation(background),
+                      "Dark appearance softens the old highly tinted background: \(icon.rawValue)")
         }
     }
 
     static func check(_ condition: Bool, _ message: String) throws {
         if !condition { throw Failure(message: message) }
+    }
+
+    static func rgb(_ color: Color) -> RGBColor {
+        let color = NSColor(color).usingColorSpace(.sRGB)!
+        return RGBColor(red: color.redComponent, green: color.greenComponent, blue: color.blueComponent)
+    }
+
+    static func saturation(_ color: RGBColor) -> Double {
+        let channels = [color.red, color.green, color.blue]
+        return (channels.max()! - channels.min()!) / channels.max()!
     }
 }

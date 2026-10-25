@@ -177,59 +177,71 @@ struct WindowChrome: Equatable {
         func color(_ light: String, _ dark: String) -> Color {
             rgb(light, dark).color
         }
-        let paletteBackground = icon.palette?.terminalBackground ?? "1A1F2B"
+        // 外观深色以各自马卡龙色相配灰，不再借用独立终端主题的背景。
+        let paletteBackground = switch icon {
+        case .original: "20242B"
+        case .strawberryCream: "2B2429"
+        case .apricotCream: "2C2620"
+        case .vanillaCustard: "2B2920"
+        case .pistachioGreen: "262A21"
+        case .mintCandy: "222B26"
+        case .cloudSoda: "202A2D"
+        case .clearSkyBlue: "232830"
+        case .taroMilkshake: "292530"
+        case .coralPeach: "2D2422"
+        case .cocoaMilkTea: "2A2623"
+        }
+        let white = RGBColor(red: 1, green: 1, blue: 1)
+        let black = RGBColor(red: 0, green: 0, blue: 0)
         let backgroundRGB = rgb("FFFFFF", paletteBackground)
         let sidebarRGB = isDark
-            ? backgroundRGB.mixed(with: RGBColor(red: 0, green: 0, blue: 0), amount: 0.16)
+            ? backgroundRGB.mixed(with: black, amount: 0.08)
             : rgb("F2F3F5", "12161F")
         background = backgroundRGB.color
         sidebarBackground = sidebarRGB.color
-        let elevatedRGB = rgb("F3F4F6", "232A38")
-        let hairlineRGB = rgb("E5E7EB", "2C3445")
+        let elevatedRGB = isDark ? backgroundRGB.mixed(with: white, amount: 0.035) : rgb("F3F4F6", "232A38")
+        let hairlineRGB = isDark ? backgroundRGB.mixed(with: white, amount: 0.065) : rgb("E5E7EB", "2C3445")
         elevated = elevatedRGB.color
-        text = color("1F2937", "E6EBF3")
-        secondary = color("636A76", "94A1B5")
+        text = color("1F2937", "EEF0F3")
+        secondary = color("5B626D", "B0B3BA")
         tertiary = secondary
         hairline = hairlineRGB.color
-        accent = color("0052D9", "4C8DFF")
-        accentFill = color("E8EFFF", "1A2C52")
+        accent = color("0052D9", "8CB8FF")
+        accentFill = color("E8EFFF", "313D50")
         panelHeader = sidebarBackground
         danger = color("D54941", "F06C63")
         warning = color("D35A00", "F29A4A")
         success = color("1A7F52", "56C08D")
-        accentHover = color("366EF4", "6FA3FF")
-        accentActive = color("003CAB", "3A78E8")
-        focus = color("C5D6FF", "22407A")
+        accentHover = color("366EF4", "A3C6FF")
+        accentActive = color("003CAB", "779CD9")
+        focus = color("0052D9", "8CB8FF")
         selection = color("C9DAFF", "274A8C")
         lineStrong = color("9CA3AF", "5A6478")
 
         guard let palette = icon.palette else { return }
-        let white = RGBColor(red: 1, green: 1, blue: 1)
-        let black = RGBColor(red: 0, green: 0, blue: 0)
         let fill = RGBColor(ghosttyHex: palette.fill)!
         let ring = RGBColor(ghosttyHex: palette.ring)!
         let ink = RGBColor(ghosttyHex: palette.ink)!
-        // Accent doubles as button text and checkmarks, so it keeps WCAG AA contrast on the window background.
-        // Hover rows, fields and dividers draw with elevated and hairline, so those carry the palette too.
+        let selectedRGB = isDark ? backgroundRGB.mixed(with: fill, amount: 0.14) : fill.mixed(with: white, amount: 0.55)
+        let contrastBackground = isDark ? selectedRGB : hairlineRGB.mixed(with: fill, amount: 0.4)
+        // 按最不利的选中／悬停背景校正；浅色保留奶白底，深色保留各自色相。
         let tone = RGBColor.ensureContrast(
             isDark ? ring : ink,
-            against: backgroundRGB,
+            against: contrastBackground,
             toward: isDark ? white : black,
             minimum: 4.5
         )
         accent = tone.color
         accentHover = tone.mixed(with: white, amount: 0.2).color
         accentActive = tone.mixed(with: black, amount: isDark ? 0.15 : 0.2).color
+        accentFill = selectedRGB.color
+        focus = tone.color
+        secondary = RGBColor.ensureContrast(rgb("636A76", "B0B3BA"), against: contrastBackground,
+                                            toward: isDark ? white : black, minimum: 4.5).color
+        tertiary = secondary
         if isDark {
-            accentFill = ring.mixed(with: backgroundRGB, amount: 0.75).color
-            focus = ring.mixed(with: backgroundRGB, amount: 0.55).color
             selection = ring.mixed(with: backgroundRGB, amount: 0.45).color
-            sidebarBackground = sidebarRGB.color
-            elevated = backgroundRGB.mixed(with: ring, amount: 0.1).color
-            hairline = backgroundRGB.mixed(with: ring, amount: 0.22).color
         } else {
-            accentFill = fill.mixed(with: white, amount: 0.55).color
-            focus = fill.color
             selection = fill.mixed(with: ring, amount: 0.3).color
             sidebarBackground = sidebarRGB.mixed(with: fill, amount: 0.18).color
             elevated = elevatedRGB.mixed(with: fill, amount: 0.25).color
