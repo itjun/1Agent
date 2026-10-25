@@ -224,6 +224,12 @@ final class AppModel: ObservableObject {
         panelRows(in: window).first { $0.leafIDs.contains(tabID) }
     }
 
+    func paneNumber(for tabID: UUID, in window: WindowState) -> Int? {
+        guard let row = panelRow(for: tabID, in: window), row.isSplit,
+              let index = row.leafIDs.firstIndex(of: tabID) else { return nil }
+        return index + 1
+    }
+
     func panelTitle(_ panelID: UUID, in window: WindowState) -> String {
         panelRows(in: window).first { $0.id == panelID }?.name ?? ""
     }

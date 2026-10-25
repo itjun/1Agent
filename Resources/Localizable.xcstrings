@@ -177,6 +177,7 @@
     "Detach Panels" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Detach Panels"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "拆分面板"}}}},
     "Open With" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open With"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开方式"}}}},
     "Dissolve Workspace Now" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dissolve Workspace Now"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "解散工作区"}}}},
+    "Terminal Group" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Terminal Group"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "终端组"}}}},
     "Close Current Terminal" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close Current Terminal"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭当前终端"}}}},
     "New Terminal Here" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "New Terminal Here"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "同目录新建"}}}},
     "New Connection" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "New Connection"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "新开连接"}}}},

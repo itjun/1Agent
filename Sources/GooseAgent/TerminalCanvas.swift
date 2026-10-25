@@ -255,12 +255,12 @@ struct TerminalCanvas: View {
                 .allowsHitTesting(false)
                 // Only the title merges panes; the blank rest of the bar moves the window.
                 HStack(spacing: 6) {
-                    DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
-                    Text(paneTitle(tab))
+                    Text(verbatim: numberedPaneTitle(tab))
                         .font(Theme.Font.paneTitle)
                         .foregroundStyle(chrome.secondary)
                         .lineLimit(1)
                         .layoutPriority(1)
+                    DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
                     RemoteTitleStatus(tab: tab)
                         .font(Theme.Font.paneTitle)
                     if tab.reconnecting {
@@ -308,13 +308,13 @@ struct TerminalCanvas: View {
                 }
                 .allowsHitTesting(false)
                 HStack(spacing: 6) {
-                    DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
-                    Text(paneTitle(tab))
+                    Text(verbatim: numberedPaneTitle(tab))
                         .font(Theme.Font.paneTitle)
                         .foregroundStyle(chrome.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .layoutPriority(1)
+                    DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
                     RemoteTitleStatus(tab: tab)
                         .font(Theme.Font.paneTitle)
                     if tab.reconnecting {
@@ -451,6 +451,11 @@ struct TerminalCanvas: View {
         }
     }
 
+    private func numberedPaneTitle(_ tab: TerminalTab) -> String {
+        guard let number = model.paneNumber(for: tab.id, in: window) else { return paneTitle(tab) }
+        return "\(number)-\(paneTitle(tab))"
+    }
+
     private func paneTitle(_ tab: TerminalTab) -> String {
         if let title = tab.contentTitle {
             return title
@@ -458,8 +463,7 @@ struct TerminalCanvas: View {
         if tab.isLocal, let directory = tab.directory {
             return LocalTerminal.displayPath(directory)
         }
-        let alias = tab.alias ?? ""
-        return model.host(alias)?.sessionBadge ?? alias
+        return tab.alias ?? ""
     }
 
 }

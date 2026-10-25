@@ -12,8 +12,8 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
     @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
+    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
     @Environment(\.controlActiveState) private var controlActiveState
     @StateObject private var dropRelay = CanvasDropRelay()
     @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
@@ -283,7 +283,7 @@ struct RootView: View {
             }
             .onChange(of: window.selectedTabID) { _, id in
                 if let id, let row = model.panelRow(for: id, in: window) {
-                    DispatchQueue.main.async { proxy.scrollTo(row.panelID) }
+                    DispatchQueue.main.async { proxy.scrollTo(row.isSplit ? id : row.panelID) }
                 }
             }
         }
@@ -298,6 +298,13 @@ struct RootView: View {
                 !window.presentation.collapsedWorkspaces.contains(workspace!.id) {
                 ForEach(rows) { row in
                     panelRow(row).id(row.panelID)
+                    if row.isSplit {
+                        ForEach(row.leafIDs, id: \.self) { id in
+                            if let tab = model.tabs.first(where: { $0.id == id }) {
+                                panelTerminalRow(tab).id(id)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -403,6 +410,11 @@ struct RootView: View {
                 ? String(localized: "This Mac") : name
         }
         return tab.alias ?? String(localized: "New Tab")
+    }
+
+    private func numberedSessionTitle(_ tab: TerminalTab) -> String {
+        guard let number = model.paneNumber(for: tab.id, in: window) else { return sessionTitle(tab) }
+        return "\(number)-\(sessionTitle(tab))"
     }
 
     private var filesMode: Bool { window.presentation.fullFilesWorkspace }
@@ -519,7 +531,7 @@ struct RootView: View {
 
     private func paneTitleMenu(_ tab: TerminalTab) -> some View {
         HStack(spacing: 8) {
-            Text(verbatim: sessionTitle(tab))
+            Text(verbatim: numberedSessionTitle(tab))
                 .foregroundStyle(chrome.secondary)
                 .lineLimit(1).truncationMode(.middle)
                 .layoutPriority(1)
@@ -546,7 +558,7 @@ struct RootView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) }
-            .accessibilityLabel(Text(verbatim: sessionTitle(tab)))
+            .accessibilityLabel(Text(verbatim: numberedSessionTitle(tab)))
             .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
     }
 
@@ -597,6 +609,7 @@ struct RootView: View {
 
     private func panelDisplayTitle(_ row: TerminalPanelRow) -> String {
         if let title = window.panelTitles[row.panelID] { return title }
+        if row.isSplit { return String(localized: "Terminal Group") }
         return model.tabs.first { $0.id == row.focusedTabID }.map(sessionTitle) ?? row.name
     }
 
@@ -637,8 +650,10 @@ struct RootView: View {
                         Text(verbatim: panelDisplayTitle(row)).font(.system(size: 14, weight: selected ? .semibold : .regular))
                             .lineLimit(1).truncationMode(.middle)
                     }
-                    SidebarSessionSubtitle(tab: tab, location: labeledSubtitle).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
-                        .foregroundStyle(sidebarChrome.secondary)
+                    if !row.isSplit {
+                        SidebarSessionSubtitle(tab: tab, location: labeledSubtitle).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(sidebarChrome.secondary)
+                    }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 if row.isSplit {
                     Text(verbatim: String(row.leafIDs.count)).font(.system(size: 12, weight: .medium))
@@ -686,6 +701,49 @@ struct RootView: View {
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : [.isButton])
             .accessibilityAction { model.selectPanel(row.panelID, in: window) }
         }
+    }
+
+    private func panelTerminalRow(_ tab: TerminalTab) -> some View {
+        let isSelected = window.selectedTabID == tab.id
+        let subtitle = model.sessionSubtitle(tab)
+        return HStack(spacing: 9) {
+            TerminalPanelIcon(layout: .leaf(tab.id))
+                .font(.system(size: 15)).frame(width: 20)
+                .foregroundStyle(isSelected ? sidebarChrome.accent : sidebarChrome.secondary)
+                .accessibilityHidden(true)
+            Text(verbatim: numberedSessionTitle(tab))
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 0)
+            SidebarBellMark(sessionID: tab.sessionID)
+            if tab.reconnecting || tab.showsDisconnected {
+                Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
+                    .font(.system(size: 11))
+                    .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
+            }
+        }
+        .foregroundStyle(isSelected ? sidebarChrome.accent : sidebarChrome.text)
+        .padding(.leading, 29).padding(.trailing, 10)
+        .frame(height: Theme.Control.height)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
+            .fill(isSelected ? sidebarChrome.accentFill : .clear))
+        .overlay {
+            TabDragHandle(
+                onClick: { _, _ in model.selectOnly(tab.id, in: window) },
+                onBegan: {},
+                onMoved: { _ in },
+                onEnded: { _ in },
+                onSecondaryClick: { TerminalPaneActions.showContext(tab: tab, model: model, window: window) },
+                dragEnabled: false
+            ).accessibilityHidden(true)
+        }
+        .help(subtitle)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: numberedSessionTitle(tab)))
+        .accessibilityValue(Text(verbatim: subtitle))
+        .accessibilityIdentifier("sidebar.terminal." + tab.id.uuidString)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
+        .accessibilityAction { model.selectOnly(tab.id, in: window) }
     }
 
     private func sidebarTitle(_ tab: TerminalTab) -> String {
