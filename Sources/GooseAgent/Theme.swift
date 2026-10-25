@@ -57,6 +57,11 @@ enum Theme {
         static let card: CGFloat = 6
     }
 
+    /// 工作区动效只改变呈现，不延后选择或键盘焦点。
+    enum Motion {
+        static let terminalDuration: TimeInterval = 0.16
+    }
+
     enum Control {
         static let height: CGFloat = 32
         static let compactHeight: CGFloat = 28

@@ -1523,8 +1523,22 @@ final class TerminalHostView: NSView {
     /// AppKit terminal view. Hide the native subtree without detaching it or
     /// changing its last layout size, so the same terminal and process stay alive.
     func setPresented(_ presented: Bool) {
+        let isRevealing = presented && isHidden && window != nil
+        if !presented || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            layer?.removeAnimation(forKey: "terminalReveal")
+        }
         isHidden = !presented
         setAccessibilityHidden(!presented)
+        if isRevealing && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            // 动画作用于原生容器，不移动或缩放 Metal 画布，也不改变 PTY 尺寸。
+            wantsLayer = true
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = 0
+            animation.toValue = 1
+            animation.duration = Theme.Motion.terminalDuration
+            animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            layer?.add(animation, forKey: "terminalReveal")
+        }
         if !presented { focusPending = false }
         scheduleFocus()
     }

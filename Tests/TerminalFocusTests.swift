@@ -57,6 +57,7 @@ enum TerminalFocusTests {
         try await modalDoesNotRestoreStalePane()
         try await staleSelection()
         try await hiddenAndFilesCancellation()
+        try await rapidPresentationKeepsFocusAndGeometry()
         try await successfulFocusIsConsumed()
         try await focusWhenWindowBecomesKey()
         try await inputIndicatorLifecycle()
@@ -106,6 +107,41 @@ enum TerminalFocusTests {
         try require(terminal.controller == nil && terminal.processHost == nil,
                     "The focus fixture must not own a terminal process")
         return terminal
+    }
+
+    @MainActor
+    private static func rapidPresentationKeepsFocusAndGeometry() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        try await eventually("The fixture must become key") { fixture.window.isKeyWindow }
+        let host = TerminalHostView(frame: .zero)
+        let terminal = try makeTerminal()
+        host.attach(terminal)
+        fixture.mount(host)
+        let originalFrame = terminal.frame
+
+        for _ in 0..<6 {
+            host.setPresented(false)
+            host.setFocusTarget(false)
+            fixture.window.makeFirstResponder(fixture.editor)
+            host.setPresented(true)
+            host.setFocusTarget(true)
+            host.requestFocus()
+            try require(fixture.window.firstResponder === terminal,
+                        "Revealing must accept terminal input before its animation completes")
+            try require(terminal.superview === host && terminal.frame == originalFrame,
+                        "Rapid switches must preserve the terminal view and PTY geometry")
+        }
+        host.setPresented(false)
+        await settle()
+        try require(host.isHidden && terminal.superview === host,
+                    "An interrupted reveal must leave the hidden terminal attached and invisible")
+        host.setPresented(true)
+        host.setFocusTarget(true)
+        host.requestFocus()
+        try await Task.sleep(for: .milliseconds(300))
+        try require(!host.isHidden && fixture.window.firstResponder === terminal && host.alphaValue == 1,
+                    "The last reveal must remain visible and focused after earlier animations expire")
     }
 
     @MainActor
@@ -349,8 +385,13 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func inputIndicatorLifecycle() async throws {
+        // Drain the previous fixture's deferred window-close notifications before activating again.
+        await settle()
         let fixture = Fixture()
         defer { fixture.close() }
+        try await eventually("The input-indicator fixture must become active and key") {
+            NSApp.isActive && fixture.window.isKeyWindow
+        }
         let focus = FocusedTerminal.shared
         let state = WindowState()
         var firstTab = TerminalTab(id: UUID(), alias: "test-a", generation: 0, exited: false)
