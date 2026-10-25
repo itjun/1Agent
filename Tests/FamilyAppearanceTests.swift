@@ -11,6 +11,7 @@ enum FamilyAppearanceTests {
     @MainActor static func main() {
         checkIndependentTerminalThemes()
         checkLocalPaletteMigration()
+        checkFocusBorderContrast()
         let suite = "oneagent.family.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
@@ -248,6 +249,31 @@ enum FamilyAppearanceTests {
             let snapshot = defaults.persistentDomain(forName: suite)!
             TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
             expect(NSDictionary(dictionary: defaults.persistentDomain(forName: suite)!).isEqual(to: snapshot), "repeated migration does not change persisted preferences")
+        }
+    }
+
+    static func checkFocusBorderContrast() {
+        let suite = "oneagent.family.border.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let catalogNames = ["GitHub Light Default", "GitHub Dark Default", "Gruvbox Light", "Hot Dog Stand"]
+        let catalogChoices = catalogNames.map { name -> TerminalThemeChoice in
+            guard let choice = TerminalThemeChoice(raw: name) else {
+                preconditionFailure("Missing bundled theme fixture: \(name)")
+            }
+            return choice
+        }
+        for target in TerminalThemeTarget.allCases {
+            let key = target == .local ? LocalPalette.storageKey : RemotePalette.storageKey
+            for icon in ApplicationIcon.macaronIcons {
+                defaults.set(icon.rawValue, forKey: key)
+                for choice in catalogChoices {
+                    let background = RGBColor(ghosttyHex: choice.definition.background)!
+                    let border = choice.focusBorderColor(for: target, defaults: defaults)
+                    expect(border.contrastRatio(with: background) >= 3,
+                           "Focus border must contrast with the actual background: \(target.rawValue), \(icon.rawValue), \(choice.name)")
+                }
+            }
         }
     }
 

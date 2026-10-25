@@ -79,7 +79,7 @@ enum Theme {
         /// Title bar of each pane in a split. Dragging the title text merges panes; the terminal starts right below.
         static let headerHeight: CGFloat = 28
         static let focusRailWidth: CGFloat = 3
-        static let focusRailHeight: CGFloat = 56
+        static let focusRailHeight: CGFloat = 36
         static let focusRailInset: CGFloat = 2
         static let focusRailTopInset: CGFloat = 8
         static let titlebarAccessoryInset: CGFloat = 44

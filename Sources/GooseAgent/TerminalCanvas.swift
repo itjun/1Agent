@@ -11,8 +11,6 @@ struct TerminalCanvas: View {
     @ObservedObject private var themePreview = ThemePreview.shared
     @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
     @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
-    @ObservedObject private var inputFocus = FocusedTerminal.shared
-    @AppStorage(TerminalSettings.paddingXKey) private var terminalPaddingX = TerminalSettings.defaults.paddingX
     var dropRelay: CanvasDropRelay
     var dark: Bool
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
@@ -62,9 +60,8 @@ struct TerminalCanvas: View {
                         isPresented: visible && !window.presentation.fullFilesWorkspace,
                         isSelected: window.selectedTabID == tab.id && window.section == .terminals,
                         focusRailColor: isSplit && visible && window.selectedTabID == tab.id
-                            && !window.presentation.fullFilesWorkspace
-                            && CGFloat(terminalPaddingX) >= Theme.PaneStyle.focusRailInset + Theme.PaneStyle.focusRailWidth
-                            ? NSColor(inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary.opacity(0.5)) : nil,
+                            && window.section == .terminals && !window.presentation.fullFilesWorkspace
+                            ? NSColor(focusMarkerColor(tab)) : nil,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
                                 !window.presentation.fullFilesWorkspace
@@ -155,6 +152,13 @@ struct TerminalCanvas: View {
             icon: tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
     }
 
+    private func focusMarkerColor(_ tab: TerminalTab) -> Color {
+        let target: TerminalThemeTarget = tab.isLocal ? .local : .remote
+        let dark = terminalIsDark(tab)
+        let choice = dark ? themePreview.effectiveDark(for: target) : themePreview.effectiveLight(for: target)
+        return choice.focusBorderColor(for: target).color
+    }
+
     private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {
         let vertical = divider.axis == .vertical
         let active = hoveredDividerID == divider.id || ratioDrag?.id == divider.id
@@ -236,20 +240,9 @@ struct TerminalCanvas: View {
         return 0.5
     }
 
-    /// The focused pane's title takes the accent; other panes in a split fall back to secondary.
-    /// Connection state is shown by the icon next to the title, not by recoloring the text.
-    private func hostTitleColor(focused: Bool) -> Color {
-        if focused {
-            return chrome.accent
-        }
-        return chrome.secondary
-    }
-
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
         let chrome = tab.hasTerminal ? terminalChrome(tab) : self.chrome
-        let selected = window.selectedTabID == tab.id
-        let focused = tab.hasTerminal ? inputFocus.receivesInput(tab, in: window) : selected
         if isSplit && headerHeight > 0 {
             ZStack {
                 chrome.panelHeader
@@ -265,8 +258,7 @@ struct TerminalCanvas: View {
                     DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
                     Text(paneTitle(tab))
                         .font(Theme.Font.paneTitle)
-                        .fontWeight(selected ? .semibold : .medium)
-                        .foregroundStyle(hostTitleColor(focused: focused))
+                        .foregroundStyle(chrome.secondary)
                         .lineLimit(1)
                         .layoutPriority(1)
                     RemoteTitleStatus(tab: tab)

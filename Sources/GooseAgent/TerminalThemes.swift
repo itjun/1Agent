@@ -224,6 +224,19 @@ struct TerminalThemeChoice: Equatable, Hashable {
         definition.terminalConfiguration()
     }
 
+    /// The border keeps the connection palette while contrasting with the actual terminal theme.
+    func focusBorderColor(for target: TerminalThemeTarget, defaults: UserDefaults = .standard) -> RGBColor {
+        let theme = definition
+        let background = RGBColor(ghosttyHex: theme.background)!
+        let icon = target == .local ? LocalPalette.stored(defaults: defaults) : RemotePalette.stored(defaults: defaults)
+        let palette = icon.palette!
+        let color = RGBColor(ghosttyHex: theme.isLightBackground ? palette.ink : palette.terminalAccent)!
+        let black = RGBColor(red: 0, green: 0, blue: 0)
+        let white = RGBColor(red: 1, green: 1, blue: 1)
+        let correction = black.contrastRatio(with: background) >= white.contrastRatio(with: background) ? black : white
+        return RGBColor.ensureContrast(color, against: background, toward: correction, minimum: 3)
+    }
+
     static func storedLight(for target: TerminalThemeTarget = .local, defaults: UserDefaults = .standard) -> TerminalThemeChoice {
         TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.themeKey(for: target, dark: false)), dark: false)
     }

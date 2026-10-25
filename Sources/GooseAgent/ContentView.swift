@@ -7,7 +7,6 @@ struct RootView: View {
     @ObservedObject var window: WindowState
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @ObservedObject private var themePreview = ThemePreview.shared
-    @ObservedObject private var inputFocus = FocusedTerminal.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
@@ -521,10 +520,7 @@ struct RootView: View {
     private func paneTitleMenu(_ tab: TerminalTab) -> some View {
         HStack(spacing: 8) {
             Text(verbatim: sessionTitle(tab))
-                .fontWeight(window.selectedTabID == tab.id ? .semibold : .medium)
-                .foregroundStyle(tab.hasTerminal
-                    ? (inputFocus.receivesInput(tab, in: window) ? chrome.accent : chrome.secondary)
-                    : (window.selectedTabID == tab.id ? chrome.text : chrome.secondary))
+                .foregroundStyle(chrome.secondary)
                 .lineLimit(1).truncationMode(.middle)
                 .layoutPriority(1)
             RemoteTitleStatus(tab: tab)
