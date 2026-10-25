@@ -28,7 +28,7 @@ struct FamilyButtonStyle: ButtonStyle {
         if kind == .plain {
             configuration.label
         } else {
-            configuration.label.foregroundStyle(kind == .primary ? Color.white : chrome.text)
+            configuration.label.foregroundStyle(kind == .primary ? chrome.filledForeground(on: fill(configuration.isPressed)) : chrome.text)
         }
     }
 

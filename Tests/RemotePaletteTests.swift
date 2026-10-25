@@ -63,6 +63,10 @@ enum RemotePaletteTests {
                     try check(rgb(chrome.focus).contrastRatio(with: rgb(surface)) >= 3,
                               "Keyboard focus stays visible: \(icon.rawValue), dark=\(isDark)")
                 }
+                for fill in [chrome.accent, chrome.accentHover, chrome.accentActive, chrome.danger] {
+                    try check(rgb(chrome.filledForeground(on: fill)).contrastRatio(with: rgb(fill)) >= 4.5,
+                              "Black or white control labels stay readable in every state: \(icon.rawValue), dark=\(isDark)")
+                }
                 if isDark {
                     try check(rgb(chrome.sidebarBackground).relativeLuminance < rgb(chrome.background).relativeLuminance
                               && rgb(chrome.background).relativeLuminance < rgb(chrome.elevated).relativeLuminance

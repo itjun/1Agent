@@ -224,7 +224,7 @@ final class FamilyNativeButton: NSButton {
         let fill = kind == .danger ? chrome.danger : kind == .primary ? (isHighlighted ? chrome.accentActive : hovered ? chrome.accentHover : chrome.accent) : hovered ? chrome.hairline : chrome.elevated
         let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let focused = showsKeyboardFocus && window?.firstResponder === self
-        let textColor = NSColor(primary ? .white : chrome.text).withAlphaComponent(isEnabled ? 1 : 0.45)
+        let textColor = NSColor(primary ? chrome.filledForeground(on: fill) : chrome.text).withAlphaComponent(isEnabled ? 1 : 0.45)
         var textRect = rect
         if kind == .checkbox {
             let box = NSRect(x: 2, y: (bounds.height - 16) / 2, width: 16, height: 16)
@@ -233,7 +233,7 @@ final class FamilyNativeButton: NSButton {
             NSColor(selected ? chrome.accent : chrome.background).setFill(); shape.fill()
             NSColor(selected || hovered ? chrome.accent : chrome.lineStrong).setStroke(); shape.lineWidth = 1; shape.stroke()
             if selected {
-                let symbol = NSImage(systemSymbolName: state == .mixed ? "minus" : "checkmark", accessibilityDescription: nil)?.withSymbolConfiguration(.init(paletteColors: [.white]))
+                let symbol = NSImage(systemSymbolName: state == .mixed ? "minus" : "checkmark", accessibilityDescription: nil)?.withSymbolConfiguration(.init(paletteColors: [NSColor(chrome.filledForeground(on: chrome.accent))]))
                 symbol?.draw(in: box.insetBy(dx: 2, dy: 2))
             }
             textRect = NSRect(x: 26, y: 0, width: bounds.width - 26, height: bounds.height)

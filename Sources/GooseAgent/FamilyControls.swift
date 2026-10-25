@@ -17,7 +17,7 @@ struct FamilyToggleStyle: ToggleStyle {
                             .fill(configuration.isOn ? chrome.accent : chrome.background)
                         RoundedRectangle(cornerRadius: Theme.Radius.tag)
                             .strokeBorder(configuration.isOn ? chrome.accent : chrome.lineStrong, lineWidth: 1)
-                        if configuration.isOn { Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(.white) }
+                        if configuration.isOn { Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(chrome.filledForeground(on: chrome.accent)) }
                     }.frame(width: 16, height: 16)
                 } else {
                     Capsule().fill(configuration.isOn ? chrome.accent : chrome.lineStrong)

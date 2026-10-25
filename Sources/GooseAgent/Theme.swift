@@ -166,6 +166,15 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
+    /// 实心控件根据填充选择黑字或白字，避免马卡龙色上的白字失去对比。
+    func filledForeground(on fill: Color) -> Color {
+        let resolved = NSColor(fill).usingColorSpace(.sRGB)!
+        let background = RGBColor(red: resolved.redComponent, green: resolved.greenComponent, blue: resolved.blueComponent)
+        let black = RGBColor(red: 0, green: 0, blue: 0)
+        let white = RGBColor(red: 1, green: 1, blue: 1)
+        return black.contrastRatio(with: background) >= white.contrastRatio(with: background) ? .black : .white
+    }
+
     static func resolve(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) -> WindowChrome {
         WindowChrome(isDark: isDark, icon: icon)
     }

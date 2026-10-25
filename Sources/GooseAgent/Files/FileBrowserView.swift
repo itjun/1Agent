@@ -818,7 +818,7 @@ struct FileColumnTransferControls: View {
                 .font(Theme.Font.body.weight(.medium))
                 .padding(.horizontal, Theme.Space.m)
                 .frame(height: FileBrowserLayout.toolbarHeight - 4)
-                .foregroundStyle(enabled && prominent ? Color.white : enabled ? chrome.text : chrome.tertiary)
+                .foregroundStyle(enabled && prominent ? chrome.filledForeground(on: chrome.accent) : enabled ? chrome.text : chrome.tertiary)
                 .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
                     .fill(enabled && prominent ? chrome.accent : Color.clear))
         }
