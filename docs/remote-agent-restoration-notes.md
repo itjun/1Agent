@@ -1,5 +1,7 @@
 # SSH 远程 Agent 对话恢复：实现注意事项
 
+> 历史方案，已于 2026-10-25 移除。远程终端不再部署 Agent helper、包装 AI CLI 或自动恢复 Agent 对话。以下内容保留为历史调研记录。
+
 调研日期：2026-10-19。调研起点为只支持 zsh、按终端隔离的远程快捷指令桥接和本地 Agent helper。下文为据此整理的设计依据；最终实现与实际 SSH、Claude 退出重开验收见 [本次实现与验证](agent-session-restoration-research.md#本次实现与验证)。
 
 ## SSH 通道和私有 socket

@@ -53,8 +53,6 @@ struct TerminalTab: Identifiable, Equatable {
     var remoteDirectory: String? = nil
     /// One-time startup marker for a terminal reopened from the saved app session.
     var restoration: TerminalRestoration? = nil
-    /// Exact Agent conversation attached to this terminal at the last app exit.
-    var agentConversation: AgentConversation? = nil
     /// One-launch automation overrides; commands and environment are never restored from disk.
     var creationEnvironment: [String] = []
     var creationFontSize: Float? = nil
@@ -1200,8 +1198,7 @@ final class AppModel: ObservableObject {
                 if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
                     return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false,
                                        remoteDirectory: item.remoteDirectory,
-                                       restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id),
-                                       agentConversation: item.agentConversation)
+                                       restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id))
                 }
                 if let directory = item.directory?.trimmingCharacters(in: .whitespacesAndNewlines), !directory.isEmpty {
                     return TerminalTab(
@@ -1210,8 +1207,7 @@ final class AppModel: ObservableObject {
                         directory: LocalTerminal.launchDirectory(directory),
                         generation: 0,
                         exited: false,
-                        restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id),
-                        agentConversation: item.agentConversation
+                        restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id)
                     )
                 }
                 return nil
@@ -1264,7 +1260,6 @@ final class AppModel: ObservableObject {
     /// Flush the final output while native surfaces still exist, then commit
     /// the matching session metadata. No disk export runs during normal typing.
     func prepareForApplicationExit() async throws {
-        await SSHTerminalRegistry.stopAgentsForApplicationExit()
         try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
         persistSession()
         await SSHTerminalRegistry.killProcessesForApplicationExit()
@@ -1306,7 +1301,6 @@ final class AppModel: ObservableObject {
         tabs[index].generation += 1
         tabs[index].exited = false
         tabs[index].restoration = nil
-        tabs[index].agentConversation = nil
         persistSession()
         if let window = window(containing: tabID) { selectOnly(tabID, in: window) }
     }
@@ -2389,12 +2383,10 @@ final class AppModel: ObservableObject {
                     return SessionSnapshot.Tab(id: tab.id, alias: nil, preview: path)
                 }
                 if let alias = tab.alias, !alias.isEmpty {
-                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory,
-                                               agentConversation: SSHTerminalRegistry.agentConversation(for: tab.sessionID, fallback: tab.agentConversation))
+                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory)
                 }
                 guard let directory = tab.directory, !directory.isEmpty else { return nil }
-                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory,
-                                           agentConversation: SSHTerminalRegistry.agentConversation(for: tab.sessionID, fallback: tab.agentConversation))
+                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory)
             },
             workspaces: workspaces,
             windows: windows.map { window in
@@ -2439,7 +2431,6 @@ struct SessionSnapshot: Codable {
         var preview: String? = nil
         /// File panes of an earlier build; such tabs are dropped at launch.
         var files: FileBrowserTarget? = nil
-        var agentConversation: AgentConversation? = nil
     }
 
     struct Frame: Codable {

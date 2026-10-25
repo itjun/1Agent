@@ -56,7 +56,6 @@ struct TerminalCanvas: View {
                         dark: dark,
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
-                        agentConversation: tab.agentConversation,
                         isPresented: visible && !window.presentation.fullFilesWorkspace,
                         isSelected: window.selectedTabID == tab.id && window.section == .terminals,
                         focusRailColor: isSplit && visible && window.selectedTabID == tab.id

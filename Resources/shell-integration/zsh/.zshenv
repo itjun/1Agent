@@ -48,9 +48,6 @@ fi
     [[ ! -r "$_ghostty_file" ]] || 'builtin' 'source' '--' "$_ghostty_file"
 } always {
     if [[ -o 'interactive' ]]; then
-        if [[ -n $ONEAGENT_AGENT_HELPER ]]; then
-            'builtin' 'source' "${${(%):-%x}:A:h}/oneagent-agent-sessions"
-        fi
         # ${(%):-%x} is the path to the current file.
         # On top of it we add :A:h to get the directory.
         'builtin' 'typeset' _ghostty_file="${${(%):-%x}:A:h}"/ghostty-integration

@@ -42,8 +42,5 @@ fi
 for dylib in "$APP"/Contents/MacOS/*.dylib; do
   [[ -e "$dylib" ]] && codesign --force --sign "$hash" --timestamp=none "$dylib"
 done
-if [[ -x "$APP/Contents/Helpers/oneagent-agent-session" ]]; then
-  codesign --force --sign "$hash" --timestamp=none "$APP/Contents/Helpers/oneagent-agent-session"
-fi
 codesign --force --sign "$hash" --timestamp=none --preserve-metadata=entitlements "$APP"
 echo "→ signed with “${IDENTITY}”"

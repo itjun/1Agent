@@ -1,5 +1,5 @@
 .PHONY: gen build install run test test-appearance test-terminal-restoration test-quick-command-drop test-sidebar-groups test-app-icons generate-app-icons clean
-.PHONY: test-agent-sessions
+.PHONY: test-command-transparency
 .PHONY: test-modal-appearance
 .PHONY: test-system-integration
 .PHONY: test-terminal-windows test-scripting-replies
@@ -27,13 +27,8 @@ test-system-integration:
 	swiftc -parse-as-library Sources/GooseAgent/TerminalAssociations.swift Tests/TerminalAssociationsTests.swift -o /tmp/oneagent-system-integration-tests
 	/tmp/oneagent-system-integration-tests
 
-test-agent-sessions:
-	swiftc -parse-as-library Sources/AgentSessions/*.swift Tests/AgentConversationTests.swift -o /tmp/oneagent-agent-conversation-tests
-	/tmp/oneagent-agent-conversation-tests
-	swiftc Sources/AgentSessions/*.swift Sources/AgentSessionHelper/main.swift -o /tmp/oneagent-agent-session-tests
-	python3 scripts/test-agent-sessions.py /tmp/oneagent-agent-session-tests
-	node scripts/test-agent-session-extension.mjs
-	python3 scripts/test-remote-agent-sessions.py
+test-command-transparency:
+	python3 scripts/test-command-transparency.py
 
 # Command Line Tools cannot run xcodebuild. Prefer the full Xcode.app when that is the case.
 ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
@@ -67,16 +62,15 @@ install:
 run: build
 	open "/Applications/$(APP_BUNDLE)"
 
-test: test-agent-sessions test-system-integration test-scripting-replies
+test: test-command-transparency test-system-integration test-scripting-replies
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Tests/RemoteCommandBridgeTests.swift
 	/tmp/oneagent-remote-bridge-tests
-	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Sources/GooseAgent/RemoteAgentBootstrap.swift Tests/RemoteShellIntegrationTests.swift
+	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
 	/tmp/oneagent-remote-shell-tests
 	swiftc -parse-as-library -o /tmp/oneagent-remote-palette-tests Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/Theme.swift Tests/RemotePaletteTests.swift
 	/tmp/oneagent-remote-palette-tests
 	swiftc -parse-as-library -o /tmp/oneagent-app-update-tests Sources/GooseAgent/AppUpdate.swift Tests/AppUpdateTests.swift
 	/tmp/oneagent-app-update-tests
-	python3 scripts/test-remote-agent-bootstrap.py
 	ONEAGENT_REMOTE_INTEGRATION_TEST=1 python3 scripts/test-quick-command-bridge.py
 	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandTransfer.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
 	/tmp/oneagent-quick-command-tests
