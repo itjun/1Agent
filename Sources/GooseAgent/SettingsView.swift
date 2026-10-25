@@ -638,6 +638,7 @@ struct SettingsView: View {
             Text("Remote").tag(TerminalThemeTarget.remote)
         }
         .pickerStyle(.segmented)
+        .tint(chrome.isDark ? chrome.accentFill : chrome.accent)
         .labelsHidden()
         .frame(width: SettingsLayout.rowControlWidth)
         .accessibilityIdentifier("settings.appearance.themeTarget")
