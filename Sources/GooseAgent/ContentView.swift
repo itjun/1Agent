@@ -1253,18 +1253,43 @@ struct SidebarBellMark: View {
     }
 }
 
-/// The session's location, or a remote command that has been running for a moment.
+/// Actionable session status takes priority over the current directory.
 struct SidebarSessionSubtitle: View {
+    @Environment(\.windowChrome) private var chrome
     @ObservedObject private var status = RemoteShellStatus.shared
     var tab: TerminalTab
     var location: String
 
     var body: some View {
-        if let command = status.runningCommand(of: tab) {
-            Text(verbatim: String(format: String(localized: "Running · %@"), command))
-        } else {
-            Text(verbatim: location)
+        let state = status.states[tab.sessionID]
+        let message = SidebarSessionSubtitle.message(tab: tab, location: location, state: state)
+        let isFailed = !tab.isLocal && state?.hasFinished == true && (state?.lastExitCode ?? 0) != 0 && state?.isRunning != true
+        Text(verbatim: message)
+            .foregroundStyle(tab.showsDisconnected ? chrome.danger : (tab.reconnecting || isFailed ? chrome.warning : chrome.secondary))
+            .help(message == RemoteShellStatus.shortDirectory(location) ? location : message)
+    }
+
+    static func message(tab: TerminalTab, location: String, state: RemoteShellState?) -> String {
+        guard tab.hasTerminal else { return RemoteShellStatus.shortDirectory(location) }
+        if tab.reconnecting {
+            return String(localized: "Reconnecting…")
         }
+        if tab.showsDisconnected {
+            return tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")
+        }
+        if !tab.isLocal, let state {
+            if state.isRunning {
+                guard let command = state.runningCommand else { return String(localized: "Running") }
+                return String(format: String(localized: "Running · %@"), command)
+            }
+            if state.hasFinished, let exitCode = state.lastExitCode, exitCode != 0 {
+                if let command = state.lastCommand {
+                    return String(format: String(localized: "Failed (%lld) · %@"), exitCode, command)
+                }
+                return String(format: String(localized: "Command failed with exit code %d"), exitCode)
+            }
+        }
+        return RemoteShellStatus.shortDirectory(location)
     }
 }
 

@@ -73,6 +73,7 @@
     "Running: %@ (for %@)" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Running: %1$@ (for %2$@)"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在运行：%1$@（已运行 %2$@）"}}}},
     "Idle" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Idle"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "空闲"}}}},
     "Running · %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Running · %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "运行中 · %@"}}}},
+    "Failed (%lld) · %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Failed (%1$lld) · %2$@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "失败（%1$lld）· %2$@"}}}},
     "Directory: %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Directory: %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "目录：%@"}}}},
     "Exit Code %lld" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Exit Code %lld"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "退出码 %lld"}}}},
     "Took %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Took %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "用时 %@"}}}},

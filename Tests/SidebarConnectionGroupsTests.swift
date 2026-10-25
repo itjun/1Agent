@@ -71,7 +71,31 @@ import SwiftUI
         try checkSidebarMenus(model: model, window: window, local: l1, remote: r1,
                               splitLeaf: ml, workspace: grouped)
         try check(model.panelRow(for: preview, in: window)?.block == .localGroup, "Preview is local")
-        try check(model.sessionSubtitle(model.tabs.first { $0.id == preview }!).hasPrefix(String(localized: "This Mac")), "Preview subtitle agrees with Local category")
+        try check(model.sessionSubtitle(model.tabs.first { $0.id == preview }!) == LocalTerminal.displayPath(previewPath), "Preview subtitle shows its path without repeating its category")
+        try check(model.sessionSubtitle(model.tabs.first { $0.id == l1 }!) == LocalTerminal.displayPath(home), "Local subtitle shows its directory without repeating its category")
+        var remote = model.tabs.first { $0.id == r1 }!
+        remote.remoteDirectory = "/srv/workspace/project"
+        let location = model.sessionSubtitle(remote)
+        try check(location == "/srv/workspace/project", "Remote subtitle retains the full directory for hover")
+        try check(SidebarSessionSubtitle.message(tab: remote, location: location, state: nil) == "…/workspace/project", "Idle remote subtitle preserves the useful end of a deep path")
+        var commandState = RemoteShellState()
+        commandState.hasFinished = true
+        commandState.lastCommand = "fixture-command"
+        commandState.lastExitCode = 2
+        let failed = SidebarSessionSubtitle.message(tab: remote, location: location, state: commandState)
+        try check(failed == String(format: String(localized: "Failed (%lld) · %@"), 2, "fixture-command"), "Failed command and exit code replace the directory")
+        commandState.isRunning = true
+        commandState.runningCommand = "fixture-running"
+        try check(SidebarSessionSubtitle.message(tab: remote, location: location, state: commandState) == String(format: String(localized: "Running · %@"), "fixture-running"), "Current command takes priority over a previous failure")
+        remote.exited = true
+        try check(SidebarSessionSubtitle.message(tab: remote, location: location, state: commandState) == String(localized: "Connection closed"), "Disconnect cannot show a stale running command")
+        remote.reconnecting = true
+        try check(SidebarSessionSubtitle.message(tab: remote, location: location, state: commandState) == String(localized: "Reconnecting…"), "Reconnection takes priority over stale command and exit state")
+        remote.exited = false
+        remote.reconnecting = false
+        commandState.isRunning = false
+        commandState.lastExitCode = 0
+        try check(SidebarSessionSubtitle.message(tab: remote, location: location, state: commandState) == "…/workspace/project", "A successful command returns to the directory")
         try check(model.panelRow(for: r1, in: window)?.block == .ungrouped, "Legacy wrong local placement is repaired")
         try check(model.panelRow(for: l2, in: window)?.block == .localGroup, "Legacy wrong remote placement is repaired")
         try check(model.panelRow(for: ml, in: window)?.block == .mixedGroup, "Mixed split has its own category")

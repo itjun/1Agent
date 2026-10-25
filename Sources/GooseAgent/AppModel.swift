@@ -313,19 +313,18 @@ final class AppModel: ObservableObject {
     /// The session's location remains live even when its panel has a custom name.
     func sessionSubtitle(_ tab: TerminalTab) -> String {
         if case .preview(let path) = tab.content {
-            return [String(localized: "This Mac"), LocalTerminal.displayPath(path)].joined(separator: " · ")
+            return LocalTerminal.displayPath(path)
         }
         if tab.isLocal {
-            return [String(localized: "This Mac"), LocalTerminal.displayPath(tab.directory ?? "~")]
-                .joined(separator: " · ")
+            return LocalTerminal.displayPath(tab.directory ?? "~")
         }
         // The narrow sidebar row fits only the directory; the pane title's menu names the host.
         if let directory = tab.remoteDirectory {
-            return [String(localized: "Remote"), directory].joined(separator: " · ")
+            return directory
         }
         let alias = tab.alias ?? ""
-        return [String(localized: "Remote"), host(alias)?.sessionBadge ?? alias]
-            .filter { !$0.isEmpty }.joined(separator: " · ")
+        let endpoint = host(alias)?.subtitle ?? ""
+        return endpoint.isEmpty ? alias : endpoint
     }
 
     /// First line of a remote terminal's title menu. Nil for anything else.
