@@ -156,19 +156,22 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
-    static func resolve(isDark: Bool, icon: ApplicationIcon = ApplicationIcon.stored()) -> WindowChrome {
+    static func resolve(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) -> WindowChrome {
         WindowChrome(isDark: isDark, icon: icon)
     }
 
-    init(isDark: Bool, icon: ApplicationIcon = ApplicationIcon.stored()) {
+    init(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) {
         func rgb(_ light: String, _ dark: String) -> RGBColor {
             RGBColor(ghosttyHex: isDark ? dark : light)!
         }
         func color(_ light: String, _ dark: String) -> Color {
             rgb(light, dark).color
         }
-        let backgroundRGB = rgb("FFFFFF", "1A1F2B")
-        let sidebarRGB = rgb("F2F3F5", "12161F")
+        let paletteBackground = icon.palette?.terminalBackground ?? "1A1F2B"
+        let backgroundRGB = rgb("FFFFFF", paletteBackground)
+        let sidebarRGB = isDark
+            ? backgroundRGB.mixed(with: RGBColor(red: 0, green: 0, blue: 0), amount: 0.16)
+            : rgb("F2F3F5", "12161F")
         background = backgroundRGB.color
         sidebarBackground = sidebarRGB.color
         let elevatedRGB = rgb("F3F4F6", "232A38")
@@ -211,9 +214,9 @@ struct WindowChrome: Equatable {
             accentFill = ring.mixed(with: backgroundRGB, amount: 0.75).color
             focus = ring.mixed(with: backgroundRGB, amount: 0.55).color
             selection = ring.mixed(with: backgroundRGB, amount: 0.45).color
-            sidebarBackground = sidebarRGB.mixed(with: ring, amount: 0.06).color
-            elevated = elevatedRGB.mixed(with: ring, amount: 0.1).color
-            hairline = hairlineRGB.mixed(with: ring, amount: 0.15).color
+            sidebarBackground = sidebarRGB.color
+            elevated = backgroundRGB.mixed(with: ring, amount: 0.1).color
+            hairline = backgroundRGB.mixed(with: ring, amount: 0.22).color
         } else {
             accentFill = fill.mixed(with: white, amount: 0.55).color
             focus = fill.color

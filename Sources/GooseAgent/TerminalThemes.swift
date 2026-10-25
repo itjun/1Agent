@@ -242,6 +242,11 @@ struct TerminalThemeChoice: Equatable, Hashable {
     /// Copies the old single-theme key into the matching slot once.
     /// Only built-in theme names migrate; obsolete custom names resolve to the slot default.
     static func migrateIfNeeded(defaults: UserDefaults = .standard) {
+        if defaults.object(forKey: LocalPalette.storageKey) == nil {
+            let icon = ApplicationIcon.stored(defaults: defaults)
+            defaults.set((icon.palette == nil ? LocalPalette.defaultPalette : icon).rawValue,
+                forKey: LocalPalette.storageKey)
+        }
         TerminalThemeChoice.restoreIndependentThemes(defaults: defaults)
         let legacy = defaults.string(forKey: TerminalAppearance.legacyThemeKey) ?? ""
         if !legacy.isEmpty {

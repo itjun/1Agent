@@ -8,12 +8,12 @@ struct RootView: View {
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @ObservedObject private var themePreview = ThemePreview.shared
     @ObservedObject private var inputFocus = FocusedTerminal.shared
-    @ObservedObject private var applicationIcons = ApplicationIconManager.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
+    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
     @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @Environment(\.controlActiveState) private var controlActiveState
     @StateObject private var dropRelay = CanvasDropRelay()
@@ -31,12 +31,12 @@ struct RootView: View {
     @State private var toolSidebarDragStart: Double?
     @FocusState private var workspaceNameFocused: Bool
 
-    /// A selected remote terminal switches the whole window to the remote palette; otherwise it follows the app icon.
+    /// The selected connection type supplies its independently saved palette.
     private var chrome: WindowChrome {
         if let id = window.selectedTabID, model.connectionGroup(for: [id]) == .remote {
             return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: RemotePalette.palette(raw: remotePaletteRaw))
         }
-        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: applicationIcons.selected)
+        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: LocalPalette.palette(raw: localPaletteRaw))
     }
 
     private var sidebarChrome: WindowChrome { chrome }
@@ -100,6 +100,12 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .onChange(of: darkThemeRaw) { _, _ in
+            GhosttyRuntime.applySelectedThemes()
+        }
+        .onChange(of: localPaletteRaw) { _, _ in
+            GhosttyRuntime.applySelectedThemes()
+        }
+        .onChange(of: remotePaletteRaw) { _, _ in
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))

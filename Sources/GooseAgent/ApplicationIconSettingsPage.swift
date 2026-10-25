@@ -3,12 +3,13 @@ import SwiftUI
 struct ApplicationIconSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var icons = ApplicationIconManager.shared
+    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
     @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     private let columns = Array(repeating: GridItem(.flexible(), spacing: Theme.Space.s), count: SettingsLayout.appIconColumns)
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
-            SettingsCard("App Icon") {
+            SettingsCard("Local Colors and App Icon") {
                 VStack(alignment: .leading, spacing: Theme.Space.l) {
                     Text("Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance.")
                         .font(Theme.Font.rowMeta)
@@ -44,7 +45,7 @@ struct ApplicationIconSettingsPage: View {
                 }
             } accessory: {
                 Button("Restore Default Icon") {
-                    icons.select(.defaultIcon)
+                    selectLocalIcon(.defaultIcon)
                 }
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(defaultIsActive ? chrome.tertiary : chrome.accent)
@@ -68,8 +69,8 @@ struct ApplicationIconSettingsPage: View {
                         }
                     }
 
-                    if remotePalette == icons.selected {
-                        Text("The remote palette matches the app icon, so local and remote terminals look the same.")
+                    if remotePalette == LocalPalette.palette(raw: localPaletteRaw) {
+                        Text("Local and remote terminals use the same palette. Choose different colors to distinguish them.")
                             .font(Theme.Font.rowMeta)
                             .foregroundStyle(chrome.warning)
                     }
@@ -79,9 +80,9 @@ struct ApplicationIconSettingsPage: View {
                     remotePaletteRaw = RemotePalette.defaultPalette.rawValue
                 }
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(remotePalette == RemotePalette.defaultPalette ? chrome.tertiary : chrome.accent)
+                .foregroundStyle(remoteDefaultIsActive ? chrome.tertiary : chrome.accent)
                 .buttonStyle(FamilyButtonStyle())
-                .disabled(remotePalette == RemotePalette.defaultPalette)
+                .disabled(remoteDefaultIsActive)
                 .accessibilityIdentifier("settings.remotePalette.restoreDefault")
             }
         }
@@ -89,6 +90,11 @@ struct ApplicationIconSettingsPage: View {
 
     private var defaultIsActive: Bool {
         icons.selected == .defaultIcon && !icons.loadFailed && !icons.finderUpdateFailed
+            && LocalPalette.palette(raw: localPaletteRaw) == LocalPalette.defaultPalette
+    }
+
+    private var remoteDefaultIsActive: Bool {
+        remotePalette == RemotePalette.defaultPalette
     }
 
     private var remotePalette: ApplicationIcon {
@@ -97,8 +103,14 @@ struct ApplicationIconSettingsPage: View {
 
     private func iconButton(_ icon: ApplicationIcon) -> some View {
         paletteTile(icon, selected: icons.selected == icon, identifier: "settings.appIcon.\(icon.rawValue)") {
-            icons.select(icon)
+            selectLocalIcon(icon)
         }
+    }
+
+    private func selectLocalIcon(_ icon: ApplicationIcon) {
+        icons.select(icon)
+        guard icons.selected == icon, !icons.loadFailed else { return }
+        localPaletteRaw = (icon == .original ? LocalPalette.defaultPalette : icon).rawValue
     }
 
     /// One icon tile; the app icon grid and the remote palette grid share it.

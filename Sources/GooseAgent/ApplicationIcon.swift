@@ -74,6 +74,23 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
     }
 }
 
+/// Local terminal identity is saved separately from the Dock icon and remote terminals.
+enum LocalPalette {
+    static let storageKey = "appearance.localPalette"
+    static let defaultPalette: ApplicationIcon = .clearSkyBlue
+
+    static func stored(defaults: UserDefaults = .standard) -> ApplicationIcon {
+        LocalPalette.palette(raw: defaults.string(forKey: storageKey))
+    }
+
+    static func palette(raw: String?) -> ApplicationIcon {
+        if let icon = ApplicationIcon(rawValue: raw ?? ""), icon.palette != nil {
+            return icon
+        }
+        return defaultPalette
+    }
+}
+
 /// Remote terminal identity keeps its existing preference key through the palette redesign.
 enum RemotePalette {
     static let storageKey = "appearance.remotePalette"
