@@ -63,7 +63,8 @@ enum AppUpdateTests {
         try check(AppUpdateFiles.assetFileName(AppUpdateAsset(name: ".hidden", url: "", sha256: "", size: 0)) == nil, "Hidden names are rejected")
 
         let now = Date(timeIntervalSince1970: 1_000_000)
-        try check(AppVersionParser.shouldPrompt(hasUpdate: true, mandatory: true, autoCheck: false, latest: "v2", skipped: "v2", remindVersion: "", remindAfter: nil, now: now), "Required updates still prompt")
+        try check(!AppVersionParser.shouldPrompt(hasUpdate: true, mandatory: true, autoCheck: false, latest: "v2", skipped: "v2", remindVersion: "", remindAfter: nil, now: now), "Required updates stay quiet when automatic checks are off")
+        try check(AppVersionParser.shouldPrompt(hasUpdate: true, mandatory: true, autoCheck: true, latest: "v2", skipped: "v2", remindVersion: "", remindAfter: nil, now: now), "Required updates still prompt when automatic checks are on")
         try check(!AppVersionParser.shouldPrompt(hasUpdate: true, mandatory: false, autoCheck: false, latest: "v2", skipped: "", remindVersion: "", remindAfter: nil, now: now), "Optional updates stay quiet when automatic checks are off")
         try check(!AppVersionParser.shouldPrompt(hasUpdate: true, mandatory: false, autoCheck: true, latest: "v2", skipped: "v2", remindVersion: "", remindAfter: nil, now: now), "A skipped version stays quiet")
         try check(!AppVersionParser.shouldPrompt(hasUpdate: true, mandatory: false, autoCheck: true, latest: "v2", skipped: "", remindVersion: "v2", remindAfter: now.addingTimeInterval(10), now: now), "A reminder still inside 24 hours stays quiet")

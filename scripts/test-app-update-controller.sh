@@ -27,7 +27,7 @@ sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path
     -Xlinker -rpath -Xlinker "$dylib_dir" \
     "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/AppUpdateControllerTests.swift" \
     -o "$test_executable"
-for scenario in same-version no-release older-version newer-version skipped remind; do
+for scenario in same-version no-release older-version newer-version disabled skipped remind disable-during-check disable-during-manual; do
     scenario_home="$test_dir/home/$scenario"
     prefs_dir="$scenario_home/Library/Application Support/1Agent/update"
     mkdir -p "$prefs_dir"

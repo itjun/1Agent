@@ -85,6 +85,43 @@ enum AppUpdateControllerTests {
         let updates = AppUpdateController.shared
         require(updates.state.enabled, "fixture app enables the real update controller")
         let scenario = UpdateFixtureProtocol.scenario
+        if ["disable-during-check", "disable-during-manual"].contains(scenario) {
+            updates.start()
+            let isManual = scenario == "disable-during-manual"
+            let check = Task { await updates.check(manual: isManual) }
+            let deadline = Date().addingTimeInterval(2)
+            while UpdateFixtureProtocol.requestCount == 0 && Date() < deadline {
+                try? await Task.sleep(nanoseconds: 1_000_000)
+            }
+            require(UpdateFixtureProtocol.requestCount == 1, "the update request has started")
+            updates.setAutoCheck(false)
+            await check.value
+            if isManual {
+                require(isDialogVisible() && UpdateFixtureProtocol.requestCount == 2, "turning off automatic checks does not cancel a manual check")
+            } else {
+                require(UpdateFixtureProtocol.cancellationCount > 0, "turning off automatic checks cancels the active request")
+                require(!isDialogVisible() && UpdateFixtureProtocol.requestCount == 1, "a cancelled automatic check does not fetch release notes or show a dialog")
+            }
+            require(updates.state.status == .idle, "the controller returns to idle")
+            AppUpdatePresenter.close()
+            updates.setAutoCheck(true)
+            await updates.check(manual: false)
+            require(updates.state.hasUpdate && isDialogVisible(), "automatic checks work again after re-enabling")
+            print("AppUpdateControllerTests passed: \(scenario)")
+            return
+        }
+        if scenario == "disabled" {
+            updates.start()
+            updates.poke()
+            await updates.check(manual: false)
+            try? await Task.sleep(nanoseconds: 10_200_000_000)
+            require(UpdateFixtureProtocol.requestCount == 0, "disabled automatic checks must not make any update requests")
+            require(!isDialogVisible(), "disabled automatic checks must not show dialogs")
+            await updates.check(manual: true)
+            require(UpdateFixtureProtocol.requestCount > 0 && isDialogVisible(), "manual checks still work when automatic checks are disabled")
+            print("AppUpdateControllerTests passed: disabled")
+            return
+        }
         await updates.check(manual: false)
         let isNewer = ["newer-version", "disabled", "skipped", "remind"].contains(scenario)
         require(updates.state.hasUpdate == isNewer, "release version comparison: \(scenario)")
@@ -94,6 +131,13 @@ enum AppUpdateControllerTests {
         require(isDialogVisible() == (scenario == "newer-version"), "automatic checks only open a dialog for a newer release that allows reminders: \(scenario)")
         require(!updates.state.error.isEmpty, "the settings page retains the check failure")
         AppUpdatePresenter.close()
+        if scenario == "newer-version" {
+            updates.setAutoCheck(false)
+            let requests = UpdateFixtureProtocol.requestCount
+            updates.poke()
+            await updates.check(manual: false)
+            require(!updates.state.prompt && !isDialogVisible() && UpdateFixtureProtocol.requestCount == requests, "turning off automatic checks clears pending reminders and prevents activation checks")
+        }
 
         await updates.check(manual: false)
         require(!isDialogVisible(), "repeated automatic failures stay quiet: \(scenario)")

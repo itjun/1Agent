@@ -265,9 +265,9 @@ enum AppVersionParser {
         remindAfter: Date?,
         now: Date
     ) -> Bool {
-        if !hasUpdate { return false }
+        if !hasUpdate || !autoCheck { return false }
         if mandatory { return true }
-        if !autoCheck || skipped == latest { return false }
+        if skipped == latest { return false }
         if remindVersion == latest, let remindAfter, now < remindAfter { return false }
         return true
     }
@@ -653,6 +653,7 @@ struct AppUpdateClient: Sendable {
     }
 
     private func get(_ raw: String, timeout: TimeInterval = 20) async -> Result<Data, AppUpdateFailure> {
+        if Task.isCancelled { return .failure(.downloadInterrupted) }
         guard let url = URL(string: raw) else { return .failure(.badAssetURL) }
         var request = URLRequest(url: url)
         request.timeoutInterval = timeout

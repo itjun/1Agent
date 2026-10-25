@@ -19,7 +19,7 @@ struct AppUpdateSettingsPage: View {
                             Text("Automatically check for updates")
                                 .font(Theme.Font.body)
                                 .foregroundStyle(chrome.text)
-                            Text("Optional updates stay quiet while this is off. A required update still appears.")
+                            Text("When off, 1Agent won’t check for updates or show update reminders automatically. You can still check manually.")
                                 .font(Theme.Font.rowMeta)
                                 .foregroundStyle(chrome.secondary)
                                 .fixedSize(horizontal: false, vertical: true)

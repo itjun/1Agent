@@ -39,6 +39,7 @@ final class AppUpdateController: ObservableObject {
     private var lastAttempt = Date.distantPast
     private var netFailNotified = false
     private var checkLoop: Task<Void, Never>?
+    private var automaticCheck: Task<Void, Never>?
     private var work: Task<Void, Never>?
     private let currentBase: String
     private let devBuild: Bool
@@ -88,26 +89,36 @@ final class AppUpdateController: ObservableObject {
         if !state.enabled { return }
         if case .success(let cached) = client.loadCached() {
             apply(cached)
-            if state.mandatory {
+            if prefs.autoCheck && state.mandatory {
                 state.prompt = true
                 presentUpdate()
             }
         }
-        if devBuild { return }
+        startAutomaticChecks()
+    }
+
+    private func startAutomaticChecks() {
+        guard started, state.enabled, prefs.autoCheck, !devBuild else { return }
+        checkLoop?.cancel()
         checkLoop = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(AppUpdate.firstCheckDelay * 1_000_000_000))
+            do {
+                try await Task.sleep(nanoseconds: UInt64(AppUpdate.firstCheckDelay * 1_000_000_000))
+            } catch { return }
             while !Task.isCancelled {
                 await self?.check(manual: false)
                 let jitter = Double.random(in: -AppUpdate.checkJitter...AppUpdate.checkJitter)
                 let wait = AppUpdate.checkInterval + jitter
-                try? await Task.sleep(nanoseconds: UInt64(max(wait, 1) * 1_000_000_000))
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(max(wait, 1) * 1_000_000_000))
+                } catch { return }
             }
         }
     }
 
     func poke() {
+        if !prefs.autoCheck { return }
         presentIfNeeded()
-        if !state.enabled || devBuild || !prefs.autoCheck || !started { return }
+        if !state.enabled || devBuild || !started { return }
         switch state.status {
         case .checking, .downloading, .installing:
             return
@@ -120,6 +131,7 @@ final class AppUpdateController: ObservableObject {
     }
 
     func check(manual: Bool) async {
+        if !manual && (!prefs.autoCheck || Task.isCancelled) { return }
         if !state.enabled {
             if manual { state.error = state.disabledReason }
             return
@@ -133,10 +145,27 @@ final class AppUpdateController: ObservableObject {
         let previous = state.status
         state.status = .checking
         lastAttempt = Date()
+        if manual {
+            await performCheck(manual: true, previous: previous)
+        } else {
+            let task = Task { await self.performCheck(manual: false, previous: previous) }
+            automaticCheck = task
+            await task.value
+        }
+    }
+
+    private func performCheck(manual: Bool, previous: AppUpdateStatus) async {
+        defer {
+            if state.status == .checking { state.status = .idle }
+        }
+        if Task.isCancelled || (!manual && !prefs.autoCheck) { return }
         let fetched = await client.fetch()
+        if Task.isCancelled || (!manual && !prefs.autoCheck) { return }
         switch fetched {
         case .failure(let error):
-            if case .success(let post) = await client.fetchReleasePost() {
+            let release = await client.fetchReleasePost()
+            if Task.isCancelled || (!manual && !prefs.autoCheck) { return }
+            if case .success(let post) = release {
                 applyReleasePost(post)
             }
             if previous == .error && !manual {
@@ -152,7 +181,7 @@ final class AppUpdateController: ObservableObject {
             if manual || isAutomaticNotice {
                 if state.hasUpdate && state.size > 0 {
                     state.prompt = true
-                    announceUpdate()
+                    announceUpdate(manual: manual)
                 } else if state.hasUpdate {
                     announceRelease(manual: manual)
                 } else {
@@ -161,23 +190,21 @@ final class AppUpdateController: ObservableObject {
             }
             return
         case .success(let manifest):
-            state.status = .idle
             state.error = ""
             state.checkFailed = false
             netFailNotified = false
             state.lastChecked = ISO8601DateFormatter().string(from: Date())
             apply(manifest)
             if state.notes.isEmpty {
-                if case .success(let post) = await client.fetchReleasePost() {
+                let release = await client.fetchReleasePost()
+                if Task.isCancelled || (!manual && !prefs.autoCheck) { return }
+                if case .success(let post) = release {
                     applyReleasePost(post)
                 }
             }
+            state.status = .idle
             var prompt = false
             if !manual && shouldPrompt() {
-                state.prompt = true
-                prompt = true
-            }
-            if state.mandatory {
                 state.prompt = true
                 prompt = true
             }
@@ -185,7 +212,7 @@ final class AppUpdateController: ObservableObject {
                 state.prompt = true
                 prompt = true
             }
-            if prompt { announceUpdate() }
+            if prompt { announceUpdate(manual: manual) }
         }
     }
 
@@ -269,9 +296,23 @@ final class AppUpdateController: ObservableObject {
     }
 
     func setAutoCheck(_ on: Bool) {
+        if prefs.autoCheck == on { return }
         prefs.autoCheck = on
         state.autoCheck = on
         prefs.save()
+        if on {
+            startAutomaticChecks()
+        } else {
+            checkLoop?.cancel()
+            checkLoop = nil
+            automaticCheck?.cancel()
+            automaticCheck = nil
+            state.prompt = false
+            AppUpdatePresenter.close()
+            let center = UNUserNotificationCenter.current()
+            center.removePendingNotificationRequests(withIdentifiers: ["oneagent-update"])
+            center.removeDeliveredNotifications(withIdentifiers: ["oneagent-update"])
+        }
     }
 
     func dismissOptional() {
@@ -347,7 +388,7 @@ final class AppUpdateController: ObservableObject {
         )
     }
 
-    private func announceUpdate() {
+    private func announceUpdate(manual: Bool) {
         if windowIsVisible() {
             presentUpdate()
             return
@@ -361,7 +402,7 @@ final class AppUpdateController: ObservableObject {
             title = String(format: String(localized: "1Agent %@ is available"), state.latest)
             body = String(localized: "Click to read the notes and install.")
         }
-        postNotification(title: title, body: body)
+        postNotification(title: title, body: body, manual: manual)
     }
 
     private func announceRelease(manual: Bool) {
@@ -371,7 +412,8 @@ final class AppUpdateController: ObservableObject {
         }
         postNotification(
             title: String(format: String(localized: "1Agent %@ is available"), state.latest),
-            body: String(localized: "Click to read the release notes.")
+            body: String(localized: "Click to read the release notes."),
+            manual: manual
         )
     }
 
@@ -382,12 +424,13 @@ final class AppUpdateController: ObservableObject {
         }
         postNotification(
             title: String(localized: "Could not check for updates"),
-            body: String(localized: "Could not reach the update server. Download the new version from the releases page.")
+            body: String(localized: "Could not reach the update server. Download the new version from the releases page."),
+            manual: true
         )
     }
 
     private func presentIfNeeded() {
-        if state.prompt && state.hasUpdate { presentUpdate() }
+        if prefs.autoCheck && state.prompt && state.hasUpdate { presentUpdate() }
     }
 
     private func presentUpdate() {
@@ -416,7 +459,7 @@ final class AppUpdateController: ObservableObject {
         return nil
     }
 
-    private func postNotification(title: String, body: String) {
+    private func postNotification(title: String, body: String, manual: Bool) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -424,9 +467,12 @@ final class AppUpdateController: ObservableObject {
         content.userInfo = [AppUpdate.notificationKey: "show"]
         let request = UNNotificationRequest(identifier: "oneagent-update", content: content, trigger: nil)
         let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+        center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
             guard granted else { return }
-            center.add(request)
+            Task { @MainActor in
+                guard let self, manual || self.prefs.autoCheck else { return }
+                center.add(request)
+            }
         }
     }
 
