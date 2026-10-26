@@ -170,6 +170,34 @@ enum WorkspaceBoard {
         return result
     }
 
+    /// Reorder sessions inside one split while retaining its geometry, dividers and panel identity.
+    static func reorderTerminals(_ ids: [UUID], beside target: UUID, after: Bool, in workspaces: [Workspace]) -> [Workspace] {
+        guard let index = index(containing: target, in: workspaces),
+              let panel = workspaces[index].panels.firstIndex(where: { PaneLayout.contains(target, in: $0.layout) }) else { return workspaces }
+        let leaves = leafIDs(workspaces[index].panels[panel].layout)
+        let dragged = unique(ids).filter { $0 != target }
+        guard !dragged.isEmpty, Set(dragged).isSubset(of: Set(leaves)) else { return workspaces }
+        var ordered = leaves.filter { !dragged.contains($0) }
+        let slot = ordered.firstIndex(of: target)! + (after ? 1 : 0)
+        ordered.insert(contentsOf: dragged, at: slot)
+        guard ordered != leaves else { return workspaces }
+        var remaining = ordered.makeIterator()
+        func reorder(_ node: PaneNode) -> PaneNode {
+            switch node {
+            case .leaf: return .leaf(remaining.next()!)
+            case .split(var split):
+                split.leading = reorder(split.leading)
+                split.trailing = reorder(split.trailing)
+                return .split(split)
+            }
+        }
+        var result = workspaces
+        result[index].panels[panel].layout = reorder(result[index].panels[panel].layout)
+        var members = ordered.makeIterator()
+        result[index].members = result[index].members.map { leaves.contains($0) ? members.next()! : $0 }
+        return result
+    }
+
     static func join(_ dragged: UUID, to workspaceID: UUID, in workspaces: [Workspace]) -> [Workspace] {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }),
               !workspace.members.contains(dragged) else { return workspaces }

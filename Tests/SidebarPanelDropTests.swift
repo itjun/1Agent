@@ -33,15 +33,21 @@ import SwiftUI
         defer { method_setImplementation(getter, previous); defaults.removePersistentDomain(forName: suite) }
 
         let first = UUID(), second = UUID(), outsider = UUID(), panelID = UUID()
+        let otherFirst = UUID(), otherSecond = UUID()
         let split = Workspace(id: UUID(), number: 1, members: [first, second], panels: [
             TerminalPanel(id: panelID, layout: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.4,
                                                                leading: .leaf(first), trailing: .leaf(second))))
         ], isGrouped: false)
+        let otherSplit = Workspace(id: UUID(), number: 2, members: [otherFirst, otherSecond], panels: [
+            TerminalPanel(layout: .split(SplitNode(id: UUID(), axis: .horizontal, ratio: 0.6,
+                                                  leading: .leaf(otherFirst), trailing: .leaf(otherSecond))))
+        ], isGrouped: false)
         let snapshot = SessionSnapshot(tabs: [
             .init(id: first, directory: home), .init(id: second, directory: home),
-            .init(id: outsider, directory: home)
-        ], workspaces: [split], windows: [
-            .init(id: UUID(), blocks: [.localGroup], localGroup: [first, second, outsider], ungrouped: [], selected: outsider)
+            .init(id: outsider, directory: home), .init(id: otherFirst, directory: home),
+            .init(id: otherSecond, directory: home)
+        ], workspaces: [split, otherSplit], windows: [
+            .init(id: UUID(), blocks: [.localGroup], localGroup: [first, second, outsider, otherFirst, otherSecond], ungrouped: [], selected: outsider)
         ], keyWindow: nil)
         defaults.set(try JSONEncoder().encode(snapshot), forKey: SessionSnapshot.storageKey)
         let model = AppModel(), window = model.mainWindow
@@ -52,8 +58,8 @@ import SwiftUI
         native.contentView = content
         defer { native.orderOut(nil) }
         let deadline = Date().addingTimeInterval(3)
-        while model.tabs.count != 3, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
-        try check(model.tabs.count == 3, "Fixture restores all terminals")
+        while model.tabs.count != 5, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        try check(model.tabs.count == 5, "Fixture restores all terminals")
 
         let relay = CanvasDropRelay()
         relay.modelBox = model; relay.windowBox = window
@@ -122,12 +128,14 @@ import SwiftUI
         let memberPoint = member.convert(NSPoint(x: 80, y: member.bounds.midY), to: nil)
         productionRelay.dragBegan(outsider)
         productionRelay.dragMoved(windowPoint: memberPoint)
-        try check(window.dropHighlight == .sidebarRow(first), "Member hover highlights its target group")
-        try check(model.workspaces == [split], "Hover never changes group membership")
+        try check(window.dropHighlight == nil, "Member hover uses an insertion line instead of highlighting the entire group")
+        try check(model.workspaces == [split, otherSplit], "Hover never changes group membership")
         productionRelay.dragEnded(windowPoint: memberPoint)
         try check(model.panelRow(for: outsider, in: window)?.panelID == panelID,
                   "Dropping on a production member row joins the existing panel")
-        try check(model.tabs.count == 3 && Set(model.workspaces.flatMap(\.members)).count == 3,
+        try check(model.panelRow(for: outsider, in: window)?.leafIDs == [first, second, outsider],
+                  "Dropping after a member inserts at that position in the actual split")
+        try check(model.tabs.count == 5 && Set(model.workspaces.flatMap(\.members)).count == 5,
                   "Merging keeps every terminal exactly once")
         try check(window.draggingTabID == nil && window.draggingTabIDs.isEmpty && window.dropHighlight == nil,
                   "Releasing the drag clears its state and hover highlight")
@@ -142,18 +150,89 @@ import SwiftUI
         let productionHeader = productionRelay.rowAnchors[first]!.view!
         productionRelay.performDrop(of: .tabs([outsider], source: window),
                                     windowPoint: productionHeader.convert(NSPoint(x: 80, y: 2), to: nil), model: model)
-        try check(model.workspaces == [split] && model.panelRows(in: window).first?.focusedTabID == outsider,
+        try check(model.workspaces == [split, otherSplit] && model.panelRows(in: window).first?.focusedTabID == outsider,
                   "The header's upper edge still reorders instead of merging")
         reset()
         productionRelay.performDrop(of: .tabs([first, second], source: window), windowPoint: memberPoint, model: model)
-        try check(model.workspaces.flatMap(\.panels) == split.panels &&
+        try check(model.workspaces.flatMap(\.panels) == split.panels + otherSplit.panels &&
                   model.panelRow(for: first, in: window)?.leafIDs == [first, second],
                   "Dropping a group on itself preserves its panel identity and split")
         let beforeOutside = model.workspaces
         productionRelay.performDrop(of: .tabs([outsider], source: window), windowPoint: NSPoint(x: -20, y: -20), model: model)
         try check(model.workspaces == beforeOutside, "Outside drops leave membership unchanged")
+
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+        let frame = CGRect(x: 0, y: 0, width: 900, height: 600)
+        let originalFrames = PaneLayout.frames(of: model.workspaces.first!.panels.first!.layout, in: frame)
+        let firstMember = productionRelay.paneRowAnchors[first]!.view!
+        let secondMember = productionRelay.paneRowAnchors[second]!.view!
+        let secondPoint = secondMember.convert(NSPoint(x: 80, y: secondMember.bounds.midY), to: nil)
+        let hitRoot = native.contentView!.superview!
+        guard let memberHandle = hitRoot.hitTest(hitRoot.convert(secondPoint, from: nil)) as? TabDragHandleView else {
+            throw Failure(message: "A member row must expose its native drag handle")
+        }
+        try check(memberHandle.dragEnabled, "The production member row enables native dragging")
+        memberHandle.onBegan()
+        try check(window.draggingTabIDs == [second], "Dragging a member takes only that terminal")
+        let beforeFirst = firstMember.convert(NSPoint(x: 80, y: 3), to: nil)
+        memberHandle.onMoved(beforeFirst)
+        memberHandle.onEnded(beforeFirst)
+        try check(model.panelRow(for: second, in: window)?.leafIDs == [second, first] &&
+                  WorkspaceBoard.leafIDs(model.displayRoot(in: window)!) == [second, first],
+                  "Member reorder updates both sidebar order and right-side layout")
+        let swappedFrames = PaneLayout.frames(of: model.displayRoot(in: window)!, in: frame)
+        try check(swappedFrames[second] == originalFrames[first] && swappedFrames[first] == originalFrames[second],
+                  "Member reorder preserves the original split proportions")
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+        let selfRow = productionRelay.paneRowAnchors[second]!.view!
+        let selfPoint = selfRow.convert(NSPoint(x: 80, y: selfRow.bounds.midY), to: nil)
+        let beforeSelf = model.workspaces
+        productionRelay.dragBegan(second, isSingleTerminal: true)
+        productionRelay.dragEnded(windowPoint: selfPoint)
+        try check(model.workspaces == beforeSelf, "Dropping a member on itself never extracts it")
+
+        // Keep two survivors when extracting one member, so dragging it back exercises the group target.
+        model.dropTerminals([outsider], beside: first, after: true, in: window)
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+        let sidebarView = productionRelay.sidebarAnchor!
+        let outsideGroup = sidebarView.convert(NSPoint(x: sidebarView.bounds.maxX - 3, y: sidebarView.bounds.maxY - 8), to: nil)
+        productionRelay.dragBegan(second, isSingleTerminal: true)
+        productionRelay.dragEnded(windowPoint: outsideGroup)
+        try check(model.panelRow(for: second, in: window)?.isSplit == false &&
+                  model.panelRow(for: first, in: window)?.leafIDs == [first, outsider],
+                  "Dragging out extracts only the member and retains the remaining group")
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+        let returnRow = productionRelay.paneRowAnchors[outsider]!.view!
+        productionRelay.dragBegan(second)
+        productionRelay.dragEnded(windowPoint: returnRow.convert(NSPoint(x: 80, y: 3), to: nil))
+        try check(model.panelRow(for: second, in: window)?.leafIDs == [first, second, outsider],
+                  "Dragging back into a group inserts before the hovered member")
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+        let otherMember = productionRelay.paneRowAnchors[otherSecond]!.view!
+        productionRelay.dragBegan(second, isSingleTerminal: true)
+        productionRelay.dragEnded(windowPoint: otherMember.convert(NSPoint(x: 80, y: 3), to: nil))
+        try check(model.panelRow(for: first, in: window)?.leafIDs == [first, outsider] &&
+                  model.panelRow(for: second, in: window)?.leafIDs == [otherFirst, second, otherSecond] &&
+                  WorkspaceBoard.leafIDs(model.displayRoot(in: window)!) == [otherFirst, second, otherSecond],
+                  "Dragging across groups moves just one terminal and updates the displayed layout")
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+        let originalGroupMember = productionRelay.paneRowAnchors[outsider]!.view!
+        productionRelay.dragBegan(second, isSingleTerminal: true)
+        productionRelay.dragEnded(windowPoint: originalGroupMember.convert(NSPoint(x: 80, y: 3), to: nil))
+        try check(model.panelRow(for: second, in: window)?.leafIDs == [first, second, outsider] &&
+                  model.workspaces.first { $0.id == otherSplit.id } == otherSplit,
+                  "Dragging between groups is reversible and leaves the other group's layout intact")
+        let reorderedSnapshot = try JSONDecoder().decode(SessionSnapshot.self, from: defaults.data(forKey: SessionSnapshot.storageKey)!)
+        try check(WorkspaceBoard.leafIDs(reorderedSnapshot.workspaces.first!.panels.first!.layout) == [first, second, outsider],
+                  "The right-side order persists across session restoration")
         try check(terminalViews.allSatisfy { $0.processHost == nil },
                   "Drop verification never starts a shell")
-        print("Verified header/member delivery, production anchors, hover, reorder edges, self/outside drops and persistence")
+        print("Verified matching row heights, member reorder and split proportions, extraction/rejoin, header/member delivery, self/outside drops and persistence")
     }
 }

@@ -25,6 +25,8 @@ enum DragPayload {
 enum SidebarDropTarget: Equatable {
     /// An existing split panel receiving more terminals.
     case panel(UUID)
+    /// Before or after an individual terminal inside an existing split.
+    case terminal(UUID, after: Bool)
     /// Between two rows of a workspace, or at its end when `beside` is nil.
     case workspace(UUID, beside: UUID?, after: Bool)
     /// Between two rows of Local Group / Ungrouped, or at its end when `beside` is nil.
@@ -50,7 +52,7 @@ final class CanvasDropRelay: ObservableObject {
     var filesSideAnchors: [FilesDropTarget: AnchorBox] = [:]
     weak var filesButtonAnchor: NSView?
     var dragTitle = ""
-    private var draggingFromPane = false
+    private var isDraggingSingleTerminal = false
     private var autoscrollTimer: Timer?
     private var autoscrollStep: CGFloat = 0
 
@@ -79,12 +81,12 @@ final class CanvasDropRelay: ObservableObject {
 
     // MARK: Drag lifecycle (called by the handles of this window)
 
-    func dragBegan(_ id: UUID, fromPane: Bool = false) {
-        draggingFromPane = fromPane
+    func dragBegan(_ id: UUID, fromPane: Bool = false, isSingleTerminal: Bool = false) {
+        isDraggingSingleTerminal = fromPane || isSingleTerminal
         MainActor.assumeIsolated {
             guard let model = modelBox, let window = windowBox else { return }
             model.beginDrag(id, in: window)
-            if fromPane {
+            if isDraggingSingleTerminal {
                 window.draggingTabIDs = [id]
             }
             let count = window.draggingTabIDs.count
@@ -102,7 +104,7 @@ final class CanvasDropRelay: ObservableObject {
     }
 
     func blockDragBegan(_ block: SidebarBlock) {
-        draggingFromPane = false
+        isDraggingSingleTerminal = false
         MainActor.assumeIsolated {
             guard let model = modelBox, let window = windowBox else { return }
             switch block {
@@ -278,8 +280,10 @@ final class CanvasDropRelay: ObservableObject {
             switch target {
             case .panel(let target):
                 model.dropTabs(ids, onto: target, edge: .right, in: window)
+            case .terminal(let target, let after):
+                model.dropTerminals(ids, beside: target, after: after, in: window)
             case .workspace(let workspaceID, let beside, let after):
-                model.joinWorkspace(ids, workspaceID, beside: beside, after: after, detach: draggingFromPane)
+                model.joinWorkspace(ids, workspaceID, beside: beside, after: after, detach: isDraggingSingleTerminal)
             case .loose(let block, let beside, let after):
                 model.moveToLooseGroup(ids, block, in: window, beside: beside, after: after)
             case .gap(let index):
@@ -293,7 +297,7 @@ final class CanvasDropRelay: ObservableObject {
             case .block(let block):
                 switch block {
                 case .workspace(let workspaceID):
-                    model.joinWorkspace(ids, workspaceID, beside: nil, after: true, detach: draggingFromPane)
+                    model.joinWorkspace(ids, workspaceID, beside: nil, after: true, detach: isDraggingSingleTerminal)
                 case .localGroup, .ungrouped, .mixedGroup:
                     model.moveToLooseGroup(ids, block, in: window, beside: nil, after: true)
                 }
@@ -305,7 +309,7 @@ final class CanvasDropRelay: ObservableObject {
                 model.dropBlock(dragged, from: source, intoGap: index, of: window)
             case .block(let block):
                 model.mergeBlock(dragged, from: source, into: block, in: window)
-            case .panel, .workspace, .loose:
+            case .panel, .terminal, .workspace, .loose:
                 break
             }
         }
@@ -340,15 +344,10 @@ final class CanvasDropRelay: ObservableObject {
         }
     }
 
-    /// Split headers and their member rows accept terminals. Header edges retain row reordering.
+    /// Split headers accept whole panels. Their edges retain row reordering.
     @MainActor
     private func panelUnderPointer(_ windowPoint: NSPoint, excluding dragged: Set<UUID>, model: AppModel, window: WindowState) -> UUID? {
         for row in model.panelRows(in: window) where row.isSplit && dragged.isDisjoint(with: row.leafIDs) {
-            for id in row.leafIDs {
-                if let pane = paneRowAnchors[id]?.view, Self.view(pane, contains: windowPoint) {
-                    return row.focusedTabID
-                }
-            }
             if let header = rowAnchors[row.focusedTabID]?.view, Self.view(header, contains: windowPoint) {
                 let interior = header.bounds.insetBy(dx: 0, dy: 6)
                 if interior.contains(header.convert(windowPoint, from: nil)) {
@@ -364,6 +363,20 @@ final class CanvasDropRelay: ObservableObject {
     private func sidebarTarget(for payload: DragPayload, windowPoint: NSPoint, model: AppModel, window: WindowState) -> SidebarDropTarget? {
         guard sidebarContains(windowPoint) else { return nil }
         let dragged = Set(draggedIDs(of: payload, model: model))
+        for row in model.panelRows(in: window) where row.isSplit {
+            for id in row.leafIDs {
+                if let pane = paneRowAnchors[id]?.view, Self.view(pane, contains: windowPoint) {
+                    guard !dragged.contains(id) else { return nil }
+                    let point = pane.convert(windowPoint, from: nil)
+                    window.dropHighlight = nil
+                    return .terminal(id, after: point.y >= pane.bounds.midY)
+                }
+            }
+            if !dragged.isDisjoint(with: row.leafIDs),
+               let header = rowAnchors[row.focusedTabID]?.view, Self.view(header, contains: windowPoint) {
+                return nil
+            }
+        }
         if let panel = panelUnderPointer(windowPoint, excluding: dragged, model: model, window: window) {
             return .panel(panel)
         }
@@ -412,6 +425,9 @@ final class CanvasDropRelay: ObservableObject {
         case .panel(let id):
             window.dropHighlight = .sidebarRow(id)
             return nil
+        case .terminal(let id, let after):
+            guard let row = paneRowAnchors[id]?.view else { return nil }
+            return Self.sidebarLine(sidebar: sidebar, over: row, after: after)
         case .workspace(let id, let beside, let after):
             if let beside, let row = rowAnchors[beside]?.view {
                 return Self.sidebarLine(sidebar: sidebar, over: row, after: after)

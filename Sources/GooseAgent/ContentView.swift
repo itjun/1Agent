@@ -235,6 +235,7 @@ struct RootView: View {
 
     private func clearSidebarDrag() {
         dropRelay.rowAnchors.removeAll()
+        dropRelay.paneRowAnchors.removeAll()
         dropRelay.blockAnchors.removeAll()
         model.endDrag(in: window)
         dropRelay.hidePreview()
@@ -736,16 +737,16 @@ struct RootView: View {
         .padding(.leading, 29).padding(.trailing, 30)
         .frame(height: SidebarLayout.terminalRowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
-            .fill(isSelected ? sidebarChrome.accentFill : .clear))
+            .fill(rowFill(selected: isSelected, hovered: hoveredTabID == tab.id, tabID: tab.id)))
         .background(PanelRowAnchor(ids: [tab.id], relay: dropRelay, isPane: true))
         .overlay {
             TabDragHandle(
                 onClick: { _, _ in model.selectOnly(tab.id, in: window) },
-                onBegan: {},
-                onMoved: { _ in },
-                onEnded: { _ in },
-                onSecondaryClick: { TerminalPaneActions.showContext(tab: tab, model: model, window: window) },
-                dragEnabled: false
+                onHover: { hoveredTabID = $0 ? tab.id : nil },
+                onBegan: { dropRelay.dragBegan(tab.id, isSingleTerminal: true) },
+                onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                onSecondaryClick: { TerminalPaneActions.showContext(tab: tab, model: model, window: window) }
             ).accessibilityHidden(true)
         }
         .help(subtitle)

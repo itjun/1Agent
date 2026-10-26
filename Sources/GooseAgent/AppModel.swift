@@ -2129,6 +2129,23 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
+    /// Sidebar member order is also the order of the sessions occupying the split's existing slots.
+    func dropTerminals(_ ids: [UUID], beside target: UUID, after: Bool, in window: WindowState) {
+        let dragged = sessionIDs(ids).filter { $0 != target }
+        guard !dragged.isEmpty, !ids.contains(target),
+              let row = panelRow(for: target, in: window), row.isSplit else { return }
+        if Set(dragged).isSubset(of: Set(row.leafIDs)) {
+            let next = WorkspaceBoard.reorderTerminals(dragged, beside: target, after: after, in: workspaces)
+            guard next != workspaces else { return }
+            clearPanelZoom(for: row.leafIDs)
+            workspaces = next
+            select(dragged, in: window)
+            persistSession()
+        } else {
+            dropTabs(dragged, onto: target, edge: after ? .right : .left, in: window)
+        }
+    }
+
     func canMoveToLooseGroup(_ ids: [UUID], _ block: SidebarBlock, in window: WindowState) -> Bool {
         guard block.isLoose else { return false }
         let wanted = Set(ids)
