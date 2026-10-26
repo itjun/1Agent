@@ -146,6 +146,10 @@ test-quick-command-drop:
 test-sidebar-groups:
 	bash scripts/test-sidebar-groups.sh
 
+.PHONY: test-sidebar-panel-drop
+test-sidebar-panel-drop:
+	bash scripts/test-sidebar-panel-drop.sh
+
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj
 

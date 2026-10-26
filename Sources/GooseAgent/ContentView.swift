@@ -731,6 +731,7 @@ struct RootView: View {
         .frame(height: Theme.Control.height)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
             .fill(isSelected ? sidebarChrome.accentFill : .clear))
+        .background(PanelRowAnchor(ids: [tab.id], relay: dropRelay, isPane: true))
         .overlay {
             TabDragHandle(
                 onClick: { _, _ in model.selectOnly(tab.id, in: window) },
@@ -910,9 +911,13 @@ struct RootView: View {
 private struct PanelRowAnchor: NSViewRepresentable {
     var ids: [UUID]
     var relay: CanvasDropRelay
+    var isPane = false
     func makeNSView(context: Context) -> BoundsAnchorView { BoundsAnchorView() }
     func updateNSView(_ view: BoundsAnchorView, context: Context) {
-        for id in ids { relay.rowAnchors[id] = AnchorBox(view) }
+        for id in ids {
+            if isPane { relay.paneRowAnchors[id] = AnchorBox(view) }
+            else { relay.rowAnchors[id] = AnchorBox(view) }
+        }
     }
 }
 

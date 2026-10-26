@@ -23,6 +23,8 @@ enum DragPayload {
 /// Where a sidebar drag is about to land. Computed on every mouse move and reused on mouse-up,
 /// so the preview line and the final action can never disagree.
 enum SidebarDropTarget: Equatable {
+    /// An existing split panel receiving more terminals.
+    case panel(UUID)
     /// Between two rows of a workspace, or at its end when `beside` is nil.
     case workspace(UUID, beside: UUID?, after: Bool)
     /// Between two rows of Local Group / Ungrouped, or at its end when `beside` is nil.
@@ -41,6 +43,7 @@ final class CanvasDropRelay: ObservableObject {
     weak var catcher: PaneDropCatcherView?
     weak var sidebarAnchor: NSView?
     var rowAnchors: [UUID: AnchorBox] = [:]
+    var paneRowAnchors: [UUID: AnchorBox] = [:]
     var blockAnchors: [SidebarBlock: AnchorBox] = [:]
     /// The two sides of the Files area, and the Files button in the sidebar header. A sidebar row
     /// dropped on any of them opens that host's files instead of moving the row.
@@ -273,6 +276,8 @@ final class CanvasDropRelay: ObservableObject {
         case .tabs(let ids, _):
             guard let target = sidebarTarget(for: payload, windowPoint: windowPoint, model: model, window: window) else { return }
             switch target {
+            case .panel(let target):
+                model.dropTabs(ids, onto: target, edge: .right, in: window)
             case .workspace(let workspaceID, let beside, let after):
                 model.joinWorkspace(ids, workspaceID, beside: beside, after: after, detach: draggingFromPane)
             case .loose(let block, let beside, let after):
@@ -300,7 +305,7 @@ final class CanvasDropRelay: ObservableObject {
                 model.dropBlock(dragged, from: source, intoGap: index, of: window)
             case .block(let block):
                 model.mergeBlock(dragged, from: source, into: block, in: window)
-            case .workspace, .loose:
+            case .panel, .workspace, .loose:
                 break
             }
         }
@@ -335,12 +340,33 @@ final class CanvasDropRelay: ObservableObject {
         }
     }
 
-    /// Resolves the sidebar landing spot for a terminal drag. Rows win over gaps; the nearest
-    /// row edge inside the block under the pointer decides the insertion slot.
+    /// Split headers and their member rows accept terminals. Header edges retain row reordering.
+    @MainActor
+    private func panelUnderPointer(_ windowPoint: NSPoint, excluding dragged: Set<UUID>, model: AppModel, window: WindowState) -> UUID? {
+        for row in model.panelRows(in: window) where row.isSplit && dragged.isDisjoint(with: row.leafIDs) {
+            for id in row.leafIDs {
+                if let pane = paneRowAnchors[id]?.view, Self.view(pane, contains: windowPoint) {
+                    return row.focusedTabID
+                }
+            }
+            if let header = rowAnchors[row.focusedTabID]?.view, Self.view(header, contains: windowPoint) {
+                let interior = header.bounds.insetBy(dx: 0, dy: 6)
+                if interior.contains(header.convert(windowPoint, from: nil)) {
+                    return row.focusedTabID
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Resolves terminal drops before falling back to the nearest insertion slot in a block.
     @MainActor
     private func sidebarTarget(for payload: DragPayload, windowPoint: NSPoint, model: AppModel, window: WindowState) -> SidebarDropTarget? {
         guard sidebarContains(windowPoint) else { return nil }
         let dragged = Set(draggedIDs(of: payload, model: model))
+        if let panel = panelUnderPointer(windowPoint, excluding: dragged, model: model, window: window) {
+            return .panel(panel)
+        }
         let target: SidebarDropTarget
         if let block = blockUnderPointer(windowPoint) {
             let rows = model.panelRows(in: block, window: window).filter { dragged.isDisjoint(with: $0.leafIDs) }
@@ -383,6 +409,9 @@ final class CanvasDropRelay: ObservableObject {
     private func preview(for target: SidebarDropTarget, model: AppModel, window: WindowState) -> (NSView, CGRect)? {
         guard let sidebar = sidebarAnchor, sidebar.window != nil else { return nil }
         switch target {
+        case .panel(let id):
+            window.dropHighlight = .sidebarRow(id)
+            return nil
         case .workspace(let id, let beside, let after):
             if let beside, let row = rowAnchors[beside]?.view {
                 return Self.sidebarLine(sidebar: sidebar, over: row, after: after)
