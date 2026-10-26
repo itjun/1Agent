@@ -53,10 +53,6 @@ enum TerminalAppearance: String, CaseIterable, Identifiable {
     /// Previous single-theme choice, copied into the matching light or dark slot once.
     static let legacyThemeKey = "appearance.terminalTheme"
 
-    static func themeKey(for target: TerminalThemeTarget, dark: Bool) -> String {
-        "appearance.terminalTheme.\(target.rawValue).\(dark ? "dark" : "light")"
-    }
-
     var id: String { rawValue }
 
     var title: LocalizedStringKey {
@@ -141,7 +137,7 @@ final class AppearanceDriver: ObservableObject {
     func reapply() {
         let mode = TerminalAppearance.stored()
         let dark = mode.resolvesDark()
-        let terminalDark = ThemePreview.shared.previewingDark(for: .local) ?? dark
+        let terminalDark = ThemePreview.shared.previewingDark ?? dark
         TerminalAppearance.applyAppKit(isDark: dark)
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
@@ -177,25 +173,16 @@ private final class SystemThemeWatcher: NSObject {
 }
 
 
-enum TerminalThemeTarget: String, CaseIterable, Identifiable {
+enum TerminalThemeTarget: String, CaseIterable {
     case local
     case remote
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .local: String(localized: "This Mac")
-        case .remote: String(localized: "Remote")
-        }
-    }
 }
 
 /// Terminal themes are independent of app icons and window appearance colors.
 struct TerminalThemeChoice: Equatable, Hashable {
     static let defaultLightName = "GitHub Light Default"
     static let defaultDarkName = "GitHub Dark Default"
-    static let migrationKey = "appearance.terminalTheme.connectionDefaults.v1"
+    static let migrationKey = "appearance.terminalTheme.shared.v1"
 
     let name: String
 
@@ -237,12 +224,12 @@ struct TerminalThemeChoice: Equatable, Hashable {
         return RGBColor.ensureContrast(color, against: background, toward: correction, minimum: 3)
     }
 
-    static func storedLight(for target: TerminalThemeTarget = .local, defaults: UserDefaults = .standard) -> TerminalThemeChoice {
-        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.themeKey(for: target, dark: false)), dark: false)
+    static func storedLight(defaults: UserDefaults = .standard) -> TerminalThemeChoice {
+        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.lightThemeKey), dark: false)
     }
 
-    static func storedDark(for target: TerminalThemeTarget = .local, defaults: UserDefaults = .standard) -> TerminalThemeChoice {
-        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.themeKey(for: target, dark: true)), dark: true)
+    static func storedDark(defaults: UserDefaults = .standard) -> TerminalThemeChoice {
+        TerminalThemeChoice.resolved(raw: defaults.string(forKey: TerminalAppearance.darkThemeKey), dark: true)
     }
 
     static func resolved(raw: String?, dark: Bool) -> TerminalThemeChoice {
@@ -253,114 +240,95 @@ struct TerminalThemeChoice: Equatable, Hashable {
         return choice
     }
 
-    /// Restore themes replaced by icon-following defaults; retain explicit per-connection choices.
-    /// Old preference values remain available for recovery.
+    /// Prefer the current local choices when merging connection themes. Keep the old keys for recovery.
     static func migrateIfNeeded(defaults: UserDefaults = .standard) {
         if defaults.object(forKey: LocalPalette.storageKey) == nil {
             let icon = ApplicationIcon.stored(defaults: defaults)
             defaults.set((icon.palette == nil ? LocalPalette.defaultPalette : icon).rawValue,
                 forKey: LocalPalette.storageKey)
         }
-        TerminalThemeChoice.restoreIndependentThemes(defaults: defaults)
+        guard !defaults.bool(forKey: TerminalThemeChoice.migrationKey) else { return }
+        for dark in [false, true] {
+            let slot = dark ? "dark" : "light"
+            let key = dark ? TerminalAppearance.darkThemeKey : TerminalAppearance.lightThemeKey
+            let previous = [
+                "appearance.terminalTheme.local.\(slot)",
+                "appearance.terminalTheme.remote.\(slot)",
+                key,
+                TerminalAppearance.legacyThemeKey,
+            ].compactMap { TerminalThemeChoice(raw: defaults.string(forKey: $0)) }
+                .first { $0.definition.isLightBackground != dark }
+            let choice = previous ?? TerminalThemeChoice.slotDefault(dark: dark)
+            defaults.set(choice.rawValue, forKey: key)
+        }
         defaults.set(true, forKey: TerminalThemeChoice.migrationKey)
     }
-
-
-    /// Recover themes replaced by icon-following builds without overwriting named selections.
-    private static func restoreIndependentThemes(defaults: UserDefaults) {
-        for target in ["local", "remote"] {
-            for dark in [false, true] {
-                let key = "appearance.terminalTheme.\(target).\(dark ? "dark" : "light")"
-                let raw = defaults.string(forKey: key)
-                if raw == nil || raw == "follow-palette" {
-                    let previousKey = dark ? TerminalAppearance.darkThemeKey : TerminalAppearance.lightThemeKey
-                    let previous = TerminalThemeChoice(raw: defaults.string(forKey: previousKey))
-                        ?? TerminalThemeChoice(raw: defaults.string(forKey: TerminalAppearance.legacyThemeKey))
-                    let choice = TerminalThemeChoice.resolved(raw: previous?.rawValue, dark: dark)
-                    defaults.set(choice.rawValue, forKey: key)
-                }
-            }
-        }
-    }
-
-
 }
 
-/// Preview transactions span both connection types without changing the other type's appearance.
+/// One preview transaction applies to every local and remote terminal.
 @MainActor
 final class ThemePreview: ObservableObject {
     static let shared = ThemePreview()
 
-    private struct Slot: Hashable {
-        let target: TerminalThemeTarget
-        let dark: Bool
-    }
+    @Published private(set) var light: TerminalThemeChoice?
+    @Published private(set) var dark: TerminalThemeChoice?
+    @Published private(set) var previewingDark: Bool?
 
-    @Published private var choices: [Slot: TerminalThemeChoice] = [:]
-    @Published private var appearances: [TerminalThemeTarget: Bool] = [:]
-
-    var light: TerminalThemeChoice? { choices[Slot(target: .local, dark: false)] }
-    var dark: TerminalThemeChoice? { choices[Slot(target: .local, dark: true)] }
-    var previewingDark: Bool? { previewingDark(for: .local) }
-    var isActive: Bool { !choices.isEmpty }
+    var isActive: Bool { light != nil || dark != nil }
 
     var previewedNames: [String] {
-        TerminalThemeTarget.allCases.flatMap { target in
-            [false, true].compactMap { dark in
-                choices[Slot(target: target, dark: dark)].map { choice in
-                    let appearance = dark ? String(localized: "Dark theme") : String(localized: "Light theme")
-                    return "\(target.title) · \(appearance) · \(choice.title)"
-                }
+        [false, true].compactMap { isDark in
+            (isDark ? dark : light).map { choice in
+                let appearance = isDark ? String(localized: "Dark theme") : String(localized: "Light theme")
+                return "\(appearance) · \(choice.title)"
             }
         }
     }
 
-    func previewingDark(for target: TerminalThemeTarget) -> Bool? {
-        appearances[target]
+    func effectiveLight() -> TerminalThemeChoice {
+        light ?? TerminalThemeChoice.storedLight()
     }
 
-    func effectiveLight(for target: TerminalThemeTarget = .local) -> TerminalThemeChoice {
-        choices[Slot(target: target, dark: false)] ?? TerminalThemeChoice.storedLight(for: target)
+    func effectiveDark() -> TerminalThemeChoice {
+        dark ?? TerminalThemeChoice.storedDark()
     }
 
-    func effectiveDark(for target: TerminalThemeTarget = .local) -> TerminalThemeChoice {
-        choices[Slot(target: target, dark: true)] ?? TerminalThemeChoice.storedDark(for: target)
-    }
-
-    func show(_ definition: GhosttyThemeDefinition, for target: TerminalThemeTarget = .local) {
+    func show(_ definition: GhosttyThemeDefinition) {
         guard let choice = TerminalThemeChoice(raw: definition.name) else { return }
-        let dark = !definition.isLightBackground
-        choices[Slot(target: target, dark: dark)] = choice
-        appearances[target] = dark
+        if definition.isLightBackground {
+            light = choice
+        } else {
+            dark = choice
+        }
+        previewingDark = !definition.isLightBackground
         apply()
     }
 
-    var showsDefaults: Bool { showsDefaults(for: .local) }
-
-    func showsDefaults(for target: TerminalThemeTarget) -> Bool {
-        effectiveLight(for: target) == .slotDefault(dark: false) && effectiveDark(for: target) == .slotDefault(dark: true)
+    var showsDefaults: Bool {
+        effectiveLight() == .slotDefault(dark: false) && effectiveDark() == .slotDefault(dark: true)
     }
 
-    func showDefaults(for target: TerminalThemeTarget = .local) {
-        choices[Slot(target: target, dark: false)] = .slotDefault(dark: false)
-        choices[Slot(target: target, dark: true)] = .slotDefault(dark: true)
-        appearances.removeValue(forKey: target)
+    func showDefaults() {
+        light = .slotDefault(dark: false)
+        dark = .slotDefault(dark: true)
+        previewingDark = nil
         apply()
     }
 
     func save(defaults: UserDefaults = .standard) {
-        for (slot, choice) in choices {
-            defaults.set(choice.rawValue, forKey: TerminalAppearance.themeKey(for: slot.target, dark: slot.dark))
-        }
-        choices.removeAll()
-        appearances.removeAll()
+        if let light { defaults.set(light.rawValue, forKey: TerminalAppearance.lightThemeKey) }
+        if let dark { defaults.set(dark.rawValue, forKey: TerminalAppearance.darkThemeKey) }
+        light = nil
+        dark = nil
+        previewingDark = nil
         apply()
     }
 
     func cancel() {
         guard isActive else { return }
-        choices.removeAll()
-        appearances.removeAll()
+        light = nil
+        dark = nil
+        previewingDark = nil
         apply()
     }
 

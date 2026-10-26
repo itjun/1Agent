@@ -54,7 +54,7 @@ struct TerminalCanvas: View {
                         directory: tab.isLocal ? tab.directory : nil,
                         remoteDirectory: tab.remoteDirectory,
                         environment: ShellIntegrationEnvironment.merged(model.launchEnvironment, overrides: tab.creationEnvironment),
-                        dark: terminalIsDark(tab),
+                        dark: terminalIsDark,
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
                         isPresented: visible && !window.presentation.fullFilesWorkspace,
@@ -143,19 +143,19 @@ struct TerminalCanvas: View {
         }
     }
 
-    private func terminalIsDark(_ tab: TerminalTab) -> Bool {
-        themePreview.previewingDark(for: tab.isLocal ? .local : .remote) ?? TerminalAppearance.stored().resolvesDark()
+    private var terminalIsDark: Bool {
+        themePreview.previewingDark ?? TerminalAppearance.stored().resolvesDark()
     }
 
     private func terminalChrome(_ tab: TerminalTab) -> WindowChrome {
-        WindowChrome.resolve(isDark: terminalIsDark(tab),
+        WindowChrome.resolve(isDark: terminalIsDark,
             icon: tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
     }
 
     private func focusMarkerColor(_ tab: TerminalTab) -> Color {
         let target: TerminalThemeTarget = tab.isLocal ? .local : .remote
-        let dark = terminalIsDark(tab)
-        let choice = dark ? themePreview.effectiveDark(for: target) : themePreview.effectiveLight(for: target)
+        let dark = terminalIsDark
+        let choice = dark ? themePreview.effectiveDark() : themePreview.effectiveLight()
         return choice.focusBorderColor(for: target).color
     }
 

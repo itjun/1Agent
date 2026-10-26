@@ -123,7 +123,6 @@ struct SettingsView: View {
     @State private var themeQuery = ""
     @FocusState private var themeSearchFocused: Bool
     @State private var themeFilter: ThemeFilter = .all
-    @State private var selectedThemeTarget: TerminalThemeTarget = .local
     /// User theme waiting for the Move to Trash confirmation.
 
     private var sidebarChrome: WindowChrome { chrome }
@@ -337,8 +336,8 @@ struct SettingsView: View {
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast
         GhosttyRuntime.applyTerminalSettings()
-        for target in [TerminalThemeTarget.local, .remote] where !preview.showsDefaults(for: target) {
-            preview.showDefaults(for: target)
+        if !preview.showsDefaults {
+            preview.showDefaults()
         }
     }
 
@@ -571,11 +570,11 @@ struct SettingsView: View {
         }
     }
 
-    /// Restores only the terminal kind currently being edited; Save / Cancel applies to all drafts.
+    /// Restores the shared light and dark themes through the preview transaction.
     private var restoreDefaultThemesButton: some View {
-        let disabled = preview.showsDefaults(for: selectedThemeTarget)
+        let disabled = preview.showsDefaults
         return Button {
-            preview.showDefaults(for: selectedThemeTarget)
+            preview.showDefaults()
         } label: {
             Text("Restore Default Themes")
                 .font(.system(size: 13, weight: .medium))
@@ -588,16 +587,14 @@ struct SettingsView: View {
     }
 
     /// The two themes in use (or being previewed) stay on top; clicking one lists that slot's themes.
-    /// The list opens on typing or on Dark / Light; previews affect only the chosen terminal kind.
+    /// The list opens on typing or on Dark / Light; previews apply to every terminal.
     private var themePicker: some View {
         let results = matchingThemes
         return VStack(alignment: .leading, spacing: Theme.Space.l) {
-            themeTargetPicker
-
             // 与下方结果网格共用列定义，两张卡占前两列并与结果卡对齐。
             LazyVGrid(columns: themeColumns, alignment: .leading, spacing: Theme.Space.m) {
-                currentThemeCard(title: "Current light theme", choice: preview.effectiveLight(for: selectedThemeTarget), filter: .light)
-                currentThemeCard(title: "Current dark theme", choice: preview.effectiveDark(for: selectedThemeTarget), filter: .dark)
+                currentThemeCard(title: "Current light theme", choice: preview.effectiveLight(), filter: .light)
+                currentThemeCard(title: "Current dark theme", choice: preview.effectiveDark(), filter: .dark)
             }
 
             HStack(spacing: Theme.Space.m) {
@@ -621,27 +618,14 @@ struct SettingsView: View {
                     ForEach(results) { definition in
                         ThemePreviewCard(
                             definition: definition,
-                            selected: isInUse(definition),
-                            isRemote: selectedThemeTarget == .remote
+                            selected: isInUse(definition)
                         ) {
-                            preview.show(definition, for: selectedThemeTarget)
+                            preview.show(definition)
                         }
                     }
                 }
             }
         }
-    }
-
-    private var themeTargetPicker: some View {
-        Picker("Terminal Colors", selection: $selectedThemeTarget) {
-            Text("This Mac").tag(TerminalThemeTarget.local)
-            Text("Remote").tag(TerminalThemeTarget.remote)
-        }
-        .pickerStyle(.segmented)
-        .tint(chrome.isDark ? chrome.accentFill : chrome.accent)
-        .labelsHidden()
-        .frame(width: SettingsLayout.rowControlWidth)
-        .accessibilityIdentifier("settings.appearance.themeTarget")
     }
 
     private var themeSearchField: some View {
@@ -724,8 +708,7 @@ struct SettingsView: View {
                 .foregroundStyle(chrome.secondary)
             ThemePreviewCard(
                 definition: choice.definition,
-                selected: themeFilter == filter,
-                isRemote: selectedThemeTarget == .remote
+                selected: themeFilter == filter
             ) {
                 themeQuery = ""
                 themeFilter = filter
@@ -736,8 +719,8 @@ struct SettingsView: View {
     }
 
     private func isInUse(_ definition: GhosttyThemeDefinition) -> Bool {
-        definition.name == preview.effectiveLight(for: selectedThemeTarget).name
-            || definition.name == preview.effectiveDark(for: selectedThemeTarget).name
+        definition.name == preview.effectiveLight().name
+            || definition.name == preview.effectiveDark().name
     }
 
     private var previewActionBar: some View {

@@ -55,9 +55,7 @@ enum GhosttyConfigImport {
             TerminalAppearance.lightThemeKey,
             TerminalAppearance.darkThemeKey,
             AppShortcuts.storageKey,
-        ] + TerminalThemeTarget.allCases.flatMap { target in
-            [false, true].map { TerminalAppearance.themeKey(for: target, dark: $0) }
-        }
+        ]
     }
 
     static func hasBackup(defaults: UserDefaults = .standard) -> Bool {
@@ -72,13 +70,11 @@ enum GhosttyConfigImport {
 
         plan.newSettings.save(to: defaults)
 
-        for target in TerminalThemeTarget.allCases {
-            if let light = plan.theme.light, let choice = TerminalThemeChoice(raw: light.name) {
-                defaults.set(choice.name, forKey: TerminalAppearance.themeKey(for: target, dark: false))
-            }
-            if let dark = plan.theme.dark, let choice = TerminalThemeChoice(raw: dark.name) {
-                defaults.set(choice.name, forKey: TerminalAppearance.themeKey(for: target, dark: true))
-            }
+        if let light = plan.theme.light, let choice = TerminalThemeChoice(raw: light.name) {
+            defaults.set(choice.name, forKey: TerminalAppearance.lightThemeKey)
+        }
+        if let dark = plan.theme.dark, let choice = TerminalThemeChoice(raw: dark.name) {
+            defaults.set(choice.name, forKey: TerminalAppearance.darkThemeKey)
         }
 
         var chords: [AppShortcutID: KeyChord] = [:]
@@ -105,6 +101,11 @@ enum GhosttyConfigImport {
         }
         for key in absent {
             defaults.removeObject(forKey: key)
+        }
+        // Older import backups restore separate connection slots; merge those restored choices too.
+        if (Array(values.keys) + absent).contains(where: { $0.hasPrefix("appearance.terminalTheme.local.") || $0.hasPrefix("appearance.terminalTheme.remote.") }) {
+            defaults.removeObject(forKey: TerminalThemeChoice.migrationKey)
+            TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
         }
         defaults.set(defaults.integer(forKey: AppShortcuts.revisionKey) + 1, forKey: AppShortcuts.revisionKey)
         defaults.removeObject(forKey: GhosttyConfigImport.backupKey)

@@ -103,11 +103,11 @@ enum TerminalFontSettings {
 enum GhosttyRuntime {
     private static let localController = TerminalController(
         configSource: appearanceConfigSource,
-        theme: selectedThemes(for: .local)
+        theme: selectedThemes()
     )
     private static let remoteController = TerminalController(
         configSource: appearanceConfigSource,
-        theme: selectedThemes(for: .remote)
+        theme: selectedThemes()
     )
 
     /// Common settings remain inspectable through the original entry point.
@@ -184,24 +184,25 @@ enum GhosttyRuntime {
 
     /// Light and night slots are chosen independently; Ghostty switches with the appearance.
     static func applySelectedThemes() {
+        let themes = selectedThemes()
         for target in TerminalThemeTarget.allCases {
-            controller(for: target).setTheme(selectedThemes(for: target))
+            controller(for: target).setTheme(themes)
         }
     }
 
     static func applyColorSchemes(isDark: Bool) {
         for target in TerminalThemeTarget.allCases {
-            let dark = ThemePreview.shared.previewingDark(for: target) ?? isDark
+            let dark = ThemePreview.shared.previewingDark ?? isDark
             controller(for: target).setColorScheme(dark ? .dark : .light)
         }
         SSHTerminalRegistry.applyAppearances(isDark: isDark)
     }
 
-    private static func selectedThemes(for target: TerminalThemeTarget) -> TerminalTheme {
+    private static func selectedThemes() -> TerminalTheme {
         TerminalThemeChoice.migrateIfNeeded()
         return TerminalTheme(
-            light: ThemePreview.shared.effectiveLight(for: target).terminalConfiguration(),
-            dark: ThemePreview.shared.effectiveDark(for: target).terminalConfiguration()
+            light: ThemePreview.shared.effectiveLight().terminalConfiguration(),
+            dark: ThemePreview.shared.effectiveDark().terminalConfiguration()
         )
     }
 
@@ -499,7 +500,7 @@ enum SSHTerminalRegistry {
 
     static func applyAppearances(isDark: Bool) {
         for view in views.values {
-            let dark = ThemePreview.shared.previewingDark(for: view.themeTarget) ?? isDark
+            let dark = ThemePreview.shared.previewingDark ?? isDark
             view.applyTerminalAppearance(dark: dark)
         }
     }
@@ -1722,7 +1723,7 @@ struct SSHTerminalView: NSViewRepresentable {
     }
 
     private func applyAppearance(_ view: SSHTerminalNSView, dark: Bool) {
-        let resolvedDark = ThemePreview.shared.previewingDark(for: view.themeTarget) ?? AppearanceDriver.shared.interfaceIsDark
+        let resolvedDark = ThemePreview.shared.previewingDark ?? AppearanceDriver.shared.interfaceIsDark
         view.applyTerminalAppearance(dark: resolvedDark)
     }
 

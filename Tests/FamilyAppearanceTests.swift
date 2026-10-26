@@ -26,8 +26,8 @@ enum FamilyAppearanceTests {
         defaults.set("GitHub Dark Default", forKey: TerminalAppearance.darkThemeKey)
         defaults.set("legacy-custom-theme", forKey: TerminalAppearance.legacyThemeKey)
         TerminalThemeChoice.migrateIfNeeded()
-        expect(TerminalThemeChoice.storedLight() == .slotDefault(dark: false), "migration restores the local light theme")
-        expect(TerminalThemeChoice.storedDark(for: .remote) == .slotDefault(dark: true), "migration restores the remote dark theme")
+        expect(TerminalThemeChoice.storedLight() == .slotDefault(dark: false), "migration restores the shared light theme")
+        expect(TerminalThemeChoice.storedDark() == .slotDefault(dark: true), "migration restores the shared dark theme")
         expect(defaults.string(forKey: TerminalAppearance.lightThemeKey) == "GitHub Light Default", "migration preserves the previous light theme")
         expect(defaults.string(forKey: TerminalAppearance.darkThemeKey) == "GitHub Dark Default", "migration preserves the previous dark theme")
         expect(defaults.string(forKey: TerminalAppearance.legacyThemeKey) == "legacy-custom-theme", "migration preserves even unknown legacy values")
@@ -66,19 +66,18 @@ enum FamilyAppearanceTests {
         let lightTheme = GhosttyThemeCatalog.allThemes.first { $0.isLightBackground && $0.name != "GitHub Light Default" }!
         let saved = defaults.persistentDomain(forName: suite)!
 
-        func check(_ uiDark: Bool, _ localDark: Bool, _ remoteDark: Bool, _ context: String) {
+        func check(_ uiDark: Bool, _ terminalDark: Bool, _ context: String) {
             drain()
-            expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == localDark, context + ": driver states")
+            expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == terminalDark, context + ": driver states")
             expect(WindowChrome.resolve(isDark: uiDark) == (uiDark ? darkChrome : lightChrome), context + ": fixed palette")
             for (index, target) in TerminalThemeTarget.allCases.enumerated() {
-                let terminalDark = target == .local ? localDark : remoteDark
                 let runtime = GhosttyRuntime.controller(for: target)
-                let choice = terminalDark ? preview.effectiveDark(for: target) : preview.effectiveLight(for: target)
+                let choice = terminalDark ? preview.effectiveDark() : preview.effectiveLight()
                 let definition = choice.definition
                 let value = Int(definition.background, radix: 16)!
                 let expectedBackground = TerminalColor(red: UInt8((value >> 16) & 255), green: UInt8((value >> 8) & 255), blue: UInt8(value & 255))
                 expect(runtime.backgroundColor == expectedBackground, context + ": actual engine background for " + target.rawValue)
-                expect((runtime.effectiveColorScheme == .dark) == terminalDark, context + ": independent engine scheme")
+                expect((runtime.effectiveColorScheme == .dark) == terminalDark, context + ": shared engine scheme")
                 expect((windows[index].effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == uiDark,
                        context + ": window chrome")
                 expect((views[index].effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == terminalDark,
@@ -87,42 +86,41 @@ enum FamilyAppearanceTests {
                 expect(sessions[index].readScreenText()?.text.contains("family-session-marker") == true, context + ": retained buffer")
             }
         }
-        check(false, false, false, "initial independent palettes")
+        check(false, false, "initial independent palettes")
         expect(GhosttyRuntime.controller(for: .local) !== GhosttyRuntime.controller(for: .remote), "connection types own distinct controllers")
         expect(GhosttyRuntime.controller(for: .local).backgroundColor == GhosttyRuntime.controller(for: .remote).backgroundColor,
                "the same terminal theme has the same colors regardless of connection appearance")
-        preview.show(darkTheme, for: .local)
-        check(false, true, false, "local dark preview leaves remote light")
+        preview.show(darkTheme)
+        check(false, true, "dark preview applies to local and remote")
         expect(NSDictionary(dictionary: defaults.persistentDomain(forName: suite)!).isEqual(to: saved), "preview never persists preferences")
-        preview.show(lightTheme, for: .remote)
-        check(false, true, false, "opposite previews coexist")
+        preview.show(lightTheme)
+        check(false, false, "light preview applies to both and preserves the dark draft")
+        expect(preview.light?.name == lightTheme.name && preview.dark?.name == darkTheme.name, "both shared slots retain their drafts")
         preview.cancel()
-        check(false, false, false, "cancel restores both saved slots")
-        preview.show(darkTheme, for: .remote)
+        check(false, false, "cancel restores both saved slots")
+        preview.show(darkTheme)
         preview.save()
-        check(false, false, false, "saving opposite slot returns to light")
-        let remoteDarkKey = TerminalAppearance.themeKey(for: .remote, dark: true)
-        expect(defaults.string(forKey: remoteDarkKey) == darkTheme.name, "save writes only the remote dark slot")
-        expect(TerminalThemeChoice.storedDark(for: .local) == .slotDefault(dark: true), "remote save preserves local theme")
+        check(false, false, "saving opposite slot returns to light")
+        expect(defaults.string(forKey: TerminalAppearance.darkThemeKey) == darkTheme.name, "save writes the shared dark slot")
+        expect(TerminalThemeChoice.storedLight() == .slotDefault(dark: false), "saving dark preserves the shared light theme")
         TerminalThemeChoice.migrateIfNeeded()
-        expect(defaults.string(forKey: remoteDarkKey) == darkTheme.name, "migration never resets a saved connection theme")
+        expect(defaults.string(forKey: TerminalAppearance.darkThemeKey) == darkTheme.name, "migration never resets a saved shared theme")
         defaults.set("dark", forKey: TerminalAppearance.storageKey)
         driver.reapply()
-        preview.show(lightTheme, for: .local)
-        check(true, false, true, "local light preview in dark UI")
+        preview.show(lightTheme)
+        check(true, false, "shared light preview in dark UI")
         SettingsWindowController.shared.windowWillClose(Notification(name: NSWindow.willCloseNotification, object: windows[0]))
-        check(true, true, true, "closing settings cancels preview")
-        expect(TerminalThemeChoice.storedLight(for: .local) == .slotDefault(dark: false), "closing settings does not save")
-        preview.showDefaults(for: .remote)
-        check(true, true, true, "restore defaults is a preview")
-        expect(preview.effectiveDark(for: .remote) == .slotDefault(dark: true), "independent default theme sample applied")
+        check(true, true, "closing settings cancels preview")
+        expect(TerminalThemeChoice.storedLight() == .slotDefault(dark: false), "closing settings does not save")
+        preview.showDefaults()
+        check(true, true, "restore defaults is a preview")
+        expect(preview.effectiveDark() == .slotDefault(dark: true), "independent default theme sample applied")
         expect(!preview.previewedNames.joined().contains("follow-palette"), "preview summary never exposes a storage identifier")
         preview.cancel()
-        expect(preview.effectiveDark(for: .remote).name == darkTheme.name, "cancel restores chosen remote dark theme")
-        preview.show(lightTheme, for: .local)
-        let savedThemes = TerminalThemeTarget.allCases.flatMap { target in
-            [false, true].map { TerminalAppearance.themeKey(for: target, dark: $0) }
-        }.map { defaults.string(forKey: $0) }
+        expect(preview.effectiveDark().name == darkTheme.name, "cancel restores the shared dark theme")
+        preview.show(lightTheme)
+        let themeKeys = [TerminalAppearance.lightThemeKey, TerminalAppearance.darkThemeKey]
+        let savedThemes = themeKeys.map { defaults.string(forKey: $0) }
         let backgrounds = TerminalThemeTarget.allCases.map { GhosttyRuntime.controller(for: $0).backgroundColor }
         for icon in ApplicationIcon.macaronIcons {
             defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
@@ -131,23 +129,21 @@ enum FamilyAppearanceTests {
             lightChrome = WindowChrome.resolve(isDark: false)
             darkChrome = WindowChrome.resolve(isDark: true)
             driver.reapply()
-            check(true, false, true, "appearance color changes preserve terminal themes and buffers")
+            check(true, false, "appearance color changes preserve terminal themes and buffers")
             expect(TerminalThemeTarget.allCases.map { GhosttyRuntime.controller(for: $0).backgroundColor } == backgrounds,
                    "actual terminal engine colors are unchanged by appearance colors")
-            expect(preview.isActive && preview.effectiveLight(for: .local).name == lightTheme.name,
+            expect(preview.isActive && preview.effectiveLight().name == lightTheme.name,
                    "appearance colors preserve pending terminal previews")
         }
-        expect(TerminalThemeTarget.allCases.flatMap { target in
-            [false, true].map { defaults.string(forKey: TerminalAppearance.themeKey(for: target, dark: $0)) }
-        } == savedThemes, "appearance colors never overwrite saved terminal theme slots")
+        expect(themeKeys.map { defaults.string(forKey: $0) } == savedThemes, "appearance colors never overwrite saved terminal theme slots")
         preview.cancel()
-        check(true, true, true, "cancel restores saved themes after appearance changes")
+        check(true, true, "cancel restores saved themes after appearance changes")
         defaults.set(17.0, forKey: TerminalSettings.fontSizeKey)
         GhosttyRuntime.applyTerminalSettings()
         let localConfiguration = GhosttyRuntime.controller(for: .local).terminalConfiguration
         expect(localConfiguration == GhosttyRuntime.controller(for: .remote).terminalConfiguration, "font and terminal settings apply to both runtimes")
         expect(localConfiguration.rendered.contains("font-size = 17"), "shared font change reaches the engine")
-        check(true, true, true, "shared settings preserve per-type themes and buffers")
+        check(true, true, "shared settings preserve themes and buffers for both connection types")
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         defaults.set("Dark", forKey: "AppleInterfaceStyle")
         // Override only this isolated UserDefaults object's global-domain read for system-mode cases.
@@ -164,53 +160,116 @@ enum FamilyAppearanceTests {
         defer { method_setImplementation(method, original) }
         driver.reapply()
         preview.show(darkTheme)
-        check(false, true, false, "system light with local dark preview")
+        check(false, true, "system light with shared dark preview")
         systemDark = true
         driver.reapply()
-        check(true, true, true, "system switches while preview remains")
+        check(true, true, "system switches while preview remains")
         preview.show(lightTheme)
-        check(true, false, true, "system dark with local light preview")
+        check(true, false, "system dark with shared light preview")
         preview.cancel()
-        check(true, true, true, "cancel follows current system")
+        check(true, true, "cancel follows current system")
+        preview.show(lightTheme)
+        preview.show(darkTheme)
+        preview.save()
+        expect(TerminalThemeChoice.storedLight().name == lightTheme.name && TerminalThemeChoice.storedDark().name == darkTheme.name,
+               "saving both drafts persists the shared pair")
+        check(true, true, "saving both drafts restores the system appearance for both runtimes")
+        preview.showDefaults()
+        preview.save()
+        expect(preview.showsDefaults && !preview.isActive, "saving restored defaults commits both shared slots")
+        check(true, true, "saved defaults apply to both runtimes")
+        var plan = GhosttyImportPlan(newSettings: TerminalSettings.load())
+        plan.theme.light = GhosttyThemeSlotPlan(name: lightTheme.name, currentName: TerminalThemeChoice.defaultLightName)
+        plan.theme.dark = GhosttyThemeSlotPlan(name: darkTheme.name, currentName: TerminalThemeChoice.defaultDarkName)
+        GhosttyConfigImport.applyPlan(plan)
+        expect(TerminalThemeChoice.storedLight().name == lightTheme.name && TerminalThemeChoice.storedDark().name == darkTheme.name,
+               "Ghostty import writes both shared theme slots")
+        check(true, true, "imported themes apply to both runtimes")
+        GhosttyConfigImport.undoLastImport()
+        expect(preview.showsDefaults, "undo import restores the shared pair")
+        check(true, true, "undo import updates both runtimes")
+        defaults.set(["values": [
+            "appearance.terminalTheme.local.light": "Ayu Light",
+            "appearance.terminalTheme.local.dark": "TokyoNight",
+            "appearance.terminalTheme.remote.dark": "GitHub Dark Default",
+            TerminalAppearance.lightThemeKey: "GitHub Light Default",
+            TerminalAppearance.darkThemeKey: "GitHub Dark Default",
+        ], "absent": []] as [String: Any], forKey: GhosttyConfigImport.backupKey)
+        GhosttyConfigImport.undoLastImport()
+        expect(TerminalThemeChoice.storedLight().name == "Ayu Light" && TerminalThemeChoice.storedDark().name == "TokyoNight",
+               "undoing an older import merges its restored local choices into the shared slots")
+        check(true, true, "legacy import undo updates both runtimes and preserves buffers")
         expect(defaults.string(forKey: "sidebar.material") == "liquidGlass", "obsolete preference is ignored, not erased")
-        print("FamilyAppearanceTests passed: independent terminal themes and appearance colors, legacy theme recovery, ten-palette focus contrast, icon-to-local migration, preview/save/cancel/close/defaults/system, shared settings, two process-free native surfaces and buffer preservation")
+        print("FamilyAppearanceTests passed: shared terminal themes independent of appearance colors, legacy theme recovery, ten-palette focus contrast, icon-to-local migration, preview/save/cancel/close/defaults/system, shared settings, two process-free native surfaces and buffer preservation")
     }
 
     static func checkIndependentTerminalThemes() {
-        let suite = "oneagent.family.independent.\(UUID().uuidString)"
+        let suite = "oneagent.family.shared.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set("Ayu Light", forKey: TerminalAppearance.lightThemeKey)
         defaults.set("TokyoNight", forKey: TerminalAppearance.darkThemeKey)
-        defaults.set(true, forKey: "appearance.terminalTheme.connectionDefaults.v1")
         for target in ["local", "remote"] {
-            for isDark in [false, true] {
-                defaults.set("follow-palette", forKey: "appearance.terminalTheme.\(target).\(isDark ? "dark" : "light")")
+            for slot in ["light", "dark"] {
+                defaults.set("follow-palette", forKey: "appearance.terminalTheme.\(target).\(slot)")
             }
         }
         TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
         expect(TerminalThemeChoice(raw: "follow-palette") == nil, "terminal themes never follow icon colors")
-        for target in ["local", "remote"] {
-            for isDark in [false, true] {
-                let key = "appearance.terminalTheme.\(target).\(isDark ? "dark" : "light")"
-                let expected = isDark ? "TokyoNight" : "Ayu Light"
-                expect(defaults.string(forKey: key) == expected, "restore previous terminal theme instead of following icon colors")
-                let configuration = TerminalThemeChoice(raw: expected)!.definition.terminalConfiguration()
-                for icon in ApplicationIcon.macaronIcons {
-                    defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
-                    defaults.set(icon.rawValue, forKey: "appearance.localPalette")
-                    defaults.set(icon.rawValue, forKey: RemotePalette.storageKey)
-                    TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
-                    let choice = TerminalThemeChoice(raw: defaults.string(forKey: key))!
-                    expect(choice.definition.terminalConfiguration() == configuration,
-                           "icon and appearance colors never change terminal colors, cursor, selection or ANSI palette")
-                }
-            }
+        expect(TerminalThemeChoice.storedLight(defaults: defaults).name == "Ayu Light", "restore the previous shared light theme")
+        expect(TerminalThemeChoice.storedDark(defaults: defaults).name == "TokyoNight", "restore the previous shared dark theme")
+        let lightConfiguration = TerminalThemeChoice.storedLight(defaults: defaults).terminalConfiguration()
+        let darkConfiguration = TerminalThemeChoice.storedDark(defaults: defaults).terminalConfiguration()
+        for icon in ApplicationIcon.macaronIcons {
+            defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
+            defaults.set(icon.rawValue, forKey: LocalPalette.storageKey)
+            defaults.set(icon.rawValue, forKey: RemotePalette.storageKey)
+            TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+            expect(TerminalThemeChoice.storedLight(defaults: defaults).terminalConfiguration() == lightConfiguration
+                   && TerminalThemeChoice.storedDark(defaults: defaults).terminalConfiguration() == darkConfiguration,
+                   "icon and appearance colors never change terminal colors, cursor, selection or ANSI palette")
         }
+
+        defaults.removePersistentDomain(forName: suite)
+        defaults.set("Ayu Light", forKey: "appearance.terminalTheme.local.light")
+        defaults.set("TokyoNight", forKey: "appearance.terminalTheme.local.dark")
+        defaults.set("GitHub Light Default", forKey: "appearance.terminalTheme.remote.light")
         defaults.set("GitHub Dark Default", forKey: "appearance.terminalTheme.remote.dark")
+        defaults.set("GitHub Light Default", forKey: TerminalAppearance.lightThemeKey)
+        defaults.set("GitHub Dark Default", forKey: TerminalAppearance.darkThemeKey)
         TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(TerminalThemeChoice.storedLight(defaults: defaults).name == "Ayu Light"
+               && TerminalThemeChoice.storedDark(defaults: defaults).name == "TokyoNight",
+               "current local choices take priority over remote choices and stale shared slots")
         expect(defaults.string(forKey: "appearance.terminalTheme.remote.dark") == "GitHub Dark Default",
-               "recovery preserves an explicitly selected connection theme")
+               "old connection preferences remain available for recovery")
+        defaults.set("GitHub Dark Default", forKey: TerminalAppearance.darkThemeKey)
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(TerminalThemeChoice.storedDark(defaults: defaults).name == "GitHub Dark Default",
+               "repeated migration never replaces a newly saved shared choice")
+
+        defaults.removePersistentDomain(forName: suite)
+        defaults.set("TokyoNight", forKey: "appearance.terminalTheme.local.light")
+        defaults.set("unknown-theme", forKey: "appearance.terminalTheme.local.dark")
+        defaults.set("Ayu Light", forKey: "appearance.terminalTheme.remote.light")
+        defaults.set("TokyoNight", forKey: "appearance.terminalTheme.remote.dark")
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(TerminalThemeChoice.storedLight(defaults: defaults).name == "Ayu Light"
+               && TerminalThemeChoice.storedDark(defaults: defaults).name == "TokyoNight",
+               "invalid or mismatched local themes fall back to valid remote choices")
+
+        defaults.removePersistentDomain(forName: suite)
+        defaults.set("TokyoNight", forKey: TerminalAppearance.legacyThemeKey)
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(TerminalThemeChoice.storedLight(defaults: defaults) == .slotDefault(dark: false)
+               && TerminalThemeChoice.storedDark(defaults: defaults).name == "TokyoNight",
+               "a legacy single theme populates only its matching appearance slot")
+
+        defaults.removePersistentDomain(forName: suite)
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(TerminalThemeChoice.storedLight(defaults: defaults) == .slotDefault(dark: false)
+               && TerminalThemeChoice.storedDark(defaults: defaults) == .slotDefault(dark: true),
+               "a fresh install receives the default shared pair")
     }
 
     static func checkLocalPaletteMigration() {
@@ -241,7 +300,7 @@ enum FamilyAppearanceTests {
             defaults.set(ApplicationIcon.strawberryCream.rawValue, forKey: ApplicationIcon.storageKey)
             defaults.set(ApplicationIcon.mintCandy.rawValue, forKey: LocalPalette.storageKey)
             defaults.set(isPreviouslyMigrated, forKey: TerminalThemeChoice.migrationKey)
-            let darkKey = TerminalAppearance.themeKey(for: .local, dark: true)
+            let darkKey = TerminalAppearance.darkThemeKey
             defaults.set("GitHub Dark Default", forKey: darkKey)
             TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
             expect(LocalPalette.stored(defaults: defaults) == .mintCandy, "an existing independent local choice is never replaced by the app icon")
