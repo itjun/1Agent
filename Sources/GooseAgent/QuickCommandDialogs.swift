@@ -154,7 +154,8 @@ struct QuickCommandConfirmation: View {
                         Text("The current terminal is busy or its input state is unknown. Use a new terminal.")
                             .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                     }
-                    CommandCodePreview(text: item.command).frame(height: 150)
+                    CommandCodePreview(text: item.command, wrapsLines: true)
+                        .frame(height: SheetLayout.quickCommandPreviewHeight)
                     if changed { Text(QuickCommandError.changedTarget.localizedDescription).foregroundStyle(chrome.danger) }
                     if let current = captured.directory, QuickCommand.path(current) != QuickCommand.path(directory) {
                         Text(QuickCommandError.directoryMismatch(current: current, required: QuickCommand.path(directory)).localizedDescription)
