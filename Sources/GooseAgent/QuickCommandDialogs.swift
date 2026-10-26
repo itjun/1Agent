@@ -155,12 +155,6 @@ struct QuickCommandConfirmation: View {
                             .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                     }
                     CommandCodePreview(text: item.command).frame(height: 150)
-                    if let request {
-                        DisclosureGroup("Actual Execution Text") {
-                            CommandCodePreview(text: useNewTerminal ? request.startupCommand(shell: captured.host == nil ? LocalTerminal.shellExecutable : nil) : request.currentShellCommand)
-                                .frame(height: 180)
-                        }.font(Theme.Font.rowMeta)
-                    }
                     if changed { Text(QuickCommandError.changedTarget.localizedDescription).foregroundStyle(chrome.danger) }
                     if let current = captured.directory, QuickCommand.path(current) != QuickCommand.path(directory) {
                         Text(QuickCommandError.directoryMismatch(current: current, required: QuickCommand.path(directory)).localizedDescription)
