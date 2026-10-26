@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="1Agent macOS 安装指南：下载 Apple 芯片 DMG、安装到应用程序、处理首次打开提示、连接 SSH、更新与源码构建。">
+  <link rel="icon" href="assets/appicon.png" type="image/png">
+  <link rel="stylesheet" href="site.css">
+  <script src="site.js" defer></script>
+  <title>安装指南 · 1Agent</title>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <div class="guide-header"><header class="site-header wrap"><a class="brand" href="./" aria-label="1Agent 首页"><img src="assets/appicon.png" width="38" height="38" alt=""><span>1Agent</span></a><nav aria-label="主导航"><a href="./#features">工作空间</a><a href="./#download">下载</a><a href="install.html" aria-current="page">安装指南</a><a class="github-link" href="https://github.com/itjun/1Agent">GitHub <span aria-hidden="true">↗</span></a></nav><a class="header-download" href="#download">下载 1Agent <span aria-hidden="true">↓</span></a></header></div>
+  <main id="main" class="wrap">
+    <div class="guide-hero"><a class="back-link" href="./">← 返回官网</a><h1>几步之后，<br>进入你的工作空间。</h1><p>从 GitHub 下载，安装到 Mac。这里说明首次打开、SSH 连接和后续更新，也保留了从源码构建的方式。</p></div>
+    <div class="guide-layout">
+      <nav class="guide-nav" aria-label="安装指南目录"><a href="#requirements">系统要求</a><a href="#download">下载与安装</a><a href="#first-open">首次打开</a><a href="#start">开始使用</a><a href="#updates">更新应用</a><a href="#build">源码构建</a><a href="#faq">常见问题</a></nav>
+      <div class="guide-content">
+        <section class="guide-section" id="requirements" aria-labelledby="requirements-title"><h2 id="requirements-title">先确认你的 Mac</h2><dl class="requirements"><dt>系统</dt><dd>macOS 14 Sonoma 或更高版本</dd><dt>芯片</dt><dd>Apple 芯片（M 系列），当前发布包为 arm64</dd><dt>安装包</dt><dd>DMG 磁盘映像</dd><dt>安装位置</dt><dd><code>/Applications/1Agent.app</code></dd></dl><p>可在苹果菜单的“关于本机”中查看芯片和系统版本。目前没有面向 Windows、Linux 或 Intel Mac 的正式安装包。</p></section>
+
+        <section class="guide-section" id="download" aria-labelledby="download-title"><h2 id="download-title">下载，拖入应用程序</h2><p><a class="button button-primary" data-download href="https://github.com/itjun/1Agent/releases/latest">下载最新 DMG <span aria-hidden="true">↓</span></a></p><p class="release-status" data-release-status role="status">如果无法直接下载，打开 <a href="https://github.com/itjun/1Agent/releases/latest">GitHub 最新正式版</a>，在 Assets 中选择 <code>1Agent-版本号-mac-arm64.dmg</code>。</p><ol><li>打开下载好的 <strong>DMG 文件</strong>。</li><li>将 <strong>1Agent</strong> 拖入映像窗口中的 <strong>Applications（应用程序）</strong>。</li><li>如已安装旧版，先退出 1Agent，再确认替换。</li><li>在 Finder 的“应用程序”中打开 <strong>1Agent</strong>。安装完成后可推出磁盘映像。</li></ol></section>
+
+        <section class="guide-section" id="first-open" aria-labelledby="first-open-title"><h2 id="first-open-title">第一次打开时</h2><p>当前 GitHub 分发版本未经过 Apple 公证。macOS 可能提示“无法验证开发者”或无法确认应用是否包含恶意软件。</p><ol><li>先从“应用程序”中尝试打开 1Agent，关闭出现的系统提示。</li><li>进入 <strong>系统设置 → 隐私与安全性</strong>，向下找到与 1Agent 对应的拦截信息。</li><li>点击 <strong>仍要打开</strong>，按系统提示确认，再打开应用。</li></ol><div class="guide-callout"><p>仅对从 <a href="https://github.com/itjun/1Agent/releases">itjun/1Agent 官方发布页</a> 下载的应用执行确认。如果提示“将损坏你的电脑”，请停止打开并重新核对来源。</p></div><h3>如果提示“应用已损坏”</h3><p>先确认 DMG 下载完整，并已将应用拖入“应用程序”。核对来源后，可在系统“终端”中执行下方命令，仅移除这个应用的下载隔离标记，再重新打开。</p><div class="command-block"><div class="command-heading"><span>系统终端</span><button type="button" class="copy-button" data-copy="quarantine-command">复制命令</button></div><pre><code id="quarantine-command">xattr -dr com.apple.quarantine "/Applications/1Agent.app"</code></pre></div><p>这条命令只针对 <code>/Applications/1Agent.app</code>。如果依然无法打开，请重新下载最新安装包，并向项目提交具体系统提示。</p><p class="copy-status" id="copy-status" role="status"></p></section>
+
+        <section class="guide-section" id="start" aria-labelledby="start-title"><h2 id="start-title">从一个本机终端开始</h2><p>打开应用后，新建本机会话即可使用。用侧栏切换会话，用分屏并排处理任务；快捷键以应用菜单和设置中的当前绑定为准。</p><h3>连接远程主机</h3><p>1Agent 读取 Mac 上的 <code>~/.ssh/config</code>，也支持其中的 Include。已经配置好的密钥、端口和跳板机会继续使用。以下是一个示例，请替换成自己的信息：</p><div class="command-block"><div class="command-heading"><span>~/.ssh/config · 示例配置</span><button type="button" class="copy-button" data-copy="ssh-config">复制配置</button></div><pre><code id="ssh-config">Host studio-demo
+    HostName demo.example.com
+    User your-user
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519</code></pre></div><p>先在系统终端确认 <code>ssh studio-demo</code> 能正常连接，再在 1Agent 中打开对应主机。首次连接时核对主机指纹，按提示完成认证。</p><h3>搭配 1Panel</h3><p>在同一台 Mac 上，<a href="https://itjun.github.io/1Panel/">1Panel</a> 可以通过 <code>oneagent://open</code> 将对应主机交给 1Agent。两个应用也可以单独使用，无需为 1Agent 另外安装 Ghostty。</p><h3>恢复工作空间</h3><p>正常退出时会保存终端输出与会话布局，下次启动时恢复。<strong>退出应用会结束运行中的命令</strong>；历史输出的恢复不代表远程连接或进程一直在后台运行。</p></section>
+
+        <section class="guide-section" id="updates" aria-labelledby="updates-title"><h2 id="updates-title">保持更新</h2><p>在 1Agent 菜单中选择 <strong>检查更新…</strong>，按应用提示下载并安装新版本。也可以从 GitHub 下载最新 DMG，退出旧版后重新拖入“应用程序”进行替换。</p><p>更新前先完成或保存正在进行的任务；替换应用需要重启，会中断运行中的命令。更新记录可在 <a href="https://github.com/itjun/1Agent/releases">GitHub Releases</a> 查看。</p></section>
+
+        <section class="guide-section" id="build" aria-labelledby="build-title"><h2 id="build-title">也可以从源码构建</h2><p>需要 macOS 14 或更高版本、完整 Xcode（项目配置为 Xcode 16）和 XcodeGen。先打开 Xcode 完成首次初始化并接受许可；如已安装 Homebrew，可使用 <code>brew install xcodegen</code> 安装 XcodeGen。</p><div class="command-block"><div class="command-heading"><span>系统终端</span><button type="button" class="copy-button" data-copy="build-command">复制命令</button></div><pre><code id="build-command">git clone https://github.com/itjun/1Agent.git
+cd 1Agent
+make build</code></pre></div><p><code>make build</code> 会编译、本地签名，将应用安装到 <code>/Applications/1Agent.app</code>，然后启动。<strong>如果已有运行中的 1Agent，安装脚本会退出并替换它</strong>，执行前请先保存工作。</p><p>应用身份为 <code>com.itjun.1agent</code>，URL 协议为 <code>oneagent://</code>。更多构建与终端自动化说明见 <a href="https://github.com/itjun/1Agent#中文">项目 README</a> 和 <a href="https://github.com/itjun/1Agent/blob/main/docs/terminal-automation.md">终端窗口与自动化文档</a>。</p></section>
+
+        <section class="guide-section" id="faq" aria-labelledby="faq-title"><h2 id="faq-title">还想确认一些事？</h2><div class="faq-list"><details><summary>1Agent 是免费的吗？</summary><p>是。1Agent 主项目以 MIT 许可证开源，可以免费使用，也可以查看和修改源码。第三方组件遵循各自的许可证。</p></details><details><summary>需要安装 Ghostty 或 1Panel 吗？</summary><p>不需要。1Agent 已随应用打包终端引擎，可以独立运行。官方 Ghostty 使用自己的应用身份，两个应用可以共存。</p></details><details><summary>为什么没有 Intel Mac 下载？</summary><p>目前 Release 工作流只发布 arm64 安装包。Intel Mac 可尝试从源码构建；终端引擎等依赖的架构兼容性以实际构建结果为准。</p></details><details><summary>下载链接打不开怎么办？</summary><p>直接访问 <a href="https://github.com/itjun/1Agent/releases/latest">GitHub 最新正式版</a>，在 Assets 中下载 DMG。如果 GitHub 本身无法访问，请先检查当前网络。</p></details><details><summary>应用无法启动或 SSH 连接失败？</summary><p>先检查系统版本、芯片架构以及上面的首次打开说明。SSH 问题可先用系统终端验证相同主机配置。仍有问题时，请在 <a href="https://github.com/itjun/1Agent/issues">GitHub Issues</a> 提供系统版本、应用版本和脱敏后的报错，不要附带密钥、密码或私有主机信息。</p></details></div></section>
+      </div>
+    </div>
+  </main>
+  <footer class="guide-footer wrap"><a class="brand" href="./"><img src="assets/appicon.png" width="30" height="30" alt=""><span>1Agent</span></a><p>为专注的工作，留一个舒服的位置。</p><nav aria-label="页脚导航"><a href="https://github.com/itjun/1Agent">源码</a><a href="https://github.com/itjun/1Agent/releases">更新记录</a><a href="https://github.com/itjun/1Agent/issues">反馈</a><a href="./">返回官网</a></nav></footer>
+</body>
+</html>

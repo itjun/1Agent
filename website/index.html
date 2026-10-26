@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="1Agent，一款原生、顺手的 Mac 终端。用侧栏和分屏组织会话，沿用 OpenSSH 连接远程主机，在终端旁管理文件。免费，MIT 开源。">
+  <meta property="og:title" content="1Agent · 原生、顺手的 Mac 终端">
+  <meta property="og:description" content="本机、SSH、分屏与文件，在一个熟悉的工作空间。">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/appicon.png" type="image/png">
+  <link rel="preload" href="assets/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="site.css">
+  <script src="site.js" defer></script>
+  <title>1Agent · 原生、顺手的 Mac 终端</title>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <main id="main" class="home">
+    <header class="hero">
+      <a class="hero-brand" href="./" aria-label="1Agent 首页"><img src="assets/appicon.png" alt="" width="96" height="96"></a>
+      <h1>1Agent</h1>
+      <p class="hero-tagline">原生、顺手的 Mac 终端。</p>
+      <p class="hero-description">为每一次敲下命令而设计。<br>本机与远程、终端与文件，都在熟悉的工作空间。</p>
+      <div class="hero-actions">
+        <div class="download-split">
+          <a class="pill pill-dark download-primary" data-download href="https://github.com/itjun/1Agent/releases/latest"><img src="assets/icons/apple.svg" width="16" height="16" alt="">下载 macOS 版</a>
+          <details class="download-options"><summary role="button" aria-label="更多下载选项"><img src="assets/icons/chevron-down.svg" width="14" height="14" alt=""></summary><div class="download-menu"><a data-download href="https://github.com/itjun/1Agent/releases/latest">macOS <span>Apple 芯片</span></a><a href="install.html">安装指南</a><a href="https://github.com/itjun/1Agent/releases">全部版本</a></div></details>
+        </div>
+        <a class="pill pill-soft" href="install.html">安装指南 <img src="assets/icons/arrow-up-right.svg" width="14" height="14" alt=""></a>
+      </div>
+    </header>
+
+    <section class="showcase" aria-label="1Agent 应用截图" tabindex="0">
+      <div class="gallery-stage">
+        <figure class="gallery-slide" id="gallery-light"><img src="assets/workspace-light.png" alt="1Agent 浅色工作空间，侧栏管理会话，两个终端并排运行示例项目" width="1160" height="720" fetchpriority="high"></figure>
+        <figure class="gallery-slide gallery-night" id="gallery-dark" hidden><img src="assets/workspace-dark.png" alt="1Agent 深色工作空间与分屏终端" width="1160" height="720" loading="lazy"></figure>
+        <figure class="gallery-slide" id="gallery-files" hidden><img src="assets/workspace-files.png" alt="1Agent 文件工作空间，浏览示例项目文件" width="1160" height="720" loading="lazy"></figure>
+        <button class="gallery-arrow gallery-prev" type="button" aria-label="上一张截图"><img src="assets/icons/chevron-left.svg" width="18" height="18" alt=""></button>
+        <button class="gallery-arrow gallery-next" type="button" aria-label="下一张截图"><img src="assets/icons/chevron-right.svg" width="18" height="18" alt=""></button>
+        <div class="gallery-dots" aria-label="选择应用截图"><button type="button" aria-label="显示浅色工作空间" aria-pressed="true" data-slide="0"></button><button type="button" aria-label="显示深色工作空间" aria-pressed="false" data-slide="1"></button><button type="button" aria-label="显示文件工作空间" aria-pressed="false" data-slide="2"></button></div>
+      </div>
+      <p class="screenshot-note">原生界面截图，项目与命令使用演示数据。</p>
+    </section>
+
+    <div class="section-divider content-width"><span>认识 1Agent</span></div>
+
+    <section class="intro-section content-width">
+      <div class="intro-image"><img src="assets/workspace-focus.png" width="1160" height="720" alt="1Agent 侧栏与本机终端" loading="lazy"></div>
+      <div class="intro-copy"><h2>从熟悉的终端开始。</h2><p>继续用你的 Shell、密钥和 SSH 配置。1Agent 把本机和远程会话放在同一个原生窗口里，再给常用的分屏、文件与快捷命令留好位置。</p><p>打开就能工作，回来也能找到上下文。</p><a class="quiet-link" href="#features">看看它能做什么 <img src="assets/icons/arrow-up-right.svg" width="13" height="13" alt=""></a></div>
+    </section>
+
+    <section class="features-section content-width" id="features">
+      <div class="section-heading"><h2>终端该有的，都在这里。</h2><p>以 Ghostty 为终端引擎，为 Mac 上的日常工作整理好每个细节。</p></div>
+      <div class="feature-grid">
+        <article class="feature-card"><div class="feature-visual"><img src="assets/workspace-light.png" class="detail-terminal" width="1160" height="720" alt="原生终端中的中文和命令输出" loading="lazy"></div><h3>原生终端引擎</h3><p>由 Ghostty 驱动，保留熟悉的终端交互。</p></article>
+        <article class="feature-card"><div class="feature-visual"><img src="assets/workspace-dark.png" class="detail-splits" width="1160" height="720" alt="两个终端并排的深色分屏" loading="lazy"></div><h3>分屏与布局</h3><p>命令与服务并排运行，随时切换焦点。</p></article>
+        <article class="feature-card"><div class="feature-visual"><img src="assets/workspace-files.png" width="1160" height="720" alt="文件工作空间" loading="lazy"></div><h3>文件就在旁边</h3><p>浏览本机与远程目录，预览和管理文件。</p></article>
+        <article class="feature-card"><div class="feature-visual"><img src="assets/settings.png" width="1000" height="700" alt="1Agent 外观与终端主题设置" loading="lazy"></div><h3>喜欢的外观</h3><p>应用配色与终端主题，分别设置。</p></article>
+        <article class="feature-card"><div class="feature-visual"><img src="assets/workspace-light.png" class="detail-sidebar" width="1160" height="720" alt="侧栏中的工作空间与会话" loading="lazy"></div><h3>侧栏管理会话</h3><p>给项目命名、分组，找到正在处理的任务。</p></article>
+        <article class="feature-card"><div class="feature-visual"><img src="assets/workspace-focus.png" class="detail-terminal" width="1160" height="720" alt="本机终端中的示例构建输出" loading="lazy"></div><h3>沿用 OpenSSH</h3><p>读取 ~/.ssh/config，继续使用现有连接配置。</p></article>
+        <article class="feature-card"><div class="feature-visual"><img src="assets/workspace-dark.png" width="1160" height="720" alt="保存布局的终端工作空间" loading="lazy"></div><h3>工作空间恢复</h3><p>保留终端输出与会话布局，下次回来继续。</p></article>
+        <article class="feature-card feature-more"><div class="feature-visual"><a class="pill pill-dark" href="install.html">阅读使用指南 <img src="assets/icons/arrow-up-right.svg" width="13" height="13" alt=""></a></div><h3>还有更多</h3><p>快捷命令、自动化，以及更多顺手的细节。</p></article>
+      </div>
+    </section>
+
+    <section class="workspace-section content-width">
+      <div class="section-heading"><h2>一个窗口，安放你的工作。</h2><p>用侧栏组织会话，用分屏展开任务。按自己的习惯来。</p></div>
+      <div class="workspace-grid">
+        <article><div class="workspace-image"><img src="assets/workspace-light.png" width="1160" height="720" alt="浅色外观中的会话侧栏与分屏" loading="lazy"></div><h3>会话，各就各位。</h3><p>本机会话、远程连接与项目分组，集中在侧栏。</p></article>
+        <article><div class="workspace-image"><img src="assets/workspace-dark.png" width="1160" height="720" alt="深色外观中的终端分屏" loading="lazy"></div><h3>分屏，一起看。</h3><p>一边运行服务，一边继续敲命令。</p></article>
+        <article><div class="workspace-image"><img src="assets/workspace-files.png" width="1160" height="720" alt="示例项目的文件浏览界面" loading="lazy"></div><h3>文件，随手打开。</h3><p>浏览目录和预览文本，减少来回切换。</p></article>
+        <article><div class="workspace-image"><img src="assets/settings.png" width="1000" height="700" alt="应用外观与终端主题设置界面" loading="lazy"></div><h3>外观，按你的习惯。</h3><p>深浅外观、应用配色与独立的终端主题。</p></article>
+      </div>
+    </section>
+
+    <section class="workflow-section content-width">
+      <div class="section-heading centered"><h2>把顺手的操作，留在手边。</h2><p>从本机终端到文件浏览，在一个工作空间里接着做。</p></div>
+      <div class="workflow-layout"><div class="workflow-preview"><img id="workflow-image" src="assets/workspace-light.png" width="1160" height="720" alt="并排分屏的工作空间" loading="lazy"></div><div class="workflow-tabs" role="tablist" aria-label="工作空间功能"><button type="button" role="tab" aria-selected="true" aria-controls="workflow-image" data-workflow="workspace-light.png" data-workflow-alt="并排分屏的工作空间"><strong>并排分屏</strong><span>同时查看服务输出与命令操作。</span></button><button type="button" role="tab" aria-selected="false" aria-controls="workflow-image" tabindex="-1" data-workflow="workspace-focus.png" data-workflow-alt="专注于一个本机终端"><strong>本机终端</strong><span>使用熟悉的 Shell，进入项目目录。</span></button><button type="button" role="tab" aria-selected="false" aria-controls="workflow-image" tabindex="-1" data-workflow="workspace-files.png" data-workflow-alt="本机文件浏览工作空间"><strong>文件管理</strong><span>目录与终端放在一起。</span></button><button type="button" role="tab" aria-selected="false" aria-controls="workflow-image" tabindex="-1" data-workflow="settings.png" data-workflow-alt="应用外观与终端主题设置"><strong>外观设置</strong><span>找到舒服的颜色、字体与主题。</span></button></div></div>
+    </section>
+
+    <section class="companion-section content-width"><div class="companion-copy"><h2>也能和 1Panel 一起工作。</h2><p>先看清主机状态，再打开终端接手处理。</p><ul><li><strong>共享 SSH 配置</strong><span>沿用本机的密钥、端口和跳板机。</span></li><li><strong>打开对应主机</strong><span>通过 oneagent://open 交接终端会话。</span></li><li><strong>也可以独立使用</strong><span>按自己的工作方式选择工具。</span></li></ul><a class="quiet-link" href="https://itjun.github.io/1Panel/">了解 1Panel <img src="assets/icons/arrow-up-right.svg" width="13" height="13" alt=""></a></div><div class="companion-image"><img src="assets/workspace-focus.png" width="1160" height="720" alt="1Agent 独立的终端工作空间" loading="lazy"></div></section>
+
+    <section class="download-section content-width" id="download"><h2>准备好用 1Agent 了吗？</h2><p>适用于 macOS 14 或更高版本，免费，MIT 开源。</p><a class="pill pill-dark" data-download href="https://github.com/itjun/1Agent/releases/latest"><img src="assets/icons/apple.svg" width="16" height="16" alt="">下载 macOS 版 <span class="pill-meta">Apple 芯片</span></a><div class="download-links"><a href="install.html">首次安装指南</a><span data-version>最新正式版</span><a href="https://github.com/itjun/1Agent/releases">更新记录</a></div><p class="download-notice">当前分发版本未经过 Apple 公证，首次打开请按安装指南确认。</p><p class="release-status" data-release-status role="status">也可前往 <a href="https://github.com/itjun/1Agent/releases/latest">GitHub 发布页</a> 下载。</p></section>
+  </main>
+  <footer class="site-footer content-width"><div class="section-divider"><span>关于</span></div><div class="footer-grid"><div class="footer-brand"><a href="./" aria-label="1Agent 首页"><img src="assets/appicon.png" width="40" height="40" alt=""></a><p>原生、顺手的 Mac 终端。</p></div><nav aria-label="产品"><h3>产品</h3><a href="install.html">安装指南</a><a href="#features">应用功能</a><a href="https://github.com/itjun/1Agent/releases">更新记录</a></nav><nav aria-label="开源"><h3>开源</h3><a href="https://github.com/itjun/1Agent">GitHub</a><a href="https://github.com/itjun/1Agent/blob/main/LICENSE.md">MIT 许可证</a><a href="https://github.com/itjun/1Agent#第三方组件">第三方组件</a></nav><nav aria-label="更多"><h3>更多</h3><a href="https://github.com/itjun/1Agent/issues">问题与建议</a><a href="https://itjun.github.io/1Panel/">1Panel</a><a href="https://github.com/itjun">开发者</a></nav></div><div class="footer-bottom"><span>© 2026 1Agent · itjun</span><div class="theme-switch" role="group" aria-label="官网外观"><button type="button" data-theme-choice="light" aria-pressed="true">浅色</button><button type="button" data-theme-choice="dark" aria-pressed="false">深色</button></div></div></footer>
+</body>
+</html>
