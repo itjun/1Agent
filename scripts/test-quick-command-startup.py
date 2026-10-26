@@ -28,7 +28,8 @@ with tempfile.TemporaryDirectory(prefix="1Agent startup 中文 '") as root:
                 "quotes": "printf '%s\\n' \"quote's 中文\" > result\nprintf second >> result\nexit 7",
                 "syntax": "if syntax broken",
                 "missing": "printf BAD > should-not-exist",
-                "interrupt": "printf started > started; sleep 10; printf BAD > should-not-exist",
+                # Chaining belongs to the saved command; the app must not add traps to it.
+                "interrupt": "printf started > started; sleep 10 && printf BAD > should-not-exist",
             }[case]
             target = work / "missing" if case == "missing" else work
             startup = subprocess.check_output([fixture, "--startup-command", shell, str(target), script], text=True).strip()
@@ -68,7 +69,9 @@ with tempfile.TemporaryDirectory(prefix="1Agent startup 中文 '") as root:
                 assert not (work / "should-not-exist").exists(), (shell, case, bytes(output[-2000:]))
                 os.write(fd, b"printf interactive > recovered; pwd > final-directory\n")
                 final = home if case == "missing" else work
-                wait_for(lambda: (final / "recovered").exists())
+                wait_for(lambda: (final / "final-directory").exists()
+                         and (final / "final-directory").read_bytes().endswith(b"\n"))
+                assert (final / "recovered").read_text() == "interactive"
                 actual = (final / "final-directory").read_text().strip()
                 assert pathlib.Path(actual).resolve() == final.resolve(), (shell, case, actual, str(final.resolve()))
             finally:

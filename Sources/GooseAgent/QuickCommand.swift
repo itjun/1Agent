@@ -200,27 +200,21 @@ struct QuickCommandRunRequest: Identifiable, Equatable {
     /// Submitted unchanged, as if typed. The adapter only accepts it while the shell is in `directory`.
     var currentShellCommand: String { item.command }
 
-    /// The supervisor survives the user's `exit`, syntax errors and Ctrl-C. The payload is
-    /// passed as one argument, never concatenated with the subsequent interactive shell.
+    /// Transport the saved text as data, then give it directly to the login shell's
+    /// command argument. Do not escape it, prepend shell code or reinterpret it with eval.
+    /// The supervisor only opens the folder and retains a shell after the command ends.
     func startupCommand(shell: String? = nil) -> String {
         let q = Self.quote
-        let posix = "trap 'exit 130' INT; builtin cd -- " + q(directory) + " && eval -- " + q(item.command)
-        // Interactive bash can continue a semicolon-separated eval after its
-        // foreground job receives SIGINT. Preserve that interrupt as an exit.
-        let bash = "set -E; trap 'qc_code=$?; if [ \"$qc_code\" -eq 130 ]; then exit 130; fi' ERR; " + posix
-        let fish = "function __oneagent_qc_interrupt --on-signal INT; exit 130; end; builtin cd -- "
-            + Self.fishQuote(directory) + "; and eval " + Self.fishQuote(item.command)
+        let payload = Data(item.command.utf8).base64EncodedString()
         let shellValue = shell.map(q) ?? "\"${SHELL:-/bin/sh}\""
-        let body = "trap ':' INT; qc_shell=" + shellValue + "; if cd -- " + q(directory) + "; then case \"${qc_shell##*/}\" in "
-            + "zsh) \"$qc_shell\" -lic " + q(posix) + ";; "
-            + "bash) \"$qc_shell\" -lic " + q(bash) + ";; "
-            + "fish) \"$qc_shell\" -lic " + q(fish) + ";; "
+        // The sentinel preserves trailing newlines removed by command substitution.
+        // Wait for the child to release its foreground process group after Ctrl-C.
+        let body = "trap 'wait' INT; qc_shell=" + shellValue + "; qc_command=$(printf '%s' " + q(payload)
+            + " | base64 -d; printf '.'); qc_command=${qc_command%.}; if cd -- " + q(directory) + "; then case \"${qc_shell##*/}\" in "
+            + "zsh|bash|fish) \"$qc_shell\" -lic \"$qc_command\";; "
             + "*) printf '%s\\n' " + q(String(localized: "Quick commands require zsh, bash or fish.")) + "; (exit 126);; esac; else (exit 1); fi; "
             + "qc_status=$?; printf '\\n%s %s\\n' " + q(String(localized: "Exit code:")) + " \"$qc_status\"; exec \"$qc_shell\" -l"
         return "exec /bin/sh -c " + q(body)
-    }
-    private static func fishQuote(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'") + "'"
     }
 }
 

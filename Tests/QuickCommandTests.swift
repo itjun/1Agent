@@ -10,6 +10,7 @@ struct QuickCommandTests {
             print(request.startupCommand(shell: CommandLine.arguments[2]))
             return
         }
+        try commandTransportTests()
         try transferTests()
         try orderingTests()
         let local = QuickCommandContext(sessionID: "a#0", directory: "/work/project", isLive: true)
@@ -105,6 +106,47 @@ struct QuickCommandTests {
 }
 
 extension QuickCommandTests {
+    @MainActor static func commandTransportTests() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("quick-command-raw-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let work = root.appendingPathComponent("work ' 中文")
+        try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+        let shell = root.appendingPathComponent("zsh")
+        // Capture the actual shell argument without executing the fixture command.
+        try """
+        #!/bin/sh
+        if [ "$1" = -lic ]; then
+            printf '%s' "$2" > received-command
+            pwd > received-directory
+        fi
+        """.write(to: shell, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: shell.path)
+        let store = QuickCommandStore(url: root.appendingPathComponent("commands.json"))
+        for command in [
+            #"printf '%s\n' "quote's 中文" '' '$HOME' '\path' && echo "$(pwd)" | cat > output"#,
+            "  printf 'first\\n'\n\tprintf 'second\\n'\n\n",
+            String(repeating: "'\\\"$", count: 16_384)
+        ] {
+            let item = QuickCommand(alias: "Raw", command: command, scope: .local)
+            try store.save(item)
+            let saved = QuickCommandStore(url: store.url).commands.first { $0.id == item.id }!
+            let request = try QuickCommandRunRequest(item: saved, context: QuickCommandContext(), directory: work.path)
+            assert(request.currentShellCommand == command)
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-c", request.startupCommand(shell: shell.path)]
+            process.standardOutput = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+            assert(process.terminationStatus == 0)
+            let received = try Data(contentsOf: work.appendingPathComponent("received-command"))
+            assert(received == Data(command.utf8), "saved command must reach the login shell byte-for-byte")
+            let directory = try String(contentsOf: work.appendingPathComponent("received-directory"), encoding: .utf8)
+            assert(URL(fileURLWithPath: directory.trimmingCharacters(in: .newlines)).resolvingSymlinksInPath() == work.resolvingSymlinksInPath())
+        }
+        print("Quick command transport: saved text reaches the shell unchanged, including quotes, whitespace, Unicode and 64 KiB payloads")
+    }
+
     @MainActor static func orderingTests() throws {
         func check(_ condition: Bool, _ message: String = "Unexpected command order") { precondition(condition, message) }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("command-order-" + UUID().uuidString)
