@@ -1,0 +1,61 @@
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - website/**
+      - .github/workflows/pages.yml
+  release:
+    types: [published]
+  # GITHUB_TOKEN 创建的 Release 不会触发 release 事件，构建完成后同步下载清单。
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # 发布事件始终使用 main 的官网，避免旧 tag 覆盖当前页面。
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/configure-pages@v6
+
+      - name: Prepare website and release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/pages
+          cp -R website/. dist/pages/
+          rm dist/pages/README.md
+          gh release view --repo "$GITHUB_REPOSITORY" --json tagName,assets \
+            --jq '{version: .tagName, assets: [.assets[] | {name,url,size}]}' \
+            > dist/pages/release.json
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/pages
+
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v5
