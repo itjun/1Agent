@@ -672,7 +672,7 @@ struct RootView: View {
                 }
             }
             .foregroundStyle(sidebarChrome.text)
-            .padding(.leading, 11).padding(.trailing, 30).frame(height: 44)
+            .padding(.leading, 11).padding(.trailing, 30).frame(height: SidebarLayout.terminalRowHeight)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
                 .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
@@ -717,20 +717,24 @@ struct RootView: View {
                 .symbolVariant(isSelected ? .fill : .none)
                 .foregroundStyle(sessionIconColor(isSelected: isSelected))
                 .accessibilityHidden(true)
-            Text(verbatim: numberedSessionTitle(tab))
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                .lineLimit(1).truncationMode(.middle)
-            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: numberedSessionTitle(tab))
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .lineLimit(1).truncationMode(.middle)
+                SidebarSessionSubtitle(tab: tab, location: subtitle)
+                    .font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
+                    .foregroundStyle(sidebarChrome.secondary)
+            }.frame(maxWidth: .infinity, alignment: .leading)
             SidebarBellMark(sessionID: tab.sessionID)
             if tab.reconnecting || tab.showsDisconnected {
                 Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
             }
         }
         .foregroundStyle(sidebarChrome.text)
-        .padding(.leading, 29).padding(.trailing, 10)
-        .frame(height: Theme.Control.height)
+        .padding(.leading, 29).padding(.trailing, 30)
+        .frame(height: SidebarLayout.terminalRowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
             .fill(isSelected ? sidebarChrome.accentFill : .clear))
         .background(PanelRowAnchor(ids: [tab.id], relay: dropRelay, isPane: true))
@@ -991,6 +995,7 @@ enum SidebarLayout {
     /// edge takes over clicks on the header buttons.
     static let headerBottomGap: CGFloat = 12
     static let rowHeight: CGFloat = 36
+    static let terminalRowHeight: CGFloat = 44
     /// Width the traffic lights take from the window's left edge.
     static let trafficLightInset: CGFloat = 78
     /// Horizontal gap between a row's selection/hover shape and the block edge.

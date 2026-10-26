@@ -113,6 +113,10 @@ import SwiftUI
         try check(productionRelay.paneRowAnchors[first]?.view?.window === native &&
                   productionRelay.paneRowAnchors[second]?.view?.window === native,
                   "Production sidebar registers both member rows as drop targets")
+        let memberHeight = productionRelay.paneRowAnchors[first]!.view!.bounds.height
+        let standaloneHeight = productionRelay.rowAnchors[outsider]!.view!.bounds.height
+        try check(abs(memberHeight - standaloneHeight) < 0.1 && memberHeight == 44,
+                  "Grouped and standalone terminal rows share the same height")
 
         let member = productionRelay.paneRowAnchors[second]!.view!
         let memberPoint = member.convert(NSPoint(x: 80, y: member.bounds.midY), to: nil)
