@@ -7,6 +7,8 @@
 
 原生 macOS 终端。和 [1Panel](https://github.com/itjun/1Panel) 共用本机 OpenSSH。
 
+[应用官网](https://itjun.github.io/1Agent/) · [安装指南](https://itjun.github.io/1Agent/install.html) · [下载最新版](https://github.com/itjun/1Agent/releases/latest)
+
 ## 中文
 
 远程 SSH 连上之后，目标主机的状态仍然不好看：CPU、内存、磁盘和进程要再单独敲命令才能知道。另一边，打开终端时，现有收费软件往往不能马上打开，也留不下可用的会话记录。
@@ -16,6 +18,10 @@
 [1Panel](https://github.com/itjun/1Panel) 负责看主机。它把 SSH 配置里的主机分组，直接给出状态，不用为了看一眼再去敲命令。1Agent 负责终端：在 macOS 上快速打开本机或远程会话，支持多窗口、分屏和文件管理，并保留终端历史，离开后可以恢复。
 
 两个项目可以单独使用。装在同一台 Mac 上时，1Panel 通过 `oneagent://open` 把当前主机交给 1Agent 打开。1Agent 只提供 macOS 终端；Windows 和 Linux 上的主机面板仍使用 1Panel。
+
+### 下载安装
+
+当前正式安装包适用于 Apple 芯片 Mac，要求 macOS 14 或更高版本。从 [GitHub Releases](https://github.com/itjun/1Agent/releases/latest) 下载 DMG，打开后将 1Agent 拖入“应用程序”。首次打开如被系统拦截，请按[安装指南](https://itjun.github.io/1Agent/install.html#first-open)处理。
 
 ### 本地构建
 
@@ -48,6 +54,10 @@ A remote SSH connection still leaves the host state hard to see. CPU, memory, di
 [1Panel](https://github.com/itjun/1Panel) is for seeing the host. It groups the hosts from the SSH config and shows their state, so a glance does not require typing the commands. 1Agent is the terminal. On macOS it opens a local or remote session quickly, with multiple windows, splits, and file management, and it keeps the terminal history so the session can be restored.
 
 Each project works on its own. On the same Mac, 1Panel hands the current host to 1Agent through `oneagent://open`. 1Agent is the macOS terminal; the host panel on Windows and Linux remains 1Panel.
+
+### Install
+
+The official DMG currently supports Apple silicon Macs running macOS 14 or later. Download it from [GitHub Releases](https://github.com/itjun/1Agent/releases/latest), open it, and drag 1Agent into Applications. See the [installation guide (Chinese)](https://itjun.github.io/1Agent/install.html) for first-launch instructions.
 
 ### Build locally
 
