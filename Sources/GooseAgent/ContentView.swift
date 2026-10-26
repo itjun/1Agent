@@ -637,7 +637,8 @@ struct RootView: View {
             HStack(spacing: 9) {
                 TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID))
                     .font(.system(size: 15)).frame(width: 20)
-                    .foregroundStyle(sessionIconColor(tab, isSelected: window.selectedTabID.map { row.leafIDs.contains($0) } ?? false))
+                    .symbolVariant(!row.isSplit && window.selectedTabID == tab.id ? .fill : .none)
+                    .foregroundStyle(sessionIconColor(isSelected: !row.isSplit && window.selectedTabID == tab.id))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
@@ -713,7 +714,8 @@ struct RootView: View {
         return HStack(spacing: 9) {
             TerminalPanelIcon(layout: .leaf(tab.id))
                 .font(.system(size: 15)).frame(width: 20)
-                .foregroundStyle(sessionIconColor(tab, isSelected: isSelected))
+                .symbolVariant(isSelected ? .fill : .none)
+                .foregroundStyle(sessionIconColor(isSelected: isSelected))
                 .accessibilityHidden(true)
             Text(verbatim: numberedSessionTitle(tab))
                 .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
@@ -859,10 +861,9 @@ struct RootView: View {
             onRename: { beginWorkspaceRename(workspace) })
     }
 
-    private func sessionIconColor(_ tab: TerminalTab, isSelected: Bool) -> Color {
+    private func sessionIconColor(isSelected: Bool) -> Color {
         guard isSelected else { return sidebarChrome.inactiveIcon }
-        let palette = tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw)
-        return WindowChrome.resolve(isDark: sidebarChrome.isDark, icon: palette).accent
+        return sidebarChrome.accent
     }
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {
