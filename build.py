@@ -3,6 +3,7 @@
 
 用法：python3 build.py（也可从其他目录传入本脚本的绝对路径）。
 依赖：macOS、完整 Xcode、xcodegen、make；使用现有 make build 流程。
+在 1Agent 自身终端中执行时，转为独立进程并将输出写入日志，避免退出应用时中断构建。
 """
 
 import hashlib
@@ -13,6 +14,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -41,13 +43,45 @@ def running_pids(app):
     executable = app / "Contents/MacOS" / APP_NAME
     pattern = "^" + re.escape(str(executable)) + "([[:space:]]|$)"
     result = subprocess.run(
-        ["/usr/bin/pgrep", "-f", pattern], capture_output=True, text=True, check=False
+        # macOS 默认排除祖先进程；在 1Agent 自身终端中运行时也必须找到宿主应用。
+        ["/usr/bin/pgrep", "-af", pattern], capture_output=True, text=True, check=False
     )
     if result.returncode == 1:
         return []
     if result.returncode != 0:
         raise RuntimeError(f"查询进程失败：{result.stderr.strip()}")
     return [int(pid) for pid in result.stdout.split()]
+
+
+def is_running_inside_app():
+    app_pids = set(running_pids(INSTALLED_APP) + running_pids(BUILT_APP))
+    if not app_pids:
+        return False
+    result = subprocess.run(
+        ["/bin/ps", "-axo", "pid=,ppid="], capture_output=True, text=True, check=True
+    )
+    parents = {}
+    for line in result.stdout.splitlines():
+        pid, parent = map(int, line.split())
+        parents[pid] = parent
+    pid = os.getppid()
+    while pid in parents:
+        if pid in app_pids:
+            return True
+        pid = parents[pid]
+    return False
+
+
+def launch_detached_build():
+    with tempfile.NamedTemporaryFile(prefix="1agent-build-", suffix=".log", delete=False) as log:
+        print(f"==> 从 1Agent 内启动，构建将在独立进程中继续；日志：{log.name}", flush=True)
+        # 独立会话避开应用退出时对整个 PTY 会话的清理；所有标准流也必须脱离终端。
+        worker = subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "--worker"], cwd=ROOT,
+            stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        print(f"    构建进程 PID：{worker.pid}，完成后将自动启动新应用", flush=True)
 
 
 def wait_for_exit(app, timeout):
@@ -111,6 +145,9 @@ def main():
     missing = [tool for tool in ("make", "xcodegen", "xcodebuild") if not shutil.which(tool)]
     if missing:
         raise RuntimeError(f"缺少构建工具：{', '.join(missing)}")
+    if sys.argv[1:] != ["--worker"] and is_running_inside_app():
+        launch_detached_build()
+        return
     with stage("停止旧应用"):
         stop_running()
     with stage("重新编译、签名、安装并启动"):
