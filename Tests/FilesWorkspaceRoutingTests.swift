@@ -1111,12 +1111,8 @@ private struct FilesWorkspaceRoutingTests {
         FamilyMenuPresenter.shared.dismiss()
         local.selection = [localEntry.path]
         try await settle()
-        let upload = elements("files.transfer.upload")
-        let download = elements("files.transfer.download")
-        try require(upload.count == 1 && download.count == 1,
-                    "Exactly one upload and one download control are visible for the two endpoints")
-        try require(accessibilityBool(upload[0], "isAccessibilityEnabled"), "Selecting a local file enables upload")
-        try require(!accessibilityBool(download[0], "isAccessibilityEnabled"), "Download stays disabled without a remote selection")
+        try require(elements("files.transfer.upload").isEmpty && elements("files.transfer.download").isEmpty,
+                    "File panes do not show redundant transfer buttons")
         print("ok: family context menu targets the pointed file despite unclipped native hosts, and preserves multi-selection")
 
         let paths = try elements("files.path").map(frame).sorted { $0.minX < $1.minX }
