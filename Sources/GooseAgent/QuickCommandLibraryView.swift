@@ -19,7 +19,6 @@ struct QuickCommandLibraryView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: Theme.Space.s) {
                     CommandTextField(text: $query, placeholder: String(localized: "Search all commands"), identifier: "quickCommands.library.search", symbol: "magnifyingglass").frame(height: Theme.Control.height)
-                    Button("New Quick Command") { editing = QuickCommand(scope: .local) }.buttonStyle(FamilyButtonStyle(kind: .primary))
                     Button("Import…", action: importLibrary).buttonStyle(FamilyButtonStyle(kind: .secondary))
                     Button("Export…", action: exportLibrary).buttonStyle(FamilyButtonStyle(kind: .secondary)).disabled(store.loadError != nil)
                 }
@@ -30,7 +29,9 @@ struct QuickCommandLibraryView: View {
                             .sorted { $0.order < $1.order }) { item in
                             VStack(alignment: .leading, spacing: 2) {
                                 CommandListRow(item: item, action: { inspecting = item }, menu: {
-                                    [FamilyMenuItem(title: String(localized: "View Full Command"), action: { inspecting = item }),
+                                    [FamilyMenuItem(title: String(localized: "Copy Quick Command"), action: {
+                                         do { try QuickCommandClipboard.copy([item]) } catch { self.error = error.localizedDescription }
+                                     }),
                                      FamilyMenuItem(title: String(localized: "Copy Command Text"), action: { CommandClipboard.copy(item.command) }),
                                      FamilyMenuItem(title: String(localized: "Edit"), action: { editing = item }),
                                      FamilyMenuItem(title: String(localized: "Duplicate Command"), action: { var copy = item; copy.id = UUID(); editing = copy }),

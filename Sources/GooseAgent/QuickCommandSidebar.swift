@@ -12,7 +12,6 @@ struct QuickCommandSidebar: View {
     @State private var pasteRequest: QuickCommandPasteRequest?
     @State private var status: String?
     @State private var editing: QuickCommand?
-    @State private var inspecting: QuickCommand?
     @State private var libraryPresented = false
     @State private var historyPresented = false
     @State private var error: String?
@@ -63,9 +62,6 @@ struct QuickCommandSidebar: View {
         .familySheet(isPresented: optionalBinding($editing), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let editing { QuickCommandEditor(item: editing, hosts: model.hosts) { self.editing = nil }.id(editing.id) }
         }
-        .familySheet(isPresented: optionalBinding($inspecting), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
-            if let inspecting { QuickCommandDetails(item: inspecting) { self.inspecting = nil } }
-        }
         .familySheet(isPresented: $libraryPresented, width: SheetLayout.commandLibrary, height: SheetLayout.commandLibraryHeight) {
             QuickCommandLibraryView(model: model, window: window) { libraryPresented = false }
         }
@@ -92,8 +88,7 @@ struct QuickCommandSidebar: View {
                     [FamilyMenuItem(title: String(localized: "Batch Select"), enabled: !commands.isEmpty && !batchSelecting,
                                     action: { batchSelecting = true; selectedIDs = []; status = nil }),
                      FamilyMenuItem(title: String(localized: "Paste Quick Commands…"), action: beginPaste),
-                     .separator,
-                     FamilyMenuItem(title: String(localized: "Manage Command Library"), action: { libraryPresented = true })]
+                    ]
                 }) {
                     Image(systemName: "ellipsis").frame(width: 28, height: 28)
                 }.help("Command Actions").accessibilityIdentifier("quickCommands.actions")
@@ -148,7 +143,7 @@ struct QuickCommandSidebar: View {
                                         if batchSelecting {
                                             if !selectedIDs.insert(item.id).inserted { selectedIDs.remove(item.id) }
                                         }
-                                    }, menu: { menu(for: item) }, allowsDragging: !batchSelecting,
+                                    }, allowsDragging: !batchSelecting,
                                                    isSelected: batchSelecting ? selectedIDs.contains(item.id) : selectedCommandID == item.id,
                                                    onDoubleClick: {
                                         guard !batchSelecting else { return }
@@ -171,9 +166,6 @@ struct QuickCommandSidebar: View {
                         Text(search.isEmpty ? "No commands for this context" : "No matching commands").font(Theme.Font.sectionTitle)
                         Text("Add a command for this folder or choose one from shell history.")
                             .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                        Button("New Quick Command") { editing = draft() }.buttonStyle(FamilyButtonStyle())
-                        Button("Paste Quick Commands…", action: beginPaste).buttonStyle(FamilyButtonStyle())
-                            .accessibilityIdentifier("quickCommands.paste.empty")
                     }.padding(.vertical, 12)
                 }
                 Divider()
@@ -258,18 +250,6 @@ struct QuickCommandSidebar: View {
         QuickCommand(scope: context.directory == nil ? (context.host == nil ? .local : .host) : .directory,
                      host: context.host, directory: context.directory)
     }
-    private func menu(for item: QuickCommand) -> [FamilyMenuItem] {
-        [FamilyMenuItem(title: String(localized: "View Full Command"), action: { inspecting = item }),
-         FamilyMenuItem(title: String(localized: "Copy Quick Command"), action: { copyCommands([item]) }),
-         FamilyMenuItem(title: String(localized: "Copy Command Text"), action: { CommandClipboard.copy(item.command) }),
-         .separator,
-         FamilyMenuItem(title: String(localized: "Edit"), action: { editing = item }),
-         FamilyMenuItem(title: String(localized: "Duplicate Command"), action: { var copy = item; copy.id = UUID(); editing = copy }),
-         .separator,
-         FamilyMenuItem(title: String(localized: "Delete"), destructive: true, action: {
-             do { try store.remove(item.id) } catch { self.error = error.localizedDescription }
-         })]
-    }
 }
 
 func optionalBinding<T>(_ value: Binding<T?>) -> Binding<Bool> {
@@ -283,7 +263,7 @@ enum CommandClipboard {
 struct CommandListRow: View {
     let item: QuickCommand
     let action: () -> Void
-    let menu: () -> [FamilyMenuItem]
+    var menu: (() -> [FamilyMenuItem])? = nil
     var allowsDragging = false
     var isSelected = false
     var onDoubleClick: () -> Void = {}
@@ -302,8 +282,10 @@ struct CommandListRow: View {
                         .help("Drag up or down to reorder; drag into a terminal to confirm execution")
                 } else { commandButton }
             }
-            FamilyMenu(items: menu) { Image(systemName: "ellipsis").frame(width: 24, height: 28) }
-                .help("Command Actions")
+            if let menu {
+                FamilyMenu(items: menu) { Image(systemName: "ellipsis").frame(width: 24, height: 28) }
+                    .help("Command Actions")
+            }
         }
         .padding(10).background(isSelected ? chrome.accentFill : hovered ? chrome.elevated : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
@@ -448,10 +430,7 @@ struct CommandCodePreview: View {
     @Environment(\.windowChrome) private var chrome
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack { Text("Full Command").font(Theme.Font.rowMeta); Spacer()
-                Button { CommandClipboard.copy(text) } label: { Image(systemName: "doc.on.doc") }
-                    .buttonStyle(FamilyButtonStyle()).help("Copy Command Text")
-            }.foregroundStyle(chrome.secondary)
+            Text("Full Command").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
             ScrollView(wrapsLines ? .vertical : [.horizontal, .vertical]) {
                 Text(verbatim: text).font(.system(size: 13, design: .monospaced)).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .topLeading).padding(12)
