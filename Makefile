@@ -67,6 +67,8 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test: test-command-transparency test-system-integration test-scripting-replies
+	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/GooseAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
+	/tmp/oneagent-terminal-output-store-tests
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Tests/RemoteCommandBridgeTests.swift
 	/tmp/oneagent-remote-bridge-tests
 	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift

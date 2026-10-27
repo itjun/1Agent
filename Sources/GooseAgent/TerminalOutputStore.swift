@@ -61,71 +61,84 @@ struct TerminalOutputStore {
 
     static func displayText(_ text: String) -> String {
         let normalized = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
-        let scalars = Array(normalized.unicodeScalars)
-        var kept = String.UnicodeScalarView()
+        let input = Array(normalized.utf8)
+        var kept: [UInt8] = []
+        kept.reserveCapacity(min(input.count, byteLimit))
         var index = 0
-        while index < scalars.count {
-            let value = scalars[index].value
+        while index < input.count {
+            let value = input[index]
             if value == 0x1B {
-                index = advancePastEscape(in: scalars, at: index, keepingSGRIn: &kept)
+                index = advancePastEscape(in: input, at: index, keepingSGRIn: &kept)
                 continue
             }
-            if value == 9 || value == 10 || (value >= 32 && !((127...159).contains(value))) {
-                kept.append(scalars[index])
+            // C1 controls U+0080...U+009F are two bytes in UTF-8.
+            if value == 0xC2, index + 1 < input.count, (0x80...0x9F).contains(input[index + 1]) {
+                index += 2
+                continue
+            }
+            if value == 9 || value == 10 || (value >= 32 && value != 0x7F) {
+                kept.append(value)
             }
             index += 1
         }
-        let safe = String(kept)
         // Trim only empty viewport rows, keeping whitespace within log lines.
-        var trimmed = safe
-        while trimmed.last == "\n" { trimmed.removeLast() }
-        let bytes = Array(trimmed.utf8)
-        var start = max(0, bytes.count - byteLimit)
-        while start < bytes.count, bytes[start] & 0xC0 == 0x80 { start += 1 }
+        var end = kept.count
+        while end > 0, kept[end - 1] == 10 { end -= 1 }
+        var start = max(0, end - byteLimit)
+        while start < end, kept[start] & 0xC0 == 0x80 { start += 1 }
         var lines = 1
-        var cursor = bytes.count
+        var cursor = end
         while cursor > start {
             cursor -= 1
-            if bytes[cursor] == 10 {
+            if kept[cursor] == 10 {
                 if lines == lineLimit { start = cursor + 1; break }
                 lines += 1
             }
         }
-        return String(decoding: bytes[start...], as: UTF8.self)
+        return String(decoding: kept[start..<end], as: UTF8.self)
     }
 
     /// Returns the index after the escape sequence starting at `start`. Appends SGR
     /// sequences to `kept`; strings (OSC, DCS, APC…) and other CSI are dropped with their payload.
-    private static func advancePastEscape(in scalars: [Unicode.Scalar], at start: Int, keepingSGRIn kept: inout String.UnicodeScalarView) -> Int {
+    private static func advancePastEscape(in bytes: [UInt8], at start: Int, keepingSGRIn kept: inout [UInt8]) -> Int {
         var index = start + 1
-        guard index < scalars.count else { return index }
-        let introducer = scalars[index].value
-        index += 1
+        guard index < bytes.count else { return index }
+        let introducer = bytes[index]
+        index = nextScalar(in: bytes, after: index)
         if introducer == 0x5B {
             var isStyle = true
-            while index < scalars.count, (0x20...0x3F).contains(scalars[index].value) {
-                let value = scalars[index].value
+            while index < bytes.count, (0x20...0x3F).contains(bytes[index]) {
+                let value = bytes[index]
                 let isDigit = (0x30...0x39).contains(value)
                 if !isDigit && value != 0x3B && value != 0x3A { isStyle = false }
                 index += 1
             }
-            guard index < scalars.count else { return index }
-            if isStyle && scalars[index] == "m" {
-                kept.append(contentsOf: scalars[start...index])
+            guard index < bytes.count else { return index }
+            if isStyle && bytes[index] == 0x6D {
+                kept.append(contentsOf: bytes[start...index])
             }
-            return index + 1
+            return nextScalar(in: bytes, after: index)
         }
         if [0x5D, 0x50, 0x58, 0x5E, 0x5F].contains(introducer) {
-            while index < scalars.count {
-                if scalars[index].value == 0x07 { return index + 1 }
-                if scalars[index].value == 0x1B, index + 1 < scalars.count, scalars[index + 1] == "\\" { return index + 2 }
+            while index < bytes.count {
+                if bytes[index] == 0x07 { return index + 1 }
+                if bytes[index] == 0x1B, index + 1 < bytes.count, bytes[index + 1] == 0x5C { return index + 2 }
                 index += 1
             }
             return index
         }
-        while index < scalars.count, (0x20...0x2F).contains(scalars[index - 1].value) {
-            index += 1
+        var previous = introducer
+        while index < bytes.count, (0x20...0x2F).contains(previous) {
+            previous = bytes[index]
+            index = nextScalar(in: bytes, after: index)
         }
         return index
+    }
+
+    /// Input is valid UTF-8 from String; escape parsing consumes whole Unicode scalars.
+    private static func nextScalar(in bytes: [UInt8], after index: Int) -> Int {
+        var next = index + 1
+        while next < bytes.count, bytes[next] & 0xC0 == 0x80 { next += 1 }
+        return next
     }
 }
