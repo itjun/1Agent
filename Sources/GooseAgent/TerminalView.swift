@@ -663,6 +663,13 @@ enum SSHTerminalRegistry {
         views[id]?.processHost?.session.readViewportText()
     }
 
+    /// 仅在选中预览时导出样式，避免打开切换器就复制所有会话的历史。
+    static func previewContent(for id: String) -> (output: String, controller: TerminalController)? {
+        guard let view = views[id], let session = view.processHost?.session,
+              let controller = view.controller, let output = session.exportStyledScreen() else { return nil }
+        return (output, controller)
+    }
+
     static func hasRunningCommand(_ id: String) -> Bool {
         guard let host = views[id]?.processHost else { return false }
         return host.isRemote || !host.process.shellIsForeground

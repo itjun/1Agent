@@ -23,6 +23,7 @@
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
 		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
 		1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */; };
+		209C77B6DCCCB3E6D02EB97C /* TerminalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B89FCDD1CE0DA87A9FA6304 /* TerminalPreview.swift */; };
 		23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */; };
 		26772E9BB33C53E1A17BD65D /* DropZoneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */; };
 		26E20533C0776413922B5627 /* 1Agent.sdef in Resources */ = {isa = PBXBuildFile; fileRef = 5AD6A1D884E315562428F9EF /* 1Agent.sdef */; };
@@ -195,6 +196,7 @@
 		49B5B6C3942BB433C4B85A1A /* CommandFinishedPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandFinishedPolicy.swift; sourceTree = "<group>"; };
 		4A0D4D2DC99D26A068742A81 /* QuickCommandTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandTransfer.swift; sourceTree = "<group>"; };
 		4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistory.swift; sourceTree = "<group>"; };
+		4B89FCDD1CE0DA87A9FA6304 /* TerminalPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
 		4D05831F5707DB53D3786F6D /* FileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystem.swift; sourceTree = "<group>"; };
 		4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenu.swift; sourceTree = "<group>"; };
 		4EC91D27043AA07DDFB6BFE5 /* libghostty-spm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "libghostty-spm"; path = "Vendor/libghostty-spm"; sourceTree = SOURCE_ROOT; };
@@ -481,6 +483,7 @@
 				1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */,
 				80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */,
 				79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */,
+				4B89FCDD1CE0DA87A9FA6304 /* TerminalPreview.swift */,
 				22680FE638056AFBBDA0F764 /* TerminalProcess.swift */,
 				6430239EACF7C834A7F4F250 /* TerminalRestoration.swift */,
 				C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */,
@@ -693,6 +696,7 @@
 				18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */,
 				29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */,
 				74B09B24A21C58B67ABB214A /* TerminalPlatformIntegration.swift in Sources */,
+				209C77B6DCCCB3E6D02EB97C /* TerminalPreview.swift in Sources */,
 				292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */,
 				556106C260924FD51CB34EB9 /* TerminalRestoration.swift in Sources */,
 				E3CA332263834B7BDAF1871D /* TerminalSettings.swift in Sources */,

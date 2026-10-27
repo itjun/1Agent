@@ -16,6 +16,7 @@ enum TerminalRestorationTests {
                 }
                 try snapshots()
                 try outputStore()
+                try await terminalPreview()
                 try await terminal(restoration: TerminalRestoration(departedAt: Date(timeIntervalSince1970: 0)))
                 try await terminal(restoration: nil)
                 print("TerminalRestorationTests passed: legacy/dated snapshots, timezone, unknown departure, deferred startup, one-time output, PTY input, reconnect and new terminals")
@@ -145,6 +146,111 @@ enum TerminalRestorationTests {
         try await model.prepareForApplicationExit()
         try defaults.data(forKey: SessionSnapshot.storageKey)!.write(to: snapshotURL)
         print("PASS \(saving ? "save" : "cold restore"): two independent terminals, scrollback, Unicode, no duplication and no PTY replay")
+    }
+
+    @MainActor
+    private final class PreviewProbe: TerminalSurfaceLifecycleDelegate, TerminalSurfaceGridResizeDelegate {
+        var surface: TerminalSurface?
+        var size: TerminalGridMetrics?
+        func terminalDidResize(_ size: TerminalGridMetrics) { self.size = size }
+        func terminalDidAttachSurface(_ surface: TerminalSurface) { self.surface = surface }
+        func terminalDidDetachSurface() { surface = nil }
+    }
+
+    /// 真正的 Ghostty 源画布与预览画布，验证样式和原会话隔离。
+    @MainActor static func terminalPreview() async throws {
+        TerminalDefaults.registerBundledFonts()
+        let sourceSession = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
+        let source = AppTerminalView(frame: NSRect(x: 0, y: 0, width: 900, height: 400))
+        let probe = PreviewProbe()
+        source.delegate = probe
+        source.configuration = TerminalSurfaceOptions(backend: .inMemory(sourceSession))
+        source.controller = GhosttyRuntime.controller
+        let sourceWindow = NSWindow(contentRect: source.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        sourceWindow.isReleasedWhenClosed = false
+        sourceWindow.contentView = source
+        sourceWindow.orderFront(nil)
+        defer { source.controller = nil; sourceWindow.close() }
+        for _ in 0..<100 {
+            if sourceSession.hasAttachedSurface && probe.size != nil { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        expect(sourceSession.hasAttachedSurface, "The source fixture must have a real Ghostty surface")
+        // 新窗口的 backing scale 会异步到达，先等源网格稳定再记录隔离基线。
+        var lastSize: TerminalGridMetrics?
+        var stableSamples = 0
+        for _ in 0..<50 {
+            source.layoutSubtreeIfNeeded()
+            if probe.size != nil && probe.size == lastSize { stableSamples += 1 } else { stableSamples = 0 }
+            if stableSamples >= 4 { break }
+            lastSize = probe.size
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        expect(stableSamples >= 4, "The source grid must settle before the preview isolation check")
+        let prompt = "\u{1b}[38;2;20;24;30;48;2;220;140;160m\u{e0b6}\u{f179} itjun "
+            + "\u{1b}[38;2;220;140;160;48;2;240;180;120m\u{e0b0} 中文 ~/1Agent "
+            + "\u{1b}[38;2;240;180;120;48;2;150;200;160m\u{e0b0} \u{e0a0} main "
+            + "\u{1b}[38;2;150;200;160;49m\u{e0b0} \u{f0320} v3.9.6\u{1b}[0m"
+        sourceSession.receive(prompt + "\u{1b}[48;2;150;200;160m" + String(repeating: " ", count: 100)
+                              + "\u{1b}[0m\r\nPREVIEW_END")
+        sourceSession.waitForPendingOutput()
+        let beforeText = sourceSession.readViewportText()
+        let beforeSize = probe.size
+        let beforeClipboard = NSPasteboard.general.changeCount
+        expect(probe.surface?.hasSelection() == false, "The fixture begins without a selection")
+        guard let snapshot = sourceSession.exportStyledScreen() else {
+            throw NSError(domain: "PreviewTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Styled export failed"])
+        }
+        expect(snapshot.contains("\u{e0b0}") && snapshot.contains("\u{f0320}") && snapshot.contains("中文"),
+               "Styled export preserves Powerline, supplementary Nerd Font characters and Chinese")
+        expect(snapshot.contains("38;2;") && snapshot.contains("48;2;"), "Styled export retains true-color foreground and background")
+        expect(probe.surface?.hasSelection() == false, "Reading a preview must not select the source screen")
+        expect(probe.surface?.performBindingAction("select_all") == true, "The fixture can create a selection")
+        let selected = probe.surface?.readSelection()
+        expect(sourceSession.exportStyledScreen() != nil && probe.surface?.readSelection() == selected,
+               "Reading a preview preserves an existing source selection")
+        expect(NSPasteboard.general.changeCount == beforeClipboard, "Styled export never writes to the user's clipboard")
+
+        let preview = TerminalPreviewView(output: snapshot + "\u{1b}]52;c;dW53YW50ZWQ=\u{7}\u{1b}[6n",
+                                          controller: GhosttyRuntime.controller)
+        preview.frame = NSRect(x: 0, y: 0, width: 600, height: 300)
+        let previewWindow = NSWindow(contentRect: preview.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        previewWindow.isReleasedWhenClosed = false
+        previewWindow.contentView = preview
+        previewWindow.orderFront(nil)
+        defer { preview.controller = nil; previewWindow.close() }
+        for _ in 0..<100 {
+            preview.layoutSubtreeIfNeeded()
+            preview.previewSession.waitForPendingOutput()
+            if preview.previewSession.readScreenText()?.text.contains("PREVIEW_END") == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let text = preview.previewSession.readScreenText()?.text ?? ""
+        expect(text.contains("PREVIEW_END") && text.contains("中文") && text.contains("\u{f0320}"),
+               "The independent preview renders the exported display content")
+        expect(!text.contains(String(repeating: " ", count: 50)),
+               "Trailing colored grid padding must not wrap into extra preview bars")
+        let styled = preview.previewSession.exportStyledScreen() ?? ""
+        expect(styled.contains("38;2;") && styled.contains("48;2;"), "The native preview retains Starship color blocks")
+        previewWindow.setContentSize(NSSize(width: 100, height: 100))
+        preview.layoutSubtreeIfNeeded()
+        previewWindow.setContentSize(NSSize(width: 600, height: 300))
+        preview.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(350))
+        preview.previewSession.waitForPendingOutput()
+        let resized = preview.previewSession.readScreenText()?.text ?? ""
+        expect(resized.contains("PREVIEW_END") && !resized.contains(String(repeating: " ", count: 10)),
+               "Intermediate SwiftUI sizes must not leave colored reflow padding or duplicate content")
+        expect(resized.components(separatedBy: "PREVIEW_END").count == 2, "Resizing replays exactly one snapshot")
+        expect(!preview.acceptsFirstResponder, "The preview cannot acquire terminal keyboard focus")
+        _ = preview.sendKey(.enter)
+        preview.previewSession.sendInput(Data("never-send-to-source\n".utf8))
+        let afterText = sourceSession.readViewportText()
+        expect(afterText == beforeText, "Preview rendering and input must not alter source text")
+        expect(probe.size == beforeSize, "Preview resize must not alter the source grid: before=\(String(describing: beforeSize)), after=\(String(describing: probe.size))")
+        expect(probe.surface?.readSelection() == selected, "Preview rendering and input must preserve the source selection")
+        expect(NSPasteboard.general.changeCount == beforeClipboard, "Preview replay must not execute clipboard escapes")
+        print("ok: native Starship preview preserves RGB colors, Powerline, Nerd Font and Chinese; source selection/grid/input and clipboard remain isolated")
     }
 
     static func snapshots() throws {

@@ -1,6 +1,11 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "↑↓ Select" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "↑↓ Select"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "↑↓ 选择"}}}},
+    "↵ Switch" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "↵ Switch"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "↵ 切换"}}}},
+    "Esc Go Back" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Esc Go Back"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "Esc 返回"}}}},
+    "Switch to view this file" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Switch to view this file"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "切换后查看此文件"}}}},
+    "No Items" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "No Items"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "暂无内容"}}}},
     "Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择本机外观配色与应用图标，终端主题独立配置。深色、透明和色调图标跟随系统外观。"}}}},
     "Choose the remote appearance colors. Terminal themes are configured independently." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the remote appearance colors. Terminal themes are configured independently."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择远程外观配色，终端主题独立配置。"}}}},
     "Remote Appearance Colors" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Remote Appearance Colors"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "远程外观配色"}}}},

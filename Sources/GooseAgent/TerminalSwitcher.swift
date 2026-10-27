@@ -4,19 +4,26 @@ import SwiftUI
 
 /// One open terminal panel or current file endpoint, captured without changing its live state.
 struct SwitcherItem: Identifiable, Equatable {
+    enum Kind { case terminals, files }
     let id: UUID
     let targetID: UUID
     let title: String
     let subtitle: String
     let layout: PaneNode
     let panes: [SwitcherPane]
-    var kind: SwitcherScope = .terminals
+    var kind: Kind = .terminals
+    var connectionGroup: SidebarConnectionGroup = .local
     var searchText: String = ""
     var fileRows: [SwitcherFileRow] = []
     var filePreview: String? = nil
     var fileStatus: String? = nil
     var isRemoteFile = false
-    var fileSymbol: String { isRemoteFile ? SidebarConnectionGroup.remote.symbol : "desktopcomputer" }
+    var filePreviewPath: String? = nil
+    var fileSymbol: String { filePreviewPath == nil ? "folder.fill" : "doc" }
+    var typeTitle: String {
+        if kind == .terminals { return String(localized: "Terminal") }
+        return filePreviewPath == nil ? String(localized: "Folder") : String(localized: "File")
+    }
 }
 
 struct SwitcherFileRow: Identifiable, Equatable {
@@ -26,12 +33,23 @@ struct SwitcherFileRow: Identifiable, Equatable {
 }
 
 enum SwitcherScope: String, CaseIterable {
-    case all, terminals, files
+    case all, local, remote, files
     var title: String {
         switch self {
         case .all: return String(localized: "All Open Items")
-        case .terminals: return String(localized: "Terminals")
+        case .local: return String(localized: "This Mac")
+        case .remote: return String(localized: "Remote")
         case .files: return String(localized: "Files")
+        }
+    }
+
+    func contains(_ item: SwitcherItem) -> Bool {
+        switch self {
+        case .all: return true
+        // 混合分屏在两类中都可找到，仍以完整面板预览和切换。
+        case .local: return item.kind == .terminals && item.connectionGroup != .remote
+        case .remote: return item.kind == .terminals && item.connectionGroup != .local
+        case .files: return item.kind == .files
         }
     }
 }
@@ -39,7 +57,7 @@ enum SwitcherScope: String, CaseIterable {
 struct SwitcherPane: Identifiable, Equatable {
     let id: UUID
     let lines: [String]?
-    let textColumns: Int
+    let sessionID: String
 }
 
 /// Where the window was when the switcher opened; cancelling returns here.
@@ -51,8 +69,8 @@ private struct SwitcherOrigin {
     let fileColumnID: UUID?
 }
 
-/// Hold the switcher's modifiers to cycle panels; the window behind follows the highlight.
-/// Release to keep it, Escape to return to where the switcher opened.
+/// 切换面板默认固定；松开快捷键、切换选择或失焦都不会自动关闭。
+/// Escape 退出并回到打开时或最近一次明确确认的位置。
 /// The main terminal receives no key-down events while the picker is visible.
 @MainActor
 final class TerminalSwitcher: ObservableObject {
@@ -76,7 +94,7 @@ final class TerminalSwitcher: ObservableObject {
     var filteredItems: [SwitcherItem] {
         let words = query.split(whereSeparator: { $0.isWhitespace }).map(String.init)
         return items.filter { item in
-            (scope == .all || item.kind == scope) && words.allSatisfy {
+            scope.contains(item) && words.allSatisfy {
                 (item.title + " " + item.subtitle + " " + item.searchText).localizedStandardContains($0)
             }
         }
@@ -96,11 +114,10 @@ final class TerminalSwitcher: ObservableObject {
         }
     }
 
-    /// Columns of the grid on screen, so ↑ and ↓ move by a row.
-    var columns = 1
-    /// Card and panel frames in `TerminalSwitcherView.space`. Clicks are hit-tested against them because
+    /// Row and panel frames in `TerminalSwitcherView.space`. Clicks are hit-tested against them because
     /// a click with Control still held after ⌃⇥ never reaches a SwiftUI tap gesture.
     var cardFrames: [UUID: CGRect] = [:]
+    var scopeFrames: [SwitcherScope: CGRect] = [:]
     var boxFrame: CGRect = .zero
     var resultsFrame: CGRect = .zero
 
@@ -111,7 +128,6 @@ final class TerminalSwitcher: ObservableObject {
     private var dismissingPanel: NSPanel?
     private var pendingDismissal: DispatchWorkItem?
     private var mouseMonitor: Any?
-    private var releaseModifiers: NSEvent.ModifierFlags = []
     private var observers: [NSObjectProtocol] = []
     private var subscriptions: Set<AnyCancellable> = []
     private var origin: SwitcherOrigin?
@@ -120,13 +136,22 @@ final class TerminalSwitcher: ObservableObject {
 
     var isOpen: Bool { panel != nil }
 
+    /// 固定的面板只接收所属窗口的输入，不影响其他窗口。
+    func handlesEvents(in window: NSWindow?) -> Bool {
+        guard isOpen, let window else { return false }
+        return window === panel || window === hostWindow
+    }
+
     /// Shows every open sidebar panel. The optional host supports isolated native-window tests.
     @discardableResult
     func open(model: AppModel, window: WindowState, chord: KeyChord, host: NSWindow? = nil, searching: Bool = false) -> Bool {
         if isOpen {
-            if searching { beginSearch(); return true }
-            move(by: chord.modifiers.contains(.shift) ? -1 : 1)
-            return true
+            if windowState === window {
+                if searching { beginSearch(); return true }
+                move(by: chord.modifiers.contains(.shift) ? -1 : 1)
+                return true
+            }
+            cancel()
         }
         finishDismissal()
         let rows = model.panelRows(in: window)
@@ -136,7 +161,6 @@ final class TerminalSwitcher: ObservableObject {
         self.model = model
         windowState = window
         hostWindow = host
-        releaseModifiers = chord.menuModifierMask.intersection([.control, .command, .option])
         query = ""
         scope = .all
         isSearching = false
@@ -165,14 +189,7 @@ final class TerminalSwitcher: ObservableObject {
 
     /// Keys while the switcher is open. True when the event is used up.
     func handle(_ event: NSEvent) -> Bool {
-        guard isOpen else { return false }
-        if event.type == .flagsChanged {
-            if !isSearching && !releaseModifiers.isEmpty && event.modifierFlags.intersection(releaseModifiers).isEmpty {
-                commit()
-            }
-            return false
-        }
-        guard event.type == .keyDown else { return false }
+        guard handlesEvents(in: event.window), event.type == .keyDown else { return false }
         if isSearching, (searchField?.currentEditor() as? NSTextView)?.hasMarkedText() == true { return false }
         let shift = event.modifierFlags.contains(.shift)
         switch event.keyCode {
@@ -181,8 +198,8 @@ final class TerminalSwitcher: ObservableObject {
         case 48: move(by: shift ? -1 : 1)
         case 123: if isSearching { return false }; move(by: -1)
         case 124: if isSearching { return false }; move(by: 1)
-        case 125: move(by: columns)
-        case 126: move(by: -columns)
+        case 125: move(by: 1)
+        case 126: move(by: -1)
         default:
             if isSearching { return false }
             if !event.modifierFlags.intersection([.control, .command]).isEmpty { return true }
@@ -204,21 +221,31 @@ final class TerminalSwitcher: ObservableObject {
     func commit(_ id: UUID? = nil) {
         guard isOpen, let item = filteredItems.first(where: { $0.id == (id ?? highlighted) }) else { return }
         let target = item.targetID
-        let model = self.model
-        let window = windowState
-        close()
-        guard let model, let window else { return }
+        guard let model, let window = windowState else { return }
         if item.kind == .files {
             guard let workspace = FileBrowserStore.shared.existingWorkspace(for: window),
                   let column = workspace.openColumns.first(where: { $0.id == target }) else { return }
             model.showSection(.files, in: window)
             workspace.activate(column)
         } else if model.sidebarOrder(in: window).contains(target) {
-            model.selectOnly(target, in: window)
+            model.selectOnly(target, in: window, focusTerminal: false)
+            if window.section != .terminals {
+                model.showSection(.terminals, in: window)
+            }
+        } else {
+            return
         }
+        pendingPreview?.cancel()
+        pendingPreview = nil
+        highlighted = item.id
+        previewedID = item.id
+        originID = item.id
+        origin = SwitcherOrigin(section: window.section, selectedTabID: window.selectedTabID,
+                                sidebarSelection: window.sidebarSelection, sidebarAnchor: window.sidebarAnchor,
+                                fileColumnID: FileBrowserStore.shared.existingWorkspace(for: window)?.focusedColumn?.id)
     }
 
-    /// Closes the switcher and puts the window back where it was when the switcher opened.
+    /// 退出面板并恢复打开时的位置；明确确认过选择时，以最近确认的位置为准。
     func cancel() {
         guard isOpen else { return }
         let model = self.model
@@ -311,11 +338,8 @@ final class TerminalSwitcher: ObservableObject {
     private func watch(model: AppModel, window: WindowState, host: NSWindow) {
         let center = NotificationCenter.default
         observers = [
-            center.addObserver(forName: NSWindow.didResignKeyNotification, object: host, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { if self?.isSearching != true { self?.cancel() } }
-            },
-            center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.cancel() }
+            center.addObserver(forName: NSWindow.willCloseNotification, object: host, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.close() }
             },
             center.addObserver(forName: NSWindow.didResizeNotification, object: host, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -324,13 +348,9 @@ final class TerminalSwitcher: ObservableObject {
                 }
             },
         ]
-        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .flagsChanged]) { [weak self] event in
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             MainActor.assumeIsolated {
                 guard let self, let panel = self.panel else { return event }
-                if event.type == .flagsChanged {
-                    _ = self.handle(event)
-                    return event
-                }
                 return self.click(event, in: panel) ? nil : event
             }
         }
@@ -349,16 +369,21 @@ final class TerminalSwitcher: ObservableObject {
         }
     }
 
-    /// A click on a card shows it behind the panel, a double-click switches to it, the rest of the panel
-    /// does nothing, anywhere else cancels.
+    /// 单击预览、双击确认；点击遮罩不关闭，也不穿透到后面的终端。
     private func click(_ event: NSEvent, in panel: NSPanel) -> Bool {
         guard event.window === panel, let view = panel.contentView else {
-            cancel()
-            return true
+            return event.window === hostWindow
         }
         var point = view.convert(event.locationInWindow, from: nil)
         if !view.isFlipped { point.y = view.bounds.height - point.y }
-        guard boxFrame.contains(point) else { cancel(); return true }
+        guard boxFrame.contains(point) else { return true }
+        // 筛选按钮整块区域都可点击；首次点击或按住 Ctrl 时不交给搜索框抢焦点。
+        if let hit = scopeFrames.first(where: { $0.value.contains(point) }) {
+            if event.type == .leftMouseDown || event.modifierFlags.contains(.control) {
+                scope = hit.key
+            }
+            return true
+        }
         if resultsFrame.contains(point), let hit = cardFrames.first(where: { $0.value.contains(point) }) {
             if event.type == .leftMouseDown && event.clickCount >= 2 {
                 commit(hit.key)
@@ -399,7 +424,6 @@ final class TerminalSwitcher: ObservableObject {
         panel.contentView?.setAccessibilityHidden(true)
         if restoreKey { hostWindow?.makeKey() }
         searchField = nil
-        releaseModifiers = []
         if let mouseMonitor {
             NSEvent.removeMonitor(mouseMonitor)
         }
@@ -442,6 +466,7 @@ final class TerminalSwitcher: ObservableObject {
         originID = nil
         previewedID = nil
         cardFrames = [:]
+        scopeFrames = [:]
         boxFrame = .zero
         resultsFrame = .zero
     }
@@ -459,12 +484,16 @@ final class TerminalSwitcher: ObservableObject {
             while let last = lines?.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
                 lines?.removeLast()
             }
-            return SwitcherPane(id: id, lines: lines, textColumns: lines?.map(\.count).max() ?? 0)
+            return SwitcherPane(id: id, lines: lines, sessionID: leaf.sessionID)
         }
         let path = tab.isLocal ? tab.directory.map(LocalTerminal.displayPath) : tab.remoteDirectory
-        let subtitle = [tab.alias, path].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-        return SwitcherItem(id: row.id, targetID: row.focusedTabID, title: row.name,
-                            subtitle: subtitle, layout: layout, panes: panes, searchText: row.leafIDs.compactMap { id in
+        let subtitle = [tab.isLocal ? String(localized: "This Mac") : tab.alias, path]
+            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        let title = tab.isLocal && row.name == path && path != "~" && path != "/"
+            ? (row.name as NSString).lastPathComponent : row.name
+        return SwitcherItem(id: row.id, targetID: row.focusedTabID, title: title,
+                            subtitle: subtitle, layout: layout, panes: panes,
+                            connectionGroup: model.connectionGroup(for: row.leafIDs), searchText: row.leafIDs.compactMap { id in
                                 model.tabs.first { $0.id == id }.map { leaf in
                                     [leaf.alias, leaf.directory, leaf.remoteDirectory,
                                      model.hosts.first { $0.alias == leaf.alias }?.hostName,
@@ -479,14 +508,16 @@ final class TerminalSwitcher: ObservableObject {
             let path = column.savedPath ?? "~"
             let preview = column.savedPreviewPath
             let host = model.hosts.first { $0.alias == column.fileSystem.host }
-            let title = preview.map { ($0 as NSString).lastPathComponent } ?? column.title
+            let displayPath = column.isRemote ? path : LocalTerminal.displayPath(path)
+            let title = preview.map { ($0 as NSString).lastPathComponent }
+                ?? (displayPath == "~" || displayPath == "/" ? column.title : (displayPath as NSString).lastPathComponent)
             return SwitcherItem(id: column.id, targetID: column.id, title: title,
-                subtitle: column.title + " · " + path, layout: .leaf(column.id), panes: [], kind: .files,
+                subtitle: column.title + " · " + displayPath, layout: .leaf(column.id), panes: [], kind: .files,
                 searchText: [host?.hostName, host?.source, preview, path].compactMap { $0 }.joined(separator: " "),
-                fileRows: column.shown.prefix(8).map { SwitcherFileRow(id: $0.path, name: $0.name, isDirectory: $0.isDirectory) },
-                filePreview: column.preview?.decoded.map { String($0.text.prefix(1600)) },
-                fileStatus: column.error ?? (column.loading ? String(localized: "Loading…") : nil),
-                isRemoteFile: column.isRemote)
+                fileRows: column.shown.prefix(16).map { SwitcherFileRow(id: $0.path, name: $0.name, isDirectory: $0.isDirectory) },
+                filePreview: column.preview?.decoded.map { String($0.text.prefix(16000)) },
+                fileStatus: column.preview?.error ?? column.error ?? (column.loading ? String(localized: "Loading…") : nil),
+                isRemoteFile: column.isRemote, filePreviewPath: preview)
         }
     }
 
@@ -501,7 +532,7 @@ private final class SwitcherPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// The panel is never key, so the first click must reach the cards instead of only activating the window.
+/// 非搜索状态下，首次点击也应直接选中列表项。
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
@@ -509,6 +540,13 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
 private struct SwitcherCardFramesKey: PreferenceKey {
     static let defaultValue: [UUID: CGRect] = [:]
     static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+private struct SwitcherScopeFramesKey: PreferenceKey {
+    static let defaultValue: [SwitcherScope: CGRect] = [:]
+    static func reduce(value: inout [SwitcherScope: CGRect], nextValue: () -> [SwitcherScope: CGRect]) {
         value.merge(nextValue()) { $1 }
     }
 }
@@ -544,82 +582,61 @@ struct TerminalSwitcherView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = max(1, min(1080, proxy.size.width - 2 * (SwitcherLayout.panelPadding + SwitcherLayout.windowInset)))
-            let count = max(1, min(5, Int((width + 14) / 204)))
-            let grid = SwitcherLayout.Grid(columns: count, cardWidth: (width - CGFloat(count - 1) * 14) / CGFloat(count), scrolls: true)
-            let sections = [SwitcherScope.terminals, .files].filter { kind in switcher.filteredItems.contains { $0.kind == kind } }
-            let rows = sections.reduce(0) { total, kind in
-                total + (switcher.filteredItems.filter { $0.kind == kind }.count + count - 1) / count
-            }
-            let height = min(max(100, proxy.size.height - 176 - 2 * SwitcherLayout.windowInset), max(130, CGFloat(rows) * (grid.cardHeight + 14) + CGFloat(sections.count) * 34))
+            let width = max(1, min(SwitcherLayout.maxWidth, proxy.size.width - 2 * SwitcherLayout.windowInset))
+            let contentWidth = max(1, width - 2 * SwitcherLayout.panelPadding)
+            let height = max(1, min(SwitcherLayout.contentHeight,
+                proxy.size.height - 2 * SwitcherLayout.windowInset - SwitcherLayout.chromeHeight))
             ZStack {
                 RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
                     .fill(Color.black.opacity(SwitcherLayout.maskOpacity))
                     .opacity(switcher.isPresented ? 1 : 0)
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("Open Items Overview").font(Theme.Font.body.weight(.semibold))
+                VStack(spacing: SwitcherLayout.spacing) {
+                    HStack(spacing: 8) {
+                        Text("Open Items Overview").font(.system(size: 15, weight: .semibold))
                         Text(verbatim: "\(switcher.filteredItems.count)").foregroundStyle(chrome.secondary)
                         Spacer()
                         Button { switcher.cancel() } label: { Image(systemName: "xmark") }
-                            .buttonStyle(.plain).accessibilityLabel(Text("Close"))
-                    }
-                    HStack(spacing: 6) {
+                            .buttonStyle(.plain).foregroundStyle(chrome.secondary)
+                            .accessibilityLabel(Text("Close"))
+                    }.frame(height: SwitcherLayout.headerHeight)
+                    HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass").foregroundStyle(chrome.secondary)
                         SwitcherSearchField(switcher: switcher, chrome: chrome)
                     }
-                        .padding(.horizontal, 8)
-                        .frame(height: 30)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.background.opacity(0.6)))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control)
-                            .stroke(switcher.isSearching ? chrome.accent : chrome.hairline, lineWidth: switcher.isSearching ? 1.5 : 1))
-                    FamilySegments(value: $switcher.scope, options: SwitcherScope.allCases.map { ($0, $0.title) })
-                        .accessibilityLabel(Text("Content Type")).frame(maxWidth: 300, alignment: .leading)
-                    ScrollViewReader { reader in
-                        ScrollView {
-                            if sections.isEmpty {
-                                Text("No Matching Open Items").foregroundStyle(chrome.secondary)
-                                    .frame(maxWidth: .infinity, minHeight: 120)
-                            }
-                            VStack(alignment: .leading, spacing: 16) {
-                                ForEach(sections, id: \.self) { kind in
-                                    let entries = switcher.filteredItems.filter { $0.kind == kind }
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        HStack {
-                                            Image(systemName: kind == .files ? "folder" : "terminal")
-                                            Text(verbatim: kind.title).fontWeight(.semibold)
-                                            Text(verbatim: "\(entries.count)").foregroundStyle(chrome.secondary)
-                                        }.font(Theme.Font.rowMeta)
-                                        LazyVGrid(columns: Array(repeating: GridItem(.fixed(grid.cardWidth), spacing: 14), count: count), spacing: 14) {
-                                            ForEach(entries) { item in
-                                                SwitcherCard(item: item, grid: grid, highlighted: item.id == switcher.highlighted,
-                                                             isOrigin: item.id == switcher.originID, chrome: chrome)
-                                                    .id(item.id)
-                                                    .accessibilityAction { switcher.commit(item.id) }
-                                                    .background(GeometryReader { card in
-                                                        Color.clear.preference(key: SwitcherCardFramesKey.self,
-                                                            value: [item.id: card.frame(in: .named(Self.space))])
-                                                    })
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                    .padding(.horizontal, 10)
+                    .frame(height: SwitcherLayout.searchHeight)
+                    .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.background.opacity(0.6)))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control)
+                        .stroke(switcher.isSearching ? chrome.accent.opacity(0.6) : chrome.hairline, lineWidth: 1))
+                    scopes
+                    if contentWidth >= SwitcherLayout.sideBySideWidth {
+                        HStack(spacing: SwitcherLayout.detailGap) {
+                            results.frame(width: min(SwitcherLayout.listWidth, contentWidth * SwitcherLayout.listShare))
+                            Rectangle().fill(chrome.hairline).frame(width: 1)
+                            detail.frame(maxWidth: .infinity, maxHeight: .infinity)
                         }.frame(height: height)
-                        .background(GeometryReader { area in
-                            Color.clear.preference(key: SwitcherResultsFrameKey.self, value: area.frame(in: .named(Self.space)))
-                        })
-                        .onAppear { if let id = switcher.highlighted { reader.scrollTo(id) } }
-                        .onChange(of: switcher.highlighted) { _, id in
-                            if let id { reader.scrollTo(id) }
-                        }
+                    } else {
+                        VStack(spacing: SwitcherLayout.spacing) {
+                            results.frame(height: max(1, (height - SwitcherLayout.spacing) * 0.45))
+                            detail.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }.frame(height: height)
                     }
-                    Text(LocalizedStringKey(switcher.isSearching ? "Click to preview · Double-click or Return to switch · Esc to go back" : "Release modifiers to switch · Double-click a card to switch · Esc to go back"))
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                    HStack(spacing: 16) {
+                        Text("↑↓ Select")
+                        Text("↵ Switch")
+                        Text("Esc Go Back")
+                        Spacer(minLength: 0)
+                    }
+                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .frame(height: SwitcherLayout.footerHeight)
+                    .overlay(alignment: .top) { Rectangle().fill(chrome.hairline).frame(height: 1) }
                 }
-                .frame(width: width).padding(SwitcherLayout.panelPadding)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(chrome.elevated))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(chrome.hairline, lineWidth: 1))
+                .foregroundStyle(chrome.text)
+                .frame(width: contentWidth).padding(SwitcherLayout.panelPadding)
+                .background(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius).fill(chrome.elevated))
+                .overlay(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius).stroke(chrome.hairline, lineWidth: 1))
+                .shadow(color: .black.opacity(chrome.isDark ? 0.2 : 0.1), radius: 20, y: 8)
                 .background(GeometryReader { box in
                     Color.clear.preference(key: SwitcherBoxFrameKey.self, value: box.frame(in: .named(Self.space)))
                 })
@@ -632,10 +649,75 @@ struct TerminalSwitcherView: View {
             .frame(width: proxy.size.width, height: proxy.size.height)
             .coordinateSpace(name: Self.space)
             .onPreferenceChange(SwitcherCardFramesKey.self) { switcher.cardFrames = $0 }
+            .onPreferenceChange(SwitcherScopeFramesKey.self) { switcher.scopeFrames = $0 }
             .onPreferenceChange(SwitcherBoxFrameKey.self) { switcher.boxFrame = $0 }
             .onPreferenceChange(SwitcherResultsFrameKey.self) { switcher.resultsFrame = $0 }
-            .onAppear { switcher.columns = count }
-            .onChange(of: count) { _, count in switcher.columns = count }
+        }
+    }
+
+    private var scopes: some View {
+        HStack(spacing: 4) {
+            ForEach(SwitcherScope.allCases, id: \.self) { scope in
+                let isSelected = switcher.scope == scope
+                let count = switcher.items.filter { scope.contains($0) }.count
+                Button { switcher.scope = scope } label: {
+                    HStack(spacing: 7) {
+                        Text(verbatim: scope.title)
+                        Text(verbatim: "\(count)").foregroundStyle(isSelected ? chrome.accent : chrome.secondary)
+                    }
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .padding(.horizontal, 14).frame(height: SwitcherLayout.scopeHeight)
+                    .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
+                        .fill(isSelected ? chrome.accentFill : Color.clear))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background(GeometryReader { button in
+                    Color.clear.preference(key: SwitcherScopeFramesKey.self,
+                        value: [scope: button.frame(in: .named(Self.space))])
+                })
+                .foregroundStyle(isSelected ? chrome.accent : chrome.secondary)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+                .accessibilityIdentifier("switcher.scope.\(scope.rawValue)")
+            }
+            Spacer(minLength: 0)
+        }.frame(height: SwitcherLayout.scopeHeight)
+    }
+
+    private var results: some View {
+        ScrollViewReader { reader in
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(switcher.filteredItems) { item in
+                        SwitcherRow(item: item, isHighlighted: item.id == switcher.highlighted, chrome: chrome)
+                            .id(item.id)
+                            .accessibilityAction { switcher.commit(item.id) }
+                            .background(GeometryReader { row in
+                                Color.clear.preference(key: SwitcherCardFramesKey.self,
+                                    value: [item.id: row.frame(in: .named(Self.space))])
+                            })
+                    }
+                }.padding(.trailing, 6)
+            }
+            .background(GeometryReader { area in
+                Color.clear.preference(key: SwitcherResultsFrameKey.self, value: area.frame(in: .named(Self.space)))
+            })
+            .onAppear { if let id = switcher.highlighted { reader.scrollTo(id) } }
+            .onChange(of: switcher.highlighted) { _, id in
+                if let id { reader.scrollTo(id) }
+            }
+        }
+    }
+
+    @ViewBuilder private var detail: some View {
+        if let item = switcher.filteredItems.first(where: { $0.id == switcher.highlighted }) {
+            SwitcherDetail(item: item, isOrigin: item.id == switcher.originID, chrome: chrome)
+                .id(item.id)
+        } else {
+            VStack(spacing: 12) {
+                Image(systemName: "magnifyingglass").font(.system(size: 28))
+                Text("No Matching Open Items").font(Theme.Font.body)
+            }.foregroundStyle(chrome.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
@@ -683,139 +765,164 @@ private struct SwitcherSearchField: NSViewRepresentable {
     }
 }
 
-private struct SwitcherCard: View {
-    @Environment(\.accessibilityReduceMotion) private var isMotionReduced
+private struct SwitcherRow: View {
     let item: SwitcherItem
-    let grid: SwitcherLayout.Grid
-    let highlighted: Bool
-    let isOrigin: Bool
+    let isHighlighted: Bool
     let chrome: WindowChrome
-    @State private var hovered = false
-
-    private var fill: Color {
-        if highlighted {
-            return chrome.accentFill
-        }
-        return hovered ? chrome.hairline.opacity(0.5) : Color.clear
-    }
+    @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SwitcherLayout.titleSpacing) {
-            if item.kind == .files { fileThumbnail } else { thumbnail }
-            HStack(spacing: 5) {
-                if item.kind == .files {
-                    Image(systemName: item.fileSymbol)
-                } else {
-                    TerminalPanelIcon(layout: item.layout)
+        HStack(spacing: 12) {
+            SwitcherItemIcon(item: item, isHighlighted: isHighlighted, chrome: chrome)
+                .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(verbatim: item.title).font(.system(size: 14, weight: .medium))
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 0)
+                    if item.panes.count > 1 {
+                        Text("\(item.panes.count) panes").font(Theme.Font.rowMeta)
+                            .foregroundStyle(chrome.secondary).fixedSize()
+                    }
                 }
-                Text(verbatim: item.title)
-                .font(Theme.Font.rowMeta.weight(highlighted ? .semibold : .regular))
-                .foregroundStyle(highlighted ? chrome.text : chrome.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if item.panes.count > 1 { Text(verbatim: "\(item.panes.count)").foregroundStyle(chrome.secondary) }
-                if isOrigin {
-                    Text("Original Location").font(.system(size: 10)).foregroundStyle(chrome.secondary)
-                        .lineLimit(1).fixedSize()
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(Capsule().fill(chrome.hairline.opacity(0.6)))
-                }
-            }.frame(width: grid.thumbnailWidth, height: 18)
-            Text(verbatim: item.subtitle).font(.system(size: 10)).foregroundStyle(chrome.secondary)
-                .lineLimit(1).truncationMode(.middle).frame(width: grid.thumbnailWidth, height: 12, alignment: .leading)
+                Text(verbatim: item.subtitle).font(.system(size: 11))
+                    .foregroundStyle(chrome.secondary).lineLimit(1).truncationMode(.middle)
+            }
         }
-        .padding(SwitcherLayout.cardPadding)
-        .background(
-            RoundedRectangle(cornerRadius: SwitcherLayout.cardCornerRadius, style: .continuous)
-                .fill(fill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: SwitcherLayout.cardCornerRadius, style: .continuous)
-                .stroke(highlighted ? chrome.accent : Color.clear, lineWidth: SwitcherLayout.highlightLineWidth)
-        )
-        .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: highlighted)
+        .padding(.horizontal, 12).frame(height: SwitcherLayout.rowHeight)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
+            .fill(isHighlighted ? chrome.accentFill : (isHovered ? chrome.hairline.opacity(0.6) : Color.clear)))
         .contentShape(Rectangle())
-        .onHover { hovered = $0 }
+        .onHover { isHovered = $0 }
+        .help(item.title + " · " + item.subtitle)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: item.title + " · " + item.subtitle))
-        .accessibilityAddTraits(highlighted ? [.isButton, .isSelected] : [.isButton])
-        .accessibilityIdentifier("terminal.switcher.card.\(item.id)")
+        .accessibilityLabel(Text(verbatim: item.typeTitle + " · " + item.title + " · " + item.subtitle))
+        .accessibilityAddTraits(isHighlighted ? [.isButton, .isSelected] : [.isButton])
+        .accessibilityIdentifier("terminal.switcher.row.\(item.id)")
+    }
+}
+
+private struct SwitcherItemIcon: View {
+    let item: SwitcherItem
+    var isHighlighted = false
+    let chrome: WindowChrome
+
+    var body: some View {
+        Group {
+            if item.kind == .terminals {
+                Image(systemName: "terminal").font(.system(size: 21))
+                    .foregroundStyle(isHighlighted ? chrome.accent : chrome.secondary)
+            } else if let path = item.filePreviewPath {
+                FileTypeIcon(name: (path as NSString).lastPathComponent)
+            } else {
+                Image(systemName: "folder.fill").font(.system(size: 21))
+                    .foregroundStyle(FileBrowserLayout.folderColor)
+            }
+        }.accessibilityHidden(true)
+    }
+}
+
+private struct SwitcherDetail: View {
+    let item: SwitcherItem
+    let isOrigin: Bool
+    let chrome: WindowChrome
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(verbatim: item.title).font(.system(size: 20, weight: .semibold))
+                        .lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: item.subtitle).font(.system(size: 12))
+                        .foregroundStyle(chrome.secondary).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 8)
+                if isOrigin {
+                    Text("Original Location").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                        .fixedSize().padding(.top, 5)
+                }
+            }
+            Group {
+                if item.kind == .terminals { terminalPreview } else { filePreview }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.previewCornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: SwitcherLayout.previewCornerRadius)
+                .stroke(chrome.hairline, lineWidth: 1))
+            HStack(spacing: 6) {
+                Image(systemName: item.kind == .terminals ? "terminal" : item.fileSymbol)
+                Text(verbatim: item.typeTitle)
+                if item.panes.count > 1 {
+                    Text(verbatim: "·")
+                    Text("\(item.panes.count) panes")
+                }
+            }.font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+        }
+        .accessibilityIdentifier("switcher.detail")
     }
 
-    /// The terminal's own typeface with the bundled Nerd Font symbols behind it, so prompt icons and
-    /// powerline separators draw as they do in the terminal instead of as missing-glyph boxes.
-    private static func terminalFont(size: CGFloat) -> Font {
-        let symbols = NSFontDescriptor(fontAttributes: [.family: TerminalDefaults.symbolFallbackFamily])
-        let base = NSFont(descriptor: NSFontDescriptor(fontAttributes: [.family: TerminalFontSettings.family]), size: size)
-            ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
-        let descriptor = base.fontDescriptor.addingAttributes([.cascadeList: [symbols]])
-        let font = NSFont(descriptor: descriptor, size: size) ?? base
-        return Font(font as CTFont)
-    }
-
-    private var thumbnail: some View {
-        let width = grid.thumbnailWidth
-        let height = grid.thumbnailHeight
-        let frames = PaneLayout.frames(of: item.layout, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return ZStack(alignment: .topLeading) {
-            chrome.background
-            ForEach(item.panes) { pane in
-                if let frame = frames[pane.id] {
-                    paneThumbnail(pane, size: frame.size)
-                        .frame(width: frame.width, height: frame.height, alignment: .topLeading)
-                        .clipped()
-                        .overlay(Rectangle().stroke(chrome.hairline, lineWidth: 0.5))
+    private var terminalPreview: some View {
+        GeometryReader { proxy in
+            let frames = PaneLayout.frames(of: item.layout, in: CGRect(origin: .zero, size: proxy.size))
+            let theme = AppearanceDriver.shared.terminalIsDark
+                ? ThemePreview.shared.effectiveDark().definition : ThemePreview.shared.effectiveLight().definition
+            let background = RGBColor(ghosttyHex: theme.background)!.color
+            let foreground = RGBColor(ghosttyHex: theme.foreground)!.color
+            ZStack(alignment: .topLeading) {
+                background
+                ForEach(item.panes) { pane in
+                    if let frame = frames[pane.id] {
+                        Group {
+                            if let lines = pane.lines {
+                                TerminalPreview(sessionID: pane.sessionID, fallback: lines.joined(separator: "\n"))
+                            } else {
+                                Text("Not started").font(Theme.Font.body).foregroundStyle(foreground.opacity(0.7))
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
+                        }
+                        .frame(width: frame.width, height: frame.height).clipped()
+                        .overlay(Rectangle().stroke(chrome.hairline, lineWidth: item.panes.count > 1 ? 0.5 : 0))
                         .offset(x: frame.minX, y: frame.minY)
+                    }
                 }
             }
         }
-        .frame(width: width, height: height, alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.thumbnailCornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: SwitcherLayout.thumbnailCornerRadius, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
-        )
-    }
-    private var fileThumbnail: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let preview = item.filePreview {
-                Text(verbatim: preview).font(.system(size: 7, design: .monospaced))
-                    .foregroundStyle(chrome.text).frame(maxWidth: .infinity, alignment: .leading)
-            } else if let status = item.fileStatus {
-                Text(verbatim: status).font(.system(size: 10)).foregroundStyle(chrome.secondary)
-            } else if item.fileRows.isEmpty {
-                Image(systemName: item.fileSymbol).font(.system(size: 28)).foregroundStyle(chrome.accent)
-                Text(verbatim: item.subtitle).font(.system(size: 10)).foregroundStyle(chrome.secondary)
-            } else {
-                ForEach(item.fileRows) { row in
-                    HStack(spacing: 5) {
-                        Image(systemName: row.isDirectory ? "folder.fill" : "doc").foregroundStyle(row.isDirectory ? chrome.accent : chrome.secondary)
-                        Text(verbatim: row.name).lineLimit(1).truncationMode(.middle)
-                        Spacer(minLength: 0)
-                    }.font(.system(size: 9))
-                }
-            }
-            Spacer(minLength: 0)
-        }.padding(8).frame(width: grid.thumbnailWidth, height: grid.thumbnailHeight, alignment: .topLeading)
-            .background(chrome.background).clipped()
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(chrome.hairline, lineWidth: 1))
     }
 
-    private func paneThumbnail(_ pane: SwitcherPane, size: CGSize) -> some View {
-        let fontSize = SwitcherLayout.thumbnailFontSize(width: size.width, textColumns: pane.textColumns)
-        let visibleRows = max(1, Int(size.height / (fontSize * SwitcherLayout.lineHeightRatio)))
-        return ZStack(alignment: .topLeading) {
-            chrome.background
-            if let lines = pane.lines {
-                Text(verbatim: lines.suffix(visibleRows).joined(separator: "\n"))
-                    .font(Self.terminalFont(size: fontSize))
-                    .foregroundStyle(chrome.text).fixedSize().padding(fontSize * 0.5)
-            } else {
-                Text("Not started").font(Theme.Font.rowMeta).foregroundStyle(chrome.tertiary)
-                    .frame(width: size.width, height: size.height)
+    private var filePreview: some View {
+        ScrollView([.horizontal, .vertical]) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let status = item.fileStatus {
+                    Text(verbatim: status).foregroundStyle(chrome.secondary)
+                } else if let preview = item.filePreview {
+                    Text(verbatim: preview).font(.system(size: 12, design: .monospaced))
+                        .fixedSize(horizontal: true, vertical: true)
+                } else if item.filePreviewPath != nil {
+                    SwitcherItemIcon(item: item, chrome: chrome)
+                    Text(verbatim: item.title).fontWeight(.medium)
+                    Text("Switch to view this file").foregroundStyle(chrome.secondary)
+                } else if item.fileRows.isEmpty {
+                    Image(systemName: "folder").font(.system(size: 28)).foregroundStyle(FileBrowserLayout.folderColor)
+                    Text("No Items").foregroundStyle(chrome.secondary)
+                } else {
+                    ForEach(item.fileRows) { row in
+                        HStack(spacing: 10) {
+                            Group {
+                                if row.isDirectory {
+                                    Image(systemName: "folder.fill").foregroundStyle(FileBrowserLayout.folderColor)
+                                } else {
+                                    FileTypeIcon(name: row.name)
+                                }
+                            }.frame(width: 20, height: 20)
+                            Text(verbatim: row.name).lineLimit(1).truncationMode(.middle)
+                            Spacer(minLength: 0)
+                        }.frame(height: 24)
+                    }
+                }
             }
-        }
+            .font(.system(size: 13)).padding(16)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }.background(chrome.background)
     }
 
 }

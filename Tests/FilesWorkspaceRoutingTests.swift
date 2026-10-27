@@ -680,8 +680,6 @@ private struct FilesWorkspaceRoutingTests {
         try require(splitIDs.count == 2, "Split preview fixture requires two terminals")
         model.mergeSidebar(splitIDs, onto: splitIDs[0], as: .columns, in: state)
         model.selectOnly(source.id, in: state)
-        try require(SwitcherLayout.grid(count: 2, in: CGSize(width: 1080, height: 700)).columns == 2,
-                    "Two preview cards should sit side by side when space permits")
         let switcher = TerminalSwitcher.shared
         let beforePreview = state.selectedTabID
         let chord = AppShortcutID.terminalSwitcher.defaultChord
@@ -695,15 +693,22 @@ private struct FilesWorkspaceRoutingTests {
         }
         previewView.layoutSubtreeIfNeeded()
         let previewCards = accessibilityElements(previewView).filter {
-            (accessibilityValue($0, "accessibilityIdentifier") as? String ?? "").hasPrefix("terminal.switcher.card.")
+            (accessibilityValue($0, "accessibilityIdentifier") as? String ?? "").hasPrefix("terminal.switcher.row.")
         }
-        try require(!previewCards.isEmpty, "Every preview card must be accessible")
+        try require(!previewCards.isEmpty, "Every switcher row must be accessible")
         if let bitmap = previewView.bitmapImageRepForCachingDisplay(in: previewView.bounds) {
             previewView.cacheDisplay(in: previewView.bounds, to: bitmap)
             if let png = bitmap.representation(using: .png, properties: [:]) {
                 try png.write(to: URL(fileURLWithPath: "/tmp/oneagent-switcher-fixture.png"))
             }
         }
+        let originalFrame = window.frame
+        window.setContentSize(NSSize(width: 640, height: 480))
+        try await settle()
+        try require(previewView.bounds.insetBy(dx: -1, dy: -1).contains(switcher.boxFrame),
+                    "The compact list and preview must remain inside a narrow window")
+        window.setFrame(originalFrame, display: true)
+        try await settle()
         let initialHighlight = switcher.highlighted
         switcher.move(by: switcher.items.count)
         try require(switcher.highlighted == initialHighlight, "Cycling wraps across all cards")
@@ -718,16 +723,61 @@ private struct FilesWorkspaceRoutingTests {
             }
             return event
         }
+        let rowIndex = switcher.filteredItems.firstIndex { $0.id == switcher.highlighted }!
+        _ = switcher.handle(try previewEvent(.keyDown, flags: [.control], key: 125))
+        try require(switcher.highlighted == switcher.filteredItems[(rowIndex + 1) % switcher.filteredItems.count].id,
+                    "Down selects the next list row, regardless of window width")
+        _ = switcher.handle(try previewEvent(.keyDown, flags: [.control], key: 126))
+        try require(switcher.highlighted == initialHighlight, "Up returns to the previous list row")
         let typingEvent = try previewEvent(.keyDown, flags: [], key: 0)
         try require(switcher.handle(typingEvent),
                     "Text entry must be consumed while previews are visible")
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [.control], key: 56))
         try require(switcher.isOpen, "Releasing Shift while Control stays down must keep previews open")
-        switcher.scope = .terminals
+        switcher.scope = .all
+        for _ in switcher.filteredItems {
+            if switcher.filteredItems.first(where: { $0.id == switcher.highlighted })?.kind == .terminals { break }
+            switcher.move(by: 1)
+        }
         let target = switcher.filteredItems.first { $0.id == switcher.highlighted }?.targetID
+        let pinnedHighlight = switcher.highlighted
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [], key: 59))
-        try require(!switcher.isOpen && state.selectedTabID == target, "Control release commits the highlighted panel")
+        try require(switcher.isOpen && switcher.highlighted == pinnedHighlight,
+                    "Control release must keep the switcher pinned without changing the highlight")
+        let pinnedPanel = previewView.window
+        _ = switcher.handle(try previewEvent(.keyDown, flags: [.control], key: 48))
+        try require(switcher.highlighted != pinnedHighlight && switcher.isOpen && previewView.window === pinnedPanel,
+                    "A repeated Ctrl+Tab cycles within the same pinned panel")
+        _ = switcher.handle(try previewEvent(.keyDown, flags: [.control, .shift], key: 48))
+        try require(switcher.highlighted == pinnedHighlight, "Ctrl+Shift+Tab reverses the pinned selection")
+        _ = switcher.handle(try previewEvent(.keyDown, flags: [], key: 36))
+        try require(switcher.isOpen && state.section == .terminals && state.selectedTabID == target,
+                    "Return confirms the target while keeping the switcher pinned")
+        NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: window)
+        NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+        try require(switcher.isOpen, "Losing window or application focus must not dismiss a pinned switcher")
+        if let pinnedPanel, let outside = NSEvent.mouseEvent(with: .leftMouseDown,
+            location: NSPoint(x: 1, y: 1), modifierFlags: [], timestamp: 0,
+            windowNumber: pinnedPanel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+            NSApp.sendEvent(outside)
+            try require(switcher.isOpen, "Clicking the dimmed area must keep the switcher open")
+        } else {
+            throw TestFailure(description: "Could not create a click outside the switcher content")
+        }
+        let unrelatedWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
+                                       styleMask: [.titled], backing: .buffered, defer: false)
+        let unrelatedEscape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: unrelatedWindow.windowNumber, context: nil,
+            characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 53)!
+        try require(!switcher.handle(unrelatedEscape) && switcher.isOpen,
+                    "A pinned switcher must not intercept another window's keyboard input")
+        unrelatedWindow.orderOut(nil)
         let committed = state.selectedTabID
+        switcher.move(by: 1)
+        switcher.previewNow()
+        _ = switcher.handle(try previewEvent(.keyDown, flags: [], key: 53))
+        try require(!switcher.isOpen && state.selectedTabID == committed,
+                    "Escape closes the pinned panel and preserves the last explicitly confirmed target")
         let retiringPreview = previewView.window
         try require(switcher.open(model: model, window: state, chord: chord, host: window), "Reopen preview")
         try require(retiringPreview?.isVisible != true,
@@ -739,8 +789,10 @@ private struct FilesWorkspaceRoutingTests {
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [], key: 59))
         try require(!switcher.isOpen && state.selectedTabID == committed, "Escape cancels and later release cannot commit")
         try require(switcher.open(model: model, window: state, chord: chord, host: window), "Reopen live preview")
-        switcher.scope = .terminals
-        if switcher.filteredItems.first(where: { $0.id == switcher.highlighted })?.targetID == committed {
+        switcher.scope = .all
+        for _ in switcher.filteredItems {
+            if let item = switcher.filteredItems.first(where: { $0.id == switcher.highlighted }),
+               item.kind == .terminals && item.targetID != committed { break }
             switcher.move(by: 1)
         }
         let previewTarget = switcher.filteredItems.first { $0.id == switcher.highlighted }?.targetID
@@ -795,9 +847,9 @@ private struct FilesWorkspaceRoutingTests {
         editor.insertText("本机", replacementRange: NSRange(location: NSNotFound, length: 0))
         try require(switcher.query == "本机", "Chinese text insertion must update the query")
         switcher.query = ""
-        try require(switcher.items.filter { $0.kind == .files && !$0.isRemoteFile }.allSatisfy { $0.fileSymbol == "desktopcomputer" } &&
-                    switcher.items.contains { $0.kind == .files && $0.isRemoteFile && $0.fileSymbol == SidebarConnectionGroup.remote.symbol },
-                    "Local and remote file cards must use distinct device symbols")
+        try require(switcher.items.filter { $0.kind == .files && $0.filePreviewPath == nil }.allSatisfy { $0.fileSymbol == "folder.fill" } &&
+                    switcher.items.contains { $0.kind == .files && $0.isRemoteFile && $0.fileSymbol == "folder.fill" },
+                    "Local and remote directories must both use folder icons, distinct from terminal icons")
         _ = switcher.handle(try previewEvent(.flagsChanged, flags: [], key: 59))
         try require(switcher.isOpen, "Search mode survives modifier release")
         switcher.scope = .files
@@ -812,19 +864,35 @@ private struct FilesWorkspaceRoutingTests {
         try require(switcher.filteredItems.contains { $0.subtitle.contains("fixture-b") }, "Search must match SSH HostName, not just aliases")
         switcher.query = ""
         switcher.commit(fileColumn.id)
-        try require(!switcher.isOpen && state.section == .files && files.focusedColumn === fileColumn, "File result activates the exact existing file tab")
+        try require(switcher.isOpen && state.section == .files && files.focusedColumn === fileColumn,
+                    "File result activates the exact existing file tab while keeping the switcher pinned")
+        switcher.cancel()
+        try require(!switcher.isOpen && state.section == .files && files.focusedColumn === fileColumn,
+                    "Closing after confirming a file keeps that file active")
         try require(fileColumn.savedPath == savedFilePath && fileColumn.selection == savedSelection &&
                     fileColumn.filter == savedFilter && fileColumn.savedScrollAnchor == savedAnchor &&
                     fileColumn.savedPreviewPath == savedPreview && model.tabs.count == sessionCount,
                     "Switching preserves file browsing state and never creates a terminal")
+        let previousFilePreview = fileColumn.preview
+        fileColumn.preview = .init(entry: FileEntry(name: "preview.swift", path: home + "/preview.swift",
+            isDirectory: false, size: 12, mode: "-rw-r--r--", modified: nil), decoded: nil, truncated: false, error: nil)
+        try require(switcher.open(model: model, window: state, chord: chord, host: window, searching: true),
+                    "Overview opens with a specific file selected")
+        try require(switcher.items.contains { $0.id == fileColumn.id && $0.title == "preview.swift" &&
+            $0.fileSymbol == "doc" && $0.typeTitle == String(localized: "File") },
+                    "A specific file must have file semantics instead of a folder or terminal icon")
+        switcher.cancel()
+        fileColumn.preview = previousFilePreview
         try require(switcher.open(model: model, window: state, chord: chord, host: window, searching: true), "Overview opens from Files")
         switcher.cancel()
         try require(state.section == .files && files.focusedColumn === fileColumn, "Cancel preserves the starting file page")
         try require(switcher.open(model: model, window: state, chord: chord, host: window, searching: true), "Reopen mixed overview")
-        switcher.scope = .terminals
+        switcher.scope = source.isLocal ? .local : .remote
         let terminalItem = switcher.filteredItems.first { $0.targetID == source.id } ?? switcher.filteredItems[0]
         switcher.commit(terminalItem.id)
-        try require(state.section == .terminals && state.selectedTabID == terminalItem.targetID, "Terminal result returns from Files to the existing terminal")
+        try require(switcher.isOpen && state.section == .terminals && state.selectedTabID == terminalItem.targetID,
+                    "Terminal result returns from Files to the existing terminal without closing the switcher")
+        switcher.cancel()
         print("ok: mixed file/terminal previews; native search editor; token/host search; empty results; sticky search; file state retention")
 
         let closingRemote = files.remoteColumn!
@@ -877,7 +945,7 @@ private struct FilesWorkspaceRoutingTests {
         switcher.cancel()
         print("ok: Ctrl+Tab excludes historical locations; live close removes cards; restored close stays closed; empty remote pane has no card")
         model.selectOnly(source.id, in: state)
-        print("ok: preview panel grouping; stable selection; forward/reverse cycling; modifier release; Escape cancellation")
+        print("ok: preview panel grouping; pinned modifier release/Return/outside click/focus loss; window input isolation; Escape cancellation")
         let countBeforeNewTab = model.tabs.count
         model.newTab(in: state)
         try await eventually("new terminal in current context") { model.tabs.count == countBeforeNewTab + 1 }

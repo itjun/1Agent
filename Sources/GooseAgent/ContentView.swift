@@ -1152,80 +1152,29 @@ enum FileBrowserLayout {
     static let joinZoneInset: CGFloat = 0.3
 }
 
-/// Geometry of the ⌃⇥ terminal switcher. Cards grow or shrink with the number of terminals.
+/// 已打开内容切换器共用尺寸；宽窗口并排预览，窄窗口上下排列。
 enum SwitcherLayout {
-    /// Gap between the switcher panel and the main window's edges.
     static let windowInset: CGFloat = 24
-    /// Dimming over the whole window, light enough to see the item previewed behind it.
-    static let maskOpacity: CGFloat = 0.35
-    /// Corner radius of a titled window without a toolbar, so the dimming does not poke past its corners.
+    static let maskOpacity: CGFloat = 0.22
     static let windowCornerRadius: CGFloat = 16
-    /// Padding inside the panel around the grid and the hint line.
     static let panelPadding: CGFloat = 20
     static let panelCornerRadius: CGFloat = 14
-    static let spacing: CGFloat = 14
-    static let cardPadding: CGFloat = 6
-    static let cardCornerRadius: CGFloat = 10
-    static let thumbnailCornerRadius: CGFloat = 6
-    static let titleHeight: CGFloat = 36
-    static let titleSpacing: CGFloat = 6
-    static let hintHeight: CGFloat = 28
-    /// Width over height of a thumbnail.
-    static let thumbnailAspect: CGFloat = 1.6
-    static let minCardWidth: CGFloat = 150
-    /// One card never takes more than this share of the grid width, so two terminals still read as a choice.
-    static let maxCardWidthShare: CGFloat = 0.45
-    static let highlightLineWidth: CGFloat = 2.5
-    /// Thumbnail text is sized so a terminal row fills the thumbnail, within these bounds.
-    static let thumbnailFontRange: ClosedRange<CGFloat> = 4 ... 9
-    /// Monospaced glyph width and line height relative to the font size.
-    static let glyphWidthRatio: CGFloat = 0.6
-    static let lineHeightRatio: CGFloat = 1.2
-    /// Assumed terminal width when the screen text is narrower.
-    static let minTextColumns = 80
-    static let maxTextColumns = 200
-
-    struct Grid: Equatable {
-        var columns: Int
-        var cardWidth: CGFloat
-        /// The cards hit `minCardWidth` and still do not fit, so the grid scrolls.
-        var scrolls: Bool
-
-        var thumbnailWidth: CGFloat { cardWidth - 2 * SwitcherLayout.cardPadding }
-        var thumbnailHeight: CGFloat { thumbnailWidth / SwitcherLayout.thumbnailAspect }
-        var cardHeight: CGFloat {
-            thumbnailHeight + SwitcherLayout.titleHeight + SwitcherLayout.titleSpacing + 2 * SwitcherLayout.cardPadding
-        }
-    }
-
-    /// The column count that gives `count` cards the largest size inside `area`.
-    static func grid(count: Int, in area: CGSize) -> Grid {
-        let count = max(count, 1)
-        let chrome = titleHeight + titleSpacing + 2 * cardPadding
-        let widest = min(320, area.width * maxCardWidthShare)
-        var best = Grid(columns: 1, cardWidth: 0, scrolls: false)
-        for columns in 1 ... count {
-            let rows = (count + columns - 1) / columns
-            let byWidth = (area.width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
-            let rowHeight = (area.height - spacing * CGFloat(rows - 1)) / CGFloat(rows)
-            let byHeight = (rowHeight - chrome) * thumbnailAspect + 2 * cardPadding
-            let width = min(byWidth, byHeight, widest)
-            if width >= best.cardWidth {
-                best = Grid(columns: columns, cardWidth: width, scrolls: false)
-            }
-        }
-        if best.cardWidth >= minCardWidth {
-            return best
-        }
-        let fitting = Int((area.width + spacing) / (minCardWidth + spacing))
-        return Grid(columns: max(1, min(fitting, count)), cardWidth: min(minCardWidth, max(1, area.width)), scrolls: true)
-    }
-
-    /// Font size that fits `textColumns` monospaced glyphs across a thumbnail `width` points wide.
-    static func thumbnailFontSize(width: CGFloat, textColumns: Int) -> CGFloat {
-        let columns = CGFloat(min(max(textColumns, minTextColumns), maxTextColumns))
-        let size = width / (columns * glyphWidthRatio)
-        return min(max(size, thumbnailFontRange.lowerBound), thumbnailFontRange.upperBound)
+    static let maxWidth: CGFloat = 1600
+    static let contentHeight: CGFloat = 760
+    static let headerHeight: CGFloat = 24
+    static let searchHeight: CGFloat = 36
+    static let scopeHeight: CGFloat = 30
+    static let footerHeight: CGFloat = 32
+    static let spacing: CGFloat = 12
+    static let detailGap: CGFloat = 16
+    static let listWidth: CGFloat = 340
+    static let listShare: CGFloat = 0.34
+    static let sideBySideWidth: CGFloat = 660
+    static let rowHeight: CGFloat = 60
+    static let previewCornerRadius: CGFloat = 8
+    static let previewFontSize: CGFloat = 12
+    static var chromeHeight: CGFloat {
+        2 * panelPadding + headerHeight + searchHeight + scopeHeight + footerHeight + 4 * spacing
     }
 }
 

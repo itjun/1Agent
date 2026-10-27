@@ -156,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ShortcutRecorder.isRecording {
             return event
         }
-        if TerminalSwitcher.shared.isOpen {
+        if TerminalSwitcher.shared.handlesEvents(in: event.window) {
             return TerminalSwitcher.shared.handle(event) ? nil : event
         }
         let window = model.keyWindow
