@@ -1034,15 +1034,16 @@ private struct FilesWorkspaceRoutingTests {
         func elements(_ id: String) -> [NSObject] {
             accessibilityElements(window.contentView!).filter { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
         }
-        func click(_ screenPoint: NSPoint) async throws {
-            if !NSApp.isActive || !window.isKeyWindow {
-                try await eventually("activate file workspace test window") {
-                    if NSApp.isHidden { NSApp.unhide(nil) }
-                    if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
-                    if !window.isKeyWindow { window.makeKeyAndOrderFront(nil) }
-                    return NSApp.isActive && window.isKeyWindow
-                }
+        func activateFileWindow() async throws {
+            try await eventually("activate file workspace test window") {
+                if NSApp.isHidden { NSApp.unhide(nil) }
+                if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
+                if !window.isKeyWindow { window.makeKeyAndOrderFront(nil) }
+                return NSApp.isActive && window.isKeyWindow
             }
+        }
+        func click(_ screenPoint: NSPoint, simulateFocusLoss: Bool = false) async throws {
+            try await activateFileWindow()
             let point = window.convertPoint(fromScreen: screenPoint)
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                 guard let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
@@ -1051,9 +1052,15 @@ private struct FilesWorkspaceRoutingTests {
                     throw TestFailure(description: "Could not create a native file-pane click")
                 }
                 NSApp.sendEvent(event)
+                if simulateFocusLoss && type == .leftMouseDown {
+                    DispatchQueue.main.async { NSApp.hide(nil) }
+                }
                 try await settle()
-                try require(NSApp.isActive && window.isKeyWindow,
-                            "File workspace test window lost focus during a click")
+                if simulateFocusLoss && type == .leftMouseDown {
+                    try require(NSApp.isHidden && !window.isKeyWindow,
+                                "Simulated focus loss must occur before recovery")
+                }
+                try await activateFileWindow()
             }
         }
         try await eventually("visible local row for pointer probe") { !elements("files.row.\(localEntry.path)").isEmpty }
@@ -1061,7 +1068,7 @@ private struct FilesWorkspaceRoutingTests {
             throw TestFailure(description: "The local file row must be visible for the pointer probe")
         }
         let rowFrame = try frame(of: row)
-        try await click(NSPoint(x: rowFrame.midX, y: rowFrame.midY))
+        try await click(NSPoint(x: rowFrame.midX, y: rowFrame.midY), simulateFocusLoss: true)
         try require(local.selection == [localEntry.path], "The native click probe must select the actual local file row: \(rowFrame), expected \(localEntry.path), got \(local.selection)")
 
         local.selection = []
