@@ -295,10 +295,12 @@ private struct FileTransferQueueView: View {
             }
             HStack(spacing: Theme.Space.s) {
                 Button { expanded.toggle() } label: {
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                    Text("Transfers")
+                    Image(systemName: expanded ? "chevron.down" : "chevron.up")
                     if queue.activeCount > 0 { Text(verbatim: "\(queue.activeCount)").foregroundStyle(chrome.accent) }
                 }.buttonStyle(FamilyButtonStyle())
+                    .disabled(queue.jobs.isEmpty)
+                    .accessibilityLabel(Text("Transfers"))
+                    .help("Transfers")
                     .accessibilityIdentifier("files.transferQueue.toggle")
                 Spacer()
                 if expanded, queue.jobs.contains(where: { $0.phase == .completed || $0.phase == .cancelled }) {
@@ -320,6 +322,14 @@ private struct FileTransferQueueView: View {
         .foregroundStyle(chrome.text)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.transferQueue")
+        .onAppear { if queue.hasActiveTransfers { expanded = true } }
+        .onChange(of: queue.jobs.map(\.id)) { oldIDs, newIDs in
+            if newIDs.isEmpty { expanded = false }
+            else if !Set(newIDs).subtracting(oldIDs).isEmpty { expanded = true }
+        }
+        .onChange(of: queue.activeCount) { oldCount, newCount in
+            if newCount > oldCount { expanded = true }
+        }
     }
 
     private func row(_ job: FileTransferQueue.Job) -> some View {
