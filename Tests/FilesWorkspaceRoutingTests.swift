@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import ObjectiveC
 import SwiftUI
@@ -1464,6 +1465,55 @@ private struct FilesWorkspaceRoutingTests {
         }
         let pageFrame = frame(filePage)
         try require(element("files.transferQueue") == nil, "The file page has no transfer history panel")
+        func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+        let remoteItem = FileTransfer.Item(path: "/fixture/remote.txt", isDirectory: false)
+        for (item, source, target, destination, title, sourceText, targetText) in [
+            (FileTransfer.Item(path: localPath, isDirectory: false), LocalFileSystem() as any FileSystem,
+             remote, "/fixture", String(format: String(localized: "Upload %d items?"), 1), localPath, "fixture-a:/fixture"),
+            (remoteItem, remote.fileSystem, local, home + "/local-a",
+             String(format: String(localized: "Download %d items?"), 1), "fixture-a:/fixture/remote.txt", home + "/local-a")
+        ] {
+            workspace.receive([item], from: source, on: target, into: destination, window: window)
+            try await eventually("upload or download confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
+            let dialog = window.childWindows!.first { $0 is FamilyModalWindow }!
+            let text = descendants(dialog.contentView!).compactMap { ($0 as? NSTextField)?.stringValue }.joined(separator: "\n")
+            try require(text.contains(title) && text.contains(sourceText) && text.contains(targetText),
+                        "Confirmation identifies the direction, source and destination")
+            try require(FileTransferQueue.shared.jobs.isEmpty, "Transfer must not start while confirmation is open")
+            dialog.cancelOperation(nil)
+            try await eventually("cancel upload or download") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) != true }
+            try await settleDrawer()
+            try require(FileTransferQueue.shared.jobs.isEmpty && !FileManager.default.fileExists(atPath: home + "/local-a/remote.txt"),
+                        "Cancelling an upload or download must not enqueue or write a file")
+        }
+        let destination = home + "/local-a"
+        let item = FileTransfer.Item(path: localPath, isDirectory: false)
+        var sawQueuedTransfer = false
+        let observation = FileTransferQueue.shared.$jobs.sink { jobs in
+            if !jobs.isEmpty { sawQueuedTransfer = true }
+        }
+        workspace.receive([item], from: LocalFileSystem(), on: local, into: destination, window: window)
+        try await eventually("drag confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
+        guard let cancelledDialog = window.childWindows?.first(where: { $0 is FamilyModalWindow }) else {
+            throw TestFailure(description: "A file drop must show a confirmation")
+        }
+        try require(!sawQueuedTransfer && !FileManager.default.fileExists(atPath: destination + "/drawer-fixture.py"),
+                    "A drop does not start before confirmation")
+        cancelledDialog.cancelOperation(nil)
+        try await eventually("cancel drag confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) != true }
+        try await settleDrawer()
+        try require(!sawQueuedTransfer && !FileManager.default.fileExists(atPath: destination + "/drawer-fixture.py"),
+                    "Cancelling a drop does not start a transfer")
+        workspace.receive([item], from: LocalFileSystem(), on: local, into: destination, window: window)
+        try await eventually("confirm drag again") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
+        let dialog = window.childWindows!.first { $0 is FamilyModalWindow }!
+        guard let confirm = descendants(dialog.contentView!).compactMap({ $0 as? FamilyNativeButton }).first(where: { $0.tag == 0 }) else {
+            throw TestFailure(description: "Drop confirmation must have an action button")
+        }
+        confirm.performClick(nil)
+        try await eventually("confirmed transfer starts") { sawQueuedTransfer }
+        try await eventually("fixture transfer ends") { !FileTransferQueue.shared.hasActiveTransfers }
+        observation.cancel()
         let directory = local.directory
         let selection = local.selection
         let layout = workspace.layout

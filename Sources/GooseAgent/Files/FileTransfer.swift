@@ -9,6 +9,34 @@ enum FileTransfer {
         var isDirectory: Bool
     }
 
+    @MainActor
+    static func confirmDrop(_ items: [Item], from source: any FileSystem, to target: any FileSystem,
+                            into directory: String, window: NSWindow?) async -> Bool {
+        guard !items.isEmpty, !directory.isEmpty else { return false }
+        let title: String
+        let action: String
+        if source.host == nil, target.host != nil {
+            title = String(format: String(localized: "Upload %d items?"), items.count)
+            action = String(localized: "Upload")
+        } else if source.host != nil, target.host == nil {
+            title = String(format: String(localized: "Download %d items?"), items.count)
+            action = String(localized: "Download")
+        } else {
+            title = String(format: String(localized: "Copy %d items?"), items.count)
+            action = String(localized: "Copy")
+        }
+        var paths = items.prefix(5).map { (source.host.map { $0 + ":" } ?? "") + $0.path }
+        if items.count > 5 { paths.append(String(format: String(localized: "and %d more"), items.count - 5)) }
+        let destination = (target.host.map { $0 + ":" } ?? "") + directory
+        let alert = FamilyAlert()
+        alert.messageText = title
+        alert.informativeText = paths.joined(separator: "\n") + "\n\n" + String(format: String(localized: "Destination: %@"), destination)
+        alert.addButton(withTitle: action)
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        let response = if let window { await alert.beginSheetModal(for: window) } else { alert.runModal() }
+        return response == .alertFirstButtonReturn
+    }
+
     /// Asks about names already in `directory`. Nil means cancel; no conflict means rename,
     /// which then keeps every name as it is.
     @MainActor

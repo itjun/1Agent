@@ -825,6 +825,34 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝" } }
       }
     },
+    "Copy %d items?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy %d items?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝 %d 个项目？" } }
+      }
+    },
+    "Destination: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Destination: %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "目标位置：%@" } }
+      }
+    },
+    "Download %d items?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Download %d items?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下载 %d 个项目？" } }
+      }
+    },
+    "Upload %d items?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Upload %d items?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上传 %d 个项目？" } }
+      }
+    },
     "Copy Link Address" : {
       "extractionState" : "manual",
       "localizations" : {

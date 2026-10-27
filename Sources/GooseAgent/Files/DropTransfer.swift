@@ -29,6 +29,8 @@ enum DropTransfer {
                     directory = SSHTerminalRegistry.currentWorkingDirectory(for: sessionID)
                         ?? tab.directory ?? NSHomeDirectory()
                 }
+                guard await FileTransfer.confirmDrop(items, from: LocalFileSystem(), to: target,
+                                                     into: directory, window: window) else { return }
                 let paths = try await FileTransferQueue.shared.transfer(
                     items, from: LocalFileSystem(), to: target, into: directory, window: window
                 )

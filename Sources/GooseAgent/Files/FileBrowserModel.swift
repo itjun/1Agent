@@ -728,7 +728,12 @@ final class FileWorkspace: ObservableObject {
     /// Files from Finder, or from another tab, dropped on `column`.
     func receive(_ items: [FileTransfer.Item], from source: any FileSystem, on column: FileColumn,
                  into directory: String? = nil, window: NSWindow?) {
-        transfer(items, from: source, to: column, into: directory ?? column.directory, window: window)
+        let destination = directory ?? column.directory
+        let target = column.fileSystem
+        Task { @MainActor in
+            guard await FileTransfer.confirmDrop(items, from: source, to: target, into: destination, window: window) else { return }
+            FileTransferQueue.shared.enqueue(items, from: source, to: target, into: destination, window: window)
+        }
     }
 
     private func transfer(_ items: [FileTransfer.Item], from source: any FileSystem, to column: FileColumn,
