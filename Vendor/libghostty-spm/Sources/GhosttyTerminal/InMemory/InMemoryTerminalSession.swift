@@ -151,6 +151,44 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         } ?? nil
     }
 
+    /// Export styled display content without changing the live selection, viewport,
+    /// input or pasteboard. The temporary engine export is consumed and removed here.
+    @MainActor
+    public func exportStyledScreen(maxBytes: Int = 8 * 1024 * 1024) -> String? {
+        guard maxBytes > 0 else { return nil }
+        return surfaceAccess.withCurrentSurface { surface -> String? in
+            var path: String?
+            let previousReceiver = TerminalClipboardCapture.receiver
+            TerminalClipboardCapture.receiver = { path = $0 }
+            defer { TerminalClipboardCapture.receiver = previousReceiver }
+            let action = "write_screen_file:copy,vt"
+            guard ghostty_surface_binding_action(surface, action, UInt(action.utf8.count)),
+                  let path else { return nil }
+            let file = URL(fileURLWithPath: path).resolvingSymlinksInPath()
+            let directory = file.deletingLastPathComponent()
+            let temporary = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            guard file.lastPathComponent == "screen.txt",
+                  directory.deletingLastPathComponent() == temporary else { return nil }
+            defer {
+                try? FileManager.default.removeItem(at: file)
+                // Only remove the now-empty directory created by this export.
+                try? FileManager.default.removeItem(at: directory)
+            }
+            guard let handle = try? FileHandle(forReadingFrom: file) else { return nil }
+            defer { try? handle.close() }
+            guard let size = try? handle.seekToEnd() else { return nil }
+            let start = size > UInt64(maxBytes) ? size - UInt64(maxBytes) : 0
+            do {
+                try handle.seek(toOffset: start)
+                guard let data = try handle.read(upToCount: maxBytes) else { return "" }
+                let bytes = data.drop(while: { $0 & 0xC0 == 0x80 })
+                return String(decoding: bytes, as: UTF8.self)
+            } catch {
+                return nil
+            }
+        } ?? nil
+    }
+
     /// Returns the active viewport as a UTF-8 string, or `nil` if no surface
     /// is attached: one line per viewport row, joined with `\n`. The
     /// `ghostty_text_s` lifecycle (allocate via `ghostty_surface_read_text`,
