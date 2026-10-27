@@ -17,6 +17,10 @@ if [[ ! -f "$dylib_dir/1Agent.debug.dylib" ]]; then
     echo "Missing Debug build: run the normal application build first." >&2
     exit 1
 fi
+if [[ ! -s "$repo_dir/Tests/FilesWorkspaceRoutingTests.swift" ]]; then
+    echo "Missing or empty FilesWorkspaceRoutingTests.swift; refusing to launch the application entry point." >&2
+    exit 1
+fi
 
 developer_dir=/Applications/Xcode.app/Contents/Developer
 swift_compiler="$developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
