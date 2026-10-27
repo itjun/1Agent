@@ -177,10 +177,12 @@ struct QuickCommandSidebar: View {
                     }.padding(.vertical, 12)
                 }
                 Divider()
-                footer("Add from History", symbol: "clock") { historyPresented = true }
-                    .accessibilityIdentifier("quickCommands.history")
-                footer("Manage Command Library", symbol: "slider.horizontal.3") { libraryPresented = true }
-                    .accessibilityIdentifier("quickCommands.library")
+                VStack(spacing: 2) {
+                    footer("Add from History", symbol: "clock") { historyPresented = true }
+                        .accessibilityIdentifier("quickCommands.history")
+                    footer("Manage Command Library", symbol: "slider.horizontal.3") { libraryPresented = true }
+                        .accessibilityIdentifier("quickCommands.library")
+                }
             }
         }
     }
@@ -249,6 +251,7 @@ struct QuickCommandSidebar: View {
     private func footer(_ title: LocalizedStringKey, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack { Image(systemName: symbol).frame(width: 20); Text(title); Spacer(); Image(systemName: "chevron.right").font(.system(size: 10)) }
+                .padding(10).contentShape(Rectangle())
         }.buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
     }
     private func draft() -> QuickCommand {
