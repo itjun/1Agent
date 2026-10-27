@@ -17,6 +17,8 @@ button { border: 0; }
 .skip-link:focus { top: 16px; }
 .content-width { width: min(960px, calc(100% - 80px)); margin-inline: auto; }
 .hero { width: min(640px, calc(100% - 48px)); margin-inline: auto; padding-top: 112px; }
+.home-return { display: inline-block; margin-bottom: 28px; color: var(--muted); font-size: 12px; text-decoration: none; }
+.home-return:hover { color: var(--ink); }
 .hero-brand { display: block; width: 96px; line-height: 0; }
 .hero-brand img { width: 96px; height: 96px; object-fit: contain; }
 .hero h1 { margin-top: 20px; font-size: 32px; font-weight: 500; line-height: 2; letter-spacing: -1.1px; }
