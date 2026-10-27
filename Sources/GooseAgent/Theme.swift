@@ -22,6 +22,8 @@ enum Theme {
 
     /// Type scale shared by the sidebar, pane headers, and sheets.
     enum Font {
+        /// 本机、远程等上级分类，字号高于下属终端组和会话。
+        static let sidebarCategory = SwiftUI.Font.system(size: 16, weight: .semibold)
         /// Sidebar section and workspace header labels.
         static let sidebarSection = SwiftUI.Font.system(size: 12, weight: .semibold)
         /// One sidebar row (host alias or local path).
@@ -143,6 +145,16 @@ enum Theme {
         let wrapped = ((index % palette.count) + palette.count) % palette.count
         return palette[wrapped]
     }
+
+    /// 使用持久 ID 分色，重命名、拖动或重启都不会改变文件夹的色系。
+    static func folderPalette(for id: UUID) -> ApplicationIcon {
+        let palettes: [ApplicationIcon] = [
+            .apricotCream, .taroMilkshake, .vanillaCustard,
+            .strawberryCream, .cloudSoda, .coralPeach,
+        ]
+        let hash = id.uuidString.utf8.reduce(UInt64(14695981039346656037)) { ($0 ^ UInt64($1)) &* 1099511628211 }
+        return palettes[Int(hash % UInt64(palettes.count))]
+    }
 }
 
 /// Fixed family chrome. Terminal themes own only the terminal rendering surface.
@@ -168,6 +180,22 @@ struct WindowChrome: Equatable {
     var lineStrong: Color
 
     var inactiveIcon: Color { isDark ? RGBColor(ghosttyHex: "878B92")!.color : secondary }
+
+    /// 沿用马卡龙色板，并混入当前主题；文字在普通、悬停和选中背景上均可辨认。
+    func folderColor(_ icon: ApplicationIcon) -> Color {
+        guard let palette = icon.palette else { return accent }
+        func rgb(_ color: Color) -> RGBColor {
+            let value = NSColor(color).usingColorSpace(.sRGB)!
+            return RGBColor(red: value.redComponent, green: value.greenComponent, blue: value.blueComponent)
+        }
+        var tone = RGBColor(ghosttyHex: isDark ? palette.fill : palette.ink)!
+            .mixed(with: rgb(accent), amount: 0.12)
+        let target = RGBColor(red: isDark ? 1 : 0, green: isDark ? 1 : 0, blue: isDark ? 1 : 0)
+        for background in [sidebarBackground, hairline, accentFill] {
+            tone = RGBColor.ensureContrast(tone, against: rgb(background), toward: target, minimum: 4.5)
+        }
+        return tone.color
+    }
 
     /// 实心控件根据填充选择黑字或白字，避免马卡龙色上的白字失去对比。
     func filledForeground(on fill: Color) -> Color {

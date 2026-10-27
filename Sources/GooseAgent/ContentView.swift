@@ -196,13 +196,8 @@ struct RootView: View {
             if filesMode {
                 FilesSidebar(model: model, window: window, workspace: model.fileWorkspace(for: window), dragArea: pinnedLocationDrag)
             } else {
-                HStack(spacing: 6) {
-                    Text("Opened").font(.system(size: 12, weight: .semibold))
-                    Spacer()
-                }
-                .foregroundStyle(sidebarChrome.secondary)
-                .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 10)
                 sidebarList
+                    .padding(.top, Theme.Space.s)
                 if selectedPanelCount > 1 { selectionActions }
             }
         }
@@ -304,51 +299,66 @@ struct RootView: View {
             }
         }
         .overlay(blockFill(block))
-        .padding(.horizontal, 8)
+        .padding(.horizontal, SidebarLayout.rowInset)
         .background(SidebarBlockAnchor(block: block, relay: dropRelay))
     }
 
     private func connectionGroupHeader(_ group: SidebarConnectionGroup, count: Int) -> some View {
         let collapsed = window.presentation.collapsedConnectionGroups.contains(group)
-        return HStack(spacing: 2) {
-            Button {
-                model.updatePresentation(in: window) { state in
-                    if !state.collapsedConnectionGroups.insert(group).inserted {
-                        state.collapsedConnectionGroups.remove(group)
-                    }
+        let palette: ApplicationIcon = switch group {
+        case .local: .mintCandy
+        case .remote: .clearSkyBlue
+        case .mixed: .taroMilkshake
+        }
+        let folderColor = sidebarChrome.folderColor(palette)
+        return HoverRevealingRegion { isHovered in
+        Button {
+            model.updatePresentation(in: window) { state in
+                if !state.collapsedConnectionGroups.insert(group).inserted {
+                    state.collapsedConnectionGroups.remove(group)
                 }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                        .font(.system(size: 10, weight: .semibold)).frame(width: 12)
-                    if group == .mixed {
-                        Image(systemName: group.symbol).font(.system(size: 12)).frame(width: 16)
-                    }
-                    Text(verbatim: group.title).font(.system(size: 12, weight: .semibold))
-                    Text(verbatim: String(count)).font(Theme.Font.rowMeta).monospacedDigit()
-                    Spacer(minLength: 0)
-                }
-                .frame(height: 28).contentShape(Rectangle())
             }
-            .buttonStyle(FamilyButtonStyle())
-            .accessibilityIdentifier("sidebar.group.\(group.rawValue)")
-            .accessibilityLabel(Text(String(format: String(localized: "Toggle %@ Group"), group.title)))
-            .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
+        } label: {
+            HStack(spacing: 6) {
+                if group == .mixed {
+                    Image(systemName: group.symbol).font(.system(size: 16)).frame(width: 16)
+                        .foregroundStyle(folderColor)
+                } else {
+                    SidebarFolderIcon(color: folderColor, isExpanded: !collapsed)
+                        .font(.system(size: 16)).frame(width: 16)
+                }
+                Text(verbatim: group.title).font(Theme.Font.sidebarCategory)
+                    .foregroundStyle(folderColor)
+                Text(verbatim: String(count)).font(Theme.Font.rowMeta).monospacedDigit()
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 6).padding(.trailing, 30)
+            .frame(height: SidebarLayout.rowHeight).contentShape(Rectangle())
+        }
+        .buttonStyle(FamilyButtonStyle())
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
+            .fill(isHovered ? sidebarChrome.hairline : Color.clear))
+        .accessibilityIdentifier("sidebar.group.\(group.rawValue)")
+        .accessibilityLabel(Text(String(format: String(localized: "Toggle %@ Group"), group.title)))
+        .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
+        .overlay(alignment: .trailing) {
             if group == .remote {
                 Button {
                     model.openHostPicker(in: window)
                 } label: {
                     Image(systemName: "plus").font(.system(size: 12, weight: .medium))
-                        .frame(width: 24, height: 28).contentShape(Rectangle())
+                        .frame(width: 20, height: 26).contentShape(Rectangle())
                 }
                 .buttonStyle(FamilyButtonStyle())
+                .padding(.trailing, 5)
                 .accessibilityIdentifier("sidebar.group.\(group.rawValue).add")
                 .accessibilityLabel(Text("Open Host…"))
                 .help(shortcutHelp(.openHost))
             }
         }
         .foregroundStyle(sidebarChrome.secondary)
-        .padding(.leading, 14).padding(.trailing, 10)
+        }
+        .padding(.horizontal, SidebarLayout.rowInset)
     }
 
     private var selectionActions: some View {
@@ -629,12 +639,19 @@ struct RootView: View {
                 ? window.selectedTabID.map { row.leafIDs.contains($0) } ?? false
                 : !Set(row.leafIDs).isDisjoint(with: window.sidebarSelection)
             let labeledSubtitle = model.sessionSubtitle(tab)
+            let folderColor = sidebarChrome.folderColor(Theme.folderPalette(for: row.panelID))
             HStack(spacing: 9) {
-                TerminalPanelIcon(layout: model.workspaces.compactMap { $0.panel(containing: row.focusedTabID) }.first?.layout ?? .leaf(row.focusedTabID))
-                    .font(.system(size: 15)).frame(width: 20)
-                    .symbolVariant(!row.isSplit && window.selectedTabID == tab.id ? .fill : .none)
-                    .foregroundStyle(sessionIconColor(isSelected: !row.isSplit && window.selectedTabID == tab.id))
-                    .accessibilityHidden(true)
+                Group {
+                    if row.isSplit {
+                        SidebarFolderIcon(color: folderColor)
+                    } else {
+                        TerminalPanelIcon(layout: .leaf(row.focusedTabID))
+                            .symbolVariant(window.selectedTabID == tab.id ? .fill : .none)
+                            .foregroundStyle(sessionIconColor(isSelected: window.selectedTabID == tab.id))
+                    }
+                }
+                .font(.system(size: 15)).frame(width: 20)
+                .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
                         TextField("Rename", text: $panelNameDraft, prompt: Text(verbatim: sessionTitle(tab)))
@@ -647,6 +664,7 @@ struct RootView: View {
                             .onAppear { panelNameFocused = true }
                     } else {
                         Text(verbatim: panelDisplayTitle(row)).font(.system(size: 14, weight: selected ? .semibold : .regular))
+                            .foregroundStyle(row.isSplit ? folderColor : sidebarChrome.text)
                             .lineLimit(1).truncationMode(.middle)
                     }
                     if !row.isSplit {
@@ -656,8 +674,9 @@ struct RootView: View {
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 if row.isSplit {
                     Text(verbatim: String(row.leafIDs.count)).font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(folderColor)
                         .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(sidebarChrome.hairline))
+                        .background(RoundedRectangle(cornerRadius: 4).fill(folderColor.opacity(sidebarChrome.isDark ? 0.12 : 0.08)))
                 }
                 SidebarBellMark(sessionID: tab.sessionID)
                 if tab.reconnecting || tab.showsDisconnected {
@@ -667,7 +686,7 @@ struct RootView: View {
                 }
             }
             .foregroundStyle(sidebarChrome.text)
-            .padding(.leading, 11).padding(.trailing, 30).frame(height: SidebarLayout.terminalRowHeight)
+            .padding(.leading, 11).padding(.trailing, 30).frame(height: SidebarLayout.rowHeight)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
                 .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
@@ -729,7 +748,7 @@ struct RootView: View {
         }
         .foregroundStyle(sidebarChrome.text)
         .padding(.leading, 29).padding(.trailing, 30)
-        .frame(height: SidebarLayout.terminalRowHeight)
+        .frame(height: SidebarLayout.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
             .fill(rowFill(selected: isSelected, hovered: hoveredTabID == tab.id, tabID: tab.id)))
         .background(PanelRowAnchor(ids: [tab.id], relay: dropRelay, isPane: true))
@@ -782,7 +801,8 @@ struct RootView: View {
     }
 
     private func workspaceHeader(_ workspace: Workspace) -> some View {
-        VStack(spacing: 0) {
+        let folderColor = sidebarChrome.folderColor(Theme.folderPalette(for: workspace.id))
+        return HoverRevealingRegion { isHovered in
         HStack(spacing: Theme.Space.xs) {
             Button {
                 model.updatePresentation(in: window) { state in
@@ -791,9 +811,8 @@ struct RootView: View {
                     } else { state.collapsedWorkspaces.insert(workspace.id) }
                 }
             } label: {
-                Image(systemName: window.presentation.collapsedWorkspaces.contains(workspace.id)
-                      ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
+                SidebarFolderIcon(color: folderColor, isExpanded: !window.presentation.collapsedWorkspaces.contains(workspace.id))
+                    .font(.system(size: 15))
                     .frame(width: 20, height: SidebarLayout.rowHeight)
             }
             .buttonStyle(FamilyButtonStyle())
@@ -821,7 +840,7 @@ struct RootView: View {
                     }
             } else {
                 HStack(spacing: Theme.Space.xs) {
-                    Text(workspaceTitle(workspace)).lineLimit(1)
+                    Text(workspaceTitle(workspace)).lineLimit(1).foregroundStyle(folderColor)
                     Spacer(minLength: 0)
                     Text(verbatim: String(workspace.panels.count))
                         .font(Theme.Font.rowMeta)
@@ -841,6 +860,7 @@ struct RootView: View {
             }
             FamilyMenu(items: { workspaceContextItems(workspace) }) {
                 Image(systemName: "folder.badge.gearshape").frame(width: 20, height: SidebarLayout.rowHeight)
+                    .foregroundStyle(folderColor)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -850,6 +870,8 @@ struct RootView: View {
         .foregroundStyle(sidebarChrome.text)
         .padding(.horizontal, Theme.Space.s)
         .frame(height: SidebarLayout.rowHeight)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
+            .fill(isHovered ? sidebarChrome.hairline : Color.clear))
         }
     }
 
@@ -916,6 +938,27 @@ private struct PanelRowAnchor: NSViewRepresentable {
             if isPane { relay.paneRowAnchors[id] = AnchorBox(view) }
             else { relay.rowAnchors[id] = AnchorBox(view) }
         }
+    }
+}
+
+/// 在原有图标槽位内显示文件夹，折叠箭头保留在文件夹内。
+private struct SidebarFolderIcon: View {
+    let color: Color
+    var isExpanded: Bool? = nil
+    @Environment(\.windowChrome) private var chrome
+
+    var body: some View {
+        Image(systemName: "folder.fill")
+            .foregroundStyle(color)
+            .overlay {
+                if let isExpanded {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 5, weight: .heavy))
+                        .foregroundStyle(chrome.sidebarBackground)
+                        .offset(y: 1)
+                }
+            }
+            .accessibilityHidden(true)
     }
 }
 
@@ -987,12 +1030,12 @@ enum SidebarLayout {
     /// Space between the header and the list. A list scroll view flush with the title bar
     /// edge takes over clicks on the header buttons.
     static let headerBottomGap: CGFloat = 12
-    static let rowHeight: CGFloat = 36
-    static let terminalRowHeight: CGFloat = 44
+    /// 顶级分类、工作区、终端组与会话共用同一背景高度。
+    static let rowHeight: CGFloat = 44
     /// Width the traffic lights take from the window's left edge.
     static let trafficLightInset: CGFloat = 78
-    /// Horizontal gap between a row's selection/hover shape and the block edge.
-    static let rowInset: CGFloat = 6
+    /// 所有列表行的背景与侧栏边缘保持相同间距。
+    static let rowInset: CGFloat = 8
     /// Space above a Local Group / Ungrouped title.
     static let sectionTopInset: CGFloat = 10
     /// Pane-count capsule on a workspace card.
