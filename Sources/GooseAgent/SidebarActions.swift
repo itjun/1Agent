@@ -21,11 +21,23 @@ enum SidebarActions {
                 rows.count, ids.count), enabled: false))
         } else if let tab = model.tabs.first(where: { $0.id == row.focusedTabID }) {
             var sessionItems = terminalItems(tab, model: model, window: window)
+            if tab.id == window.selectedTabID {
+                let duplicates = [String(localized: "Reconnect"), String(localized: "Reconnecting…"),
+                    String(localized: "Reopen Terminal"), String(localized: "Open Files"), String(localized: "Reveal in Finder"),
+                    String(localized: "Open With"), String(localized: "Copy Path"), String(localized: "New Split")]
+                sessionItems.removeAll { duplicates.contains($0.title) }
+                if let index = sessionItems.firstIndex(where: { $0.title == String(localized: "Copy Info") }) {
+                    sessionItems[index].children.removeAll { $0.title == String(localized: "Copy Path") }
+                }
+                while sessionItems.last?.isSeparator == true { sessionItems.removeLast() }
+            }
             if row.isSplit {
-                sessionItems += [.separator, FamilyMenuItem(title: String(localized: "Close Current Terminal"), destructive: true, action: {
-                    guard currentTab(tab.id, model: model) != nil else { return }
-                    model.closeTab(tab.id)
-                })]
+                if tab.id != window.selectedTabID {
+                    sessionItems += [.separator, FamilyMenuItem(title: String(localized: "Close Current Terminal"), destructive: true, action: {
+                        guard currentTab(tab.id, model: model) != nil else { return }
+                        model.closeTab(tab.id)
+                    })]
+                }
                 items.append(FamilyMenuItem(title: String(format: String(localized: "Current Terminal: %@"),
                     TerminalPaneActions.title(of: tab)), children: sessionItems))
             } else {
@@ -41,20 +53,17 @@ enum SidebarActions {
             items.append(FamilyMenuItem(title: String(localized: "Detach Panels"),
                 enabled: model.sidebarSplits(ids), action: { model.splitSidebar(ids, in: window) }))
         }
-        if !multiple {
-            items.append(FamilyMenuItem(title: String(localized: "Rename…"), action: onRename))
-        }
         items.append(.separator)
         items += membershipItems(ids, model: model, window: window)
-        items.append(.separator)
         let closeTitle: String
         if multiple {
             closeTitle = String(format: String(localized: "Close %lld Selected Terminals…"), ids.count)
         } else if row.isSplit {
             closeTitle = String(format: String(localized: "Close %lld Terminals in This Panel…"), ids.count)
-        } else {
+        } else if row.focusedTabID != window.selectedTabID {
             closeTitle = String(localized: "Close Terminal")
-        }
+        } else { return items }
+        items.append(.separator)
         items.append(FamilyMenuItem(title: closeTitle, destructive: true, action: {
             close(ids, model: model, window: window, confirm: ids.count > 1)
         }))

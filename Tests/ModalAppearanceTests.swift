@@ -36,11 +36,11 @@ import SwiftUI
         let model = AppModel(), state = model.mainWindow
         let context = QuickCommandContext(directory: home)
         let item = QuickCommand(alias: "外观检查", command: "printf '%s\\n' '中文文字'", scope: .local)
+        try QuickCommandStore.shared.save(item)
         let paste = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [item]), context: context)
         let plan = GhosttyConfigImport.makePlan()
         let fixtures: [(String, CGFloat, CGFloat, AnyView)] = [
             ("host picker", SheetLayout.search, SheetLayout.sessionBodyHeight, AnyView(HostPicker(model: model, window: state))),
-            ("command palette", SheetLayout.search, SheetLayout.commandPaletteHeight, AnyView(TerminalCommandPalette(model: model, window: state, onClose: {}))),
             ("command editor", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandEditor(item: item, hosts: [], onClose: {}))),
             ("command details", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandDetails(item: item, onClose: {}))),
             ("command confirmation", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandConfirmation(confirmation: QuickCommandConfirmationTarget(item: item, context: context), model: model, window: state, onClose: {}))),
@@ -67,19 +67,23 @@ import SwiftUI
                 checkSurface(card, dark: dark, name: name)
                 // Exercise a real nested sheet entry rather than recreating its content.
                 if name == "command library", dark {
-                    let button = elements(card).first { object in
-                        ["accessibilityTitle", "accessibilityLabel", "accessibilityValue"].contains { key in
-                            let raw = value(object, key)
-                            return ((raw as? String) ?? (raw as? NSAttributedString)?.string) == String(localized: "New Quick Command")
-                        } && object.responds(to: NSSelectorFromString("accessibilityPerformPress"))
+                    let newButtons = elements(card).filter { object in
+                        ["accessibilityTitle", "accessibilityLabel"].contains { key in
+                            value(object, key) as? String == String(localized: "New Quick Command")
+                        }
                     }
-                    expect(button != nil, "library exposes its nested editor action")
+                    expect(newButtons.isEmpty, "new commands have one entry in the sidebar, not a duplicate in the library")
+                    let button = elements(card).first { object in
+                        value(object, "accessibilityIdentifier") as? String == "quickCommand." + item.id.uuidString
+                            && object.responds(to: NSSelectorFromString("accessibilityPerformPress"))
+                    }
+                    expect(button != nil, "library exposes its command details action")
                     guard let button else { continue }
-                    expect(invoke(button, "accessibilityPerformPress"), "nested editor action activates")
+                    expect(invoke(button, "accessibilityPerformPress"), "nested details action activates")
                     try await until { dialog.childWindows?.contains { $0 is FamilyModalWindow } == true }
                     let nested = dialog.childWindows!.first { $0 is FamilyModalWindow }!
                     await settle()
-                    checkSurface((nested.contentView as! FamilyModalBackdrop).card!, dark: true, name: "library → nested editor")
+                    checkSurface((nested.contentView as! FamilyModalBackdrop).card!, dark: true, name: "library → nested details")
                     nested.cancelOperation(nil)
                     try await until { dialog.childWindows?.isEmpty != false }
                 }
@@ -134,7 +138,7 @@ import SwiftUI
         }
         TransferToast.shared.finish(transfer, "检查完成")
         if !failures.isEmpty { throw NSError(domain: "ModalAppearanceTests", code: failures.count, userInfo: [NSLocalizedDescriptionKey: failures.joined(separator: "; ")]) }
-        print("ModalAppearanceTests passed: all dialog surfaces, live appearance changes, workspace confirmation, nested editor, native confirmation and transfer toast")
+        print("ModalAppearanceTests passed: all dialog surfaces, live appearance changes, workspace confirmation, nested details, native confirmation and transfer toast")
     }
 
     @MainActor static func checkSurface(_ view: NSView, dark: Bool, name: String, elevated: Bool = false) {

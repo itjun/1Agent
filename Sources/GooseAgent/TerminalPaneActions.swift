@@ -99,12 +99,14 @@ enum TerminalPaneActions {
                 splitItem(String(localized: "Split Up"), edge: .top, tabID: tab.id, model: model),
                 splitItem(AppShortcutID.duplicateDown.title, edge: .bottom, shortcut: .duplicateDown, tabID: tab.id, model: model),
             ]),
-            command(.toggleSplitZoom, enabled: split, checked: zoomed) {
+        ]
+        if !zoomed {
+            items.append(command(.toggleSplitZoom, enabled: split) {
                 guard currentTab(tab.id, model: model) != nil else { return }
                 model.selectOnly(tab.id, in: window, focusTerminal: false)
                 model.toggleSplitZoom(in: window)
-            },
-        ]
+            })
+        }
         // The terminal's own context menu already owns Find and its native responder target.
         if includingFind {
             items += [
@@ -113,12 +115,6 @@ enum TerminalPaneActions {
             ]
         }
         items += [
-            .separator,
-            command(.commandPalette) {
-                guard currentTab(tab.id, model: model) != nil else { return }
-                model.selectOnly(tab.id, in: window, focusTerminal: false)
-                model.openCommandPalette(in: window)
-            },
             command(.closeTab) {
                 guard model.sidebarOrder(in: window).contains(tab.id) else { return }
                 model.closeTab(tab.id)

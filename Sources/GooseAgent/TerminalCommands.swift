@@ -100,19 +100,9 @@ struct TerminalCommands: Commands {
     var body: some Commands {
         let _ = shortcutsRevision
         CommandMenu("Terminal") {
-            if let window = model.keyWindow {
-                TerminalWorkspaceMenu(model: model, window: window)
-                Divider()
-            }
             TerminalCommands.item(.increaseFontSize, action: "increase_font_size:1", enabled: focus.isAvailable)
             TerminalCommands.item(.decreaseFontSize, action: "decrease_font_size:1", enabled: focus.isAvailable)
             TerminalCommands.item(.resetFontSize, action: "reset_font_size", enabled: focus.isAvailable)
-            Divider()
-            TerminalCommands.item(.clearScreen, action: "clear_screen", enabled: focus.isAvailable)
-            Divider()
-            Button(AppShortcutID.toggleSplitZoom.title, action: toggleSplitZoom)
-                .keyboardShortcut(AppShortcuts.chord(for: .toggleSplitZoom).keyboardShortcut)
-                .disabled(!focus.isAvailable)
             Divider()
             TerminalCommands.item(.scrollToTop, action: "scroll_to_top", enabled: focus.isAvailable)
             TerminalCommands.item(.scrollToBottom, action: "scroll_to_bottom", enabled: focus.isAvailable)

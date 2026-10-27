@@ -179,8 +179,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 model.toggleToolSidebar(in: window)
                 return nil
             }
+            if chord == AppShortcuts.chord(for: .newLocalTerminal) {
+                model.openLocalTerminal(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .openHost) {
+                model.openHostPicker(in: window, purpose: window.presentation.filesVisible ? .files : .terminal)
+                return nil
+            }
             if chord == AppShortcuts.chord(for: .commandPalette) {
-                model.openCommandPalette(in: window)
+                TerminalSwitcher.shared.open(model: model, window: window, chord: chord, searching: true)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .reconnect), window.section == .terminals,
+               let tab = model.selectedTab(in: window), tab.showsDisconnected {
+                if tab.isLocal { model.reopenLocalTerminal(tab.id) } else { model.reconnect(tab.id) }
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .toggleSplitZoom), window.section == .terminals,
+               FocusedTerminal.current != nil {
+                model.toggleSplitZoom(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .clearScreen), window.section == .terminals,
+               FocusedTerminal.perform("clear_screen") {
                 return nil
             }
         }
@@ -599,31 +621,8 @@ struct GooseAgentApp: App {
                     .keyboardShortcut(AppShortcuts.chord(for: .closeWindow).keyboardShortcut)
                 Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.newTab() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
-                Button("New Local Terminal") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.openLocalTerminal() } }
-                    .keyboardShortcut(AppShortcuts.chord(for: .newLocalTerminal).keyboardShortcut)
-                Button("Open Host…") {
-                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    appDelegate.model.openHostPicker(purpose: appDelegate.model.keyWindow?.presentation.filesVisible == true ? .files : .terminal)
-                }
-                    .keyboardShortcut(AppShortcuts.chord(for: .openHost).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
-                Button(AppShortcutID.toggleSidebar.title) {
-                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    if let state = appDelegate.model.keyWindow { appDelegate.model.toggleSidebar(in: state) }
-                }
-                .keyboardShortcut(AppShortcuts.chord(for: .toggleSidebar).keyboardShortcut)
-                Button(AppShortcutID.toggleToolSidebar.title) {
-                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    if let state = appDelegate.model.keyWindow { appDelegate.model.toggleToolSidebar(in: state) }
-                }
-                .keyboardShortcut(AppShortcuts.chord(for: .toggleToolSidebar).keyboardShortcut)
-                Button(AppShortcutID.commandPalette.title) {
-                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
-                    if let state = appDelegate.model.keyWindow { appDelegate.model.openCommandPalette(in: state) }
-                }
-                .keyboardShortcut(AppShortcuts.chord(for: .commandPalette).keyboardShortcut)
-                Divider()
                 Button("Open Items Overview") {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     guard let window = appDelegate.model.keyWindow else { return }

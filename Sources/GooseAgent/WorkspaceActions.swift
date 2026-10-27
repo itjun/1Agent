@@ -28,8 +28,4 @@ extension AppModel {
         }
     }
 
-    func openCommandPalette(in window: WindowState) {
-        guard !window.hostPickerPresented else { return }
-        window.commandPalettePresented = true
-    }
 }

@@ -1292,9 +1292,10 @@ private struct FilesWorkspaceRoutingTests {
             model.toggleSection(in: state)
             try await settle()
             try require(state.presentation.fullFilesWorkspace, "Shortcut actions must switch back to Files")
-            model.openCommandPalette(in: state)
-            try require(state.commandPalettePresented, "Shortcut actions must open the command palette")
-            state.commandPalettePresented = false
+            let opened = TerminalSwitcher.shared.open(model: model, window: state,
+                chord: AppShortcuts.chord(for: .commandPalette), host: window, searching: true)
+            try require(opened && TerminalSwitcher.shared.isOpen, "The former command-palette shortcut must open the searchable overview")
+            TerminalSwitcher.shared.cancel()
             try await settle()
             model.toggleSidebar(in: state)
             try require(!state.presentation.sidebarCollapsed, "Shortcut actions must restore the sidebar repeatedly")

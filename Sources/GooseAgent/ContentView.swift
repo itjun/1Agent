@@ -117,12 +117,6 @@ struct RootView: View {
                 }.id(confirmation.id)
             }
         }
-        .familySheet(isPresented: $window.commandPalettePresented, width: SheetLayout.search, height: SheetLayout.commandPaletteHeight) {
-            TerminalCommandPalette(model: model, window: window) { window.commandPalettePresented = false }
-                .environment(\.windowChrome, chrome)
-                .tint(chrome.accent)
-                .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-        }
         .familySheet(isPresented: $window.hostPickerPresented, width: SheetLayout.search, height: SheetLayout.sessionBodyHeight) {
             HostPicker(model: model, window: window)
                 .frame(width: SheetLayout.search, height: SheetLayout.sessionBodyHeight)
@@ -268,7 +262,7 @@ struct RootView: View {
                     }
                     ForEach(SidebarConnectionGroup.allCases, id: \.self) { group in
                         let groupRows = rows.filter { model.connectionGroup(for: $0.block) == group }
-                        if !groupRows.isEmpty {
+                        if !groupRows.isEmpty || group == .remote {
                             VStack(spacing: 3) {
                                 connectionGroupHeader(group, count: groupRows.count)
                                 if !window.presentation.collapsedConnectionGroups.contains(group) {
@@ -341,18 +335,17 @@ struct RootView: View {
             .accessibilityIdentifier("sidebar.group.\(group.rawValue)")
             .accessibilityLabel(Text(String(format: String(localized: "Toggle %@ Group"), group.title)))
             .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
-            if group != .mixed {
+            if group == .remote {
                 Button {
-                    if group == .local { model.openLocalTerminal(in: window) }
-                    else { model.openHostPicker(in: window) }
+                    model.openHostPicker(in: window)
                 } label: {
                     Image(systemName: "plus").font(.system(size: 12, weight: .medium))
                         .frame(width: 24, height: 28).contentShape(Rectangle())
                 }
                 .buttonStyle(FamilyButtonStyle())
                 .accessibilityIdentifier("sidebar.group.\(group.rawValue).add")
-                .accessibilityLabel(Text(group == .local ? "New Local Terminal" : "Open Host…"))
-                .help(shortcutHelp(group == .local ? .newLocalTerminal : .openHost))
+                .accessibilityLabel(Text("Open Host…"))
+                .help(shortcutHelp(.openHost))
             }
         }
         .foregroundStyle(sidebarChrome.secondary)
@@ -516,8 +509,6 @@ struct RootView: View {
                         .help(shortcutHelp(.toggleToolSidebar))
                         .accessibilityLabel(Text(toolWidth > 0 ? "Hide Tool Sidebar" : "Show Tool Sidebar"))
                         .accessibilityIdentifier("workspace.toggleToolSidebar")
-                        .opacity(hovering || toolSidebarHovered ? 1 : 0)
-                        .allowsHitTesting(hovering || toolSidebarHovered)
                     }
                     .padding(.trailing, 8)
                     .frame(width: max(48, toolWidth), height: Theme.PaneStyle.titlebarHeight)
@@ -583,12 +574,12 @@ struct RootView: View {
             .help(shortcutHelp(.toggleSidebar))
             .accessibilityLabel(Text(collapsed ? "Show Session Sidebar" : "Hide Session Sidebar"))
             .accessibilityIdentifier(collapsed ? "workspace.revealSidebar" : "workspace.hideSidebar")
+            .opacity(visible ? 1 : 0)
+            .allowsHitTesting(visible)
+            .accessibilityHidden(!visible)
         }
         .font(Theme.Font.body).buttonStyle(FamilyButtonStyle())
         .foregroundStyle(sidebarChrome.secondary)
-        .opacity(visible ? 1 : 0)
-        .allowsHitTesting(visible)
-        .accessibilityHidden(!visible)
     }
 
     private func selectSession(_ id: UUID, command: Bool, shift: Bool) {
@@ -840,9 +831,7 @@ struct RootView: View {
                         onBegan: { dropRelay.blockDragBegan(.workspace(workspace.id)) },
                         onMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
                         onEnded: { dropRelay.blockDragEnded(windowPoint: $0) },
-                        onSecondaryClick: {
-                            SidebarActions.show(workspaceContextItems(workspace), in: window)
-                        }
+                        onSecondaryClick: {}
                     )
                     .accessibilityHidden(true)
                 }

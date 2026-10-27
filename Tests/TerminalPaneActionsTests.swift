@@ -220,7 +220,7 @@ enum TerminalPaneActionsTests {
         let commands = FamilyMenuItem.commands(from: nativeMenu)
         expect(!commands.contains { $0.title == "External plugin fixture" }, "conversion invokes the native menu delegate")
         for title in [AppShortcutID.find.title, String(localized: "Open Files"), String(localized: "Host Information"),
-                      AppShortcutID.commandPalette.title, AppShortcutID.closeTab.title] {
+                      AppShortcutID.closeTab.title] {
             expect(commands.filter { $0.title == title }.count == 1, "merged commands contain exactly one \(title)")
         }
         expect(item("Copy", in: commands)?.enabled == false, "Copy remains disabled without a terminal selection")
@@ -248,8 +248,8 @@ enum TerminalPaneActionsTests {
         expect(item("History", in: commands) == nil, "terminal context menus no longer expose history")
         expect(item("History", in: TerminalPaneActions.items(tab: tab, model: model, window: window)) == nil,
                "title context menus no longer expose history")
-        expect(!TerminalPaletteCommand.allCases.contains { $0.title == String(localized: "Terminal History") },
-               "the command palette no longer exposes terminal history")
+        expect(!commands.contains { $0.title == String(localized: "Command Palette") },
+               "the terminal menu no longer exposes the removed command palette")
 
         // The tab is intentionally absent from the model, as when a menu outlives
         // its pane. Executing converted pane actions cannot select another terminal.

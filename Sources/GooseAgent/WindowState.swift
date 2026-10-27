@@ -21,7 +21,6 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var presentation = WorkspacePresentation()
     /// An explicit reveal wins over automatic narrow-window collapse until hidden again.
     @Published var sidebarRevealed = false
-    @Published var commandPalettePresented = false
     /// The terminal that opened Host Information, independent of later focus changes.
     @Published var hostInformationTabID: UUID?
     /// Transient: dropping a command only opens confirmation, never restores a run.

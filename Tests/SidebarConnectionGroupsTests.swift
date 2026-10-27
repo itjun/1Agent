@@ -252,6 +252,9 @@ import SwiftUI
         try check(named("New Terminal Here", in: localItems) != nil, "Local row opens another terminal at cwd")
         try check(named("Reconnect", in: localItems) == nil, "Local row cannot use SSH reconnect")
         try check(named("Move out of Workspace", in: localItems) == nil, "Loose panel does not offer removal")
+        let selectedItems = items(focused!)
+        try check(named("Open Files", in: selectedItems) == nil && named("New Split", in: selectedItems) == nil,
+                  "The selected terminal keeps file and split actions in its terminal menu only")
         let remoteItems = items(remote)
         try check(named("New Connection", in: remoteItems) != nil, "Remote connection action exists")
         try check(named("Reveal in Finder", in: remoteItems) == nil, "Remote row cannot reveal a local path")
