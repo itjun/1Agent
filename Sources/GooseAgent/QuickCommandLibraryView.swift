@@ -17,11 +17,11 @@ struct QuickCommandLibraryView: View {
     var body: some View {
         CommandDialog(title: "Manage Command Library", close: onClose) {
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    CommandTextField(text: $query, placeholder: String(localized: "Search all commands"), identifier: "quickCommands.library.search").frame(height: 32)
-                    Button("New Quick Command") { editing = QuickCommand(scope: .local) }.buttonStyle(FamilyButtonStyle())
-                    Button("Import…", action: importLibrary).buttonStyle(FamilyButtonStyle())
-                    Button("Export…", action: exportLibrary).buttonStyle(FamilyButtonStyle()).disabled(store.loadError != nil)
+                HStack(spacing: Theme.Space.s) {
+                    CommandTextField(text: $query, placeholder: String(localized: "Search all commands"), identifier: "quickCommands.library.search", symbol: "magnifyingglass").frame(height: Theme.Control.height)
+                    Button("New Quick Command") { editing = QuickCommand(scope: .local) }.buttonStyle(FamilyButtonStyle(kind: .primary))
+                    Button("Import…", action: importLibrary).buttonStyle(FamilyButtonStyle(kind: .secondary))
+                    Button("Export…", action: exportLibrary).buttonStyle(FamilyButtonStyle(kind: .secondary)).disabled(store.loadError != nil)
                 }
                 if let message = error ?? store.loadError { Text(verbatim: message).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta) }
                 ScrollView {
@@ -47,11 +47,19 @@ struct QuickCommandLibraryView: View {
                                 Divider()
                             }
                         }
-                        if store.commands.isEmpty { Text("Your command library is empty.").foregroundStyle(chrome.secondary).padding(.vertical, 20) }
+                        if store.commands.isEmpty { Text("Your command library is empty.").foregroundStyle(chrome.secondary).padding(Theme.Space.l) }
+                        else if !query.isEmpty && !store.commands.contains(where: { ($0.alias + $0.command + $0.group).localizedCaseInsensitiveContains(query) }) {
+                            Text("No matching commands").foregroundStyle(chrome.secondary).padding(Theme.Space.l)
+                        }
                     }
-                }
+                    .padding(Theme.Space.s)
+                }.frame(maxHeight: .infinity)
+                    .background(chrome.elevated.opacity(0.35))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline))
             }
-        } actions: { Button("Close", action: onClose).buttonStyle(FamilyButtonStyle()) }
+            .frame(maxHeight: .infinity)
+        } actions: { Button("Close", action: onClose).buttonStyle(FamilyButtonStyle(kind: .secondary)) }
         .familySheet(isPresented: optionalBinding($editing), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let editing { QuickCommandEditor(item: editing, hosts: model.hosts) { self.editing = nil }.id(editing.id) }
         }

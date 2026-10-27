@@ -6,8 +6,8 @@ enum SheetLayout {
     static let quickCommand: CGFloat = 880
     static let quickCommandHeight: CGFloat = 760
     static let quickCommandPreviewHeight: CGFloat = 280
-    static let commandLibrary: CGFloat = 820
-    static let commandLibraryHeight: CGFloat = 680
+    static let commandLibrary: CGFloat = 880
+    static let commandLibraryHeight: CGFloat = 760
     static let folderPicker: CGFloat = 600
     static let confirmation: CGFloat = 420
     static let dialogInset: CGFloat = 32

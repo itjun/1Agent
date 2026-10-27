@@ -34,15 +34,15 @@ struct QuickCommandHistoryView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if review { reviewFields } else { historyFields }
                 if let error { Text(verbatim: error).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta) }
-            }
+            }.frame(maxHeight: .infinity, alignment: .top)
         } actions: {
             if busy { ProgressView().controlSize(.small) }
             if review {
-                Button("Back") { review = false }.buttonStyle(FamilyButtonStyle()).disabled(busy)
+                Button("Back") { review = false }.buttonStyle(FamilyButtonStyle(kind: .secondary)).disabled(busy)
                 Button("Save Selected Commands", action: save).buttonStyle(FamilyButtonStyle(kind: .primary)).disabled(busy || drafts.isEmpty)
                     .accessibilityIdentifier("quickCommands.history.save")
             } else {
-                Button("Cancel", action: onClose).buttonStyle(FamilyButtonStyle())
+                Button("Cancel", action: onClose).buttonStyle(FamilyButtonStyle(kind: .secondary))
                 Button("Review Selected") {
                     drafts = (result?.candidates ?? []).filter { selected.contains($0.command) }.map {
                         QuickCommand(alias: String($0.command.split(separator: "\n").first?.prefix(80) ?? ""), command: $0.command, scope: scope)
@@ -76,7 +76,7 @@ struct QuickCommandHistoryView: View {
                 if format == .bash { Text("Bash history without timestamps may split multiline commands. Review the text before saving.").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
             }
             HStack {
-                CommandTextField(text: $query, placeholder: String(localized: "Search commands"), identifier: "quickCommands.history.search").frame(height: 32)
+                CommandTextField(text: $query, placeholder: String(localized: "Search commands"), identifier: "quickCommands.history.search", symbol: "magnifyingglass").frame(height: 32)
                 FamilyPicker(value: $recentFirst, options: [(false, String(localized: "Most Frequent")), (true, String(localized: "Most Recent"))])
             }
             ScrollView {
@@ -97,9 +97,15 @@ struct QuickCommandHistoryView: View {
                         }
                         Divider()
                     }
-                }
-            }
-        }
+                    if result != nil && candidates.isEmpty {
+                        Text("No matching commands").foregroundStyle(chrome.secondary).padding(Theme.Space.s)
+                    }
+                }.padding(Theme.Space.m)
+            }.frame(maxHeight: .infinity)
+                .background(chrome.elevated.opacity(0.35))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline))
+        }.frame(maxHeight: .infinity, alignment: .top)
     }
     private var reviewFields: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -128,8 +134,8 @@ struct QuickCommandHistoryView: View {
                         }
                     }
                 }
-            }
-        }
+            }.frame(maxHeight: .infinity)
+        }.frame(maxHeight: .infinity, alignment: .top)
     }
     private func load() {
         busy = true; result = nil; selected = []; error = nil
