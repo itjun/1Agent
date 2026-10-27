@@ -27,22 +27,18 @@ struct FilesDockView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
-                    .padding(Theme.Space.s)
-                FileTransferQueueView(availableHeight: geometry.size.height)
-            }
-        }
-        .background(chrome.background)
-        .allowsHitTesting(workspace.selectedPreviewColumn == nil)
-        .accessibilityHidden(workspace.selectedPreviewColumn != nil)
-        .overlay { previewOverlay }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: workspace.selectedPreviewColumn?.id)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("workspace.files.content")
-        .simultaneousGesture(TapGesture().onEnded { model.focusFiles(in: window) })
-        .onDisappear { relay.filesSideAnchors.removeAll() }
+        FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
+            .padding(Theme.Space.s)
+            .background(chrome.background)
+            .allowsHitTesting(workspace.selectedPreviewColumn == nil)
+            .accessibilityHidden(workspace.selectedPreviewColumn != nil)
+            .overlay(alignment: .bottom) { TransferStatusBar(window: window).allowsHitTesting(false) }
+            .overlay { previewOverlay }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: workspace.selectedPreviewColumn?.id)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("workspace.files.content")
+            .simultaneousGesture(TapGesture().onEnded { model.focusFiles(in: window) })
+            .onDisappear { relay.filesSideAnchors.removeAll() }
     }
 
     @ViewBuilder private var previewOverlay: some View {
@@ -256,112 +252,5 @@ private struct FileEndpointPanel: View {
             })]
         }
         .accessibilityIdentifier("files.remoteLocation")
-    }
-}
-
-private struct FileTransferQueueView: View {
-    var availableHeight: CGFloat
-    @ObservedObject private var queue = FileTransferQueue.shared
-    @Environment(\.windowChrome) private var chrome
-    @State private var expanded = false
-    @State private var listHeight = FileBrowserLayout.transferListDefaultHeight
-    @State private var dragStartHeight: CGFloat?
-    @State private var dividerHovered = false
-
-    private var maximumHeight: CGFloat {
-        max(FileBrowserLayout.transferListMinHeight, availableHeight * 0.6)
-    }
-    private var visibleHeight: CGFloat {
-        min(maximumHeight, max(FileBrowserLayout.transferListMinHeight, listHeight))
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            if expanded {
-                PaneDividerHandle(vertical: false, onHover: { dividerHovered = $0 }, onDragChanged: { delta in
-                    if dragStartHeight == nil { dragStartHeight = visibleHeight }
-                    listHeight = min(maximumHeight, max(FileBrowserLayout.transferListMinHeight, (dragStartHeight ?? visibleHeight) - delta))
-                }, onDragEnded: { dragStartHeight = nil }, onDoubleClick: {
-                    listHeight = FileBrowserLayout.transferListDefaultHeight
-                })
-                .frame(height: 6)
-                .overlay(alignment: .center) {
-                    Rectangle().fill(dividerHovered || dragStartHeight != nil ? chrome.accent : chrome.hairline)
-                        .frame(height: 1).allowsHitTesting(false)
-                }
-                .accessibilityIdentifier("files.transferQueue.resize")
-            } else {
-                Divider()
-            }
-            HStack(spacing: Theme.Space.s) {
-                Button { expanded.toggle() } label: {
-                    Image(systemName: expanded ? "chevron.down" : "chevron.up")
-                    if queue.activeCount > 0 { Text(verbatim: "\(queue.activeCount)").foregroundStyle(chrome.accent) }
-                }.buttonStyle(FamilyButtonStyle())
-                    .disabled(queue.jobs.isEmpty)
-                    .accessibilityLabel(Text("Transfers"))
-                    .help("Transfers")
-                    .accessibilityIdentifier("files.transferQueue.toggle")
-                Spacer()
-                if expanded, queue.jobs.contains(where: { $0.phase == .completed || $0.phase == .cancelled }) {
-                    Button("Clear Completed") { queue.clearFinished() }.buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
-                }
-            }
-            .font(Theme.Font.rowMeta.weight(.medium))
-            .padding(.horizontal, Theme.Space.m).frame(height: FileBrowserLayout.transferBarHeight)
-            if expanded {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(queue.jobs.reversed()) { job in row(job) }
-                    }
-                }.frame(height: visibleHeight)
-                    .accessibilityIdentifier("files.transferQueue.history")
-            }
-        }
-        .background(chrome.background)
-        .foregroundStyle(chrome.text)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("files.transferQueue")
-        .onAppear { if queue.hasActiveTransfers { expanded = true } }
-        .onChange(of: queue.jobs.map(\.id)) { oldIDs, newIDs in
-            if newIDs.isEmpty { expanded = false }
-            else if !Set(newIDs).subtracting(oldIDs).isEmpty { expanded = true }
-        }
-        .onChange(of: queue.activeCount) { oldCount, newCount in
-            if newCount > oldCount { expanded = true }
-        }
-    }
-
-    private func row(_ job: FileTransferQueue.Job) -> some View {
-        HStack(spacing: Theme.Space.m) {
-            Label(job.directionTitle, systemImage: job.directionSymbol)
-                .font(Theme.Font.rowMeta.weight(.medium))
-                .foregroundStyle(chrome.accent)
-                .frame(width: 66, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: job.name).font(Theme.Font.body).lineLimit(1)
-                Text(verbatim: job.sourceDescription + " → " + job.targetDescription)
-                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(1).truncationMode(.middle)
-            }.frame(maxWidth: .infinity, alignment: .leading)
-            if job.phase == .running {
-                ProgressView(value: job.progress).frame(width: 100).controlSize(.small)
-                Text(verbatim: "\(Int(job.progress * 100))%").monospacedDigit().frame(width: 35, alignment: .trailing)
-            } else {
-                Text(verbatim: job.error ?? job.phase.title)
-                    .lineLimit(1).truncationMode(.middle).frame(maxWidth: 200, alignment: .trailing)
-                    .foregroundStyle(job.phase == .failed ? chrome.danger : chrome.secondary)
-                    .help(job.error ?? job.phase.title)
-            }
-            if job.phase.isActive {
-                Button { queue.cancel(job.id) } label: { Image(systemName: "xmark.circle") }
-                    .disabled(job.phase == .cancelling).help("Cancel Transfer").accessibilityLabel(Text("Cancel Transfer"))
-            } else if job.phase.canRetry {
-                Button { queue.retry(job.id, window: NSApp.keyWindow) } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Retry Transfer").accessibilityLabel(Text("Retry Transfer"))
-            } else { Image(systemName: "checkmark.circle").foregroundStyle(chrome.success) }
-        }
-        .buttonStyle(FamilyButtonStyle()).font(Theme.Font.rowMeta)
-        .padding(.horizontal, Theme.Space.m).frame(height: FileBrowserLayout.transferRowHeight)
-        .overlay(alignment: .top) { Divider() }
     }
 }

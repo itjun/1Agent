@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = FileTransferQueue.shared
         ApplicationIconManager.shared.applyStoredIcon()
         AppearanceDriver.shared.reapply()
         TerminalDefaults.registerBundledFonts()

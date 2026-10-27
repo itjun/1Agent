@@ -8,50 +8,17 @@ final class FileTransferQueue: ObservableObject {
     static let shared = FileTransferQueue()
     static let storageKey = "files.transferQueue.v1"
 
-    enum Phase: String, Codable {
-        case queued, preparing, running, cancelling, completed, cancelled, failed, interrupted
+    enum Phase { case queued, preparing, running, cancelling }
 
-        var isActive: Bool { [.queued, .preparing, .running, .cancelling].contains(self) }
-        var canRetry: Bool { [.failed, .cancelled, .interrupted].contains(self) }
-        var title: String {
-            switch self {
-            case .queued: String(localized: "Queued")
-            case .preparing: String(localized: "Preparing…")
-            case .running: String(localized: "Transferring…")
-            case .cancelling: String(localized: "Cancelling…")
-            case .completed: String(localized: "Completed")
-            case .cancelled: String(localized: "Cancelled")
-            case .failed: String(localized: "Failed")
-            case .interrupted: String(localized: "Interrupted")
-            }
-        }
-    }
-
-    struct Job: Identifiable, Codable {
+    struct Job: Identifiable {
         let id: UUID
         let item: FileTransfer.Item
         let sourceHost: String?
         let targetHost: String?
         let directory: String
-        let created: Date
         var phase: Phase
-        var progress: Double = 0
-        var error: String?
-        var result: String?
 
         var name: String { (item.path as NSString).lastPathComponent }
-        var sourceDescription: String { (sourceHost.map { $0 + ":" } ?? "") + item.path }
-        var targetDescription: String { (targetHost.map { $0 + ":" } ?? "") + directory }
-        var directionSymbol: String {
-            if sourceHost == nil, targetHost != nil { return "arrow.up" }
-            if sourceHost != nil, targetHost == nil { return "arrow.down" }
-            return "arrow.right"
-        }
-        var directionTitle: String {
-            if sourceHost == nil, targetHost != nil { return String(localized: "Upload") }
-            if sourceHost != nil, targetHost == nil { return String(localized: "Download") }
-            return String(localized: "Copy")
-        }
     }
 
     private final class Request {
@@ -69,26 +36,17 @@ final class FileTransferQueue: ObservableObject {
         }
     }
 
-    @Published private(set) var jobs: [Job]
-    private let defaults: UserDefaults
+    @Published private(set) var jobs: [Job] = []
     private var requests: [UUID: Request] = [:]
     private var operation: (id: UUID, cancellation: FileOperationCancellation)?
     private var shuttingDown = false
     private var lastProgress = Date.distantPast
 
     init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        jobs = defaults.data(forKey: Self.storageKey)
-            .flatMap { try? JSONDecoder().decode([Job].self, from: $0) } ?? []
-        for index in jobs.indices where jobs[index].phase.isActive {
-            jobs[index].phase = .interrupted
-            jobs[index].progress = 0
-        }
-        persist()
+        defaults.removeObject(forKey: Self.storageKey)
     }
 
-    var activeCount: Int { jobs.filter { $0.phase.isActive }.count }
-    var hasActiveTransfers: Bool { activeCount > 0 }
+    var hasActiveTransfers: Bool { !jobs.isEmpty }
 
     @discardableResult
     func enqueue(_ items: [FileTransfer.Item], from source: any FileSystem, to target: any FileSystem,
@@ -96,7 +54,6 @@ final class FileTransferQueue: ObservableObject {
         guard !shuttingDown, !directory.isEmpty else { return [] }
         let ids = items.map { add($0, sourceHost: source.host, targetHost: target.host,
                                   directory: directory, request: Request(window: window)) }
-        persist()
         pump()
         return ids
     }
@@ -112,7 +69,6 @@ final class FileTransferQueue: ObservableObject {
                 _ = add(item, sourceHost: source.host, targetHost: target.host, directory: directory,
                         request: Request(window: window, choice: choice, prepare: prepare,
                                          completion: { continuation.resume(with: $0) }))
-                persist()
                 pump()
             }
             paths.append(path)
@@ -121,39 +77,18 @@ final class FileTransferQueue: ObservableObject {
     }
 
     func cancel(_ id: UUID) {
-        guard let index = jobs.firstIndex(where: { $0.id == id }), jobs[index].phase.isActive else { return }
+        guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
         if operation?.id == id {
             jobs[index].phase = .cancelling
             operation?.cancellation.cancel()
         } else {
-            jobs[index].phase = .cancelled
+            jobs.remove(at: index)
             requests.removeValue(forKey: id)?.completion?(.failure(CancellationError()))
         }
-        persist()
     }
 
-    func retry(_ id: UUID, window: NSWindow? = nil) {
-        guard !shuttingDown, let index = jobs.firstIndex(where: { $0.id == id }), jobs[index].phase.canRetry else { return }
-        jobs[index].phase = .queued
-        jobs[index].progress = 0
-        jobs[index].error = nil
-        jobs[index].result = nil
-        // Original paths are retained. Conflict and encoding decisions are made again.
-        requests[id] = Request(window: window)
-        persist()
-        pump()
-    }
-
-    func clearFinished() {
-        jobs.removeAll { $0.phase == .completed || $0.phase == .cancelled }
-        persist()
-    }
-
-    /// Persist first: abrupt process exit must never resurrect queued work automatically.
     func interruptForTermination() {
         shuttingDown = true
-        for index in jobs.indices where jobs[index].phase.isActive { jobs[index].phase = .interrupted }
-        persist()
         operation?.cancellation.cancel()
     }
 
@@ -161,7 +96,7 @@ final class FileTransferQueue: ObservableObject {
                      request: Request) -> UUID {
         let id = UUID()
         jobs.append(Job(id: id, item: item, sourceHost: sourceHost, targetHost: targetHost,
-                        directory: directory, created: Date(), phase: .queued))
+                        directory: directory, phase: .queued))
         requests[id] = request
         return id
     }
@@ -208,16 +143,6 @@ final class FileTransferQueue: ObservableObject {
                 result = .success(path)
             } catch { result = .failure(error) }
             if !shuttingDown {
-                update(job.id) {
-                    switch result {
-                    case .success(let path): $0.phase = .completed; $0.progress = 1; $0.result = path
-                    case .failure(let error):
-                        $0.phase = cancellation.isCancelled || error is CancellationError ? .cancelled : .failed
-                        $0.error = $0.phase == .failed ? error.localizedDescription : nil
-                    }
-                }
-            }
-            if !shuttingDown {
                 switch result {
                 case .success:
                     if let toast = request.toast { TransferToast.shared.finish(toast, String(localized: "Completed")) }
@@ -228,6 +153,7 @@ final class FileTransferQueue: ObservableObject {
                 }
             }
             FileBrowserStore.shared.refresh(host: job.targetHost)
+            jobs.removeAll { $0.id == job.id }
             requests.removeValue(forKey: job.id)?.completion?(result)
             operation = nil
             pump()
@@ -235,23 +161,17 @@ final class FileTransferQueue: ObservableObject {
     }
 
     private func report(_ id: UUID, fraction: Double) {
-        guard let index = jobs.firstIndex(where: { $0.id == id }), jobs[index].phase == .running else { return }
+        guard let job = jobs.first(where: { $0.id == id }), job.phase == .running else { return }
         let now = Date()
         guard now.timeIntervalSince(lastProgress) >= 0.1 || fraction >= 1 else { return }
         lastProgress = now
-        jobs[index].progress = min(1, max(0, fraction))
         if let toast = requests[id]?.toast {
-            TransferToast.shared.progress(toast, jobs[index].name + " · " + String(Int(fraction * 100)) + "%", fraction: fraction)
+            TransferToast.shared.progress(toast, job.name + " · " + String(Int(fraction * 100)) + "%", fraction: fraction)
         }
     }
 
     private func update(_ id: UUID, _ change: (inout Job) -> Void) {
         guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
         change(&jobs[index])
-        persist()
-    }
-
-    private func persist() {
-        if let data = try? JSONEncoder().encode(jobs) { defaults.set(data, forKey: Self.storageKey) }
     }
 }

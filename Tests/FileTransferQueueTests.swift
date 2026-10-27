@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-// Only queue persistence and real local copies run in this isolated executable.
+// Only transient queue behavior and real local copies run in this isolated executable.
 actor SSHLaunchEnvironment {
     static let shared = SSHLaunchEnvironment()
     func get() -> [String] { [] }
@@ -49,46 +49,29 @@ struct FileTransferQueueTests {
         try manager.createDirectory(at: target, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
         let item = FileTransfer.Item(path: source.appendingPathComponent("file.txt").path, isDirectory: false)
-        for (sourceHost, targetHost, title, symbol) in [
-            (nil, "remote", "Upload", "arrow.up"),
-            ("remote", nil, "Download", "arrow.down"),
-            (nil, nil, "Copy", "arrow.right"),
-            ("remote-a", "remote-b", "Copy", "arrow.right")
-        ] as [(String?, String?, String, String)] {
-            let job = FileTransferQueue.Job(id: UUID(), item: item, sourceHost: sourceHost, targetHost: targetHost,
-                                            directory: target.path, created: Date(), phase: .completed)
-            require(job.directionTitle == String(localized: String.LocalizationValue(title)) && job.directionSymbol == symbol,
-                    "history identifies transfer direction for both endpoints")
-        }
-        let old = [FileTransferQueue.Job(id: UUID(), item: item, sourceHost: nil, targetHost: nil,
-                                        directory: target.path, created: Date(), phase: .running),
-                   FileTransferQueue.Job(id: UUID(), item: item, sourceHost: nil, targetHost: nil,
-                                         directory: target.path, created: Date(), phase: .queued)]
-        defaults.set(try JSONEncoder().encode(old), forKey: FileTransferQueue.storageKey)
-        let restored = FileTransferQueue(defaults: defaults)
-        require(restored.jobs.allSatisfy { $0.phase == .interrupted }, "active work restores interrupted")
-        try await Task.sleep(nanoseconds: 50_000_000)
-        require(!restored.hasActiveTransfers, "restoration never restarts work")
-        require(!manager.fileExists(atPath: target.appendingPathComponent("file.txt").path), "restoration never touches destinations")
-
-        defaults.removeObject(forKey: FileTransferQueue.storageKey)
+        defaults.set(Data("legacy history".utf8), forKey: FileTransferQueue.storageKey)
         let queue = FileTransferQueue(defaults: defaults)
+        require(defaults.data(forKey: FileTransferQueue.storageKey) == nil, "legacy history is removed")
+        require(queue.jobs.isEmpty, "old transfers do not restart")
+        require(!manager.fileExists(atPath: target.appendingPathComponent("file.txt").path), "initialization never touches destinations")
+
         let cancelledID = queue.enqueue([item], from: LocalFileSystem(), to: LocalFileSystem(), into: target.path, window: nil)[0]
         queue.cancel(cancelledID)
         try await waitUntilIdle(queue)
-        require(queue.jobs[0].phase == .cancelled, "queued work can be cancelled")
-
-        let failedID = queue.enqueue([item], from: LocalFileSystem(), to: LocalFileSystem(), into: target.path, window: nil)[0]
-        try await waitUntilIdle(queue)
-        require(queue.jobs.first { $0.id == failedID }?.phase == .failed, "missing source reports failure")
+        require(queue.jobs.isEmpty, "cancelled work leaves no history")
+        do {
+            _ = try await queue.transfer([item], from: LocalFileSystem(), to: LocalFileSystem(), into: target.path,
+                                         window: nil, choice: .rename, prepare: false)
+            fatalError("missing source must fail")
+        } catch {}
+        require(queue.jobs.isEmpty, "failed work leaves no history")
         try Data("payload".utf8).write(to: URL(fileURLWithPath: item.path))
-        queue.retry(failedID)
-        try await waitUntilIdle(queue)
-        require(queue.jobs.first { $0.id == failedID }?.phase == .completed, "manual retry completes")
-        require(try String(contentsOf: target.appendingPathComponent("file.txt"), encoding: .utf8) == "payload", "retry uses original source and target")
-        let again = FileTransferQueue(defaults: defaults)
-        require(again.jobs.first { $0.id == failedID }?.phase == .completed, "completed history persists")
-        require(again.jobs.first { $0.id == failedID }?.directory == target.path, "destination snapshot persists")
+        let paths = try await queue.transfer([item], from: LocalFileSystem(), to: LocalFileSystem(), into: target.path,
+                                             window: nil, choice: .rename, prepare: false)
+        require(paths == [target.appendingPathComponent("file.txt").path], "completed transfer returns its destination")
+        require(try String(contentsOf: target.appendingPathComponent("file.txt"), encoding: .utf8) == "payload", "transfer copies the source")
+        require(queue.jobs.isEmpty, "completed work leaves no history")
+        require(defaults.data(forKey: FileTransferQueue.storageKey) == nil, "transfers never persist history")
         print("File transfer queue tests passed")
     }
 }

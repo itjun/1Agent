@@ -87,11 +87,6 @@ private struct FilesWorkspaceRoutingTests {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.regular)
         NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
-        let transferHistory = (0..<4).map { index in
-            FileTransferQueue.Job(id: UUID(), item: .init(path: home + "/history-\(index).txt", isDirectory: false),
-                                  sourceHost: nil, targetHost: "fixture-a", directory: "/fixture", created: Date(), phase: .completed)
-        }
-        defaults.set(try JSONEncoder().encode(transferHistory), forKey: FileTransferQueue.storageKey)
         let model = AppModel()
         let state = model.mainWindow
         state.presentation.sidebarCollapsed = false // This fixture starts by exercising expanded navigation.
@@ -1124,7 +1119,7 @@ private struct FilesWorkspaceRoutingTests {
 
         let paths = try elements("files.path").map(frame).sorted { $0.minX < $1.minX }
         try require(paths.count == 2, "Both file panes must expose a path control")
-        let blankY = window.frame.minY + FileBrowserLayout.transferListDefaultHeight + FileBrowserLayout.transferBarHeight + 80
+        let blankY = window.frame.minY + 150
         try await click(NSPoint(x: paths[1].midX, y: blankY))
         try require(workspace.focusedColumn === remote,
                     "Clicking the right file pane's blank area must move operation focus from the left pane")
@@ -1464,33 +1459,11 @@ private struct FilesWorkspaceRoutingTests {
             window.contentView?.layoutSubtreeIfNeeded()
         }
         try await settleDrawer()
-        guard let queue = element("files.transferQueue"), let toggle = element("files.transferQueue.toggle"),
-              let filePage = element("workspace.files.content") else {
-            throw TestFailure(description: "File page and transfer controls must be accessible")
+        guard let filePage = element("workspace.files.content") else {
+            throw TestFailure(description: "File page must be accessible")
         }
         let pageFrame = frame(filePage)
-        let collapsedHeight = frame(queue).height
-        try require(collapsedHeight <= FileBrowserLayout.transferBarHeight + 2 && element("files.transferQueue.history") == nil,
-                    "Persisted transfer history must start collapsed")
-        try require(accessibilityBool(toggle, "accessibilityPerformPress"), "Transfer history can expand")
-        try await settleDrawer()
-        try require(element("files.transferQueue.history") != nil, "The arrow opens transfer history")
-        try require(accessibilityLabels(window.contentView!).contains(String(localized: "Upload")),
-                    "Transfer history shows the upload direction")
-        try require(accessibilityBool(element("files.transferQueue.toggle")!, "accessibilityPerformPress"), "Transfer history can collapse")
-        try await settleDrawer()
-        try require(frame(element("files.transferQueue")!).height <= FileBrowserLayout.transferBarHeight + 2 && element("files.transferQueue.history") == nil,
-                    "Collapsed history leaves a compact footer")
-        FileTransferQueue.shared.clearFinished()
-        try await settleDrawer()
-        try require(element("files.transferQueue.history") == nil && frame(element("files.transferQueue")!).height <= FileBrowserLayout.transferBarHeight + 2,
-                    "Clearing the last transfer removes the empty panel")
-        FileTransferQueue.shared.enqueue([.init(path: localPath, isDirectory: false)], from: LocalFileSystem(),
-                                         to: LocalFileSystem(), into: home + "/local-a", window: window)
-        try await eventually("new transfer opens history") { element("files.transferQueue.history") != nil }
-        try await settleDrawer()
-        let expandedHeight = frame(element("files.transferQueue")!).height
-        try require(expandedHeight > collapsedHeight + 100, "A new transfer expands the panel")
+        try require(element("files.transferQueue") == nil, "The file page has no transfer history panel")
         let directory = local.directory
         let selection = local.selection
         let layout = workspace.layout
@@ -1536,9 +1509,8 @@ private struct FilesWorkspaceRoutingTests {
         text.cancelOperation(nil)
         try await settleDrawer()
         try require(workspace.selectedPreviewColumn == nil && element("files.preview.right") == nil, "Escape closes the native text preview")
-        try require(abs(frame(element("workspace.files.content")!).height - pageFrame.height) < 2
-                    && abs(frame(element("files.transferQueue")!).height - expandedHeight) < 2,
-                    "Closing preview restores the exact full-height file page and expanded transfer footer")
+        try require(abs(frame(element("workspace.files.content")!).height - pageFrame.height) < 2,
+                    "Closing preview restores the exact full-height file page")
         for width in [CGFloat(300), 620, 1200] {
             let bounds = CGRect(x: 0, y: 0, width: width, height: 600)
             let rightPane = CGRect(x: width / 2, y: 0, width: width / 2, height: 600)
@@ -1547,7 +1519,7 @@ private struct FilesWorkspaceRoutingTests {
                         "Side preview fits narrow and wide workspaces")
         }
         workspace.close(remote)
-        print("ok: history starts collapsed, opens manually and on a new transfer; actual left/right native drawers overlay full height, close/Escape preserve directories, selection and split layout")
+        print("ok: no transfer history panel; actual left/right native drawers overlay full height, close/Escape preserve directories, selection and split layout")
     }
 
     @MainActor

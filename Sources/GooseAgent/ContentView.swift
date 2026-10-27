@@ -1175,15 +1175,11 @@ enum FileBrowserLayout {
     static let previewMinimumWidth: CGFloat = 360
     static let previewWidthShare: CGFloat = 0.5
     static let previewScrimOpacity: Double = 0.28
-    static let transferBarHeight: CGFloat = 24
     static func previewFrame(in bounds: CGRect, source: CGRect) -> CGRect {
         let width = min(bounds.width, max(previewMinimumWidth, bounds.width * previewWidthShare))
         let x = source.midX <= bounds.midX ? bounds.minX : bounds.maxX - width
         return CGRect(x: x, y: bounds.minY, width: width, height: bounds.height)
     }
-    static let transferRowHeight: CGFloat = 48
-    static let transferListDefaultHeight: CGFloat = 144
-    static let transferListMinHeight: CGFloat = 72
     static let previewByteLimit = 512 * 1024
     /// Progress toast at the bottom center of the window.
     static let toastWidth: CGFloat = 360
