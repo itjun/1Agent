@@ -696,6 +696,51 @@ private struct FilesWorkspaceRoutingTests {
             (accessibilityValue($0, "accessibilityIdentifier") as? String ?? "").hasPrefix("terminal.switcher.row.")
         }
         try require(!previewCards.isEmpty, "Every switcher row must be accessible")
+        func clickScope(_ scope: SwitcherScope, flags: NSEvent.ModifierFlags = []) async throws {
+            guard let panel = previewView.window,
+                  let button = accessibilityElements(previewView).first(where: {
+                      accessibilityValue($0, "accessibilityIdentifier") as? String == "switcher.scope.\(scope.rawValue)"
+                  }) else { throw TestFailure(description: "Missing scope button: \(scope)") }
+            let selector = NSSelectorFromString("accessibilityFrame")
+            typealias Getter = @convention(c) (AnyObject, Selector) -> NSRect
+            let frame = unsafeBitCast(button.method(for: selector), to: Getter.self)(button, selector)
+            // 点击按钮边缘留白，不能仅靠 AXPress 或直接赋值绕过真实命中区域。
+            let point = panel.convertPoint(fromScreen: NSPoint(x: frame.minX + 3, y: frame.midY))
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags,
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
+                NSApp.postEvent(event, atStart: false)
+            }
+            try await eventually("clicking the full scope button selects \(scope), including its padding") {
+                switcher.scope == scope
+            }
+            try require(switcher.isOpen, "Changing scope must keep the switcher pinned")
+            try require(switcher.filteredItems.contains { $0.id == switcher.highlighted },
+                        "Changing scope must highlight a visible result")
+        }
+        try await clickScope(.files)
+        try require(!switcher.isSearching && switcher.filteredItems.allSatisfy { $0.kind == .files },
+                    "First click selects Files without focusing search or showing terminal rows")
+        let panels = model.panelRows(in: state)
+        let expectedLocal = Set(panels.filter { row in
+            row.leafIDs.contains { id in model.tabs.contains { $0.id == id && $0.isLocal } }
+        }.map(\.id))
+        let expectedRemote = Set(panels.filter { row in
+            row.leafIDs.contains { id in model.tabs.contains { $0.id == id && !$0.isLocal } }
+        }.map(\.id))
+        try require(!expectedLocal.isEmpty && !expectedRemote.isEmpty, "Scope fixture needs local and remote terminals")
+        try await clickScope(.local, flags: [.control])
+        try require(Set(switcher.filteredItems.map(\.id)) == expectedLocal, "Local filter shows only panels containing local terminals")
+        try await clickScope(.remote)
+        try require(Set(switcher.filteredItems.map(\.id)) == expectedRemote, "Remote filter shows only panels containing SSH terminals")
+        var mixed = switcher.filteredItems[0]
+        mixed.connectionGroup = .mixed
+        try require(SwitcherScope.local.contains(mixed) && SwitcherScope.remote.contains(mixed)
+                    && !SwitcherScope.files.contains(mixed), "Mixed terminal panels remain findable in both terminal filters")
+        try await clickScope(.all)
+        try require(switcher.filteredItems.count == switcher.items.count, "All restores every terminal panel and open file endpoint")
+        print("ok: full scope-button pointer targets, first click and Control-click; local/remote/files filtering and mixed panel membership")
         if let bitmap = previewView.bitmapImageRepForCachingDisplay(in: previewView.bounds) {
             previewView.cacheDisplay(in: previewView.bounds, to: bitmap)
             if let png = bitmap.representation(using: .png, properties: [:]) {
