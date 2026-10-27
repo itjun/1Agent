@@ -47,6 +47,11 @@ final class FileTransferQueue: ObservableObject {
             if sourceHost != nil, targetHost == nil { return "arrow.down" }
             return "arrow.right"
         }
+        var directionTitle: String {
+            if sourceHost == nil, targetHost != nil { return String(localized: "Upload") }
+            if sourceHost != nil, targetHost == nil { return String(localized: "Download") }
+            return String(localized: "Copy")
+        }
     }
 
     private final class Request {

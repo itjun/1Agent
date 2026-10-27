@@ -296,7 +296,10 @@ private struct FileTransferQueueView: View {
 
     private func row(_ job: FileTransferQueue.Job) -> some View {
         HStack(spacing: Theme.Space.m) {
-            Image(systemName: job.directionSymbol).foregroundStyle(chrome.accent).frame(width: 20)
+            Label(job.directionTitle, systemImage: job.directionSymbol)
+                .font(Theme.Font.rowMeta.weight(.medium))
+                .foregroundStyle(chrome.accent)
+                .frame(width: 66, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: job.name).font(Theme.Font.body).lineLimit(1)
                 Text(verbatim: job.sourceDescription + " → " + job.targetDescription)

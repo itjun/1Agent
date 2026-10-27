@@ -1469,6 +1469,8 @@ private struct FilesWorkspaceRoutingTests {
         try await settleDrawer()
         try require(element("files.transferQueue.history") != nil && frame(element("files.transferQueue")!).height > collapsedHeight + 100,
                     "History appears only after explicit expansion")
+        try require(accessibilityLabels(window.contentView!).contains(String(localized: "Upload")),
+                    "Transfer history shows the upload direction")
         _ = accessibilityBool(element("files.transferQueue.toggle")!, "accessibilityPerformPress")
         try await settleDrawer()
         let directory = local.directory

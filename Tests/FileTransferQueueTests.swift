@@ -49,6 +49,17 @@ struct FileTransferQueueTests {
         try manager.createDirectory(at: target, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
         let item = FileTransfer.Item(path: source.appendingPathComponent("file.txt").path, isDirectory: false)
+        for (sourceHost, targetHost, title, symbol) in [
+            (nil, "remote", "Upload", "arrow.up"),
+            ("remote", nil, "Download", "arrow.down"),
+            (nil, nil, "Copy", "arrow.right"),
+            ("remote-a", "remote-b", "Copy", "arrow.right")
+        ] as [(String?, String?, String, String)] {
+            let job = FileTransferQueue.Job(id: UUID(), item: item, sourceHost: sourceHost, targetHost: targetHost,
+                                            directory: target.path, created: Date(), phase: .completed)
+            require(job.directionTitle == String(localized: String.LocalizationValue(title)) && job.directionSymbol == symbol,
+                    "history identifies transfer direction for both endpoints")
+        }
         let old = [FileTransferQueue.Job(id: UUID(), item: item, sourceHost: nil, targetHost: nil,
                                         directory: target.path, created: Date(), phase: .running),
                    FileTransferQueue.Job(id: UUID(), item: item, sourceHost: nil, targetHost: nil,
