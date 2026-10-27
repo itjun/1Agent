@@ -591,7 +591,6 @@ struct GooseAgentApp: App {
         }
         .commands {
             let _ = shortcutsRevision
-            AppUpdateCommands()
             CommandGroup(replacing: .newItem) {
                 Button("Close Window") {
                     guard !(NSApp.keyWindow is FamilyModalWindow), let state = appDelegate.model.keyWindow else { return }
@@ -609,10 +608,6 @@ struct GooseAgentApp: App {
                     .keyboardShortcut(AppShortcuts.chord(for: .openHost).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
-                Toggle("Secure Keyboard Input", isOn: Binding(
-                    get: { TerminalSecureInput.shared.manual },
-                    set: { TerminalSecureInput.shared.manual = $0 }
-                ))
                 Button(AppShortcutID.toggleSidebar.title) {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     if let state = appDelegate.model.keyWindow { appDelegate.model.toggleSidebar(in: state) }

@@ -1,18 +1,5 @@
 import SwiftUI
 
-struct AppUpdateCommands: Commands {
-    @ObservedObject private var updates = AppUpdateController.shared
-
-    var body: some Commands {
-        CommandGroup(after: .appInfo) {
-            Button("Check for Updates…") {
-                Task { await updates.check(manual: true, showResult: true) }
-            }
-            .disabled(!updates.state.enabled || updates.state.status == .checking || updates.state.status == .downloading || updates.state.status == .installing)
-        }
-    }
-}
-
 struct AppUpdateSettingsPage: View {
     @ObservedObject private var updates = AppUpdateController.shared
     @Environment(\.windowChrome) private var chrome

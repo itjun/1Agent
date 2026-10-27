@@ -82,18 +82,6 @@ struct SystemIntegrationSettingsPage: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            line
-            HStack(alignment: .top, spacing: Theme.Space.l) {
-                Text("Finder services create new terminals in the 1Agent window.")
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Button("About Finder Services", action: showFinderServices)
-                    .buttonStyle(FamilyButtonStyle(kind: .secondary))
-                    .accessibilityIdentifier("systemIntegration.services")
-            }
-
             DisclosureGroup("Automation", isExpanded: $showsAutomation) {
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
                     Toggle("Enable Terminal Automation", isOn: $automationEnabled)
