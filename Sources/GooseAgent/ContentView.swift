@@ -228,9 +228,8 @@ struct RootView: View {
     }
 
     private func clearSidebarDrag() {
-        dropRelay.rowAnchors.removeAll()
-        dropRelay.paneRowAnchors.removeAll()
-        dropRelay.blockAnchors.removeAll()
+        // 返回终端时，新侧栏可能已注册锚点；不能在 onChange 中再清空。
+        // 锚点持有弱视图引用，离开页面的视图会自然失效。
         model.endDrag(in: window)
         dropRelay.hidePreview()
     }

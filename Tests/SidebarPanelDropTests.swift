@@ -124,6 +124,39 @@ import SwiftUI
         try check(abs(memberHeight - standaloneHeight) < 0.1 && memberHeight == 44,
                   "Grouped and standalone terminal rows share the same height")
 
+        // Ctrl+Tab 文件预览与直接切页都会走这条路径；返回后新注册的锚点不能被清空。
+        model.showSection(.files, in: window)
+        try await Task.sleep(for: .milliseconds(200))
+        model.showSection(.terminals, in: window)
+        try await Task.sleep(for: .milliseconds(200))
+        native.contentView?.layoutSubtreeIfNeeded()
+        try check(productionRelay.rowAnchors[outsider]?.view?.window === native &&
+                  productionRelay.rowAnchors[first]?.view?.window === native &&
+                  productionRelay.paneRowAnchors[second]?.view?.window === native,
+                  "Returning from Files must retain current standalone, group and member drop anchors")
+        let outsiderRow = productionRelay.rowAnchors[outsider]!.view!
+        let startPoint = outsiderRow.convert(NSPoint(x: 80, y: outsiderRow.bounds.midY), to: nil)
+        let pointerRoot = native.contentView!.superview!
+        let sourceHit = pointerRoot.hitTest(pointerRoot.convert(startPoint, from: nil))
+        try check(sourceHit is TabDragHandleView,
+                  "A standalone row must expose its native drag handle, got \(String(describing: sourceHit))")
+        let targetHeader = productionRelay.rowAnchors[first]!.view!
+        let targetPoint = targetHeader.convert(NSPoint(x: 80, y: targetHeader.bounds.midY), to: nil)
+        for (type, point) in [(NSEvent.EventType.leftMouseDown, startPoint),
+                              (.leftMouseDragged, NSPoint(x: startPoint.x, y: startPoint.y + 12)),
+                              (.leftMouseDragged, targetPoint), (.leftMouseUp, targetPoint)] {
+            let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: native.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)!
+            NSApp.postEvent(event, atStart: false)
+        }
+        try await Task.sleep(for: .milliseconds(200))
+        try check(model.panelRow(for: outsider, in: window)?.panelID == panelID,
+                  "A real mouse drag from a standalone row must join the target group")
+        reset()
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+
         let member = productionRelay.paneRowAnchors[second]!.view!
         let memberPoint = member.convert(NSPoint(x: 80, y: member.bounds.midY), to: nil)
         productionRelay.dragBegan(outsider)
