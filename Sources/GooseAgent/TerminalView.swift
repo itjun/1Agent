@@ -1483,8 +1483,12 @@ final class TerminalHostView: NSView {
                          FamilyModalPresentation.didCloseNotification] {
                 center.addObserver(self, selector: #selector(focusOpportunity), name: name, object: window)
             }
+            for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+                center.addObserver(self, selector: #selector(windowVisibilityChanged), name: name, object: window)
+            }
             if isFocusTarget { focusPending = true }
         }
+        syncTerminalSurfaceVisibility()
         scheduleFocus()
     }
 
@@ -1494,6 +1498,17 @@ final class TerminalHostView: NSView {
     }
 
     @objc private func focusOpportunity(_ notification: Notification) { scheduleFocus() }
+
+    @objc private func windowVisibilityChanged(_ notification: Notification) {
+        syncTerminalSurfaceVisibility()
+    }
+
+    private func syncTerminalSurfaceVisibility() {
+        let isVisible = !isHidden && window?.isMiniaturized != true
+        for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
+            terminal.setSurfaceVisible(isVisible)
+        }
+    }
 
     private func scheduleFocus() {
         guard focusPending, !focusScheduled else { return }
@@ -1529,9 +1544,7 @@ final class TerminalHostView: NSView {
             layer?.removeAnimation(forKey: "terminalReveal")
         }
         isHidden = !presented
-        for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
-            terminal.setSurfaceVisible(presented)
-        }
+        syncTerminalSurfaceVisibility()
         setAccessibilityHidden(!presented)
         if isRevealing && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             // 动画作用于原生容器，不移动或缩放 Metal 画布，也不改变 PTY 尺寸。
@@ -1550,7 +1563,7 @@ final class TerminalHostView: NSView {
     func attach(_ terminal: SSHTerminalNSView) {
         if terminal.superview === self { return }
         terminal.removeFromSuperview()
-        terminal.setSurfaceVisible(!isHidden)
+        terminal.setSurfaceVisible(!isHidden && window?.isMiniaturized != true)
         terminal.frame = bounds
         terminal.autoresizingMask = [.width, .height]
         addSubview(terminal)

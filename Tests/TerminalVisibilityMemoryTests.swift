@@ -24,7 +24,7 @@ import GhosttyTerminal
 
     @MainActor private static func run() async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
-                              styleMask: [.titled], backing: .buffered, defer: false)
+                              styleMask: [.titled, .miniaturizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         var hosts: [TerminalHostView] = []
         var sessions: [InMemoryTerminalSession] = []
@@ -62,6 +62,25 @@ import GhosttyTerminal
         guard sessions[1].readViewportText()?.contains("background-output-marker") == true,
               terminals[1].superview === hosts[1], terminals[1].frame.size == NSSize(width: 1200, height: 800) else {
             throw Failure(description: "Restoring a terminal must preserve its output, view and geometry")
+        }
+        let restored = try footprint()
+        window.miniaturize(nil)
+        try await Task.sleep(for: .seconds(3))
+        guard window.isMiniaturized else { throw Failure(description: "The fixture window must minimize") }
+        let minimized = try footprint()
+        print("physical footprint: restored=\(restored / 1_048_576) MiB minimized=\(minimized / 1_048_576) MiB")
+        guard restored > minimized, restored - minimized > 2 * oneBuffer else {
+            throw Failure(description: "Minimizing a window must release its terminal rendering buffers")
+        }
+        sessions[1].receive("minimized-output-marker\r\n")
+        sessions[1].waitForPendingOutput()
+        hosts[4].setPresented(false)
+        window.deminiaturize(nil)
+        try await Task.sleep(for: .seconds(2))
+        guard !window.isMiniaturized, !hosts[1].isHidden, hosts[4].isHidden,
+              sessions[1].readViewportText()?.contains("minimized-output-marker") == true,
+              terminals[1].superview === hosts[1], terminals[1].frame.size == NSSize(width: 1200, height: 800) else {
+            throw Failure(description: "Restoring a window must preserve visibility, output and terminal geometry")
         }
         window.orderOut(nil)
     }
