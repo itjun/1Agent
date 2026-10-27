@@ -1529,6 +1529,9 @@ final class TerminalHostView: NSView {
             layer?.removeAnimation(forKey: "terminalReveal")
         }
         isHidden = !presented
+        for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
+            terminal.setSurfaceVisible(presented)
+        }
         setAccessibilityHidden(!presented)
         if isRevealing && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             // 动画作用于原生容器，不移动或缩放 Metal 画布，也不改变 PTY 尺寸。
@@ -1547,6 +1550,7 @@ final class TerminalHostView: NSView {
     func attach(_ terminal: SSHTerminalNSView) {
         if terminal.superview === self { return }
         terminal.removeFromSuperview()
+        terminal.setSurfaceVisible(!isHidden)
         terminal.frame = bounds
         terminal.autoresizingMask = [.width, .height]
         addSubview(terminal)
