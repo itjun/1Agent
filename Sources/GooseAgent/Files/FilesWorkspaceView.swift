@@ -316,7 +316,7 @@ private struct FileTransferQueueView: View {
                     .accessibilityIdentifier("files.transferQueue.history")
             }
         }
-        .background(chrome.panelHeader)
+        .background(chrome.background)
         .foregroundStyle(chrome.text)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.transferQueue")
