@@ -601,7 +601,11 @@ struct RootView: View {
 
     private func panelDisplayTitle(_ row: TerminalPanelRow) -> String {
         if let title = window.panelTitles[row.panelID] { return title }
-        if row.isSplit { return String(localized: "Terminal Group") }
+        if row.isSplit {
+            let panels = model.panelRows(in: window).filter { $0.isSplit && window.panelTitles[$0.panelID] == nil }
+            let number = (panels.firstIndex { $0.panelID == row.panelID } ?? 0) + 1
+            return String(format: String(localized: "Workspace %lld"), number)
+        }
         return model.tabs.first { $0.id == row.focusedTabID }.map(sessionTitle) ?? row.name
     }
 
