@@ -27,10 +27,12 @@ struct FilesDockView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
-                .padding(Theme.Space.s)
-            FileTransferQueueView()
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
+                    .padding(Theme.Space.s)
+                FileTransferQueueView(availableHeight: geometry.size.height)
+            }
         }
         .background(chrome.background)
         .allowsHitTesting(workspace.selectedPreviewColumn == nil)
@@ -258,13 +260,39 @@ private struct FileEndpointPanel: View {
 }
 
 private struct FileTransferQueueView: View {
+    var availableHeight: CGFloat
     @ObservedObject private var queue = FileTransferQueue.shared
     @Environment(\.windowChrome) private var chrome
     @State private var expanded = false
+    @State private var listHeight = FileBrowserLayout.transferListDefaultHeight
+    @State private var dragStartHeight: CGFloat?
+    @State private var dividerHovered = false
+
+    private var maximumHeight: CGFloat {
+        max(FileBrowserLayout.transferListMinHeight, availableHeight * 0.6)
+    }
+    private var visibleHeight: CGFloat {
+        min(maximumHeight, max(FileBrowserLayout.transferListMinHeight, listHeight))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider()
+            if expanded {
+                PaneDividerHandle(vertical: false, onHover: { dividerHovered = $0 }, onDragChanged: { delta in
+                    if dragStartHeight == nil { dragStartHeight = visibleHeight }
+                    listHeight = min(maximumHeight, max(FileBrowserLayout.transferListMinHeight, (dragStartHeight ?? visibleHeight) - delta))
+                }, onDragEnded: { dragStartHeight = nil }, onDoubleClick: {
+                    listHeight = FileBrowserLayout.transferListDefaultHeight
+                })
+                .frame(height: 6)
+                .overlay(alignment: .center) {
+                    Rectangle().fill(dividerHovered || dragStartHeight != nil ? chrome.accent : chrome.hairline)
+                        .frame(height: 1).allowsHitTesting(false)
+                }
+                .accessibilityIdentifier("files.transferQueue.resize")
+            } else {
+                Divider()
+            }
             HStack(spacing: Theme.Space.s) {
                 Button { expanded.toggle() } label: {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right")
@@ -279,12 +307,12 @@ private struct FileTransferQueueView: View {
             }
             .font(Theme.Font.rowMeta.weight(.medium))
             .padding(.horizontal, Theme.Space.m).frame(height: FileBrowserLayout.transferBarHeight)
-            if expanded, !queue.jobs.isEmpty {
+            if expanded {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(queue.jobs.reversed()) { job in row(job) }
                     }
-                }.frame(height: min(FileBrowserLayout.transferListMaxHeight, CGFloat(queue.jobs.count) * FileBrowserLayout.transferRowHeight))
+                }.frame(height: visibleHeight)
                     .accessibilityIdentifier("files.transferQueue.history")
             }
         }
