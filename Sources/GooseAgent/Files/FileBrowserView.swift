@@ -84,7 +84,7 @@ struct FileColumnHeader<Endpoint: View>: View {
                 }
             }
             FamilyMenu("Actions") {
-                FileColumnActions(workspace: workspace, column: column).items
+                FileColumnActions(workspace: workspace, column: column).directoryItems
             }
             .font(Theme.Font.body)
             .tint(chrome.text)
@@ -428,10 +428,6 @@ struct FileColumnView: View {
             focused = true
             column.clearSelection()
         }
-        .familyContextMenu {
-            workspace.focus(column)
-            return FileColumnActions(workspace: workspace, column: column).items
-        }
         .focusable(interactions: .edit)
         .focusEffectDisabled()
         .focused($focused)
@@ -530,7 +526,7 @@ struct FileColumnView: View {
         .familyContextMenu {
             workspace.focus(column)
             column.prepareContextMenu(for: entry)
-            return FileColumnActions(workspace: workspace, column: column, targets: targets(for: entry)).items
+            return FileColumnActions(workspace: workspace, column: column, targets: targets(for: entry)).entryItems
         }
         .onDrag { dragProvider(for: entry) }
         .onDrop(of: [.fileURL, .plainText], delegate: FileDropDelegate(
@@ -702,20 +698,16 @@ struct FileColumnView: View {
     }
 }
 
-/// The title menu and both context menus act on the same pane and selection.
+/// Directory actions belong to the toolbar; entry actions belong to the selected rows.
 @MainActor
 private struct FileColumnActions {
     var workspace: FileWorkspace
     var column: FileColumn
     var targets: [FileEntry]? = nil
 
-    var items: [FamilyMenuItem] {
-        let entries = targets ?? column.selectedEntries
+    var directoryItems: [FamilyMenuItem] {
         let window = NSApp.keyWindow ?? NSApp.mainWindow
         let available = !column.directory.isEmpty && !column.loading
-        let other = workspace.other(than: column)
-        let canSend = !entries.isEmpty && available && other != nil && other !== column &&
-            other?.loading == false && other?.directory.isEmpty == false
         return [
             FamilyMenuItem(title: String(localized: "New Folder"), enabled: available, action: {
                 workspace.focus(column)
@@ -726,11 +718,24 @@ private struct FileColumnActions {
                 workspace.create(folder: false, in: column, window: window)
             }),
             .separator,
+            FamilyMenuItem(title: String(localized: "Refresh"), enabled: !column.loading, action: { column.refresh() }),
+            FamilyMenuItem(title: column.showHidden ? String(localized: "Hide Hidden Files") : String(localized: "Show Hidden Files"), action: {
+                column.showHidden.toggle()
+            }),
+            FamilyMenuItem(title: String(localized: "Select All"), enabled: !column.shown.isEmpty, action: {
+                workspace.focus(column)
+                column.selectAll()
+            }),
+        ]
+    }
+
+    var entryItems: [FamilyMenuItem] {
+        let entries = targets ?? column.selectedEntries
+        let window = NSApp.keyWindow ?? NSApp.mainWindow
+        let available = !column.directory.isEmpty && !column.loading
+        return [
             FamilyMenuItem(title: String(localized: "Open Item"), enabled: entries.count == 1 && available, action: {
                 if let entry = entries.first { workspace.open(entry, in: column, window: window) }
-            }),
-            FamilyMenuItem(title: String(localized: "Send to Other Pane"), enabled: canSend, action: {
-                workspace.send(entries, from: column, window: window)
             }),
             FamilyMenuItem(title: String(localized: "Rename"), enabled: entries.count == 1 && available, action: {
                 if let entry = entries.first { workspace.rename(entry, in: column, window: window) }
@@ -740,15 +745,6 @@ private struct FileColumnActions {
             }),
             FamilyMenuItem(title: String(localized: "Delete"), enabled: !entries.isEmpty && available, destructive: true, action: {
                 workspace.delete(entries, in: column, window: window)
-            }),
-            .separator,
-            FamilyMenuItem(title: String(localized: "Refresh"), enabled: !column.loading, action: { column.refresh() }),
-            FamilyMenuItem(title: column.showHidden ? String(localized: "Hide Hidden Files") : String(localized: "Show Hidden Files"), action: {
-                column.showHidden.toggle()
-            }),
-            FamilyMenuItem(title: String(localized: "Select All"), enabled: !column.shown.isEmpty, action: {
-                workspace.focus(column)
-                column.selectAll()
             }),
         ]
     }
@@ -805,7 +801,14 @@ struct FileColumnTransferControls: View {
     private func transferButton(from source: FileColumn, to target: FileColumn, direction: Direction) -> some View {
         let enabled = !source.selectedEntries.isEmpty && !source.loading && !target.loading && !target.directory.isEmpty
         let prominent = direction != .download
-        let hint = String(format: direction.format, target.title, target.directory)
+        let hint: String
+        if source.loading || target.loading || target.directory.isEmpty {
+            hint = String(localized: "Wait for both folders to finish loading")
+        } else if source.selectedEntries.isEmpty {
+            hint = String(localized: "Select files to transfer")
+        } else {
+            hint = String(format: direction.format, target.title, target.directory)
+        }
         return Button {
             guard enabled else { return }
             workspace.receive(
@@ -825,6 +828,7 @@ struct FileColumnTransferControls: View {
         .buttonStyle(FamilyButtonStyle())
         .disabled(!enabled)
         .help(hint)
+        .accessibilityIdentifier("files.transfer.\(direction == .upload ? "upload" : direction == .download ? "download" : "copy")")
     }
 }
 

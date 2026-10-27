@@ -30,6 +30,11 @@ struct FilesDockView: View {
         VStack(spacing: 0) {
             FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
                 .padding(Theme.Space.s)
+            if let remote = workspace.remoteColumn {
+                FileColumnTransferControls(workspace: workspace, column: workspace.localColumn, other: remote)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Space.xs)
+            }
             FileTransferQueueView()
         }
         .background(chrome.background)

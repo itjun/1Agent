@@ -369,6 +369,8 @@
     "Decrease" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Decrease"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "减少"}}}},
     "Increase" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Increase"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "增加"}}}},
     "Send to Other Pane" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Send to Other Pane"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "传到对面"}}}},
+    "Select files to transfer" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Select files to transfer"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "请选择要传输的文件"}}}},
+    "Wait for both folders to finish loading" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Wait for both folders to finish loading"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "请等待两侧文件夹加载完成"}}}},
     "Release to Unpin" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Release to Unpin"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "松开以取消固定"}}}},
     "Close History" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Close History" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭历史" } } } },
     "Loading…" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading…" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "载入中…" } } } },

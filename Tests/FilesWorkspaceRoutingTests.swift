@@ -953,6 +953,17 @@ private struct FilesWorkspaceRoutingTests {
         }
         try require(local.selection == [localEntry.path], "Right-click must select the pointed row: expected \(localEntry.path), got \(local.selection)")
         try require(!FamilyMenuPresenter.shared.panels.isEmpty, "Right-click must open the family popup")
+        let rowMenuLabels = accessibilityLabels(FamilyMenuPresenter.shared.panels[0].contentView!)
+        try require(rowMenuLabels.contains(String(localized: "Rename")) && !rowMenuLabels.contains(String(localized: "New Folder")),
+                    "File context menu owns entry actions and excludes directory actions")
+        FamilyMenuPresenter.shared.dismiss()
+        let toolbar = try elements("files.actions").map(frame).sorted { $0.minX < $1.minX }
+        try require(toolbar.count == 2, "Both file panes expose directory actions")
+        try await click(NSPoint(x: toolbar[0].midX, y: toolbar[0].midY))
+        try require(!FamilyMenuPresenter.shared.panels.isEmpty, "The directory actions menu must open")
+        let directoryLabels = accessibilityLabels(FamilyMenuPresenter.shared.panels[0].contentView!)
+        try require(directoryLabels.contains(String(localized: "New Folder")) && !directoryLabels.contains(String(localized: "Rename")),
+                    "Toolbar menu owns directory actions without duplicating file actions")
         for code: UInt16 in [119, 36] {
             let key = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
@@ -962,7 +973,7 @@ private struct FilesWorkspaceRoutingTests {
             try await settle()
         }
         try require(local.selection == Set(local.shown.map(\.path)) && FamilyMenuPresenter.shared.panels.isEmpty,
-                    "End and Enter in the real file menu must select all files and dismiss the popup")
+                    "End and Enter in the directory menu must select all files and dismiss the popup")
         local.selection = Set(local.shown.prefix(2).map(\.path))
         let multiple = local.selection
         try await settle()
@@ -976,6 +987,13 @@ private struct FilesWorkspaceRoutingTests {
         try require(local.selection == multiple, "Right-clicking a selected file must preserve the multi-selection")
         FamilyMenuPresenter.shared.dismiss()
         local.selection = [localEntry.path]
+        try await settle()
+        let upload = elements("files.transfer.upload")
+        let download = elements("files.transfer.download")
+        try require(upload.count == 1 && download.count == 1,
+                    "Exactly one upload and one download control are visible for the two endpoints")
+        try require(accessibilityBool(upload[0], "isAccessibilityEnabled"), "Selecting a local file enables upload")
+        try require(!accessibilityBool(download[0], "isAccessibilityEnabled"), "Download stays disabled without a remote selection")
         print("ok: family context menu targets the pointed file despite unclipped native hosts, and preserves multi-selection")
 
         let paths = try elements("files.path").map(frame).sorted { $0.minX < $1.minX }
