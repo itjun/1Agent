@@ -922,6 +922,14 @@ private struct FilesWorkspaceRoutingTests {
             accessibilityElements(window.contentView!).filter { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
         }
         func click(_ screenPoint: NSPoint) async throws {
+            if !NSApp.isActive || !window.isKeyWindow {
+                try await eventually("activate file workspace test window") {
+                    if NSApp.isHidden { NSApp.unhide(nil) }
+                    if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
+                    if !window.isKeyWindow { window.makeKeyAndOrderFront(nil) }
+                    return NSApp.isActive && window.isKeyWindow
+                }
+            }
             let point = window.convertPoint(fromScreen: screenPoint)
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                 guard let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
@@ -931,6 +939,8 @@ private struct FilesWorkspaceRoutingTests {
                 }
                 NSApp.sendEvent(event)
                 try await settle()
+                try require(NSApp.isActive && window.isKeyWindow,
+                            "File workspace test window lost focus during a click")
             }
         }
         try await eventually("visible local row for pointer probe") { !elements("files.row.\(localEntry.path)").isEmpty }
@@ -1053,6 +1063,9 @@ private struct FilesWorkspaceRoutingTests {
         let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
             characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
+        // Simulate another app taking focus before a breadcrumb click.
+        NSApp.hide(nil)
+        try await eventually("deactivate file workspace test window") { NSApp.isHidden && !window.isKeyWindow }
         for column in [local, remote] {
             let directory = column.directory
             let back = column.backStack, forward = column.forwardStack, selection = column.selection
