@@ -20,7 +20,11 @@ struct QuickCommandLibraryView: View {
                 HStack(spacing: Theme.Space.s) {
                     CommandTextField(text: $query, placeholder: String(localized: "Search all commands"), identifier: "quickCommands.library.search", symbol: "magnifyingglass").frame(height: Theme.Control.height)
                     Button("Import…", action: importLibrary).buttonStyle(FamilyButtonStyle(kind: .secondary))
-                    Button("Export…", action: exportLibrary).buttonStyle(FamilyButtonStyle(kind: .secondary)).disabled(store.loadError != nil)
+                        .fixedSize(horizontal: true, vertical: false).layoutPriority(1)
+                        .accessibilityIdentifier("quickCommands.library.import")
+                    Button("Export…", action: exportLibrary).buttonStyle(FamilyButtonStyle(kind: .secondary))
+                        .fixedSize(horizontal: true, vertical: false).layoutPriority(1).disabled(store.loadError != nil)
+                        .accessibilityIdentifier("quickCommands.library.export")
                 }
                 if let message = error ?? store.loadError { Text(verbatim: message).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta) }
                 ScrollView {

@@ -39,6 +39,12 @@ import SwiftUI
         try QuickCommandStore.shared.save(item)
         let paste = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [item]), context: context)
         let plan = GhosttyConfigImport.makePlan()
+        if let language = ProcessInfo.processInfo.environment["ONEAGENT_TEST_LANGUAGE"] {
+            let expectedImport = language == "zh-Hans" ? "导入" : "Import"
+            let expectedExport = language == "zh-Hans" ? "导出" : "Export"
+            expect(String(localized: "Import…") == expectedImport, "\(language) import label is complete")
+            expect(String(localized: "Export…") == expectedExport, "\(language) export label is complete")
+        }
         let fixtures: [(String, CGFloat, CGFloat, AnyView)] = [
             ("host picker", SheetLayout.search, SheetLayout.sessionBodyHeight, AnyView(HostPicker(model: model, window: state))),
             ("command editor", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandEditor(item: item, hosts: [], onClose: {}))),
@@ -65,6 +71,21 @@ import SwiftUI
                 await settle()
                 let card = (dialog.contentView as! FamilyModalBackdrop).card!
                 checkSurface(card, dark: dark, name: name)
+                if name == "command library" {
+                    for (id, title) in [("quickCommands.library.import", String(localized: "Import…")),
+                                        ("quickCommands.library.export", String(localized: "Export…"))] {
+                        let button = elements(card).first { value($0, "accessibilityIdentifier") as? String == id }
+                        expect(button != nil, "library exposes \(id)")
+                        guard let button else { continue }
+                        let selector = NSSelectorFromString("accessibilityFrame")
+                        typealias FrameGetter = @convention(c) (AnyObject, Selector) -> NSRect
+                        if button.responds(to: selector) {
+                            let frame = unsafeBitCast(button.method(for: selector), to: FrameGetter.self)(button, selector)
+                            let width = (title as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width
+                            expect(frame.width >= width + 20, "\(id) has room for its complete label")
+                        } else { expect(false, "\(id) exposes its frame") }
+                    }
+                }
                 // Exercise a real nested sheet entry rather than recreating its content.
                 if name == "command library", dark {
                     let newButtons = elements(card).filter { object in

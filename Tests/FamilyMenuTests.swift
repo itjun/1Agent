@@ -94,6 +94,12 @@ struct FamilyMenuTests {
         key(125); key(36)
         expect(fired.last == "next", "Picker navigation starts at the selected option")
         let edge = NSScreen.main!.visibleFrame
+        let longTitle = "Export configuration, saved commands, shortcuts, themes and other preferences"
+        show([.init(title: longTitle)])
+        let longRow = buttons(presenter.panels[0].contentView!).first!
+        let titleWidth = (longTitle as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width
+        expect(longRow.bounds.width - 24 >= titleWidth, "A menu action that fits on screen must not be truncated")
+        presenter.dismiss()
         presenter.show(items, at: NSPoint(x: edge.maxX - 1, y: edge.minY + 1), owner: owner)
         expect(edge.contains(presenter.panels[0].frame), "Menus at screen edges must remain fully visible")
         presenter.dismiss()

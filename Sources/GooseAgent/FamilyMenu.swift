@@ -275,10 +275,10 @@ private final class FamilyMenuContent: NSView {
     init(items: [FamilyMenuItem], chrome: WindowChrome, minWidth: CGFloat, maxWidth: CGFloat, maxHeight: CGFloat) {
         self.items = items
         self.chrome = chrome
-        let width = min(maxWidth, max(minWidth, min(420, items.map { item in
+        let width = min(maxWidth, max(minWidth, items.map { item in
             (item.title as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width +
             (item.shortcut as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12)]).width + 68
-        }.max() ?? minWidth)))
+        }.max() ?? minWidth))
         let height = items.reduce(CGFloat(8)) { $0 + ($1.isSeparator ? 9 : 32) }
         super.init(frame: NSRect(x: 0, y: 0, width: ceil(width), height: min(height, maxHeight)))
         wantsLayer = true

@@ -17,7 +17,7 @@
     "Version %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Version %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "版本 %@"}}}},
     "Check for Updates" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Check for Updates"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "检查更新"}}}},
     "Automatically check for updates" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Automatically check for updates"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "自动检查更新"}}}},
-    "Check for Updates…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Check for Updates…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "检查更新…"}}}},
+    "Check for Updates…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Check for Updates"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "检查更新"}}}},
     "When off, 1Agent won’t check for updates or show update reminders automatically. You can still check manually." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "When off, 1Agent won’t check for updates or show update reminders automatically. You can still check manually."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭后，1Agent 不再自动联网检查或弹出更新提醒，仍可手动检查。"}}}},
     "1Agent is up to date." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "1Agent is up to date."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前已是最新版本。"}}}},
     "Version %@ is available." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Version %@ is available."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "有新版本 %@。"}}}},
@@ -38,7 +38,7 @@
     "1Agent must update to %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "1Agent must update to %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "1Agent 需要更新到 %@"}}}},
     "Click to read the notes and install." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Click to read the notes and install."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "点击查看更新内容并安装。"}}}},
     "This version is no longer supported. Update to continue." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "This version is no longer supported. Update to continue."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前版本已停止支持，请更新后继续使用。"}}}},
-    "Checking for updates…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Checking for updates…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在检查更新…"}}}},
+    "Checking for updates…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Checking for updates"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在检查更新"}}}},
     "Cancel Download" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cancel Download"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "取消下载"}}}},
     "This build has no update source." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "This build has no update source."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "此构建未配置更新源。"}}}},
     "This build has no update signing key." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "This build has no update signing key."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "此构建未内置验签公钥。"}}}},
@@ -135,7 +135,7 @@
     "Folders keep opening in Finder. Configure .sh and .zsh separately if needed." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Folders keep opening in Finder. Configure .sh and .zsh separately if needed."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "文件夹仍由 Finder 打开，.sh 与 .zsh 可按需单独设置。"}}}},
     "Apply Selected Associations" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Apply Selected Associations"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "应用所选关联"}}}},
     "Restore Previous Associations" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Restore Previous Associations"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "恢复原有关联"}}}},
-    "Waiting for macOS to confirm the associations…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Waiting for macOS to confirm the associations…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在等待 macOS 确认关联…"}}}},
+    "Waiting for macOS to confirm the associations…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Waiting for macOS to confirm the associations"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在等待 macOS 确认关联"}}}},
     "Finder Directory Services" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Finder Directory Services"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "Finder 目录服务"}}}},
     "About Services" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "About Services"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "查看服务"}}}},
     "About Finder Services" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "About Finder Services"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "查看服务说明"}}}},
@@ -193,19 +193,19 @@
     "Split to Bottom" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Split to Bottom"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "向下分屏"}}}},
     "Split to Left" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Split to Left"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "向左分屏"}}}},
     "Split to Top" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Split to Top"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "向上分屏"}}}},
-    "Rename…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Rename…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重命名…"}}}},
+    "Rename…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Rename"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重命名"}}}},
     "Arrange Panel" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Arrange Panel"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "调整布局"}}}},
     "%lld Panels, %lld Terminals Selected" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "%lld Panels, %lld Terminals Selected"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已选 %lld 个面板，共 %lld 个终端"}}}},
     "Current Terminal: %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current Terminal: %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端：%@"}}}},
-    "Close %lld Selected Terminals…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close %lld Selected Terminals…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭所选的 %lld 个终端…"}}}},
-    "Close %lld Terminals in This Panel…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close %lld Terminals in This Panel…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭此面板的 %lld 个终端…"}}}},
+    "Close %lld Selected Terminals…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close %lld Selected Terminals"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭所选的 %lld 个终端"}}}},
+    "Close %lld Terminals in This Panel…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close %lld Terminals in This Panel"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭此面板的 %lld 个终端"}}}},
     "Add Selected Panels" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Add Selected Panels"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "加入所选面板"}}}},
     "Merge and Arrange" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Merge and Arrange"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "合并排列"}}}},
     "Reconnect Disconnected Terminals" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reconnect Disconnected Terminals"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重连已断开的终端"}}}},
-    "Dissolve Workspace…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dissolve Workspace…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "解散工作区…"}}}},
+    "Dissolve Workspace…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dissolve Workspace"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "解散工作区"}}}},
     "Dissolve Workspace?" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dissolve Workspace?"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "解散工作区？"}}}},
     "Terminals will stay open and existing split layouts will be preserved." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Terminals will stay open and existing split layouts will be preserved."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "终端将继续运行，已有分屏组合也会保留。"}}}},
-    "Close All Terminals…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close All Terminals…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭全部终端…"}}}},
+    "Close All Terminals…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close All Terminals"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭全部终端"}}}},
     "Create Workspace" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Create Workspace"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "新建工作区"}}}},
     "Move into Workspace" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Move into Workspace"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "移入工作区"}}}},
     "Move out of Workspace" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Move out of Workspace"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "移出工作区"}}}},
@@ -215,7 +215,7 @@
     "Copy Quick Command" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Copy Quick Command"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "复制快捷指令"}}}},
     "Copy Command Text" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Copy Command Text"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "复制命令文本"}}}},
     "Batch Select" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Batch Select"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "批量选择"}}}},
-    "Paste Quick Commands…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Paste Quick Commands…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "粘贴快捷指令…"}}}},
+    "Paste Quick Commands…" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Paste Quick Commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "粘贴快捷指令"}}}},
     "Paste Quick Commands" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Paste Quick Commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "粘贴快捷指令"}}}},
     "Target Host Commands" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Target Host Commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "目标主机通用"}}}},
     "Enter a target folder, such as ~/sample-project" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enter a target folder, such as ~/sample-project"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "输入目标目录，例如 ~/sample-project"}}}},
@@ -300,7 +300,7 @@
     "Command" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Command"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "命令"}}}},
     "Group (optional)" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Group (optional)"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "分组（可选）"}}}},
     "Scope" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Scope"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "适用范围"}}}},
-    "Choose…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择…"}}}},
+    "Choose…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择"}}}},
     "Include Subfolders" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Include Subfolders"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "包含子目录"}}}},
     "Folder commands always run in their bound folder." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Folder commands always run in their bound folder."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "目录专属指令始终在绑定目录中执行。"}}}},
     "Review the host and folder bindings before saving this imported command." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Review the host and folder bindings before saving this imported command."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "保存前请确认导入指令的主机与目录绑定。"}}}},
@@ -315,8 +315,8 @@
     "The current terminal is ready. Its input buffer is checked again when you execute." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The current terminal is ready. Its input buffer is checked again when you execute."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端可接收命令，执行时会再次检查输入是否为空。"}}}},
     "The current terminal is busy or its input state is unknown. Use a new terminal." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The current terminal is busy or its input state is unknown. Use a new terminal."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端忙碌或输入状态未知，请在新终端执行。"}}}},
     "Search all commands" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Search all commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "搜索全部指令"}}}},
-    "Import…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Import…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "导入…"}}}},
-    "Export…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Export…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "导出…"}}}},
+    "Import…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Import"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "导入"}}}},
+    "Export…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Export"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "导出"}}}},
     "Move Up" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Move Up"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上移"}}}},
     "Move Down" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Move Down"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "下移"}}}},
     "Needs binding review — edit to repair" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Needs binding review — edit to repair"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "绑定待确认，请编辑修复"}}}},
@@ -346,12 +346,12 @@
     "Restored at %@" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Restored at %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "恢复于 %@"}}}},
     "Left at unknown time" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Left at unknown time"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "离开时间未知"}}}},
     "Switch Tab" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Switch Tab"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "切换标签"}}}},
-    "Open In…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open In…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "使用外部工具打开…"}}}},
+    "Open In…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open In"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "使用外部工具打开"}}}},
     "Click the title for session details. Drag it to move the pane." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Click the title for session details. Drag it to move the pane."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "点击标题查看会话信息，拖动标题移动窗格。"}}}},
     "Browse Current Files" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Browse Current Files"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浏览当前终端文件"}}}},
     "Current terminal is no longer available" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current terminal is no longer available"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端已不可用"}}}},
     "No matching commands" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "No matching commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "没有匹配的命令"}}}},
-    "Search commands…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Search commands…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "搜索命令…"}}}},
+    "Search commands…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Search commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "搜索命令"}}}},
     "Terminal History" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Terminal History"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "终端历史"}}}},
     "Try “split”, “files”, or “host”." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Try “split”, “files”, or “host”."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "试试“分屏”、“文件”或“主机”。"}}}},
     "↑↓ Select · ↩ Run · Esc Close" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "↑↓ Select · ↩ Run · Esc Close"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "↑↓ 选择 · ↩ 执行 · Esc 关闭"}}}},
@@ -373,7 +373,7 @@
     "Wait for both folders to finish loading" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Wait for both folders to finish loading"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "请等待两侧文件夹加载完成"}}}},
     "Release to Unpin" : {"localizations" : {"en" : {"stringUnit" : {"state" : "translated", "value" : "Release to Unpin"}}, "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "松开以取消固定"}}}},
     "Close History" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Close History" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭历史" } } } },
-    "Loading…" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading…" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "载入中…" } } } },
+    "Loading…" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "载入中" } } } },
 
   "Search name, host, IP or path": {
     "extractionState": "manual",
@@ -809,8 +809,8 @@
     "Reconnecting…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在重连…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在重连" } }
       }
     },
     "Copy" : {
@@ -922,8 +922,8 @@
     "Open Host…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Host…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开主机…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Host" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开主机" } }
       }
     },
     "Open Host (%@)" : {
@@ -1468,8 +1468,8 @@
     "Review and Import…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Review and Import…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查看并导入…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Review and Import" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查看并导入" } }
       }
     },
     "Not Now" : {
@@ -1510,8 +1510,8 @@
     "Import Configuration from Ghostty…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import Configuration from Ghostty…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从 Ghostty 导入配置…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import Configuration from Ghostty" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从 Ghostty 导入配置" } }
       }
     },
     "Undo Last Import" : {
@@ -2415,8 +2415,8 @@
     "Find…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查找…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查找" } }
       }
     },
     "Find Next" : {
@@ -2478,8 +2478,8 @@
     "…and %lld more lines" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "…and %lld more lines" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "……还有 %lld 行" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "And %lld more lines" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "还有 %lld 行" } }
       }
     },
     "Not Set" : {
@@ -2548,8 +2548,8 @@
     "Press shortcut…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Press shortcut…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按下快捷键…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Press shortcut" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按下快捷键" } }
       }
     },
     "Click to record a new shortcut" : {
@@ -2891,8 +2891,8 @@
     "Converting…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Converting…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在转换…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Converting" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在转换" } }
       }
     },
     "Copied" : {
@@ -2954,8 +2954,8 @@
     "Creating…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Creating…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在创建…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Creating" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在创建" } }
       }
     },
     "Delete" : {
@@ -3003,8 +3003,8 @@
     "Deleting…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Deleting…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在删除…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Deleting" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在删除" } }
       }
     },
     "Download to This Mac" : {
@@ -3409,8 +3409,8 @@
     "Connect Host…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect Host…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接主机…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect Host" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接主机" } }
       }
     },
     "Close file tab “%@”?" : {
@@ -3773,13 +3773,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cancelling…"
+            "value" : "Cancelling"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在取消…"
+            "value" : "正在取消"
           }
         }
       }
@@ -3838,13 +3838,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose Directory…"
+            "value" : "Choose Directory"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选择目录…"
+            "value" : "选择目录"
           }
         }
       }
@@ -4018,13 +4018,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Correct Format…"
+            "value" : "Correct Format"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "修正格式…"
+            "value" : "修正格式"
           }
         }
       }
@@ -4592,13 +4592,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing…"
+            "value" : "Preparing"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在准备…"
+            "value" : "正在准备"
           }
         }
       }
@@ -5129,13 +5129,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Transferring…"
+            "value" : "Transferring"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在传输…"
+            "value" : "正在传输"
           }
         }
       }
