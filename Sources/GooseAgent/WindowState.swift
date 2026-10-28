@@ -43,7 +43,7 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var filesDropTarget: FilesDropTarget?
     /// Panel ID → the pane drawn alone (⇧⌘↩), restored with the panel layout.
     @Published var zoomedPanes: [UUID: UUID] = [:]
-    /// Last known frame on screen, restored at launch.
+    /// Last frame written into the session snapshot. Launch does not restore it.
     var frame: CGRect?
     /// The drop relay of this window's view.
     weak var relay: CanvasDropRelay?
@@ -87,6 +87,8 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
     static let windowID = NSUserInterfaceItemIdentifier("main")
 
     private var windows: [UUID: NSWindow] = [:]
+    /// Hidden by the close button. The next show opens at 80% of the screen.
+    private var closedWindowIDs: Set<UUID> = []
     private weak var model: AppModel?
 
     func attach(model: AppModel) {
@@ -107,6 +109,9 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         self.model = model
         model.windowBecameKey(state)
         if let window = windows[state.id] {
+            if closedWindowIDs.remove(state.id) != nil {
+                placeOpeningFrame(on: window, state: state)
+            }
             Self.bringToActiveSpace(window)
             return
         }
@@ -124,13 +129,8 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.appearance = TerminalAppearance.appKitAppearance(isDark: TerminalAppearance.stored().resolvesDark())
-        window.minSize = NSSize(width: 880, height: 520)
-        if let frame = state.frame, frame.width >= 880, frame.height >= 520 {
-            window.setFrame(frame, display: false)
-        } else {
-            window.setContentSize(NSSize(width: 1100, height: 720))
-            window.center()
-        }
+        window.minSize = MainWindowFrame.minimumSize
+        placeOpeningFrame(on: window, state: state)
         windows[state.id] = window
         Self.disableNativeWindowTabs()
         Self.bringToActiveSpace(window)
@@ -150,6 +150,21 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         for window in NSApp.windows where window.identifier == windowID {
             window.tabbingMode = .disallowed
         }
+    }
+
+    /// 80% of the current screen. Used for a new window and for one that was closed.
+    private func placeOpeningFrame(on window: NSWindow, state: WindowState) {
+        let screen = NSScreen.main ?? window.screen ?? NSScreen.screens.first
+        if let screen {
+            let frame = MainWindowFrame.frame(screen: screen.frame, visible: screen.visibleFrame)
+            window.minSize = NSSize(width: min(MainWindowFrame.minimumSize.width, frame.width),
+                                    height: min(MainWindowFrame.minimumSize.height, frame.height))
+            window.setFrame(frame, display: false)
+        } else {
+            window.setContentSize(NSSize(width: 1100, height: 720))
+            window.center()
+        }
+        state.frame = window.frame
     }
 
     /// Dock click / reopen: deminiaturize, pull onto the active Space, and force key focus.
@@ -199,6 +214,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard let model, !model.isQuitting, let state = state(for: sender) else { return true }
         state.frame = sender.frame
+        closedWindowIDs.insert(state.id)
         sender.orderOut(nil)
         model.persistSessionIfReady()
         return false
@@ -210,7 +226,7 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         model?.windowBecameKey(state)
     }
 
-    /// Only reached while quitting; the frame and snapshot saved here come back at next launch.
+    /// Only reached while quitting; the snapshot saved here comes back at next launch.
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         guard let entry = windows.first(where: { $0.value === window }) else { return }

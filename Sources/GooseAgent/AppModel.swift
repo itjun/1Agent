@@ -2569,14 +2569,14 @@ struct SessionSnapshot: Codable {
         return windows[0]
     }
 
-    /// Where the main window goes at launch.
+    /// The frame saved with the key window. Launch placement ignores it.
     func restoredFrame() -> CGRect? {
         keyWindowEntry?.frame?.rect
     }
 
     /// Fills the main window from the snapshot. A pre-multi-window snapshot has one implicit window.
     /// Several windows (an older multi-window session) are merged into one: workspace blocks in
-    /// order, connection groups once at the end, loose lists joined, frame from the key window.
+    /// order, connection groups once at the end, loose lists joined.
     @MainActor
     func apply(to window: WindowState, keeping known: Set<UUID>) {
         guard let windows, let key = keyWindowEntry else {
@@ -2590,7 +2590,6 @@ struct SessionSnapshot: Codable {
             }
             return
         }
-        window.frame = key.frame?.rect
         if windows.count == 1 {
             window.blocks = key.blocks
             window.looseMembers = [

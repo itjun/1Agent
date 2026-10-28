@@ -273,9 +273,28 @@ import ObjectiveC
             guard let native = MainWindowManager.shared.window(for: state) else { throw Failure("Missing restored window") }
             defer { MainWindowManager.shared.closeImmediately(state) }
             try await Task.sleep(for: .milliseconds(100))
-            let titlebar = CGRect(x: native.frame.minX, y: native.frame.maxY - 28, width: native.frame.width, height: 28)
-            try check(NSScreen.screens.contains { $0.visibleFrame.intersection(titlebar).width >= min(200, native.frame.width) }, "Disconnected-display restoration leaves titlebar unreachable: \(native.frame)")
+            guard let screen = native.screen ?? NSScreen.main else { throw Failure("Missing visible screen") }
+            let expected = MainWindowFrame.frame(screen: screen.frame, visible: screen.visibleFrame)
+            try check(abs(native.frame.width - expected.width) <= 1 && abs(native.frame.height - expected.height) <= 1, "Reopened window must be 80% of the screen, not \(rect): \(native.frame)")
+            try check(abs(native.frame.minX - expected.minX) <= 1 && abs(native.frame.minY - expected.minY) <= 1, "Reopened window must use the opening position: \(native.frame)")
+            try check(native.frame != rect, "Saved frame must not be restored: \(native.frame)")
         }
+        let state = model.mainWindow
+        MainWindowManager.shared.show(state, model: model)
+        guard let closedWindow = MainWindowManager.shared.window(for: state) else { throw Failure("Missing window before close") }
+        guard let openVisible = closedWindow.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else { throw Failure("Missing visible screen") }
+        let resized = NSRect(x: openVisible.minX + 30, y: openVisible.minY + 30, width: min(1000, openVisible.width), height: min(640, openVisible.height))
+        closedWindow.setFrame(resized, display: true)
+        try await Task.sleep(for: .milliseconds(50))
+        try check(abs(closedWindow.frame.width - resized.width) <= 1 && abs(closedWindow.frame.height - resized.height) <= 1, "An open window keeps its resized frame: \(closedWindow.frame)")
+        MainWindowManager.shared.close(state)
+        try check(!closedWindow.isVisible, "Closing hides the window")
+        MainWindowManager.shared.show(state, model: model)
+        try await Task.sleep(for: .milliseconds(100))
+        guard let screen = closedWindow.screen ?? NSScreen.main else { throw Failure("Missing visible screen after reopen") }
+        let reopened = MainWindowFrame.frame(screen: screen.frame, visible: screen.visibleFrame)
+        try check(abs(closedWindow.frame.width - reopened.width) <= 1 && abs(closedWindow.frame.height - reopened.height) <= 1, "Reopening a closed window must be 80% of the screen, not \(resized): \(closedWindow.frame)")
+        try check(abs(closedWindow.frame.minX - reopened.minX) <= 1 && abs(closedWindow.frame.minY - reopened.minY) <= 1, "Reopened window must use the opening position: \(closedWindow.frame)")
         let fixture = Fixture(simulatedDisplay: true)
         defer { fixture.close() }
         try await fixture.ready()
