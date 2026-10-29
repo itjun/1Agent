@@ -6,6 +6,7 @@
 .PHONY: test-terminal-automation
 .PHONY: test-terminal-compatibility test-terminal-stress
 .PHONY: test-app-update-controller
+.PHONY: test-app-update-restart
 .PHONY: prepare-libghostty
 
 test-terminal-automation:
@@ -54,6 +55,9 @@ test-app-icons:
 
 test-app-update-controller:
 	bash scripts/test-app-update-controller.sh
+
+test-app-update-restart:
+	bash scripts/test-app-update-restart.sh
 
 # Compile, then install into /Applications (quit → replace → relaunch if needed).
 build: gen

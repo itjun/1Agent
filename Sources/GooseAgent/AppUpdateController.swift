@@ -41,6 +41,7 @@ final class AppUpdateController: ObservableObject {
     private var checkLoop: Task<Void, Never>?
     private var automaticCheck: Task<Void, Never>?
     private var work: Task<Void, Never>?
+    private weak var appDelegate: AppDelegate?
     private let currentBase: String
     private let devBuild: Bool
 
@@ -82,7 +83,8 @@ final class AppUpdateController: ObservableObject {
         }
     }
 
-    func start() {
+    func start(appDelegate: AppDelegate? = nil) {
+        if let appDelegate { self.appDelegate = appDelegate }
         if started { return }
         started = true
         AppUpdateInstall.cleanup()
@@ -477,12 +479,15 @@ final class AppUpdateController: ObservableObject {
         }
     }
 
-    private func restart(at bundle: String) {
-        if let app = NSApp.delegate as? AppDelegate {
+    func restart(at bundle: String) {
+        if let app = appDelegate {
             app.model.isRestarting = true
             app.relaunchBundlePath = bundle
         }
-        NSApp.terminate(nil)
+        // 退出确认需要异步保存终端；从事件循环发起退出，避免主线程任务互相等待。
+        RunLoop.main.perform(inModes: [.common]) {
+            NSApp.terminate(nil)
+        }
     }
 }
 

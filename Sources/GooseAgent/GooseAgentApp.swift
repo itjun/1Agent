@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         TerminalAutomation.model = model
         TerminalActivity.shared.model = model
         TerminalNotifications.shared.install()
-        AppUpdateController.shared.start()
+        AppUpdateController.shared.start(appDelegate: self)
         // Reading PATH from a login shell takes a moment; do it now so the first ⌘T does not wait.
         Task.detached(priority: .utility) { _ = await SSHLaunchEnvironment.shared.get() }
         model.watchSSHConfig()
