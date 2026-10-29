@@ -1,9 +1,13 @@
 # libghostty-spm Swift wrapper
 
 Source: https://github.com/Lakr233/libghostty-spm, tag `1.6.20260929`.
-Only the package manifest, source/resources, and license are vendored. Build products,
-Git metadata, and the binary framework are not included. The binary artifact URL and
-SHA-256 checksum in `Package.swift` are unchanged from that release.
+The Swift wrapper remains based on that release. The macOS engine is built from
+Ghostty `v1.4.0` (`83fb95624b0439ee660c2679b43b38c8b63769cd`) using
+`scripts/build-libghostty.sh`. The script checks the source archive SHA-256 and
+applies `Patches/ghostty-v1.4.0.patch`; the generated framework is not tracked.
+The patch ports libghostty-spm's host-managed I/O, rendering and screen-history
+changes to v1.4.0. It is based on the patch stack from libghostty-spm
+`2.2.2026102101`, with adaptations for v1.4.0 and Zig 0.17.0.
 
 1Agent adds `InMemoryTerminalSession.readScreenText(maxRows:maxBytes:)`, a read-only,
 bounded returned-text export of the currently active screen. It does not read the inactive
@@ -25,7 +29,5 @@ can bound the result. That allocation follows the engine scrollback limit; enfor
 separate hard C-allocation cap would require a new binary API. The wrapper never uses
 asynchronous scrollbar totals to cut off newer output.
 
-Validation: `bash scripts/test-terminal-history.sh` from the application root runs
-isolated model/storage/parser tests and, after the dependencies have been built,
-a real Ghostty surface test. The engine test uses an invisible AppKit window with an
-in-memory backend; it does not start a shell or SSH process.
+Validation: after `make build`, `make test-terminal-restoration` exercises the
+history and restored input on native Ghostty surfaces in isolated test storage.

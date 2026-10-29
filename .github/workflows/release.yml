@@ -24,6 +24,13 @@ jobs:
       - name: Fetch tag message
         run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
 
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Build libghostty
+        run: ./scripts/build-libghostty.sh
+
       - name: Build
         run: |
           xcodebuild \

@@ -6,6 +6,7 @@
 .PHONY: test-terminal-automation
 .PHONY: test-terminal-compatibility test-terminal-stress
 .PHONY: test-app-update-controller
+.PHONY: prepare-libghostty
 
 test-terminal-automation:
 	python3 scripts/test-terminal-automation.py
@@ -56,9 +57,13 @@ test-app-update-controller:
 
 # Compile, then install into /Applications (quit → replace → relaunch if needed).
 build: gen
+	./scripts/build-libghostty.sh
 	set -o pipefail; xcodebuild -project 1Agent.xcodeproj -scheme 1Agent -configuration Debug -derivedDataPath $(DERIVED_DATA) -clonedSourcePackagesDirPath build/SourcePackages build CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" CODE_SIGN_STYLE=Manual -skipPackagePluginValidation | tee /tmp/1agent-build.log | tail -8
 	if [ "$(CODE_SIGN_IDENTITY)" = "-" ]; then ./scripts/local-codesign.sh "$(CURDIR)/$(APP_BUILT)"; fi
 	./scripts/install-app.sh "$(CURDIR)/$(APP_BUILT)"
+
+prepare-libghostty:
+	./scripts/build-libghostty.sh
 
 install:
 	./scripts/install-app.sh "$(CURDIR)/$(APP_BUILT)"

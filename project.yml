@@ -10,7 +10,7 @@ options:
     - zh-Hans
 packages:
   GhosttyTerminal:
-    # Reviewed Swift wrapper; the binary URL and checksum remain pinned upstream.
+    # Reviewed Swift wrapper; the macOS binary is built from pinned, patched source.
     path: Vendor/libghostty-spm
 targets:
   1Agent:

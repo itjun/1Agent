@@ -25,7 +25,7 @@
 
 ### 本地构建
 
-需要 macOS、Xcode 和 XcodeGen。在项目目录执行：
+需要 macOS、Xcode、XcodeGen 和 Zig 0.17.0。首次构建会下载固定版本的 Ghostty 源码并编译终端引擎。在项目目录执行：
 
 ```sh
 make build
@@ -61,7 +61,7 @@ The official DMG currently supports Apple silicon Macs running macOS 14 or later
 
 ### Build locally
 
-macOS, Xcode, and XcodeGen are required. From the project directory:
+macOS, Xcode, XcodeGen, and Zig 0.17.0 are required. The first build downloads the pinned Ghostty source and builds the terminal engine. From the project directory:
 
 ```sh
 make build

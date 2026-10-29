@@ -1,5 +1,6 @@
 .DS_Store
 build/
+Vendor/libghostty-spm/BinaryTarget/
 design/
 Packages/GooseKit/.build/
 Packages/GooseSSH/.build/
