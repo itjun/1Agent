@@ -36,8 +36,16 @@ if [[ ! -f "$work/source-stamp" || "$(cat "$work/source-stamp")" != "$source_sta
     rm -rf "$source_dir"
     mkdir -p "$source_dir"
     tar -xzf "$archive" --strip-components=1 -C "$source_dir"
+    # The source lives under the 1Agent checkout. Isolate it so git apply
+    # cannot silently skip every patch path relative to the parent repository.
+    git -C "$source_dir" init -q
     git -C "$source_dir" apply --check "$patch"
     git -C "$source_dir" apply "$patch"
+    if ! grep -q 'GHOSTTY_SURFACE_IO_BACKEND_HOST_MANAGED' "$source_dir/include/ghostty.h" ||
+       ! grep -q 'LIBGHOSTTY_SPM_TRIM_PATCH' "$source_dir/src/build/Config.zig"; then
+        echo "error: Ghostty patches were not applied" >&2
+        exit 1
+    fi
     printf '%s' "$source_stamp" > "$work/source-stamp"
 fi
 
@@ -53,7 +61,7 @@ for arch in arm64 x86_64; do
     if [[ "$arch" == arm64 ]]; then target=aarch64; fi
     echo "→ building libghostty for $arch"
     (cd "$source_dir" && zig build \
-        -Doptimize=fast -Dapp-runtime=none -Demit-exe=false \
+        -Doptimize=fast -Dversion-string=1.4.0 -Dapp-runtime=none -Demit-exe=false \
         -Demit-xcframework=false -Demit-macos-app=false -Demit-docs=false \
         -Dsentry=false -Dcustom-shaders=false -Dinspector=false -Di18n=false \
         -Dtarget="$target-macos")
