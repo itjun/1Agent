@@ -223,6 +223,8 @@ enum TerminalPaneActionsTests {
                       AppShortcutID.closeTab.title] {
             expect(commands.filter { $0.title == title }.count == 1, "merged commands contain exactly one \(title)")
         }
+        expect(commands.first { $0.title == AppShortcutID.closeTab.title }?.destructive == true,
+               "terminal content menu retains destructive styling for Close Terminal")
         expect(item("Copy", in: commands)?.enabled == false, "Copy remains disabled without a terminal selection")
         expect(item("Paste", in: commands)?.enabled == true, "Paste remains available after merging pane commands")
         expect(commands.contains { $0.title == AppShortcutID.selectAll.title && $0.enabled }, "Select All is retained")
@@ -329,10 +331,19 @@ enum TerminalPaneActionsTests {
         let preview = model.tabs.first { $0.id == first }!
         expect(SidebarActions.terminalItems(preview, model: model, window: window).isEmpty,
                "preview panels do not offer terminal-only actions")
+        let previewActions = TerminalPaneActions.items(tab: preview, model: model, window: window)
+        expect(previewActions.count == 1 && previewActions[0].title == String(localized: "Close Preview") && previewActions[0].destructive,
+               "a preview's own menu offers only its destructive close action")
         let previewRow = model.panelRow(for: first, in: window)!
         let previewMenu = SidebarActions.panelItems(previewRow, model: model, window: window, onRename: {})
         expect(previewMenu.first?.isSeparator == false && previewMenu.first?.children.first?.isSeparator == false,
                "preview panel menus do not start with a separator")
+        expect(previewMenu.first?.title == String(format: String(localized: "Current Preview: %@"), "oneagent-sidebar-b"),
+               "a focused preview is identified as a preview")
+        expect(previewMenu.first?.children.first?.title == String(localized: "Close Current Preview"),
+               "the preview submenu identifies its close action")
+        expect(previewMenu.last?.title == String(format: String(localized: "Close %lld Panes in This Panel…"), 2),
+               "a panel containing previews counts panes rather than terminals")
 
         expect(model.sidebarIsCollapsed(in: window, totalWidth: 880), "a narrow files workspace may temporarily hide the sidebar")
         for expectedCollapsed in [true, false, true] {
@@ -364,7 +375,7 @@ enum TerminalPaneActionsTests {
                "a local title click does not offer tab switching")
         let context = TerminalPaneActions.items(tab: model.tabs.first { $0.id == first }!, model: model, window: window)
         model.selectOnly(second, in: window, focusTerminal: false)
-        context.first { $0.title == AppShortcutID.closeTab.title }!.action()
+        context.first { $0.title == String(localized: "Close Preview") }!.action()
         expect(!model.tabs.contains { $0.id == first } && model.tabs.contains { $0.id == second },
                "Close from a terminal context menu retains its captured pane rather than closing the newly focused tab")
         model.open(.preview(path: "/tmp/title-third"), placement: .newTab, beside: second, in: window)

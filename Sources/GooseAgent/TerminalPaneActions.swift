@@ -59,6 +59,15 @@ enum TerminalPaneActions {
 
     static func items(tab: TerminalTab, model: AppModel, window: WindowState,
                       includingFind: Bool = true, includingClose: Bool = true) -> [FamilyMenuItem] {
+        if !tab.hasTerminal {
+            guard includingClose else { return [] }
+            let chord = AppShortcuts.chord(for: .closeTab)
+            return [FamilyMenuItem(title: String(localized: "Close Preview"), destructive: true,
+                                   key: chord.key, modifiers: chord.menuModifierMask, action: {
+                guard model.sidebarOrder(in: window).contains(tab.id) else { return }
+                model.closeTab(tab.id)
+            })]
+        }
         let directory = workingDirectory(of: tab)
         let split = model.panelRow(for: tab.id, in: window)?.isSplit == true
         let zoomed = model.zoomedPane(in: window) == tab.id
@@ -117,7 +126,7 @@ enum TerminalPaneActions {
             ]
         }
         if includingClose { items += [
-            command(.closeTab) {
+            command(.closeTab, destructive: true) {
                 guard model.sidebarOrder(in: window).contains(tab.id) else { return }
                 model.closeTab(tab.id)
             },
@@ -190,10 +199,10 @@ enum TerminalPaneActions {
         model.tabs.first { $0.id == id && $0.hasTerminal }
     }
 
-    private static func command(_ shortcut: AppShortcutID, enabled: Bool = true, checked: Bool = false,
+    private static func command(_ shortcut: AppShortcutID, enabled: Bool = true, checked: Bool = false, destructive: Bool = false,
                                 action: @escaping () -> Void) -> FamilyMenuItem {
         let chord = AppShortcuts.chord(for: shortcut)
-        return FamilyMenuItem(title: shortcut.title, enabled: enabled, checked: checked,
+        return FamilyMenuItem(title: shortcut.title, enabled: enabled, checked: checked, destructive: destructive,
                               key: chord.key, modifiers: chord.menuModifierMask, action: action)
     }
 

@@ -15,21 +15,25 @@ enum SidebarActions {
         let ids = model.sidebarTargets(clicking: row.focusedTabID, in: window)
         let rows = model.panelRows(in: window).filter { !Set($0.leafIDs).isDisjoint(with: ids) }
         let multiple = rows.count > 1
+        let hasPreview = model.tabs.contains { ids.contains($0.id) && !$0.hasTerminal }
         var items: [FamilyMenuItem] = []
         if multiple {
-            items.append(FamilyMenuItem(title: String(format: String(localized: "%lld Panels, %lld Terminals Selected"),
+            let title = hasPreview ? String(localized: "%lld Panels, %lld Panes Selected") : String(localized: "%lld Panels, %lld Terminals Selected")
+            items.append(FamilyMenuItem(title: String(format: title,
                 rows.count, ids.count), enabled: false))
         } else if let tab = model.tabs.first(where: { $0.id == row.focusedTabID }) {
             var sessionItems = terminalItems(tab, model: model, window: window)
             if row.isSplit {
                 if !sessionItems.isEmpty { sessionItems.append(.separator) }
                 let chord = AppShortcuts.chord(for: .closeTab)
-                sessionItems += [FamilyMenuItem(title: String(localized: "Close Current Terminal"), destructive: true,
+                let closeTitle = tab.hasTerminal ? String(localized: "Close Current Terminal") : String(localized: "Close Current Preview")
+                sessionItems += [FamilyMenuItem(title: closeTitle, destructive: true,
                     key: chord.key, modifiers: chord.menuModifierMask, action: {
                     guard model.tabs.contains(where: { $0.id == tab.id }) else { return }
                     model.closeTab(tab.id)
                 })]
-                items.append(FamilyMenuItem(title: String(format: String(localized: "Current Terminal: %@"),
+                let title = tab.hasTerminal ? String(localized: "Current Terminal: %@") : String(localized: "Current Preview: %@")
+                items.append(FamilyMenuItem(title: String(format: title,
                     TerminalPaneActions.title(of: tab)), children: sessionItems))
             } else {
                 items += sessionItems
@@ -48,10 +52,12 @@ enum SidebarActions {
         items += membershipItems(ids, model: model, window: window)
         let closeTitle: String
         if multiple {
-            closeTitle = String(format: String(localized: "Close %lld Selected Terminals…"), ids.count)
+            let title = hasPreview ? String(localized: "Close %lld Selected Panes…") : String(localized: "Close %lld Selected Terminals…")
+            closeTitle = String(format: title, ids.count)
         } else if row.isSplit {
-            closeTitle = String(format: String(localized: "Close %lld Terminals in This Panel…"), ids.count)
-        } else { closeTitle = String(localized: "Close Terminal") }
+            let title = hasPreview ? String(localized: "Close %lld Panes in This Panel…") : String(localized: "Close %lld Terminals in This Panel…")
+            closeTitle = String(format: title, ids.count)
+        } else { closeTitle = hasPreview ? String(localized: "Close Preview") : String(localized: "Close Terminal") }
         items.append(.separator)
         let chord = !multiple && !row.isSplit ? AppShortcuts.chord(for: .closeTab) : nil
         items.append(FamilyMenuItem(title: closeTitle, destructive: true, key: chord?.key ?? "",
@@ -145,9 +151,13 @@ enum SidebarActions {
         let existing = ids.filter { id in model.tabs.contains { $0.id == id } }
         guard !existing.isEmpty else { return }
         guard needsConfirmation else { model.closeTabs(existing); return }
-        confirm(title: String(format: String(localized: "Close %lld Terminals?"), existing.count),
-            detail: String(localized: "Running commands in these terminals will be interrupted."),
-            button: String(localized: "Close Terminals"), window: window, destructive: true) {
+        let hasPreview = model.tabs.contains { existing.contains($0.id) && !$0.hasTerminal }
+        let hasTerminal = model.tabs.contains { existing.contains($0.id) && $0.hasTerminal }
+        let title = hasPreview ? String(localized: "Close %lld Panes?") : String(localized: "Close %lld Terminals?")
+        let detail = hasTerminal ? String(localized: "Running commands in these terminals will be interrupted.") : String(localized: "These previews will be closed.")
+        let button = hasPreview ? String(localized: "Close Panes") : String(localized: "Close Terminals")
+        confirm(title: String(format: title, existing.count), detail: detail,
+            button: button, window: window, destructive: true) {
                 model.closeTabs(existing)
             }
     }
