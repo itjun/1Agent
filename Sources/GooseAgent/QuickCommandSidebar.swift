@@ -6,6 +6,7 @@ struct QuickCommandSidebar: View {
     @ObservedObject var window: WindowState
     @ObservedObject private var store = QuickCommandStore.shared
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     @State private var search = ""
     @State private var batchSelecting = false
     @State private var selectedIDs: Set<UUID> = []
@@ -36,7 +37,7 @@ struct QuickCommandSidebar: View {
             Divider()
             commandList
         }
-        .foregroundStyle(chrome.text).background(chrome.background)
+        .foregroundStyle(chrome.text).background(chrome.background.opacity(isShellTransparent ? 0.12 : 1))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("workspace.toolSidebar")
         .onChange(of: commands.map(\.id)) { _, ids in

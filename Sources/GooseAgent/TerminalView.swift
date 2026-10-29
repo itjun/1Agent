@@ -207,13 +207,14 @@ enum GhosttyRuntime {
     }
 
     /// Settings first, then the advanced snippet, so a snippet line wins over the same setting.
-    /// The window is always opaque, so an imported `background-opacity` must not clear the panes.
+    /// 外壳统一管理背景透明度，文字和光标保持不透明。
     private static func terminalConfiguration(
         settings: TerminalSettings,
         snippet: [TerminalConfigEntry]
     ) -> TerminalConfiguration {
         let entries = (settings.configEntries() + snippet).filter { $0.key != "background-opacity" }
         return TerminalConfiguration { builder in
+            builder.withBackgroundOpacity(ShellStyle.isTransparent ? ShellLayout.terminalOpacity : 1)
             for entry in entries {
                 builder.withCustom(entry.key, entry.value)
             }
@@ -1187,7 +1188,9 @@ final class SSHTerminalNSView: AppTerminalView {
     /// and the selection-context-menu path retain the same command model.
     private func makePaneItem(_ command: FamilyMenuItem) -> NSMenuItem {
         if command.isSeparator { return .separator() }
-        let item = makeItem(command.title, #selector(performPaneAction(_:)))
+        let item = command.destructive
+            ? TerminalCloseMenu.item(title: command.title, action: #selector(performPaneAction(_:)), target: self)
+            : makeItem(command.title, #selector(performPaneAction(_:)))
         item.isEnabled = command.enabled
         item.state = command.checked ? .on : .off
         item.keyEquivalent = command.key
@@ -1599,6 +1602,7 @@ struct SSHTerminalView: NSViewRepresentable {
     /// Selection is an ongoing focus intent, including views mounted after the open action.
     var isSelected: Bool = true
     var focusRailColor: NSColor? = nil
+    var contentCornerRadius: CGFloat = 0
     var canFocus: () -> Bool = { true }
     /// Asked once when the process first starts. Its text goes to the pty, where it waits
     /// until the shell reads it, as if typed ahead.
@@ -1648,6 +1652,10 @@ struct SSHTerminalView: NSViewRepresentable {
         let container = TerminalHostView(frame: .zero)
         container.sessionID = sessionID
         container.canFocus = canFocus
+        container.wantsLayer = true
+        container.layer?.cornerRadius = contentCornerRadius
+        container.layer?.cornerCurve = .continuous
+        container.layer?.masksToBounds = contentCornerRadius > 0
         container.setPresented(isPresented)
         container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
@@ -1663,6 +1671,10 @@ struct SSHTerminalView: NSViewRepresentable {
 
     func updateNSView(_ container: TerminalHostView, context: Context) {
         container.canFocus = canFocus
+        container.wantsLayer = true
+        container.layer?.cornerRadius = contentCornerRadius
+        container.layer?.cornerCurve = .continuous
+        container.layer?.masksToBounds = contentCornerRadius > 0
         container.setPresented(isPresented)
         container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {

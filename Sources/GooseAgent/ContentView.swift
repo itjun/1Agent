@@ -9,6 +9,7 @@ struct RootView: View {
     @ObservedObject private var themePreview = ThemePreview.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
+    @AppStorage(ShellStyle.storageKey) private var shellStyleRaw = ShellStyle.automatic.rawValue
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
@@ -61,6 +62,7 @@ struct RootView: View {
                 ) {
                     sidebar
                         .environment(\.windowChrome, sidebarChrome)
+                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
                         .tint(chrome.accent).font(Theme.Font.body)
                         .ignoresSafeArea(edges: .top)
                         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
@@ -68,6 +70,7 @@ struct RootView: View {
                 } detail: {
                     workspaceWithTools
                         .environment(\.windowChrome, chrome)
+                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
                         .tint(chrome.accent).font(Theme.Font.body)
                         .ignoresSafeArea(edges: .top)
                         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
@@ -77,9 +80,15 @@ struct RootView: View {
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
         .frame(minWidth: 880, minHeight: 520)
-        .background(chrome.background)
+        .background {
+            ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, color: NSColor(chrome.background))
+                .overlay(chrome.background.opacity(appearanceDriver.isShellTransparent ? 0.45 : 1).allowsHitTesting(false))
+        }
         .ignoresSafeArea(edges: .top)
         .onChange(of: appearanceRaw) { _, _ in
+            appearanceDriver.reapply()
+        }
+        .onChange(of: shellStyleRaw) { _, _ in
             appearanceDriver.reapply()
         }
         .onChange(of: window.presentation.sidebarCollapsed) { _, collapsed in
@@ -205,7 +214,7 @@ struct RootView: View {
             dropRelay.sidebarAnchor = filesMode ? nil : $0
             pinnedLocationDrag.sidebar = filesMode ? $0 : nil
         })
-        .background(chrome.panelHeader)
+        .background(chrome.panelHeader.opacity(appearanceDriver.isShellTransparent ? 0.12 : 1))
         .onChange(of: filesMode) { _, _ in
             commitPanelRename()
             clearSidebarDrag()
@@ -429,7 +438,7 @@ struct RootView: View {
         } files: {
             FilesDockView(model: model, window: window, relay: dropRelay)
         }
-        .background(chrome.background)
+        .background(appearanceDriver.isShellTransparent ? Color.clear : chrome.background)
     }
 
     private var workspaceWithTools: some View {
@@ -470,7 +479,7 @@ struct RootView: View {
             in: CGRect(x: 0, y: 0, width: detailWidth, height: terminalHeight))
         let topTabs = model.tabs.filter { frames[$0.id].map { $0.minY < 1 } == true }
         return ZStack(alignment: .topLeading) {
-            chrome.panelHeader
+            chrome.panelHeader.opacity(appearanceDriver.isShellTransparent ? 0.12 : 1)
             if filesMode || topTabs.isEmpty {
                 Text(filesMode ? "Files" : "Terminal")
                     .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)

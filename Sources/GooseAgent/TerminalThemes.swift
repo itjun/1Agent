@@ -116,6 +116,7 @@ final class AppearanceDriver: ObservableObject {
 
     @Published private(set) var interfaceIsDark: Bool
     @Published private(set) var terminalIsDark: Bool
+    @Published private(set) var isShellTransparent: Bool
     var isDark: Bool { interfaceIsDark }
     private let themeWatcher = SystemThemeWatcher()
 
@@ -123,6 +124,7 @@ final class AppearanceDriver: ObservableObject {
         let mode = TerminalAppearance.stored()
         interfaceIsDark = mode.resolvesDark()
         terminalIsDark = mode.resolvesDark()
+        isShellTransparent = ShellStyle.isTransparent
         themeWatcher.start()
     }
 
@@ -142,6 +144,11 @@ final class AppearanceDriver: ObservableObject {
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
         GhosttyRuntime.applyColorSchemes(isDark: dark)
+        let isTransparent = ShellStyle.isTransparent
+        if isShellTransparent != isTransparent {
+            isShellTransparent = isTransparent
+            GhosttyRuntime.applyTerminalSettings()
+        }
     }
 }
 
@@ -154,6 +161,12 @@ private final class SystemThemeWatcher: NSObject {
             name: Notification.Name("AppleInterfaceThemeChangedNotification"),
             object: nil,
             suspensionBehavior: .deliverImmediately
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemThemeChanged(_:)),
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil
         )
         NotificationCenter.default.addObserver(
             self,

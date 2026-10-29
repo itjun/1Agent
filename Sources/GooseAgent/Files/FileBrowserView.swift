@@ -18,6 +18,7 @@ struct FileColumnHeader<Endpoint: View>: View {
     var onFilterFocusChange: (Bool) -> Void = { _ in }
     @ViewBuilder var endpoint: () -> Endpoint
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     @State private var showingFilter = false
     @FocusState private var filterFocused: Bool
 
@@ -96,7 +97,7 @@ struct FileColumnHeader<Endpoint: View>: View {
         }
         .padding(.horizontal, Theme.Space.m)
         .frame(height: FileBrowserLayout.tabStripHeight)
-        .background(chrome.background)
+        .background(isShellTransparent ? Color.clear : chrome.background)
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {

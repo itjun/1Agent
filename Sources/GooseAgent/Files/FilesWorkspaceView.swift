@@ -17,6 +17,7 @@ struct FilesDockView: View {
     @ObservedObject var workspace: FileWorkspace
     var relay: CanvasDropRelay
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(model: AppModel, window: WindowState, relay: CanvasDropRelay) {
@@ -29,7 +30,7 @@ struct FilesDockView: View {
     var body: some View {
         FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
             .padding(Theme.Space.s)
-            .background(chrome.background)
+            .background(isShellTransparent ? Color.clear : chrome.background)
             .allowsHitTesting(workspace.selectedPreviewColumn == nil)
             .accessibilityHidden(workspace.selectedPreviewColumn != nil)
             .overlay(alignment: .bottom) { TransferStatusBar(window: window).allowsHitTesting(false) }
@@ -160,6 +161,7 @@ private struct FileEndpointPanel: View {
     @ObservedObject var tabDrag: FileTabDragTracker
     var width: CGFloat
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     @State private var filterFocused = false
 
     private var column: FileColumn? { workspace.groups[groupID]?.active }
@@ -180,7 +182,8 @@ private struct FileEndpointPanel: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background)
+        .background(chrome.background.opacity(isShellTransparent ? ShellLayout.fileOpacity : 1))
+        .modifier(FloatingContentSurface())
         .background(BoundsAnchor {
             relay.filesSideAnchors[.group(groupID)] = AnchorBox($0)
             tabDrag.panes[groupID] = AnchorBox($0)

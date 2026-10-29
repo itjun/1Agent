@@ -4,6 +4,7 @@ import SwiftUI
 
 struct TerminalCanvas: View {
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
@@ -43,9 +44,9 @@ struct TerminalCanvas: View {
             let liveIDs = Set(ownTabs.map(\.id))
             let _ = dropRelay.sync(frames: frames, model: model, window: window)
             ZStack(alignment: .topLeading) {
-                chrome.background
+                (isShellTransparent ? Color.clear : chrome.background)
                 ForEach(ownTabs) { tab in
-                    let content = frames[tab.id].map { Self.contentFrame($0, headerHeight: Self.headerHeight(for: $0) + findBarInset(tab)) }
+                    let content = frames[tab.id].map { ShellLayout.contentFrame(Self.contentFrame($0, headerHeight: Self.headerHeight(for: $0) + findBarInset(tab)), isFloating: isShellTransparent) }
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
                     SSHTerminalView(
@@ -62,6 +63,7 @@ struct TerminalCanvas: View {
                         focusRailColor: isSplit && visible && window.selectedTabID == tab.id
                             && window.section == .terminals && !window.presentation.fullFilesWorkspace
                             ? NSColor(focusMarkerColor(tab)) : nil,
+                        contentCornerRadius: isShellTransparent ? ShellLayout.contentRadius : 0,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
                                 !window.presentation.fullFilesWorkspace
@@ -86,6 +88,7 @@ struct TerminalCanvas: View {
                         width: max(drawn.width, 1),
                         height: max(drawn.height, 1)
                     )
+                    .modifier(FloatingContentSurface())
                     .position(
                         x: drawn.midX,
                         y: drawn.midY
@@ -106,9 +109,10 @@ struct TerminalCanvas: View {
                 }
                 ForEach(model.tabs.filter { !$0.content.isTerminal && frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
-                        let content = Self.contentFrame(frame, headerHeight: Self.headerHeight(for: frame))
+                        let content = ShellLayout.contentFrame(Self.contentFrame(frame, headerHeight: Self.headerHeight(for: frame)), isFloating: isShellTransparent)
                         PaneContentView(model: model, window: window, tab: tab)
                             .frame(width: content.width, height: content.height)
+                            .modifier(FloatingContentSurface())
                             .position(x: content.midX, y: content.midY)
                             .zIndex(1)
                     }
@@ -170,7 +174,7 @@ struct TerminalCanvas: View {
             .frame(width: divider.frame.width, height: divider.frame.height)
             .overlay {
                 Rectangle()
-                    .fill(active ? chrome.accent : chrome.hairline)
+                    .fill(active ? chrome.accent : (isShellTransparent ? Color.clear : chrome.hairline))
                     .frame(
                         width: vertical ? lineWidth : divider.frame.width,
                         height: vertical ? divider.frame.height : lineWidth
@@ -245,7 +249,7 @@ struct TerminalCanvas: View {
         let chrome = tab.hasTerminal ? terminalChrome(tab) : self.chrome
         if isSplit && headerHeight > 0 {
             ZStack {
-                chrome.panelHeader
+                chrome.panelHeader.opacity(isShellTransparent ? 0 : 1)
                     .allowsHitTesting(false)
                 WindowDragArea(onClick: { model.selectOnly(tab.id, in: window) })
                 VStack(spacing: 0) {
@@ -299,7 +303,7 @@ struct TerminalCanvas: View {
             // A lone pane has no title bar: a strip in the terminal's own color, where the
             // system title bar would be, shows the title centered and moves the window.
             ZStack(alignment: .trailing) {
-                chrome.panelHeader
+                chrome.panelHeader.opacity(isShellTransparent ? 0 : 1)
                     .allowsHitTesting(false)
                 WindowDragArea()
                 VStack(spacing: 0) {

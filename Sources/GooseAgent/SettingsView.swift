@@ -109,6 +109,7 @@ struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
     @State private var selectedPage: SettingsPage = .appearance
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
+    @AppStorage(ShellStyle.storageKey) private var shellStyleRaw = ShellStyle.automatic.rawValue
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
     @AppStorage(TerminalSettings.fontThickenKey) private var fontThicken = TerminalSettings.defaults.fontThicken
@@ -294,6 +295,14 @@ struct SettingsView: View {
                 appearanceModeControl
             }
 
+            SettingsCard("Window Shell") {
+                VStack(alignment: .leading, spacing: Theme.Space.m) {
+                    shellStyleControl
+                    Text("Automatic follows the system transparency preference. Classic uses solid backgrounds. Transparent adds layered, floating content panels.")
+                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                }
+            }
+
             SettingsCard("Terminal Colors") {
                 themePicker
             } accessory: {
@@ -333,6 +342,7 @@ struct SettingsView: View {
     /// card's own restore button, and saved from the action bar.
     private func restoreAppearancePageDefaults() {
         appearanceRaw = TerminalAppearance.system.rawValue
+        shellStyleRaw = ShellStyle.automatic.rawValue
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast
         GhosttyRuntime.applyTerminalSettings()
@@ -516,6 +526,34 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                 .stroke(chrome.hairline, lineWidth: 1)
         )
+    }
+
+    private var shellStyleControl: some View {
+        HStack(spacing: 2) {
+            ForEach(ShellStyle.allCases) { style in
+                let isSelected = (ShellStyle(rawValue: shellStyleRaw) ?? .automatic) == style
+                Button {
+                    shellStyleRaw = style.rawValue
+                    AppearanceDriver.shared.reapply()
+                } label: {
+                    Text(style.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isSelected ? chrome.accent : chrome.text)
+                        .padding(.horizontal, Theme.Space.l)
+                        .frame(height: SettingsLayout.segmentHeight)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.row)
+                            .fill(isSelected ? chrome.accentFill : Color.clear))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(FamilyButtonStyle())
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+                .accessibilityIdentifier("settings.shellStyle." + style.rawValue)
+            }
+        }
+        .padding(3)
+        .fixedSize(horizontal: true, vertical: false)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.background))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline, lineWidth: 1))
     }
 
     /// Follow System / Light / Dark as one segmented control. Picking a segment applies at once, as before.

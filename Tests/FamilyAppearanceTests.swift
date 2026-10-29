@@ -144,6 +144,37 @@ enum FamilyAppearanceTests {
         expect(localConfiguration == GhosttyRuntime.controller(for: .remote).terminalConfiguration, "font and terminal settings apply to both runtimes")
         expect(localConfiguration.rendered.contains("font-size = 17"), "shared font change reaches the engine")
         check(true, true, "shared settings preserve themes and buffers for both connection types")
+        // 外壳切换只更新渲染背景，已经打开的本机、远程终端保持同一视图和输出。
+        expect(ShellStyle.stored(defaults: defaults) == .automatic, "missing shell preference defaults to automatic")
+        for style in ShellStyle.allCases {
+            expect(!style.usesTransparency(isTransparencyReduced: true), "all shell styles respect Reduce Transparency")
+            expect(style.usesTransparency(isTransparencyReduced: false) == (style != .classic), "classic alone stays solid without accessibility reduction")
+        }
+        for style in [ShellStyle.classic, .transparent, .automatic, .classic] {
+            defaults.set(style.rawValue, forKey: ShellStyle.storageKey)
+            driver.reapply()
+            let isTransparent = style.usesTransparency(isTransparencyReduced: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
+            expect(driver.isShellTransparent == isTransparent, "shell selection reaches the live appearance driver")
+            for target in TerminalThemeTarget.allCases {
+                let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
+                expect(rendered.contains(isTransparent ? "background-opacity = 0.82" : "background-opacity = 1"), "shell opacity reaches both terminal engines")
+            }
+            check(true, true, "shell switching preserves both live sessions")
+        }
+        let backdrop = ShellBackdropView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
+        let shellWindow = NSWindow(contentRect: backdrop.bounds, styleMask: [], backing: .buffered, defer: false)
+        shellWindow.contentView = backdrop
+        for isTransparent in [true, false, true] {
+            backdrop.isTransparent = isTransparent
+            backdrop.applyStyle()
+            expect(shellWindow.isOpaque == !isTransparent, "shell switch updates native window compositing")
+            expect(shellWindow.backgroundColor.alphaComponent == (isTransparent ? 0 : 1), "native window backing does not block transparency")
+        }
+        let content = CGRect(x: 80, y: 40, width: 400, height: 300)
+        expect(ShellLayout.contentFrame(content, isFloating: false) == content, "classic retains existing terminal geometry")
+        let floating = ShellLayout.contentFrame(content, isFloating: true)
+        expect(content.contains(floating) && floating.width < content.width && floating.midX == content.midX, "floating content is inset inside its own pane")
+        expect(ShellLayout.contentFrame(CGRect(x: 0, y: 0, width: 1, height: 1), isFloating: true).width == 1, "collapsed geometry never produces a negative terminal size")
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         defaults.set("Dark", forKey: "AppleInterfaceStyle")
         // Override only this isolated UserDefaults object's global-domain read for system-mode cases.

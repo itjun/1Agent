@@ -51,6 +51,7 @@
 		53BB79DFD89397C0F9A670CA /* NativeTextPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */; };
 		54A69B737E8AA19ABE80CA7C /* TerminalLight.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = 15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */; };
 		556106C260924FD51CB34EB9 /* TerminalRestoration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6430239EACF7C834A7F4F250 /* TerminalRestoration.swift */; };
+		56A50FA95B07FF6B85A4C3D9 /* ShellStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4766D4FB85A03ACB975776 /* ShellStyle.swift */; };
 		5777841046D0FEE1F1ECDB15 /* FilesWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76AB46074F2E387D4CB2E709 /* FilesWorkspaceView.swift */; };
 		5C1EAA30E3A62A9AF2C99EAB /* ExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5093EE3F486041297EE0F59E /* ExternalOpen.swift */; };
 		5C951E0FE24055E131A2123A /* CommandFinishedPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49B5B6C3942BB433C4B85A1A /* CommandFinishedPolicy.swift */; };
@@ -182,6 +183,7 @@
 		384566BABBE38F655397C1D0 /* QuickCommandLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandLibraryView.swift; sourceTree = "<group>"; };
 		388A1951E4AD6C678189139A /* FileRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRules.swift; sourceTree = "<group>"; };
 		3A04B67162E2B0A44E4CF076 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
+		3A4766D4FB85A03ACB975776 /* ShellStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellStyle.swift; sourceTree = "<group>"; };
 		3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalEvents.swift; sourceTree = "<group>"; };
 		3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewDrawer.swift; sourceTree = "<group>"; };
 		4085933113D9936B6D98C8FC /* RemoteShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShell.swift; sourceTree = "<group>"; };
@@ -467,6 +469,7 @@
 				BF91141EEC0B753F9445733B /* SheetLayout.swift */,
 				82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */,
 				651A72E339CED37F30858736 /* ShellIntegration.swift */,
+				3A4766D4FB85A03ACB975776 /* ShellStyle.swift */,
 				0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */,
 				423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */,
 				A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */,
@@ -683,6 +686,7 @@
 				D77456A7DBB9E12229EADFD3 /* SheetLayout.swift in Sources */,
 				BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */,
 				176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */,
+				56A50FA95B07FF6B85A4C3D9 /* ShellStyle.swift in Sources */,
 				68550A509D3C43DB75677D1A /* ShortcutsSettingsPage.swift in Sources */,
 				FF4027301CF818E6FC6374CD /* SidebarActions.swift in Sources */,
 				814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */,
