@@ -252,14 +252,27 @@ import SwiftUI
         try check(named("New Terminal Here", in: localItems) != nil, "Local row opens another terminal at cwd")
         try check(named("Reconnect", in: localItems) == nil, "Local row cannot use SSH reconnect")
         try check(named("Move out of Workspace", in: localItems) == nil, "Loose panel does not offer removal")
-        let selectedItems = items(focused!)
-        try check(named("Open Files", in: selectedItems) == nil && named("New Split", in: selectedItems) == nil,
-                  "The selected terminal keeps file and split actions in its terminal menu only")
+        window.selectedTabID = local
+        let selectedItems = items(local)
+        try check(named("Open Files", in: selectedItems) != nil && named("Split View", in: selectedItems) != nil &&
+                  named("Close Terminal", in: selectedItems) != nil,
+                  "Selected and unselected terminals retain their file, split and close actions")
+        let closeChord = KeyChord(key: "w", modifiers: [.command, .control])
+        AppShortcuts.setChords([.closeTab: closeChord], store: .standard)
+        let closeItem = named("Close Terminal", in: items(local))!
+        try check(closeItem.key == closeChord.key && closeItem.modifiers == closeChord.menuModifierMask,
+                  "Sidebar close uses the current configured shortcut")
         let remoteItems = items(remote)
         try check(named("New Connection", in: remoteItems) != nil, "Remote connection action exists")
         try check(named("Reveal in Finder", in: remoteItems) == nil, "Remote row cannot reveal a local path")
-        let copy = named("Copy Info", in: remoteItems)!
-        try check(named("Copy Path", in: copy.children)?.enabled == false, "Unknown remote cwd is disabled")
+        try check(named("Copy Info", in: remoteItems) != nil, "Remote connection information is available")
+        try check(named("Copy Path", in: remoteItems)?.enabled == false, "Unknown remote cwd is disabled")
+        let pageItems = TerminalPaneActions.items(tab: model.tabs.first { $0.id == remote }!, model: model, window: window)
+        let sharedKeys: [String.LocalizationValue] = ["New Connection", "Reconnect", "Open Files", "Copy Path", "Copy Info", "Split View"]
+        for key in sharedKeys {
+            try check(named(key, in: remoteItems) != nil && named(key, in: pageItems) != nil,
+                      "Sidebar and terminal page share the same terminal actions")
+        }
         let split = items(splitLeaf)
         try check(named("Arrange Panel", in: split) != nil && named("Detach Panels", in: split)?.enabled == true,
                   "Split row operates on all its panes")

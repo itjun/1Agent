@@ -326,6 +326,14 @@ enum TerminalPaneActionsTests {
         window.presentation.sidebarCollapsed = false
         let original = window.presentation
 
+        let preview = model.tabs.first { $0.id == first }!
+        expect(SidebarActions.terminalItems(preview, model: model, window: window).isEmpty,
+               "preview panels do not offer terminal-only actions")
+        let previewRow = model.panelRow(for: first, in: window)!
+        let previewMenu = SidebarActions.panelItems(previewRow, model: model, window: window, onRename: {})
+        expect(previewMenu.first?.isSeparator == false && previewMenu.first?.children.first?.isSeparator == false,
+               "preview panel menus do not start with a separator")
+
         expect(model.sidebarIsCollapsed(in: window, totalWidth: 880), "a narrow files workspace may temporarily hide the sidebar")
         for expectedCollapsed in [true, false, true] {
             model.toggleSidebar(in: window)

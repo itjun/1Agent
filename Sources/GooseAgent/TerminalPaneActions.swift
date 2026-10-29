@@ -58,11 +58,13 @@ enum TerminalPaneActions {
     }
 
     static func items(tab: TerminalTab, model: AppModel, window: WindowState,
-                      includingFind: Bool = true) -> [FamilyMenuItem] {
+                      includingFind: Bool = true, includingClose: Bool = true) -> [FamilyMenuItem] {
         let directory = workingDirectory(of: tab)
         let split = model.panelRow(for: tab.id, in: window)?.isSplit == true
         let zoomed = model.zoomedPane(in: window) == tab.id
-        var items: [FamilyMenuItem] = [
+        var items = connectionItems(tab, model: model, window: window)
+        if !items.isEmpty { items.append(.separator) }
+        items += [
             FamilyMenuItem(title: String(localized: "Host Information"), action: {
                 guard currentTab(tab.id, model: model) != nil else { return }
                 window.hostInformationTabID = tab.id
@@ -93,7 +95,7 @@ enum TerminalPaneActions {
                 model.showFiles(for: tab.id, in: window)
             }),
             .separator,
-            FamilyMenuItem(title: String(localized: "Split View"), children: [
+            FamilyMenuItem(title: String(localized: "Split View"), enabled: !tab.isLocal || directory != nil, children: [
                 splitItem(String(localized: "Split Left"), edge: .left, tabID: tab.id, model: model),
                 splitItem(AppShortcutID.duplicateRight.title, edge: .right, shortcut: .duplicateRight, tabID: tab.id, model: model),
                 splitItem(String(localized: "Split Up"), edge: .top, tabID: tab.id, model: model),
@@ -114,13 +116,59 @@ enum TerminalPaneActions {
                 command(.find) { find(tabID: tab.id, model: model, window: window) },
             ]
         }
-        items += [
+        if includingClose { items += [
             command(.closeTab) {
                 guard model.sidebarOrder(in: window).contains(tab.id) else { return }
                 model.closeTab(tab.id)
             },
-        ]
+        ] }
         return items
+    }
+
+    private static func connectionItems(_ tab: TerminalTab, model: AppModel, window: WindowState) -> [FamilyMenuItem] {
+        guard tab.hasTerminal else { return [] }
+        let directory = TerminalPaneActions.workingDirectory(of: tab)
+        var items = [FamilyMenuItem(title: tab.isLocal ? String(localized: "New Terminal Here") : String(localized: "New Connection"),
+            enabled: !tab.isLocal || directory != nil, action: {
+                guard currentTab(tab.id, model: model) != nil else { return }
+                model.duplicateAsTab(tab.id, in: window)
+            })]
+        if tab.isLocal {
+            if tab.exited {
+                items.append(FamilyMenuItem(title: String(localized: "Reopen Terminal"), action: {
+                    model.reopenLocalTerminal(tab.id)
+                }))
+            }
+        } else {
+            items.append(FamilyMenuItem(title: tab.reconnecting ? String(localized: "Reconnecting…") : String(localized: "Reconnect"),
+                enabled: tab.exited && !tab.reconnecting, action: {
+                    guard let current = currentTab(tab.id, model: model), current.exited, !current.reconnecting else { return }
+                    model.reconnect(tab.id)
+                }))
+        }
+        if !tab.isLocal {
+            items.append(FamilyMenuItem(title: String(localized: "Copy Info"), children: [
+                FamilyMenuItem(title: String(localized: "Host Address"), action: {
+                    guard let current = currentTab(tab.id, model: model), let alias = current.alias else { return }
+                    copy(model.host(alias)?.hostName ?? alias)
+                }),
+                FamilyMenuItem(title: String(localized: "SSH Command"), action: {
+                    guard let alias = currentTab(tab.id, model: model)?.alias else { return }
+                    // A quoted alias preserves the user's SSH config, including ProxyJump and port.
+                    copy("ssh -- '" + alias.replacingOccurrences(of: "'", with: "'\\''") + "'")
+                }),
+                FamilyMenuItem(title: String(localized: "Connection Info"), action: {
+                    guard let current = currentTab(tab.id, model: model) else { return }
+                    copySessionInfo(current, model: model)
+                }),
+            ]))
+        }
+        return items
+    }
+
+    private static func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     static func showContext(tab: TerminalTab, model: AppModel, window: WindowState) {
