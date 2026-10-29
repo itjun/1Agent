@@ -41,6 +41,9 @@ enum RemoteShellIntegration {
         umask 077
         if ! mkdir "$d"; then exec \(start); fi
         trap 'rm -rf -- "$d"' EXIT
+        # SSH 断开时会收到 SIGHUP；部分 /bin/sh 不会为未处理的信号执行 EXIT 陷阱。
+        trap 'exit 129' HUP
+        trap 'exit 143' TERM
         mkdir -p "$d/shell-integration/zsh" || exit 1
         \(writes.joined(separator: "\n"))
         if [ "${ZDOTDIR+x}" = x ]; then export GHOSTTY_ZSH_ZDOTDIR="$ZDOTDIR"; else unset GHOSTTY_ZSH_ZDOTDIR; fi

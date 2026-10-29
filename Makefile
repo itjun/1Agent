@@ -82,6 +82,7 @@ test: test-command-transparency test-system-integration test-scripting-replies
 	/tmp/oneagent-remote-bridge-tests
 	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
 	/tmp/oneagent-remote-shell-tests
+	python3 scripts/test-remote-shell-cleanup.py
 	swiftc -parse-as-library -o /tmp/oneagent-remote-palette-tests Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/Theme.swift Tests/RemotePaletteTests.swift
 	/tmp/oneagent-remote-palette-tests
 	swiftc -parse-as-library -o /tmp/oneagent-app-update-tests Sources/GooseAgent/AppUpdate.swift Tests/AppUpdateTests.swift
