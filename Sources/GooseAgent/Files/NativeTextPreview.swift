@@ -89,8 +89,8 @@ final class PreviewCodeContainer: NSView {
         clipsToBounds = true
         scroll.automaticallyAdjustsContentInsets = false
         scroll.contentInsets = NSEdgeInsetsZero
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = true
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         scroll.findBarPosition = .aboveContent
         scroll.drawsBackground = true

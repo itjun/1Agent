@@ -157,6 +157,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ShortcutRecorder.isRecording {
             return event
         }
+        if model.showingSettings, NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+            guard let chord = KeyChord.from(event: event) else { return event }
+            if chord == AppShortcuts.chord(for: .closeTab) || chord == AppShortcuts.chord(for: .settings) {
+                model.dismissSettings()
+                return nil
+            }
+            if togglesFullScreen(chord) { return nil }
+            // 编辑快捷键交给设置控件，工作区快捷键不能操作隐藏的终端。
+            let isWorkspaceShortcut = AppShortcutID.allCases.contains {
+                $0.group != .terminal && $0 != .toggleFullScreen && $0 != .closeWindow && AppShortcuts.chord(for: $0) == chord
+            }
+            return isWorkspaceShortcut ? nil : event
+        }
         if TerminalSwitcher.shared.handlesEvents(in: event.window) {
             return TerminalSwitcher.shared.handle(event) ? nil : event
         }
@@ -246,12 +259,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let duplicatesDown = chord == AppShortcuts.chord(for: .duplicateDown)
         let closesTerminal = chord == AppShortcuts.chord(for: .closeTab)
         guard duplicatesRight || duplicatesDown || closesTerminal else { return event }
-        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID {
-            if closesTerminal {
-                NSApp.keyWindow?.close()
-            }
-            return nil
-        }
         guard let window else { return event }
         if window.hostPickerPresented {
             if closesTerminal {
@@ -310,7 +317,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ?? (chord == reverseSwitcherChord ? .terminalSwitcher : nil)
         guard let id = matched else { return nil }
         guard let window else { return false }
-        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || window.hostPickerPresented {
+        if model.showingSettings || window.hostPickerPresented {
             return false
         }
         if id == .terminalSwitcher {
@@ -342,11 +349,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return AppDelegate.toggleFullScreenOfKeyWindow()
     }
 
-    /// View → Toggle Full Screen and its shortcut. Settings and sheets stay as they are.
+    /// View → Toggle Full Screen and its shortcut. Sheets stay as they are.
     @discardableResult
     static func toggleFullScreenOfKeyWindow() -> Bool {
         guard let window = NSApp.keyWindow,
-              window.identifier != SettingsWindowController.windowID,
               window.sheetParent == nil else { return false }
         window.toggleFullScreen(nil)
         return true
@@ -360,7 +366,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         guard paneShortcuts.contains(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
         guard let window else { return false }
-        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID || window.hostPickerPresented {
+        if model.showingSettings || window.hostPickerPresented {
             return false
         }
         // Moving comes first: it shares the arrow keys with focusing and adds Shift.
@@ -394,7 +400,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return model.focusPane(toward: .down, in: window)
     }
 
-    /// The main window is hidden, not closed, so closing Settings last must not quit the terminals.
+    /// 隐藏主窗口后，终端继续运行。
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
@@ -620,12 +626,12 @@ struct GooseAgentApp: App {
                     MainWindowManager.shared.close(state)
                 }
                     .keyboardShortcut(AppShortcuts.chord(for: .closeWindow).keyboardShortcut)
-                Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.newTab() } }
+                Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow), !appDelegate.model.showingSettings { appDelegate.model.newTab() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
                 Button("Open Items Overview") {
-                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    guard !(NSApp.keyWindow is FamilyModalWindow), !appDelegate.model.showingSettings else { return }
                     guard let window = appDelegate.model.keyWindow else { return }
                     DispatchQueue.main.async {
                         TerminalSwitcher.shared.open(model: appDelegate.model, window: window,

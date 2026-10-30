@@ -1,10 +1,19 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Window Shell" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Window Shell"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "窗口外壳"}}}},
-    "Classic" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Classic"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "经典"}}}},
-    "Transparent" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Transparent"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "透明"}}}},
-    "Automatic follows the system transparency preference. Classic uses solid backgrounds. Transparent adds layered, floating content panels." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Automatic follows the system transparency preference. Classic uses solid backgrounds. Transparent adds layered, floating content panels."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "自动跟随系统透明度偏好；经典使用实色背景；透明让内容区以悬浮圆角呈现。"}}}},
+    "Go Back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Go Back" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "返回" } }
+      }
+    },
+    "Back to Workspace" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Back to Workspace" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "返回工作区" } }
+      }
+    },
     "↑↓ Select" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "↑↓ Select"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "↑↓ 选择"}}}},
     "↵ Switch" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "↵ Switch"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "↵ 切换"}}}},
     "Esc Go Back" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Esc Go Back"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "Esc 返回"}}}},

@@ -220,9 +220,68 @@ struct NativeSidebarSplitTests {
         precondition(controller.splitViewItems[0].minimumThickness == controller.splitViewItems[0].maximumThickness)
         print("ok: native sidebar behaviors, stable hosts/detail item/input view/focus, width restoration and drag reporting")
         window.close()
+        verifyHiddenDivider()
         verifyEmbeddedCanvasGeometry()
         verifySettingsTitlebarGeometry()
         verifyDockGeometry()
+    }
+
+    @MainActor private static func verifyHiddenDivider() {
+        let probe = Probe()
+        let controller = NativeSidebarSplitController(sidebar: Color.clear,
+            detail: InputProbe(probe: probe, output: "live terminal"))
+        let window = NSWindow(contentViewController: controller)
+        window.setContentSize(NSSize(width: 1100, height: 720))
+        var reportedWidth: CGFloat = 0
+        func configure(isHidden: Bool, isCollapsed: Bool = false) {
+            controller.configure(width: 260, minimum: 200, maximum: 420, defaultWidth: 260,
+                                 collapsed: isCollapsed, isDividerHidden: isHidden,
+                                 onWidthChange: { reportedWidth = $0 })
+            window.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.03))
+        }
+        func hasVisibleDividerPixels() -> Bool {
+            let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 16, pixelsHigh: 32,
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+            bitmap.bitmapData!.initialize(repeating: 0, count: bitmap.bytesPerRow * bitmap.pixelsHigh)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+            controller.splitView.effectiveAppearance.performAsCurrentDrawingAppearance {
+                controller.splitView.drawDivider(in: NSRect(x: 8, y: 0,
+                    width: controller.splitView.dividerThickness, height: 32))
+            }
+            NSGraphicsContext.restoreGraphicsState()
+            return (0..<32).contains { y in
+                (0..<16).contains { x in (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0 }
+            }
+        }
+        configure(isHidden: false)
+        precondition(window.makeFirstResponder(probe.field!))
+        let responder = window.firstResponder
+        let thickness = controller.splitView.dividerThickness
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            window.appearance = NSAppearance(named: appearance)
+            for isHidden in [true, false, true] {
+                configure(isHidden: isHidden)
+                precondition(hasVisibleDividerPixels() == !isHidden,
+                             "transparent divider draws no pixels; classic drawing is restored")
+                precondition(controller.splitView.dividerThickness == thickness && thickness > 0,
+                             "hiding the line preserves native resizing geometry")
+                precondition(probe.created == 1 && window.firstResponder === responder,
+                             "shell switching preserves the terminal and its input focus")
+                controller.splitView.setPosition(320, ofDividerAt: 0)
+                window.contentView?.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.03))
+                precondition(abs(reportedWidth - 320) < 1, "invisible divider still publishes resized width")
+                precondition(hasVisibleDividerPixels() == !isHidden, "resizing never restores a hidden line")
+                configure(isHidden: isHidden, isCollapsed: true)
+                configure(isHidden: isHidden)
+                precondition(hasVisibleDividerPixels() == !isHidden, "reopening sidebar retains divider style")
+            }
+        }
+        window.close()
+        print("ok: hidden divider draws no pixels in light/dark, resizes, collapses, restores classic and preserves terminal focus")
     }
 
     @MainActor private static func verifyDockGeometry() {

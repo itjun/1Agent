@@ -11,7 +11,6 @@ enum FamilyAppearanceTests {
     @MainActor static func main() {
         checkIndependentTerminalThemes()
         checkLocalPaletteMigration()
-        checkFocusBorderContrast()
         let suite = "oneagent.family.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
@@ -109,7 +108,31 @@ enum FamilyAppearanceTests {
         driver.reapply()
         preview.show(lightTheme)
         check(true, false, "shared light preview in dark UI")
-        SettingsWindowController.shared.windowWillClose(Notification(name: NSWindow.willCloseNotification, object: windows[0]))
+        let settingsModel = AppModel()
+        let state = settingsModel.mainWindow
+        state.section = .files
+        state.presentation.filesVisible = true
+        let savedPresentation = state.presentation
+        MainWindowManager.shared.show(state, model: settingsModel)
+        let settingsOwner = MainWindowManager.shared.window(for: state)!
+        settingsOwner.setContentSize(MainWindowFrame.minimumSize)
+        let savedFrame = settingsOwner.frame
+        let windowCount = NSApp.windows.count
+        settingsModel.showSettings()
+        expect(settingsModel.showingSettings && settingsOwner.identifier == MainWindowManager.windowID,
+               "settings opens inside the main window")
+        settingsModel.showSettings()
+        expect(NSApp.windows.count == windowCount && MainWindowManager.shared.window(for: state) === settingsOwner,
+               "opening settings again creates no window")
+        settingsModel.dismissSettings()
+        expect(!settingsModel.showingSettings && state.section == .files && state.presentation == savedPresentation,
+               "returning from settings preserves the files workspace")
+        expect(settingsOwner.frame == savedFrame, "settings does not resize the main window")
+        settingsModel.toggleSettings()
+        expect(settingsModel.showingSettings, "settings shortcut reopens the embedded page")
+        settingsModel.toggleSettings()
+        expect(!settingsModel.showingSettings && NSApp.windows.count == windowCount,
+               "settings shortcut returns without creating a window")
         check(true, true, "closing settings cancels preview")
         expect(TerminalThemeChoice.storedLight() == .slotDefault(dark: false), "closing settings does not save")
         preview.showDefaults()
@@ -144,22 +167,17 @@ enum FamilyAppearanceTests {
         expect(localConfiguration == GhosttyRuntime.controller(for: .remote).terminalConfiguration, "font and terminal settings apply to both runtimes")
         expect(localConfiguration.rendered.contains("font-size = 17"), "shared font change reaches the engine")
         check(true, true, "shared settings preserve themes and buffers for both connection types")
-        // 外壳切换只更新渲染背景，已经打开的本机、远程终端保持同一视图和输出。
-        expect(ShellStyle.stored(defaults: defaults) == .automatic, "missing shell preference defaults to automatic")
-        for style in ShellStyle.allCases {
-            expect(!style.usesTransparency(isTransparencyReduced: true), "all shell styles respect Reduce Transparency")
-            expect(style.usesTransparency(isTransparencyReduced: false) == (style != .classic), "classic alone stays solid without accessibility reduction")
-        }
-        for style in [ShellStyle.classic, .transparent, .automatic, .classic] {
-            defaults.set(style.rawValue, forKey: ShellStyle.storageKey)
+        // 旧版任意外壳选择都归到同一种材质；终端主题、缓冲区保持原样。
+        for legacyStyle in ["classic", "transparent", "automatic", "unknown"] {
+            defaults.set(legacyStyle, forKey: "appearance.shellStyle")
             driver.reapply()
-            let isTransparent = style.usesTransparency(isTransparencyReduced: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
-            expect(driver.isShellTransparent == isTransparent, "shell selection reaches the live appearance driver")
+            let isTransparent = !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+            expect(driver.isShellTransparent == isTransparent, "legacy shell choice cannot disable the unified material")
             for target in TerminalThemeTarget.allCases {
                 let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
-                expect(rendered.contains(isTransparent ? "background-opacity = 0.82" : "background-opacity = 1"), "shell opacity reaches both terminal engines")
+                expect(rendered.contains(isTransparent ? "background-opacity = 0.96" : "background-opacity = 1"), "unified shell opacity reaches both terminal engines")
             }
-            check(true, true, "shell switching preserves both live sessions")
+            check(true, true, "legacy shell choices preserve both live sessions")
         }
         let backdrop = ShellBackdropView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
         let shellWindow = NSWindow(contentRect: backdrop.bounds, styleMask: [], backing: .buffered, defer: false)
@@ -171,9 +189,9 @@ enum FamilyAppearanceTests {
             expect(shellWindow.backgroundColor.alphaComponent == (isTransparent ? 0 : 1), "native window backing does not block transparency")
         }
         let content = CGRect(x: 80, y: 40, width: 400, height: 300)
-        expect(ShellLayout.contentFrame(content, isFloating: false) == content, "classic retains existing terminal geometry")
+        expect(ShellLayout.contentFrame(content, isFloating: false) == content, "accessibility fallback retains existing terminal geometry")
         let floating = ShellLayout.contentFrame(content, isFloating: true)
-        expect(content.contains(floating) && floating.width < content.width && floating.midX == content.midX, "floating content is inset inside its own pane")
+        expect(floating == content, "floating content fills its pane without extra outer spacing")
         expect(ShellLayout.contentFrame(CGRect(x: 0, y: 0, width: 1, height: 1), isFloating: true).width == 1, "collapsed geometry never produces a negative terminal size")
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         defaults.set("Dark", forKey: "AppleInterfaceStyle")
@@ -231,7 +249,7 @@ enum FamilyAppearanceTests {
                "undoing an older import merges its restored local choices into the shared slots")
         check(true, true, "legacy import undo updates both runtimes and preserves buffers")
         expect(defaults.string(forKey: "sidebar.material") == "liquidGlass", "obsolete preference is ignored, not erased")
-        print("FamilyAppearanceTests passed: shared terminal themes independent of appearance colors, legacy theme recovery, ten-palette focus contrast, icon-to-local migration, preview/save/cancel/close/defaults/system, shared settings, two process-free native surfaces and buffer preservation")
+        print("FamilyAppearanceTests passed: shared terminal themes independent of appearance colors, legacy theme recovery, icon-to-local migration, preview/save/cancel/close/defaults/system, shared settings, two process-free native surfaces and buffer preservation")
     }
 
     static func checkIndependentTerminalThemes() {
@@ -339,31 +357,6 @@ enum FamilyAppearanceTests {
             let snapshot = defaults.persistentDomain(forName: suite)!
             TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
             expect(NSDictionary(dictionary: defaults.persistentDomain(forName: suite)!).isEqual(to: snapshot), "repeated migration does not change persisted preferences")
-        }
-    }
-
-    static func checkFocusBorderContrast() {
-        let suite = "oneagent.family.border.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let catalogNames = ["GitHub Light Default", "GitHub Dark Default", "Gruvbox Light", "Hot Dog Stand"]
-        let catalogChoices = catalogNames.map { name -> TerminalThemeChoice in
-            guard let choice = TerminalThemeChoice(raw: name) else {
-                preconditionFailure("Missing bundled theme fixture: \(name)")
-            }
-            return choice
-        }
-        for target in TerminalThemeTarget.allCases {
-            let key = target == .local ? LocalPalette.storageKey : RemotePalette.storageKey
-            for icon in ApplicationIcon.macaronIcons {
-                defaults.set(icon.rawValue, forKey: key)
-                for choice in catalogChoices {
-                    let background = RGBColor(ghosttyHex: choice.definition.background)!
-                    let border = choice.focusBorderColor(for: target, defaults: defaults)
-                    expect(border.contrastRatio(with: background) >= 3,
-                           "Focus border must contrast with the actual background: \(target.rawValue), \(icon.rawValue), \(choice.name)")
-                }
-            }
         }
     }
 

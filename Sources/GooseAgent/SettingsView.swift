@@ -5,7 +5,15 @@ import SwiftUI
 enum SettingsLayout {
     static let appIconColumns = 5
     static let appIconPreviewSize: CGFloat = 88
-    static let sidebarWidth: CGFloat = 180
+    static let sidebarWidth: CGFloat = 204
+    static let pageHeaderHeight: CGFloat = 76
+    static let pageTitleSize: CGFloat = 28
+    static let contentMaxWidth: CGFloat = 1040
+    static let sectionSpacing: CGFloat = Theme.Space.xl * 2
+    static let contentInset: CGFloat = ShellLayout.workspaceInset
+    static let cardRadius: CGFloat = 20
+    static let lightCardOpacity: Double = 0.9
+    static let darkCardOpacity: Double = 0.72
     /// One page row in the left navigation.
     static let navRowHeight: CGFloat = 40
     /// One segment of the appearance-mode control.
@@ -62,10 +70,18 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     }
 }
 
-/// One settings group, like System Settings: a headline (plus an optional trailing control)
-/// above a bordered card that holds the content.
+private struct SettingsSectionFramesKey: PreferenceKey {
+    static let defaultValue: [SettingsPage: CGRect] = [:]
+
+    static func reduce(value: inout [SettingsPage: CGRect], nextValue: () -> [SettingsPage: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+/// 每组设置的标题、操作和内容放在同一张圆角卡片内。
 struct SettingsCard<Content: View, Accessory: View>: View {
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     let title: LocalizedStringKey
     @ViewBuilder let content: () -> Content
     @ViewBuilder let accessory: () -> Accessory
@@ -81,7 +97,7 @@ struct SettingsCard<Content: View, Accessory: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.s) {
+        VStack(alignment: .leading, spacing: Theme.Space.m) {
             HStack(spacing: Theme.Space.s) {
                 Text(title)
                     .font(Theme.Font.sectionTitle)
@@ -90,12 +106,21 @@ struct SettingsCard<Content: View, Accessory: View>: View {
                 accessory()
             }
             content()
-                .padding(.vertical, Theme.Space.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(chrome.hairline).frame(height: 1)
-                }
         }
+        .padding(Theme.Space.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
+                .fill(chrome.background.opacity(isShellTransparent
+                    ? (chrome.isDark ? SettingsLayout.darkCardOpacity : SettingsLayout.lightCardOpacity) : 1))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
+                .strokeBorder(chrome.isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.025), lineWidth: 0.5)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: .black.opacity(chrome.isDark ? 0.12 : 0.04), radius: Theme.Space.s, y: 3)
     }
 }
 
@@ -107,9 +132,11 @@ extension SettingsCard where Accessory == EmptyView {
 
 struct SettingsView: View {
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPage: SettingsPage = .appearance
+    @State private var requestedPage: SettingsPage?
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(ShellStyle.storageKey) private var shellStyleRaw = ShellStyle.automatic.rawValue
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
     @AppStorage(TerminalSettings.fontThickenKey) private var fontThicken = TerminalSettings.defaults.fontThicken
@@ -128,9 +155,12 @@ struct SettingsView: View {
 
     private var sidebarChrome: WindowChrome { chrome }
     private let onRestart: () -> Void
+    private let onBack: () -> Void
 
-    init(onRestart: @escaping () -> Void) {
+    init(onRestart: @escaping () -> Void, onBack: @escaping () -> Void) {
         self.onRestart = onRestart
+        self.onBack = onBack
+        _requestedPage = State(initialValue: GhosttyImportRequests.shared.previewPending ? .advanced : nil)
     }
 
     private var appearance: TerminalAppearance {
@@ -166,34 +196,61 @@ struct SettingsView: View {
 
     var body: some View {
         NativeSidebarSplit(
+            isDividerHidden: isShellTransparent,
             width: SettingsLayout.sidebarWidth,
             minimumWidth: SettingsLayout.sidebarWidth, maximumWidth: SettingsLayout.sidebarWidth,
             defaultWidth: SettingsLayout.sidebarWidth
         ) {
-            settingsNavigation
+            VStack(spacing: 0) {
+                WindowDragArea()
+                    .frame(height: isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight)
+                settingsNavigation
+            }
+                .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
+                .environment(\.isShellTransparent, isShellTransparent)
+                .preferredColorScheme(colorScheme)
                     .tint(chrome.accent).font(Theme.Font.body)
         } detail: {
             VStack(spacing: 0) {
-                ScrollView {
-                    settingsContent
+                ScrollViewReader { proxy in
+                    GeometryReader { geometry in
+                        ScrollView {
+                            settingsContent(viewportHeight: geometry.size.height)
+                        }
+                        .coordinateSpace(name: "settingsScroll")
+                        .accessibilityIdentifier("settings.content")
+                        .onPreferenceChange(SettingsSectionFramesKey.self) { frames in
+                            // 以顶部正在阅读的分区为准，跨过标题时同步侧栏。
+                            if let page = SettingsPage.allCases.last(where: {
+                                (frames[$0]?.minY ?? .infinity) <= Theme.Space.xl
+                            }), selectedPage != page {
+                                selectedPage = page
+                            }
+                        }
+                    }
+                    .onChange(of: requestedPage, initial: true) { _, page in
+                        guard let page else { return }
+                        proxy.scrollTo(page, anchor: .top)
+                        requestedPage = nil
+                    }
                 }
-                // 按页区分身份：换页时滚动位置回到顶部，而不是沿用上一页的偏移。
-                .id(selectedPage)
                 if preview.isActive {
                     previewActionBar
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(isShellTransparent ? Color.clear : chrome.elevated)
+            .padding(isShellTransparent ? SettingsLayout.contentInset : 0)
+            .ignoresSafeArea(edges: .top)
+            // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
             .environment(\.windowChrome, chrome)
+            .environment(\.isShellTransparent, isShellTransparent)
+            .preferredColorScheme(colorScheme)
                     .tint(chrome.accent).font(Theme.Font.body)
-            .background(chrome.background.ignoresSafeArea())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background.ignoresSafeArea())
-        // Extend the native columns themselves into the titlebar. Each hosting root still
-        // respects its safe area, keeping navigation and settings below the traffic lights.
-        .ignoresSafeArea(edges: .top)
+        .background((isShellTransparent ? Color.clear : chrome.background).ignoresSafeArea())
 
         .onAppear {
             TerminalThemeChoice.migrateIfNeeded()
@@ -201,19 +258,33 @@ struct SettingsView: View {
                 fontFamily = TerminalDefaults.defaultFontFamily
             }
             GhosttyRuntime.applyTerminalSettings()
-            if importRequests.previewPending {
-                selectedPage = .advanced
-            }
         }
         .onChange(of: importRequests.previewPending) { _, pending in
             if pending {
-                selectedPage = .advanced
+                requestedPage = .advanced
+            }
+        }
+        .onChange(of: selectedPage) { old, new in
+            if old == .shortcuts && new != .shortcuts {
+                ShortcutRecorder.shared.stop()
             }
         }
     }
 
     private var settingsNavigation: some View {
         VStack(alignment: .leading, spacing: 2) {
+            Button(action: onBack) {
+                Text("Go Back")
+                    .font(Theme.Font.row)
+                    .foregroundStyle(sidebarChrome.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: SettingsLayout.navRowHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FamilyButtonStyle())
+            .padding(.horizontal, Theme.Space.l)
+            .accessibilityIdentifier("settings.back")
+
             Text("Settings")
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(sidebarChrome.text)
@@ -221,52 +292,74 @@ struct SettingsView: View {
                 .padding(.top, Theme.Space.xs)
                 .padding(.bottom, Theme.Space.l)
 
-            ForEach(SettingsPage.allCases) { page in
-                let selected = selectedPage == page
-                Button {
-                    selectedPage = page
-                } label: {
-                    Text(page.title)
-                        .font(Theme.Font.row.weight(selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
-                        .lineLimit(1)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(SettingsPage.allCases) { page in
+                        let selected = selectedPage == page
+                        Button {
+                            requestedPage = page
+                        } label: {
+                            Text(page.title)
+                                .font(Theme.Font.row.weight(selected ? .semibold : .regular))
+                                .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
+                                .lineLimit(1)
+                                .padding(.horizontal, Theme.Space.m)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(height: SettingsLayout.navRowHeight)
+                                .background(
+                                    RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                                        .fill(selected ? sidebarChrome.accentFill : Color.clear)
+                                )
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(FamilyButtonStyle())
+                        .accessibilityLabel(Text(page.title))
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                        .accessibilityIdentifier("settings.navigation.\(page.rawValue)")
                         .padding(.horizontal, Theme.Space.s)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(height: SettingsLayout.navRowHeight)
-                        .background(
-                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                .fill(selected ? sidebarChrome.accentFill : Color.clear)
-                        )
-                        .contentShape(Rectangle())
+                    }
                 }
-                .buttonStyle(FamilyButtonStyle())
-                .accessibilityIdentifier("settings.navigation.\(page.rawValue)")
-                .padding(.horizontal, Theme.Space.s)
             }
-            Spacer(minLength: 0)
-            Button(action: onRestart) {
-                Label("Restart 1Agent", systemImage: "arrow.clockwise")
-                    .font(Theme.Font.row)
-                    .foregroundStyle(sidebarChrome.secondary)
-                    .padding(.horizontal, Theme.Space.s)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: SettingsLayout.navRowHeight)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(FamilyButtonStyle())
-            .help(String(localized: "Terminal sessions are saved and restored after the restart. Running commands will be interrupted."))
-            .accessibilityIdentifier("settings.restart")
-            .padding(.horizontal, Theme.Space.s)
-            .padding(.bottom, Theme.Space.m)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(chrome.sidebarBackground.ignoresSafeArea())
+        .background((isShellTransparent ? Color.clear : chrome.sidebarBackground).ignoresSafeArea())
     }
 
-    private var settingsContent: some View {
+    private func settingsContent(viewportHeight: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            ForEach(SettingsPage.allCases) { page in
+                VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                    Text(page.title)
+                        .font(.system(size: SettingsLayout.pageTitleSize, weight: .semibold))
+                        .foregroundStyle(chrome.text)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: SettingsLayout.pageHeaderHeight)
+                        .background(WindowDragArea())
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("settings.section.\(page.rawValue)")
+                    settingsPage(page)
+                }
+                // 留足末尾空间，让最后一个分区也能定位到顶部。
+                .frame(minHeight: page == .about ? max(0, viewportHeight - Theme.Space.xl) : 0, alignment: .top)
+                .id(page)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: SettingsSectionFramesKey.self,
+                            value: [page: geometry.frame(in: .named("settingsScroll"))])
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: SettingsLayout.contentMaxWidth)
+        .padding(.horizontal, Theme.Space.xl)
+        .padding(.bottom, Theme.Space.xl)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func settingsPage(_ page: SettingsPage) -> some View {
         Group {
-            switch selectedPage {
+            switch page {
             case .appearance:
                 appearancePage
             case .appIcon:
@@ -280,12 +373,11 @@ struct SettingsView: View {
             case .systemIntegration:
                 SystemIntegrationSettingsPage()
             case .about:
-                AppUpdateSettingsPage()
+                AppUpdateSettingsPage(onRestart: onRestart)
             case .advanced:
                 AdvancedSettingsPage()
             }
         }
-        .padding(Theme.Space.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -293,14 +385,6 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
             SettingsCard("Appearance Mode") {
                 appearanceModeControl
-            }
-
-            SettingsCard("Window Shell") {
-                VStack(alignment: .leading, spacing: Theme.Space.m) {
-                    shellStyleControl
-                    Text("Automatic follows the system transparency preference. Classic uses solid backgrounds. Transparent adds layered, floating content panels.")
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                }
             }
 
             SettingsCard("Terminal Colors") {
@@ -342,7 +426,6 @@ struct SettingsView: View {
     /// card's own restore button, and saved from the action bar.
     private func restoreAppearancePageDefaults() {
         appearanceRaw = TerminalAppearance.system.rawValue
-        shellStyleRaw = ShellStyle.automatic.rawValue
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast
         GhosttyRuntime.applyTerminalSettings()
@@ -526,34 +609,6 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                 .stroke(chrome.hairline, lineWidth: 1)
         )
-    }
-
-    private var shellStyleControl: some View {
-        HStack(spacing: 2) {
-            ForEach(ShellStyle.allCases) { style in
-                let isSelected = (ShellStyle(rawValue: shellStyleRaw) ?? .automatic) == style
-                Button {
-                    shellStyleRaw = style.rawValue
-                    AppearanceDriver.shared.reapply()
-                } label: {
-                    Text(style.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(isSelected ? chrome.accent : chrome.text)
-                        .padding(.horizontal, Theme.Space.l)
-                        .frame(height: SettingsLayout.segmentHeight)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.row)
-                            .fill(isSelected ? chrome.accentFill : Color.clear))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityIdentifier("settings.shellStyle." + style.rawValue)
-            }
-        }
-        .padding(3)
-        .fixedSize(horizontal: true, vertical: false)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.background))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline, lineWidth: 1))
     }
 
     /// Follow System / Light / Dark as one segmented control. Picking a segment applies at once, as before.
@@ -809,119 +864,5 @@ private enum ThemeFilter: String, CaseIterable, Identifiable {
         case .light: return definition.isLightBackground
         case .dark: return !definition.isLightBackground
         }
-    }
-}
-
-/// Settings is its own window, with the standard traffic lights, like WeChat.
-struct SettingsWindowRoot: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject private var appearanceDriver = AppearanceDriver.shared
-    @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
-    @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
-    @ObservedObject private var preview = ThemePreview.shared
-    @ObservedObject private var applicationIcons = ApplicationIconManager.shared
-
-    private var chrome: WindowChrome {
-        let _ = lightThemeRaw
-        let _ = darkThemeRaw
-        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: applicationIcons.selected)
-    }
-
-    var body: some View {
-        SettingsView(onRestart: { model.requestRestart() })
-            .environment(\.windowChrome, chrome)
-                    .tint(chrome.accent).font(Theme.Font.body)
-            .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-
-            .frame(minWidth: SheetLayout.settings, minHeight: SheetLayout.settingsBodyHeight)
-            .onAppear { appearanceDriver.reapply() }
-            .onChange(of: appearanceRaw) { _, _ in
-                appearanceDriver.reapply()
-            }
-    }
-}
-
-@MainActor
-final class SettingsWindowController: NSObject, NSWindowDelegate {
-    static let shared = SettingsWindowController()
-    static let windowID = NSUserInterfaceItemIdentifier("settings")
-
-    private(set) var window: NSWindow?
-    private var model: AppModel?
-
-    func toggle(model: AppModel) {
-        self.model = model
-        if let window, window.isVisible {
-            window.close()
-            return
-        }
-        show(model: model)
-    }
-
-    /// Opens Settings, or brings it to the front when it is already open.
-    func show(model: AppModel) {
-        self.model = model
-        if let window, window.isVisible {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate()
-            return
-        }
-        model.keyWindow?.hostPickerPresented = false
-        let source = sourceWindow()
-        let window = self.window ?? makeWindow(model: model)
-        self.window = window
-        placeWindow(window, over: source)
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
-        model.showingSettings = true
-    }
-
-    private func makeWindow(model: AppModel) -> NSWindow {
-        let controller = NSHostingController(rootView: SettingsWindowRoot(model: model))
-        // 只让 SwiftUI 约束最小尺寸，否则它会按内容理想尺寸改写我们设定的 50% 窗口大小。
-        controller.sizingOptions = [.minSize]
-        let window = NSWindow(contentViewController: controller)
-        window.identifier = Self.windowID
-        window.title = String(localized: "Settings")
-        window.styleMask = [.titled, .closable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.titlebarSeparatorStyle = .none
-        window.isRestorable = false
-        window.isReleasedWhenClosed = false
-        window.delegate = self
-        window.appearance = TerminalAppearance.appKitAppearance(isDark: TerminalAppearance.stored().resolvesDark())
-        let size = NSSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
-        window.setContentSize(size)
-        window.minSize = size
-        return window
-    }
-
-    /// The main window Settings was opened from: the key/main window, never Settings itself.
-    private func sourceWindow() -> NSWindow? {
-        for candidate in [NSApp.keyWindow, NSApp.mainWindow] {
-            if let candidate, candidate.isVisible, candidate.identifier != Self.windowID {
-                return candidate
-            }
-        }
-        return nil
-    }
-
-    /// Re-applied on every open so the window never keeps an older size.
-    private func placeWindow(_ window: NSWindow, over source: NSWindow?) {
-        guard let screen = source?.screen ?? NSScreen.main else { return }
-        let visible = screen.visibleFrame
-        let frame = SettingsWindowFrame.frame(
-            anchor: source?.frame ?? visible,
-            visible: visible,
-            minSize: window.minSize
-        )
-        window.setFrame(frame, display: false)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        ThemePreview.shared.cancel()
-        model?.showingSettings = false
     }
 }

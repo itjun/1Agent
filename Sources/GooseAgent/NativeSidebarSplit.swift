@@ -79,6 +79,7 @@ private final class WorkspaceDockDividerView: NSView {
 /// attached across appearance and layout updates. Pass environments to these independent roots.
 struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresentable {
     var collapsed: Bool = false
+    var isDividerHidden: Bool = false
     var width: CGFloat
     var minimumWidth: CGFloat
     var maximumWidth: CGFloat
@@ -102,6 +103,7 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     private func configure(_ controller: NativeSidebarSplitController<Sidebar, Detail>) {
         controller.configure(width: width, minimum: minimumWidth,
                              maximum: maximumWidth, defaultWidth: defaultWidth, collapsed: collapsed,
+                             isDividerHidden: isDividerHidden,
                              onWidthChange: onWidthChange)
     }
 }
@@ -157,9 +159,11 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
     }
 
     func configure(width: CGFloat, minimum: CGFloat, maximum: CGFloat,
-                   defaultWidth: CGFloat, collapsed: Bool = false, onWidthChange: @escaping (CGFloat) -> Void) {
+                   defaultWidth: CGFloat, collapsed: Bool = false, isDividerHidden: Bool = false,
+                   onWidthChange: @escaping (CGFloat) -> Void) {
         applying = true
         defer { applying = false }
+        (splitView as? SidebarSplitView)?.isDividerHidden = isDividerHidden
         widthChanged = onWidthChange
         self.defaultWidth = defaultWidth
         let desired = min(max(width, minimum), maximum)
@@ -230,6 +234,19 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
 
 private final class SidebarSplitView: NSSplitView {
     var onResetWidth: () -> Void = {}
+    var isDividerHidden = false {
+        didSet {
+            if isDividerHidden != oldValue { needsDisplay = true }
+        }
+    }
+
+    override var dividerColor: NSColor { isDividerHidden ? .clear : super.dividerColor }
+
+    override func drawDivider(in rect: NSRect) {
+        // 透明外壳始终不画边界，保留原生拖动、光标及双击调宽的命中区域。
+        guard !isDividerHidden else { return }
+        super.drawDivider(in: rect)
+    }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)

@@ -19,6 +19,73 @@ import SwiftUI
         guard condition() else { throw Failure(message: message) }
     }
 
+    @MainActor static func checkTitlebarHover(native: NSWindow,
+                                             window: WindowState, terminal: SSHTerminalNSView) async throws {
+        guard AppearanceDriver.shared.isShellTransparent else {
+            throw Failure(message: "Hover fixture requires the transparent shell")
+        }
+        func movePointer(to point: NSPoint) async throws {
+            let event = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: native.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
+            NSApp.postEvent(event, atStart: false)
+            try await Task.sleep(for: .milliseconds(80))
+            native.contentView?.layoutSubtreeIfNeeded()
+        }
+        func trackers(_ view: NSView) -> [SidebarHoverTrackingView] {
+            (view as? SidebarHoverTrackingView).map { [$0] } ?? view.subviews.flatMap(trackers)
+        }
+        // 覆盖双侧栏、单侧栏及全屏内容，悬停不能调整终端尺寸或重建输入视图。
+        for (collapsed, toolsOpen) in [(false, false), (false, true), (true, true), (true, false)] {
+            window.presentation.sidebarCollapsed = collapsed
+            window.presentation.toolSidebarOpen = toolsOpen
+            try await Task.sleep(for: .milliseconds(150))
+            native.contentView?.layoutSubtreeIfNeeded()
+            let root = native.contentView!
+            let bounds = root.convert(root.bounds, to: nil)
+            try await movePointer(to: NSPoint(x: bounds.midX, y: bounds.midY))
+            let titleTrackers = trackers(root).filter { $0.bounds.height == 32 }
+            try check(titleTrackers.count == 2, "The titlebar has separate left and right hover regions")
+            try check(titleTrackers.allSatisfy { !$0.isHovered },
+                      "Both titlebar action groups are hidden while the pointer is in terminal content")
+            let before = terminal.convert(terminal.bounds, to: nil)
+            try check(terminal.window === native && before.width > 0, "The active terminal remains mounted")
+            let inset = ShellLayout.workspaceInset
+            try check(abs(bounds.maxY - before.maxY - 32 - inset) < 1,
+                      "The terminal keeps its own title inside the floating workspace edge")
+            try check(abs(before.minY - bounds.minY - inset) < 1,
+                      "Top and bottom floating edges have equal width")
+            if collapsed {
+                try check(abs(before.minX - bounds.minX - inset) < 1,
+                          "Collapsing the sidebar restores an equal left floating edge")
+            } else if let sidebar = window.relay?.sidebarAnchor {
+                let sidebarFrame = sidebar.convert(sidebar.bounds, to: nil)
+                try check(abs(before.minX - sidebarFrame.maxX - 1) < 1,
+                          "An expanded sidebar meets the floating content without an extra gutter")
+            }
+            if !toolsOpen {
+                try check(abs(bounds.maxX - before.maxX - inset) < 1,
+                          "The right floating edge equals the top and bottom edges")
+            }
+            let points = [NSPoint(x: collapsed ? 120 : 210, y: bounds.maxY - 16),
+                          NSPoint(x: bounds.maxX - 20, y: bounds.maxY - 16),
+                          NSPoint(x: bounds.midX, y: bounds.midY)]
+            for (index, point) in points.enumerated() {
+                try await movePointer(to: point)
+                let hovered = titleTrackers.filter(\.isHovered)
+                try check(hovered.count == (index == 2 ? 0 : 1) &&
+                          hovered.allSatisfy { $0.convert($0.bounds, to: nil).contains(point) },
+                          "Each top corner reveals only its own actions and leaving it hides them")
+                try check(terminal.window === native && terminal.convert(terminal.bounds, to: nil) == before,
+                          "Showing and hiding either titlebar control must preserve terminal geometry and identity")
+            }
+        }
+        window.presentation.sidebarCollapsed = false
+        window.presentation.toolSidebarOpen = false
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
+    }
+
     @MainActor static func run() async throws {
         let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
         precondition(home.hasPrefix("/private/tmp/oneagent-sidebar-panel-drop."))
@@ -116,6 +183,8 @@ import SwiftUI
         try await Task.sleep(for: .milliseconds(350))
         native.contentView?.layoutSubtreeIfNeeded()
         let productionRelay = window.relay!
+        let activeTerminal = terminalViews[model.tabs.firstIndex { $0.id == outsider }!]
+        try await checkTitlebarHover(native: native, window: window, terminal: activeTerminal)
         try check(productionRelay.paneRowAnchors[first]?.view?.window === native &&
                   productionRelay.paneRowAnchors[second]?.view?.window === native,
                   "Production sidebar registers both member rows as drop targets")

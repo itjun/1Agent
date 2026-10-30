@@ -32,6 +32,7 @@ enum Theme {
         static let rowMeta = SwiftUI.Font.system(size: 12)
         /// Pane title bar above each terminal; monospaced so paths align with the terminal.
         static let paneTitle = SwiftUI.Font.system(size: 12, weight: .medium, design: .monospaced)
+        static let floatingPaneTitle = SwiftUI.Font.system(size: 12)
         /// Section headline inside settings and sheets.
         static let sectionTitle = SwiftUI.Font.system(size: 14, weight: .semibold)
         /// Default body text.
@@ -54,9 +55,9 @@ enum Theme {
     /// Corner radii, from a selected row up to a card.
     enum Radius {
         static let tag: CGFloat = 3
-        static let row: CGFloat = 4
-        static let control: CGFloat = 4
-        static let card: CGFloat = 6
+        static let row: CGFloat = 8
+        static let control: CGFloat = 6
+        static let card: CGFloat = 10
     }
 
     /// 工作区动效只改变呈现，不延后选择或键盘焦点。
@@ -90,10 +91,6 @@ enum Theme {
         static let stripTitleInset: CGFloat = 40
         /// Title bar of each pane in a split. Dragging the title text merges panes; the terminal starts right below.
         static let headerHeight: CGFloat = 28
-        static let focusRailWidth: CGFloat = 3
-        static let focusRailHeight: CGFloat = 36
-        static let focusRailInset: CGFloat = 2
-        static let focusRailTopInset: CGFloat = 8
         static let titlebarAccessoryInset: CGFloat = 44
         /// Disconnected / reconnecting banner shown under the title bar.
         static let bannerHeight: CGFloat = 48
@@ -234,10 +231,10 @@ struct WindowChrome: Equatable {
         }
         let white = RGBColor(red: 1, green: 1, blue: 1)
         let black = RGBColor(red: 0, green: 0, blue: 0)
-        let backgroundRGB = rgb("FFFFFF", paletteBackground)
+        let backgroundRGB = rgb("FCFCFD", paletteBackground)
         let sidebarRGB = isDark
             ? backgroundRGB.mixed(with: black, amount: 0.08)
-            : rgb("F2F3F5", "12161F")
+            : rgb("F1F4F8", "12161F")
         background = backgroundRGB.color
         sidebarBackground = sidebarRGB.color
         let elevatedRGB = isDark ? backgroundRGB.mixed(with: white, amount: 0.035) : rgb("F3F4F6", "232A38")
@@ -284,7 +281,7 @@ struct WindowChrome: Equatable {
             selection = ring.mixed(with: backgroundRGB, amount: 0.45).color
         } else {
             selection = fill.mixed(with: ring, amount: 0.3).color
-            sidebarBackground = sidebarRGB.mixed(with: fill, amount: 0.18).color
+            sidebarBackground = sidebarRGB.mixed(with: fill, amount: 0.08).color
             elevated = elevatedRGB.mixed(with: fill, amount: 0.25).color
             hairline = hairlineRGB.mixed(with: fill, amount: 0.4).color
         }

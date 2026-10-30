@@ -445,9 +445,6 @@ final class AppUpdateController: ObservableObject {
     }
 
     private func windowIsVisible() -> Bool {
-        if let settings = SettingsWindowController.shared.window, settings.isVisible, !settings.isMiniaturized {
-            return true
-        }
         for window in NSApp.windows where window.identifier?.rawValue == MainWindowManager.windowID.rawValue {
             if window.isVisible && !window.isMiniaturized { return true }
         }
@@ -455,7 +452,6 @@ final class AppUpdateController: ObservableObject {
     }
 
     private func frontWindow() -> NSWindow? {
-        if let settings = SettingsWindowController.shared.window, settings.isVisible { return settings }
         for window in NSApp.windows where window.identifier?.rawValue == MainWindowManager.windowID.rawValue {
             if window.isVisible { return window }
         }
@@ -567,7 +563,6 @@ enum AppUpdatePresenter {
     }
 
     private static func frontWindow() -> NSWindow? {
-        if let settings = SettingsWindowController.shared.window, settings.isVisible { return settings }
         for window in NSApp.windows where window.identifier?.rawValue == MainWindowManager.windowID.rawValue {
             if window.isVisible { return window }
         }

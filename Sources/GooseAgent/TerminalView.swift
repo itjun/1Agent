@@ -740,7 +740,6 @@ final class SSHTerminalNSView: AppTerminalView {
     private let bellBorder = TerminalOverlayView()
     private let linkBanner = TerminalLinkBanner()
     private let dropHighlight = TerminalOverlayView()
-    private let focusRail = TerminalOverlayView()
     private let dropOverlay = DropZoneOverlay()
     private var quickLookURLs: [URL] = []
     /// The engine asked for a pointing hand over a link. Other shapes keep the arrow this view always had.
@@ -777,34 +776,6 @@ final class SSHTerminalNSView: AppTerminalView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         FocusedTerminal.shared.refreshSoon()
-    }
-
-    /// Draw above the Metal surface without adding a hit target or resizing the PTY.
-    func setFocusRail(color: NSColor?) {
-        if color != nil && focusRail.superview !== self {
-            focusRail.setAccessibilityElement(false)
-            addSubview(focusRail)
-        }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        focusRail.layer?.backgroundColor = color?.cgColor
-        focusRail.layer?.cornerRadius = Theme.PaneStyle.focusRailWidth / 2
-        focusRail.isHidden = color == nil
-        layoutFocusRail()
-        CATransaction.commit()
-    }
-
-    override func layout() {
-        super.layout()
-        layoutFocusRail()
-    }
-
-    private func layoutFocusRail() {
-        guard focusRail.superview === self else { return }
-        let height = min(Theme.PaneStyle.focusRailHeight, max(0, bounds.height - 2 * Theme.PaneStyle.focusRailTopInset))
-        let y = isFlipped ? Theme.PaneStyle.focusRailTopInset : bounds.height - Theme.PaneStyle.focusRailTopInset - height
-        focusRail.frame = NSRect(x: Theme.PaneStyle.focusRailInset, y: y,
-                                 width: Theme.PaneStyle.focusRailWidth, height: height)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -1468,6 +1439,17 @@ final class TerminalHostView: NSView {
     private var focusPending = false
     private var focusScheduled = false
 
+    func setContentCorners(radius: CGFloat, isHeaderIntegrated: Bool) {
+        wantsLayer = true
+        layer?.cornerRadius = radius
+        layer?.cornerCurve = .continuous
+        // 标题已经占据卡片上沿，Metal 内容只裁切底角，避免拼接处出现缺口。
+        layer?.maskedCorners = isHeaderIntegrated
+            ? (isFlipped ? [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] : [.layerMinXMinYCorner, .layerMaxXMinYCorner])
+            : [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        layer?.masksToBounds = radius > 0
+    }
+
     func setFocusTarget(_ selected: Bool) {
         if selected && !isFocusTarget { focusPending = true }
         isFocusTarget = selected
@@ -1601,8 +1583,8 @@ struct SSHTerminalView: NSViewRepresentable {
     var isPresented: Bool = true
     /// Selection is an ongoing focus intent, including views mounted after the open action.
     var isSelected: Bool = true
-    var focusRailColor: NSColor? = nil
     var contentCornerRadius: CGFloat = 0
+    var isHeaderIntegrated: Bool = false
     var canFocus: () -> Bool = { true }
     /// Asked once when the process first starts. Its text goes to the pty, where it waits
     /// until the shell reads it, as if typed ahead.
@@ -1652,10 +1634,7 @@ struct SSHTerminalView: NSViewRepresentable {
         let container = TerminalHostView(frame: .zero)
         container.sessionID = sessionID
         container.canFocus = canFocus
-        container.wantsLayer = true
-        container.layer?.cornerRadius = contentCornerRadius
-        container.layer?.cornerCurve = .continuous
-        container.layer?.masksToBounds = contentCornerRadius > 0
+        container.setContentCorners(radius: contentCornerRadius, isHeaderIntegrated: isHeaderIntegrated)
         container.setPresented(isPresented)
         container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
@@ -1665,16 +1644,12 @@ struct SSHTerminalView: NSViewRepresentable {
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
         applyAppearance(terminal, dark: dark)
-        terminal.setFocusRail(color: focusRailColor)
         return container
     }
 
     func updateNSView(_ container: TerminalHostView, context: Context) {
         container.canFocus = canFocus
-        container.wantsLayer = true
-        container.layer?.cornerRadius = contentCornerRadius
-        container.layer?.cornerCurve = .continuous
-        container.layer?.masksToBounds = contentCornerRadius > 0
+        container.setContentCorners(radius: contentCornerRadius, isHeaderIntegrated: isHeaderIntegrated)
         container.setPresented(isPresented)
         container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
@@ -1689,7 +1664,6 @@ struct SSHTerminalView: NSViewRepresentable {
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
         applyAppearance(terminal, dark: dark)
-        terminal.setFocusRail(color: focusRailColor)
     }
 
     static func dismantleNSView(_ container: TerminalHostView, coordinator: Coordinator) {

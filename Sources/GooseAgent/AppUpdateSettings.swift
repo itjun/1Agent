@@ -3,6 +3,7 @@ import SwiftUI
 struct AppUpdateSettingsPage: View {
     @ObservedObject private var updates = AppUpdateController.shared
     @Environment(\.windowChrome) private var chrome
+    let onRestart: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
@@ -51,7 +52,16 @@ struct AppUpdateSettingsPage: View {
                         }
                     }
                 }
-                .padding(.horizontal, Theme.Space.l)
+            }
+
+            SettingsCard("Restart 1Agent") {
+                SettingsRow("Restart", detail: "Terminal sessions are saved and restored after the restart. Running commands will be interrupted.") {
+                    Button(action: onRestart) {
+                        Label("Restart 1Agent", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                    .accessibilityIdentifier("settings.restart")
+                }
             }
         }
     }

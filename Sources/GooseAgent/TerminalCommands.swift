@@ -178,7 +178,7 @@ struct TerminalWorkspaceMenu: View {
     @ObservedObject var window: WindowState
 
     private var tab: TerminalTab? { model.selectedTab(in: window) }
-    private var available: Bool { !window.presentation.fullFilesWorkspace && tab?.hasTerminal == true }
+    private var available: Bool { !model.showingSettings && !window.presentation.fullFilesWorkspace && tab?.hasTerminal == true }
 
     var body: some View {
         Button("Open Files") {

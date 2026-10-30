@@ -389,6 +389,37 @@ enum TerminalPaneActionsTests {
                "top-row panes use the window title band without a duplicate header")
         expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 305, width: 500, height: 300)) == Theme.PaneStyle.headerHeight,
                "lower split panes retain their own title and drag handle")
+        let panes = (0..<4).map { _ in UUID() }
+        let grid = PaneNode.split(SplitNode(id: UUID(), axis: .horizontal, ratio: 0.5,
+            leading: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
+                                     leading: .leaf(panes[0]), trailing: .leaf(panes[1]))),
+            trailing: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
+                                      leading: .leaf(panes[2]), trailing: .leaf(panes[3])))))
+        let frames = TerminalCanvas.paneFrames(grid, zoomed: nil, in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
+        let cards = frames.mapValues { ShellLayout.contentFrame($0, isFloating: true) }
+        for id in panes {
+            let card = cards[id]!
+            let body = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true)
+            expect(TerminalCanvas.headerHeight(for: frames[id]!, isFloating: true) == 32,
+                   "every floating pane, including the top row, reserves an internal title")
+            expect(body.minX == card.minX && body.maxX == card.maxX && body.maxY == card.maxY,
+                   "title and terminal share one outer card, with no second content inset")
+            expect(body.minY == card.minY + 32, "output starts directly below its own title")
+            let searching = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true,
+                                                                accessoryHeight: Theme.PaneStyle.findBarHeight)
+            expect(searching.minY == body.minY + Theme.PaneStyle.findBarHeight && searching.maxY == card.maxY,
+                   "opening Find reserves room inside the card without covering terminal output")
+        }
+        let horizontalGap = cards[panes[1]]!.minX - cards[panes[0]]!.maxX
+        let verticalGap = cards[panes[2]]!.minY - cards[panes[0]]!.maxY
+        expect(horizontalGap == ShellLayout.workspaceInset && verticalGap == ShellLayout.workspaceInset,
+               "horizontal and vertical pane gaps equal the outer workspace inset")
+        expect(cards[panes[0]]!.minX == 0 && cards[panes[0]]!.minY == 0 &&
+               cards[panes[3]]!.maxX == 1000 && cards[panes[3]]!.maxY == 700,
+               "interior pane gaps do not add a second outer inset")
+        let zoomed = TerminalCanvas.paneFrames(grid, zoomed: panes[0], in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
+        expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!, isFloating: true) == 32,
+               "a single or zoomed terminal retains its internal title")
         let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
                              styleMask: [.titled], backing: .buffered, defer: false)
         let anchor = NSView(frame: NSRect(x: 390, y: 540, width: 120, height: 32))

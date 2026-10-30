@@ -19,13 +19,15 @@ struct FileColumnHeader<Endpoint: View>: View {
     @ViewBuilder var endpoint: () -> Endpoint
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
+    @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
     @State private var showingFilter = false
     @FocusState private var filterFocused: Bool
 
     var body: some View {
+        let availableTitleWidth = width - titlebarLeadingInset
         VStack(spacing: 0) {
-            titleBar(width: width)
-            if width < FileBrowserLayout.compactHeaderThreshold && (showingFilter || !column.filter.isEmpty) {
+            titleBar(width: availableTitleWidth)
+            if availableTitleWidth < FileBrowserLayout.compactHeaderThreshold && (showingFilter || !column.filter.isEmpty) {
                 filterField
                     .padding(.horizontal, Theme.Space.m)
                     .padding(.bottom, Theme.Space.xs)
@@ -96,6 +98,7 @@ struct FileColumnHeader<Endpoint: View>: View {
             .accessibilityIdentifier("files.actions")
         }
         .padding(.horizontal, Theme.Space.m)
+        .padding(.leading, titlebarLeadingInset)
         .frame(height: FileBrowserLayout.tabStripHeight)
         .background(isShellTransparent ? Color.clear : chrome.background)
     }

@@ -410,18 +410,6 @@ enum TerminalFocusTests {
             focus.receivesInput(firstTab, in: state)
         }
 
-        // Styling may not become an input target, move the terminal, or resize its contents.
-        let originalBounds = first.bounds
-        first.setFocusRail(color: .systemBlue)
-        first.layoutSubtreeIfNeeded()
-        let rail = first.subviews.first { $0 is TerminalOverlayView && !$0.isHidden }
-        try require(rail != nil && rail?.hitTest(.zero) == nil,
-                    "The focus rail must pass mouse selection, hover and drag events through")
-        try require(first.bounds == originalBounds && fixture.window.firstResponder === first,
-                    "Focus styling must not change the terminal geometry or first responder")
-        first.setFocusRail(color: nil)
-        try require(rail?.isHidden == true, "Zooming or leaving a split must remove its rail")
-
         firstTab.reconnecting = true
         try require(!focus.receivesInput(firstTab, in: state), "Reconnecting terminals cannot advertise current input")
         firstTab.reconnecting = false
