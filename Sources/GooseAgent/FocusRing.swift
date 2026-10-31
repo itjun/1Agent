@@ -4,6 +4,7 @@ import SwiftUI
 struct FamilyButtonStyle: ButtonStyle {
     enum Kind { case plain, secondary, primary }
     var kind: Kind = .plain
+    var showsFocusRing = true
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isEnabled) private var enabled
     @Environment(\.isFocused) private var focused
@@ -17,8 +18,9 @@ struct FamilyButtonStyle: ButtonStyle {
             .contentShape(Rectangle())
             .overlay {
                 RoundedRectangle(cornerRadius: Theme.Radius.control)
-                    .stroke(focused ? chrome.focus : Color.clear, lineWidth: 2)
-                    .padding(-2).allowsHitTesting(false)
+                    .stroke(showsFocusRing && focused ? chrome.focus : kind == .secondary ? chrome.lineStrong : Color.clear,
+                            lineWidth: showsFocusRing && focused ? 2 : 1)
+                    .padding(showsFocusRing && focused ? -2 : 0).allowsHitTesting(false)
             }
             .opacity(enabled ? 1 : 0.45)
             .onHover { hovered = $0 }
@@ -34,11 +36,11 @@ struct FamilyButtonStyle: ButtonStyle {
 
     private func fill(_ pressed: Bool) -> Color {
         if kind == .primary {
-            return enabled && pressed ? chrome.accentActive : enabled && hovered ? chrome.accentHover : chrome.accent
+            return enabled && (pressed || hovered) ? chrome.secondary : chrome.text
         }
-        if enabled && pressed { return chrome.accentFill }
+        if enabled && pressed { return chrome.hairline }
         if enabled && hovered { return chrome.hairline }
-        return kind == .secondary ? chrome.elevated : .clear
+        return kind == .secondary ? chrome.background : .clear
     }
 }
 

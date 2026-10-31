@@ -152,7 +152,7 @@ struct FileColumnView: View {
     private func content(width: CGFloat) -> some View {
         VStack(spacing: 0) {
             navigationBar(width: width)
-            Rectangle().fill(chrome.hairline).frame(height: 1)
+            Rectangle().fill(chrome.hairline).frame(height: 0.5)
             if let error = column.error {
                 Text(verbatim: error)
                     .font(Theme.Font.rowMeta)
@@ -215,6 +215,7 @@ struct FileColumnView: View {
         }
         .padding(.horizontal, width < 250 ? Theme.Space.xs : Theme.Space.m)
         .frame(height: FileBrowserLayout.navigationHeight)
+        .background(chrome.elevated)
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -375,8 +376,9 @@ struct FileColumnView: View {
         }
         .padding(.horizontal, Theme.Space.m)
         .frame(height: FileBrowserLayout.headerHeight)
+        .background(chrome.elevated)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(chrome.hairline).frame(height: 1)
+            Rectangle().fill(chrome.hairline).frame(height: 0.5)
         }
     }
 
@@ -468,7 +470,7 @@ struct FileColumnView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(verbatim: entry.name)
                         .font(Theme.Font.body.weight(selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? chrome.accent : entry.isHidden ? chrome.secondary : chrome.text)
+                        .foregroundStyle(entry.isHidden ? chrome.secondary : chrome.text)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Text(verbatim: entry.mode)
@@ -494,7 +496,7 @@ struct FileColumnView: View {
             Spacer(minLength: 0)
         }
         .font(Theme.Font.rowMeta)
-        .foregroundStyle(selected ? chrome.accent : chrome.secondary)
+        .foregroundStyle(chrome.secondary)
         .lineLimit(1)
         .padding(.horizontal, Theme.Space.m)
         .frame(height: FileBrowserLayout.rowHeight)
@@ -513,7 +515,7 @@ struct FileColumnView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(chrome.hairline).frame(height: 1)
+            Rectangle().fill(chrome.hairline).frame(height: 0.5)
         }
         .contentShape(Rectangle())
         .onHover { inside in

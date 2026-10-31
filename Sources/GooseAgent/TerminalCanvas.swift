@@ -97,6 +97,7 @@ struct TerminalCanvas: View {
                     }
                     .modifier(FloatingContentSurface(isSelected: window.selectedTabID == tab.id && window.section == .terminals
                         && !window.presentation.fullFilesWorkspace && !model.showingSettings))
+                    .environment(\.windowChrome, terminalChrome(tab))
                     .position(
                         x: drawn.midX,
                         y: drawn.midY - cardHeader / 2
@@ -128,7 +129,10 @@ struct TerminalCanvas: View {
                                         .frame(height: cardHeader).allowsHitTesting(false)
                                 }
                             }
-                            .modifier(FloatingContentSurface())
+                            .modifier(FloatingContentSurface(isSelected: window.selectedTabID == tab.id
+                                && window.section == .terminals))
+                            .environment(\.windowChrome, WindowChrome(isDark: chrome.isDark,
+                                icon: LocalPalette.palette(raw: localPaletteRaw)))
                             .position(x: content.midX, y: content.midY - cardHeader / 2)
                             .zIndex(1)
                     }
@@ -142,16 +146,6 @@ struct TerminalCanvas: View {
                                    headerHeight: Self.headerHeight(for: frame, isFloating: isShellTransparent),
                                    isSplit: isSplit, isZoomed: zoomed == tab.id)
                     }
-                }
-                if isSplit, let selected = window.selectedTabID, let frame = frames[selected],
-                   model.tabs.first(where: { $0.id == selected })?.hasTerminal != true {
-                    Rectangle()
-                        .strokeBorder(chrome.accent.opacity(window.section == .terminals ? 0.75 : 0.3), lineWidth: 1)
-                        .frame(width: frame.width, height: frame.height)
-                        .position(x: frame.midX, y: frame.midY)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                        .zIndex(5)
                 }
             }
             .overlay {

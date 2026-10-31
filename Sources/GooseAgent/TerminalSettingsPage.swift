@@ -1,46 +1,125 @@
 import SwiftUI
 
+private struct SettingsControlTitleKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    var settingsControlTitle: String? {
+        get { self[SettingsControlTitleKey.self] }
+        set { self[SettingsControlTitleKey.self] = newValue }
+    }
+}
+
 /// One setting inside a `SettingsCard`: title, a one-line explanation, the Ghostty key it maps to
 /// (so the official docs can be looked up), and the control on the right.
 struct SettingsRow<Control: View>: View {
     @Environment(\.windowChrome) private var chrome
-    let title: LocalizedStringKey
-    let detail: LocalizedStringKey
+    @State private var showsConfigurationHelp = false
+    let title: String.LocalizationValue
+    let detail: LocalizedStringKey?
     let ghosttyKey: String?
+    /// Separators belong between options, never after the last option in a card.
+    let showsSeparator: Bool
     @ViewBuilder let control: () -> Control
 
     init(
-        _ title: LocalizedStringKey,
-        detail: LocalizedStringKey,
+        _ title: String.LocalizationValue,
+        detail: LocalizedStringKey? = nil,
         ghosttyKey: String? = nil,
+        showsSeparator: Bool = false,
         @ViewBuilder control: @escaping () -> Control
     ) {
         self.title = title
         self.detail = detail
         self.ghosttyKey = ghosttyKey
+        self.showsSeparator = showsSeparator
         self.control = control
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: Theme.Space.l) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(Theme.Font.body)
-                    .foregroundStyle(chrome.text)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: Theme.Space.l) {
+                labels.frame(minWidth: SettingsLayout.stackedRowBreakpoint - SettingsLayout.rowControlWidth - Theme.Space.l,
+                             idealWidth: SettingsLayout.stackedRowBreakpoint - SettingsLayout.rowControlWidth - Theme.Space.l,
+                             maxWidth: .infinity, alignment: .leading)
+                controls.frame(width: SettingsLayout.rowControlWidth, alignment: .trailing)
+            }
+            .frame(minWidth: SettingsLayout.stackedRowBreakpoint)
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
+                labels.frame(maxWidth: .infinity, alignment: .leading)
+                controls.frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(minHeight: SettingsLayout.rowMinimumHeight)
+        .padding(.bottom, showsSeparator ? Theme.Space.s : 0)
+        .overlay(alignment: .bottom) {
+            if showsSeparator { Rectangle().fill(chrome.hairline).frame(height: 0.5) }
+        }
+    }
+
+    private var controls: some View {
+        control()
+            .environment(\.settingsControlTitle, String(localized: title))
+            .help(Text(detail ?? ""))
+    }
+
+    private var labels: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            HStack(spacing: Theme.Space.xs) {
+                Text(String(localized: title))
+                    .font(Theme.Font.body).foregroundStyle(chrome.text)
+                if let ghosttyKey {
+                    Button { showsConfigurationHelp.toggle() } label: {
+                        Image(systemName: "info.circle")
+                            .font(Theme.Font.rowMeta)
+                            .frame(width: Theme.Control.compactHeight, height: Theme.Control.compactHeight)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(FamilyButtonStyle())
+                    .focusable()
+                    .onKeyPress(keys: [.space, .return]) { _ in
+                        showsConfigurationHelp.toggle()
+                        return .handled
+                    }
+                    .foregroundStyle(chrome.secondary)
+                    .accessibilityLabel(Text(String(format: String(localized: "Configuration key for %@"), String(localized: title))))
+                    .accessibilityIdentifier("settings.help.\(ghosttyKey)")
+                    .popover(isPresented: $showsConfigurationHelp) {
+                        VStack(alignment: .leading, spacing: Theme.Space.m) {
+                            Text("Configuration Key").font(Theme.Font.sectionTitle)
+                            Text(verbatim: ghosttyKey).font(Theme.Font.paneTitle).textSelection(.enabled)
+                            if let detail { Text(detail).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
+                            Button("Copy") {
+                                copyConfigurationKey(ghosttyKey)
+                            }
+                            .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                            .focusable()
+                            .onKeyPress(keys: [.space, .return]) { _ in
+                                copyConfigurationKey(ghosttyKey)
+                                return .handled
+                            }
+                            .accessibilityIdentifier("settings.help.copy.\(ghosttyKey)")
+                        }
+                        .padding(Theme.Space.l)
+                        .frame(width: SettingsLayout.configurationHelpWidth, alignment: .leading)
+                        .foregroundStyle(chrome.text)
+                        .background(chrome.background)
+                    }
+                }
+            }
+            if let detail {
                 Text(detail)
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if let ghosttyKey {
-                    Text(verbatim: ghosttyKey)
-                        .font(Theme.Font.rowMeta.monospaced())
-                        .foregroundStyle(chrome.tertiary)
-                        .textSelection(.enabled)
-                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            control()
         }
+    }
+
+    private func copyConfigurationKey(_ key: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(key, forType: .string)
     }
 }
 
@@ -96,11 +175,12 @@ struct SettingsSlider: View {
 /// A switch on the right of a `SettingsRow`.
 struct SettingsSwitch: View {
     @Binding var isOn: Bool
+    @Environment(\.settingsControlTitle) private var title
 
     var body: some View {
-        Toggle("", isOn: $isOn)
+        Toggle(isOn: $isOn) { Text(verbatim: title ?? "") }
             .labelsHidden()
-            .toggleStyle(FamilyToggleStyle())
+            .toggleStyle(FamilyToggleStyle(showsLabel: false))
             .controlSize(.small)
     }
 }
@@ -209,14 +289,14 @@ struct TerminalSettingsPage: View {
     private var cursorCard: some View {
         SettingsCard("Cursor") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                SettingsRow("Style", detail: "Shape of the cursor. Some programs, such as vim, set their own.", ghosttyKey: "cursor-style") {
+                SettingsRow("Style", detail: "Shape of the cursor. Some programs, such as vim, set their own.", ghosttyKey: "cursor-style", showsSeparator: true) {
                     FamilySegments(value: $cursorStyle.applyingTerminalSettings(), options: [
                         (.block, String(localized: "Block")), (.bar, String(localized: "Bar")),
                         (.underline, String(localized: "Underline")), (.blockHollow, String(localized: "Hollow Block"))
                     ])
                     .frame(width: SettingsLayout.rowControlWidth)
                 }
-                SettingsRow("Blink", detail: "Blink the cursor while the terminal has focus.", ghosttyKey: "cursor-style-blink") {
+                SettingsRow("Blink", detail: "Blink the cursor while the terminal has focus.", ghosttyKey: "cursor-style-blink", showsSeparator: true) {
                     SettingsSwitch(isOn: $cursorBlink.applyingTerminalSettings())
                 }
                 SettingsRow("Opacity", detail: "Lower values let the character under the cursor show through.", ghosttyKey: "cursor-opacity") {
@@ -275,15 +355,15 @@ struct TerminalSettingsPage: View {
     private var mouseCard: some View {
         SettingsCard("Mouse and Clipboard") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                SettingsRow("Copy on Select", detail: "Copy text to the clipboard as soon as it is selected.", ghosttyKey: "copy-on-select") {
+                SettingsRow("Copy on Select", detail: "Copy text to the clipboard as soon as it is selected.", ghosttyKey: "copy-on-select", showsSeparator: true) {
                     FamilyPicker(value: $copyOnSelect.applyingTerminalSettings(), options: copyOnSelectChoices.map { ($0, TerminalSettingsPage.copyOnSelectTitle($0)) })
                         .accessibilityLabel(Text("Copy on Select"))
                         .frame(width: SettingsLayout.rowControlWidth, alignment: .trailing)
                 }
-                SettingsRow("Paste Protection", detail: "Ask before pasting text with line breaks or other content that could run commands.", ghosttyKey: "clipboard-paste-protection") {
+                SettingsRow("Paste Protection", detail: "Ask before pasting text with line breaks or other content that could run commands.", ghosttyKey: "clipboard-paste-protection", showsSeparator: true) {
                     SettingsSwitch(isOn: $pasteProtection.applyingTerminalSettings())
                 }
-                SettingsRow("Hide Pointer While Typing", detail: "Hide the mouse pointer while typing; it comes back when the mouse moves.", ghosttyKey: "mouse-hide-while-typing") {
+                SettingsRow("Hide Pointer While Typing", detail: "Hide the mouse pointer while typing; it comes back when the mouse moves.", ghosttyKey: "mouse-hide-while-typing", showsSeparator: true) {
                     SettingsSwitch(isOn: $mouseHideWhileTyping.applyingTerminalSettings())
                 }
                 SettingsRow("Detect Links", detail: "Underline links under the pointer while ⌘ is held; ⌘-click opens them.", ghosttyKey: "link-url") {
@@ -396,7 +476,7 @@ struct TerminalSettingsPage: View {
     private var shellIntegrationCard: some View {
         SettingsCard("Shell Integration") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                SettingsRow("Integration", detail: "Applies to local terminals; SSH sessions are not affected.", ghosttyKey: "shell-integration") {
+                SettingsRow("Integration", detail: "Applies to local terminals; SSH sessions are not affected.", ghosttyKey: "shell-integration", showsSeparator: true) {
                     FamilyPicker(value: $shellIntegration.applyingTerminalSettings(), options: TerminalSettingsPage.shellIntegrationChoices.map { ($0, TerminalSettingsPage.shellIntegrationTitle($0)) })
                         .accessibilityLabel(Text("Integration"))
                         .frame(width: SettingsLayout.rowControlWidth, alignment: .trailing)

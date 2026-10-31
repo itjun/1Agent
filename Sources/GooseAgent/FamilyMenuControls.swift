@@ -43,6 +43,7 @@ struct FamilyPicker<Value: Hashable>: View {
     @Binding var value: Value
     var options: [(Value, String)]
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.settingsControlTitle) private var settingsControlTitle
     @State private var presented = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -63,11 +64,12 @@ struct FamilyPicker<Value: Hashable>: View {
             .foregroundStyle(chrome.text)
             .padding(.horizontal, 8)
             .frame(height: Theme.Control.height)
-            .background(RoundedRectangle(cornerRadius: 4).fill(presented ? chrome.background : chrome.elevated))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(presented ? chrome.accent : .clear, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 4).fill(chrome.background))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(presented ? chrome.focus : chrome.lineStrong, lineWidth: 1))
             .familyFocusRing(presented)
             .animation(reduceMotion ? nil : .timingCurve(0.38, 0, 0.24, 1, duration: 0.2), value: presented)
         }
+        .accessibilityLabel(Text(verbatim: settingsControlTitle ?? options.first { $0.0 == value }?.1 ?? ""))
         .accessibilityValue(Text(verbatim: options.first { $0.0 == value }?.1 ?? ""))
     }
 }

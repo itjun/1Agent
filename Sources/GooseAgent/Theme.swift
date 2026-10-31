@@ -23,7 +23,7 @@ enum Theme {
     /// Type scale shared by the sidebar, pane headers, and sheets.
     enum Font {
         /// 本机、远程等上级分类，字号高于下属终端组和会话。
-        static let sidebarCategory = SwiftUI.Font.system(size: 16, weight: .semibold)
+        static let sidebarCategory = SwiftUI.Font.system(size: 12, weight: .semibold)
         /// Sidebar section and workspace header labels.
         static let sidebarSection = SwiftUI.Font.system(size: 12, weight: .semibold)
         /// One sidebar row (host alias or local path).
@@ -215,23 +215,10 @@ struct WindowChrome: Equatable {
         func color(_ light: String, _ dark: String) -> Color {
             rgb(light, dark).color
         }
-        // 外观深色以各自马卡龙色相配灰，不再借用独立终端主题的背景。
-        let paletteBackground = switch icon {
-        case .original: "20242B"
-        case .strawberryCream: "2B2429"
-        case .apricotCream: "2C2620"
-        case .vanillaCustard: "2B2920"
-        case .pistachioGreen: "262A21"
-        case .mintCandy: "222B26"
-        case .cloudSoda: "202A2D"
-        case .clearSkyBlue: "232830"
-        case .taroMilkshake: "292530"
-        case .coralPeach: "2D2422"
-        case .cocoaMilkTea: "2A2623"
-        }
+        // 色板只决定选中与焦点；底板、文字和普通控件在所有方案中一致。
         let white = RGBColor(red: 1, green: 1, blue: 1)
         let black = RGBColor(red: 0, green: 0, blue: 0)
-        let backgroundRGB = rgb("FCFCFD", paletteBackground)
+        let backgroundRGB = rgb("FCFCFD", "20242B")
         let sidebarRGB = isDark
             ? backgroundRGB.mixed(with: black, amount: 0.08)
             : rgb("F1F4F8", "12161F")
@@ -254,37 +241,25 @@ struct WindowChrome: Equatable {
         accentActive = color("003CAB", "779CD9")
         focus = color("0052D9", "8CB8FF")
         selection = color("C9DAFF", "274A8C")
-        lineStrong = color("9CA3AF", "5A6478")
+        lineStrong = color("7C838D", "717B8C")
 
         guard let palette = icon.palette else { return }
         let fill = RGBColor(ghosttyHex: palette.fill)!
         let ring = RGBColor(ghosttyHex: palette.ring)!
         let ink = RGBColor(ghosttyHex: palette.ink)!
         let selectedRGB = isDark ? backgroundRGB.mixed(with: fill, amount: 0.14) : fill.mixed(with: white, amount: 0.55)
-        let contrastBackground = isDark ? selectedRGB : hairlineRGB.mixed(with: fill, amount: 0.4)
-        // 按最不利的选中／悬停背景校正；浅色保留奶白底，深色保留各自色相。
-        let tone = RGBColor.ensureContrast(
-            isDark ? ring : ink,
-            against: contrastBackground,
-            toward: isDark ? white : black,
-            minimum: 4.5
-        )
+        // 按最不利的选中／悬停背景校正强调色。
+        var tone = isDark ? ring : ink
+        for surface in [backgroundRGB, sidebarRGB, elevatedRGB, hairlineRGB, selectedRGB] {
+            tone = RGBColor.ensureContrast(tone, against: surface,
+                                          toward: isDark ? white : black, minimum: 4.5)
+        }
         accent = tone.color
         accentHover = tone.mixed(with: white, amount: 0.2).color
         accentActive = tone.mixed(with: black, amount: isDark ? 0.15 : 0.2).color
         accentFill = selectedRGB.color
         focus = tone.color
-        secondary = RGBColor.ensureContrast(rgb("636A76", "B0B3BA"), against: contrastBackground,
-                                            toward: isDark ? white : black, minimum: 4.5).color
-        tertiary = secondary
-        if isDark {
-            selection = ring.mixed(with: backgroundRGB, amount: 0.45).color
-        } else {
-            selection = fill.mixed(with: ring, amount: 0.3).color
-            sidebarBackground = sidebarRGB.mixed(with: fill, amount: 0.08).color
-            elevated = elevatedRGB.mixed(with: fill, amount: 0.25).color
-            hairline = hairlineRGB.mixed(with: fill, amount: 0.4).color
-        }
+        selection = selectedRGB.color
         panelHeader = sidebarBackground
     }
 }

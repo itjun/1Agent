@@ -44,16 +44,22 @@ enum RemotePaletteTests {
         for isDark in [false, true] {
             let local = WindowChrome(isDark: isDark, icon: LocalPalette.defaultPalette)
             let remote = WindowChrome(isDark: isDark, icon: RemotePalette.defaultPalette)
-            try check(local.sidebarBackground != remote.sidebarBackground, "Local and remote chrome must differ (dark: \(isDark))")
+            try check(local.sidebarBackground == remote.sidebarBackground, "Local and remote share neutral surfaces (dark: \(isDark))")
             try check(local.accent != remote.accent, "Local and remote focus accents must differ (dark: \(isDark))")
         }
         for isDark in [false, true] {
-            var backgrounds: [Color] = []
+            let neutral = WindowChrome(isDark: isDark, icon: .original)
             for icon in ApplicationIcon.allCases {
                 let chrome = WindowChrome(isDark: isDark, icon: icon)
-                if icon != .original {
-                    try check(!backgrounds.contains(chrome.sidebarBackground), "Each macaron appearance keeps its own surface: \(icon.rawValue)")
-                    backgrounds.append(chrome.sidebarBackground)
+                try check(chrome.background == neutral.background && chrome.sidebarBackground == neutral.sidebarBackground
+                          && chrome.elevated == neutral.elevated && chrome.hairline == neutral.hairline,
+                          "Every palette shares neutral surfaces: \(icon.rawValue)")
+                try check(chrome.text == neutral.text && chrome.secondary == neutral.secondary
+                          && chrome.inactiveIcon == neutral.inactiveIcon && chrome.lineStrong == neutral.lineStrong,
+                          "Ordinary text, icons and controls stay neutral: \(icon.rawValue)")
+                for background in [chrome.background, chrome.elevated] {
+                    try check(rgb(chrome.lineStrong).contrastRatio(with: rgb(background)) >= 3,
+                              "Necessary control outlines remain identifiable: \(icon.rawValue)")
                 }
                 for surface in [chrome.background, chrome.sidebarBackground, chrome.elevated, chrome.hairline, chrome.accentFill] {
                     for foreground in [chrome.text, chrome.secondary, chrome.accent] {

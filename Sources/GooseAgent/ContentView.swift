@@ -268,9 +268,9 @@ struct RootView: View {
                 Text(title).font(.system(size: 14, weight: active ? .semibold : .regular))
                 Spacer()
             }
-            .foregroundStyle(active ? sidebarChrome.accent : sidebarChrome.text)
+            .foregroundStyle(sidebarChrome.text)
             .padding(.horizontal, 12).frame(height: 40)
-            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(active ? sidebarChrome.accentFill : Color.clear))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(active ? sidebarChrome.hairline : Color.clear))
             .contentShape(Rectangle())
         }.buttonStyle(FamilyButtonStyle()).accessibilityAddTraits(active ? [.isSelected] : [])
     }
@@ -336,12 +336,7 @@ struct RootView: View {
 
     private func connectionGroupHeader(_ group: SidebarConnectionGroup, count: Int) -> some View {
         let collapsed = window.presentation.collapsedConnectionGroups.contains(group)
-        let palette: ApplicationIcon = switch group {
-        case .local: .mintCandy
-        case .remote: .clearSkyBlue
-        case .mixed: .taroMilkshake
-        }
-        let folderColor = sidebarChrome.folderColor(palette)
+        let folderColor = sidebarChrome.secondary
         return HoverRevealingRegion { isHovered in
         Button {
             model.updatePresentation(in: window) { state in
@@ -678,7 +673,7 @@ struct RootView: View {
                 ? window.selectedTabID.map { row.leafIDs.contains($0) } ?? false
                 : !Set(row.leafIDs).isDisjoint(with: window.sidebarSelection)
             let labeledSubtitle = model.sessionSubtitle(tab)
-            let folderColor = sidebarChrome.folderColor(Theme.folderPalette(for: row.panelID))
+            let folderColor = sidebarChrome.secondary
             HStack(spacing: 9) {
                 Group {
                     if row.isSplit {
@@ -686,7 +681,7 @@ struct RootView: View {
                     } else {
                         TerminalPanelIcon(layout: .leaf(row.focusedTabID))
                             .symbolVariant(window.selectedTabID == tab.id ? .fill : .none)
-                            .foregroundStyle(sessionIconColor(isSelected: window.selectedTabID == tab.id))
+                            .foregroundStyle(sessionIconColor(isSelected: window.selectedTabID == tab.id, tab: tab))
                     }
                 }
                 .font(.system(size: 15)).frame(width: 20)
@@ -703,7 +698,7 @@ struct RootView: View {
                             .onAppear { panelNameFocused = true }
                     } else {
                         Text(verbatim: panelDisplayTitle(row)).font(.system(size: 14, weight: selected ? .semibold : .regular))
-                            .foregroundStyle(row.isSplit ? folderColor : sidebarChrome.text)
+                            .foregroundStyle(sidebarChrome.text)
                             .lineLimit(1).truncationMode(.middle)
                     }
                     if !row.isSplit {
@@ -726,7 +721,7 @@ struct RootView: View {
             }
             .foregroundStyle(sidebarChrome.text)
             .padding(.leading, 11).padding(.trailing, 30).frame(height: SidebarLayout.rowHeight)
-            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected,
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected && !row.isSplit,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
                 .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
             .background(PanelRowAnchor(ids: row.leafIDs, relay: dropRelay))
@@ -768,7 +763,7 @@ struct RootView: View {
             TerminalPanelIcon(layout: .leaf(tab.id))
                 .font(.system(size: 15)).frame(width: 20)
                 .symbolVariant(isSelected ? .fill : .none)
-                .foregroundStyle(sessionIconColor(isSelected: isSelected))
+                .foregroundStyle(sessionIconColor(isSelected: isSelected, tab: tab))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(verbatim: numberedSessionTitle(tab))
@@ -840,7 +835,7 @@ struct RootView: View {
     }
 
     private func workspaceHeader(_ workspace: Workspace) -> some View {
-        let folderColor = sidebarChrome.folderColor(Theme.folderPalette(for: workspace.id))
+        let folderColor = sidebarChrome.secondary
         return HoverRevealingRegion { isHovered in
         HStack(spacing: Theme.Space.xs) {
             Button {
@@ -919,9 +914,14 @@ struct RootView: View {
             onRename: { beginWorkspaceRename(workspace) })
     }
 
-    private func sessionIconColor(isSelected: Bool) -> Color {
+    private func sessionIconColor(isSelected: Bool, tab: TerminalTab) -> Color {
         guard isSelected else { return sidebarChrome.inactiveIcon }
-        return sidebarChrome.accent
+        return sessionChrome(tab).accent
+    }
+
+    private func sessionChrome(_ tab: TerminalTab) -> WindowChrome {
+        WindowChrome.resolve(isDark: appearanceDriver.isDark,
+            icon: tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
     }
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {
@@ -929,7 +929,8 @@ struct RootView: View {
             return sidebarChrome.accent.opacity(0.28)
         }
         if selected {
-            return sidebarChrome.accentFill
+            guard controlActiveState != .inactive else { return sidebarChrome.hairline }
+            return model.tabs.first(where: { $0.id == tabID }).map { sessionChrome($0).accentFill } ?? sidebarChrome.accentFill
         }
         if hovered {
             return sidebarChrome.hairline
@@ -1008,6 +1009,7 @@ private struct FilesSidebar: View {
     @ObservedObject var workspace: FileWorkspace
     var dragArea: PinnedLocationDragArea
     @Environment(\.windowChrome) private var chrome
+    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @Environment(\.isShellTransparent) private var isShellTransparent
 
     var body: some View {
@@ -1048,6 +1050,7 @@ private struct FilesSidebar: View {
                 VStack(spacing: 4) {
                     ForEach(workspace.groups[groupID]?.tabs ?? []) { column in
                         FileTabButton(workspace: workspace, column: column, groupID: groupID, tabDrag: workspace.tabDrag)
+                            .environment(\.windowChrome, WindowChrome.resolve(isDark: chrome.isDark, icon: RemotePalette.palette(raw: remotePaletteRaw)))
                     }
                 }
                 .background(BoundsAnchor { workspace.tabDrag.strips[groupID] = AnchorBox($0) })

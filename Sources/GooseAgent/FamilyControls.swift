@@ -3,6 +3,7 @@ import SwiftUI
 /// 1Panel switch and checkbox drawings, using Toggle's binding and accessibility semantics.
 struct FamilyToggleStyle: ToggleStyle {
     var checkbox = false
+    var showsLabel = true
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -27,7 +28,7 @@ struct FamilyToggleStyle: ToggleStyle {
                         .frame(width: 36, height: 20)
                         .animation(reduceMotion ? nil : .timingCurve(0.38, 0, 0.24, 1, duration: 0.2), value: configuration.isOn)
                 }
-                configuration.label
+                if showsLabel { configuration.label }
             }
             .contentShape(Rectangle())
         }
@@ -49,7 +50,7 @@ struct FamilySegments<Value: Hashable>: View {
                 Button { value = item.0 } label: {
                     Text(verbatim: item.1).font(.system(size: 14, weight: value == item.0 ? .semibold : .regular))
                         .foregroundStyle(value == item.0 ? chrome.accent : chrome.text)
-                        .padding(.horizontal, 12).frame(maxWidth: .infinity).frame(height: 28)
+                        .padding(.horizontal, 8).frame(maxWidth: .infinity).frame(height: 28)
                         .background(RoundedRectangle(cornerRadius: Theme.Radius.tag).fill(value == item.0 ? chrome.background : .clear))
                 }
                 .buttonStyle(.plain).focused($focused, equals: item.0)
@@ -74,6 +75,8 @@ struct FamilySlider: NSViewRepresentable {
     var step: Double = 0
     var onEditingChanged: (Bool) -> Void = { _ in }
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.windowChrome) private var chrome
+    @Environment(\.settingsControlTitle) private var settingsControlTitle
     func makeNSView(context: Context) -> FamilySliderControl {
         let slider = FamilySliderControl()
         slider.cell = FamilySliderCell()
@@ -90,6 +93,8 @@ struct FamilySlider: NSViewRepresentable {
         slider.doubleValue = value
         slider.step = step
         slider.isEnabled = enabled
+        (slider.cell as? FamilySliderCell)?.chrome = chrome
+        slider.setAccessibilityLabel(settingsControlTitle)
         slider.needsDisplay = true
     }
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -132,7 +137,7 @@ final class FamilySliderControl: NSSlider {
     override func resignFirstResponder() -> Bool { let result = super.resignFirstResponder(); needsDisplay = true; return result }
 }
 private final class FamilySliderCell: NSSliderCell {
-    private var chrome: WindowChrome { WindowChrome(isDark: controlView?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua) }
+    var chrome = WindowChrome(isDark: false, icon: .original)
     override var knobThickness: CGFloat { 16 }
     override func drawBar(inside rect: NSRect, flipped: Bool) {
         let track = NSRect(x: rect.minX, y: rect.midY - 2, width: rect.width, height: 4)
@@ -152,6 +157,7 @@ private final class FamilySliderCell: NSSliderCell {
 }
 
 struct FamilyNumberInput: View {
+    @Environment(\.settingsControlTitle) private var settingsControlTitle
     @Binding var value: Int
     var range: ClosedRange<Int>
     @Environment(\.windowChrome) private var chrome
@@ -162,6 +168,7 @@ struct FamilyNumberInput: View {
             Button { commit(value - 1) } label: { Image(systemName: "minus").frame(width: 28, height: 32) }
                 .disabled(value <= range.lowerBound).accessibilityLabel(Text("Decrease"))
             TextField("", text: $draft).textFieldStyle(.plain).multilineTextAlignment(.center)
+                .accessibilityLabel(Text(verbatim: settingsControlTitle ?? ""))
                 .font(.system(size: 14, design: .monospaced)).frame(width: 40)
                 .focused($focused).onSubmit { commitDraft() }
                 .onMoveCommand { direction in commit(value + (direction == .up ? 1 : direction == .down ? -1 : 0)) }
@@ -169,8 +176,8 @@ struct FamilyNumberInput: View {
                 .disabled(value >= range.upperBound).accessibilityLabel(Text("Increase"))
         }
         .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.text)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(focused ? chrome.background : chrome.elevated))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(focused ? chrome.accent : .clear, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.background))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(focused ? chrome.focus : chrome.lineStrong, lineWidth: 1))
         .familyFocusRing(focused)
         .onAppear { draft = String(value) }.onChange(of: value) { _, number in draft = String(number) }
         .onChange(of: focused) { _, active in if !active { commitDraft() } }

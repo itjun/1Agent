@@ -165,17 +165,25 @@ private struct FileEndpointPanel: View {
     var relay: CanvasDropRelay
     @ObservedObject var tabDrag: FileTabDragTracker
     var width: CGFloat
-    @Environment(\.windowChrome) private var chrome
+    @Environment(\.windowChrome) private var parentChrome
+    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
+    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @Environment(\.isShellTransparent) private var isShellTransparent
     @State private var filterFocused = false
 
     private var column: FileColumn? { workspace.groups[groupID]?.active }
     private var local: Bool { groupID == workspace.localGroupID }
 
+    private var chrome: WindowChrome {
+        WindowChrome.resolve(isDark: parentChrome.isDark,
+            icon: local ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if let column {
                 FileColumnHeader(workspace: workspace, column: column, width: width, onFilterFocusChange: { filterFocused = $0 }) { endpointHeader }
+                    .background(chrome.elevated)
                 FileColumnView(workspace: workspace, column: column, filterFocused: filterFocused).id(column.id)
             } else {
                 endpointHeader.padding(.horizontal, Theme.Space.m)
@@ -188,7 +196,7 @@ private struct FileEndpointPanel: View {
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         .background(chrome.background.opacity(isShellTransparent ? ShellLayout.fileOpacity : 1))
-        .modifier(FloatingContentSurface())
+        .modifier(FloatingContentSurface(isSelected: workspace.focusedGroupID == groupID && window.section == .files))
         .background(BoundsAnchor {
             relay.filesSideAnchors[.group(groupID)] = AnchorBox($0)
             tabDrag.panes[groupID] = AnchorBox($0)
@@ -209,6 +217,7 @@ private struct FileEndpointPanel: View {
                     .padding(4).allowsHitTesting(false)
             }
         }
+        .environment(\.windowChrome, chrome)
     }
 
     private var endpointHeader: some View {

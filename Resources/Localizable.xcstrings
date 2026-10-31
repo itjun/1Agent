@@ -1,6 +1,15 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Choose the local app icon and remote accent independently. Each row previews selection and focus; terminal themes stay separate." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the local app icon and remote accent independently. Each row previews selection and focus; terminal themes stay separate."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "分别选择本机图标和远程配色。每行展示选中与焦点效果，终端主题独立配置。"}}}},
+    "Icon and Color" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Icon and Color"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "图标与配色"}}}},
+    "Appearance Preview" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Appearance Preview"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "效果预览"}}}},
+    "Use %@ for the local app icon" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Use %@ for the local app icon"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "将%@用于本机图标"}}}},
+    "Use %@ for remote colors" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Use %@ for remote colors"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "将%@用于远程配色"}}}},
+    "Configuration Key" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Configuration Key"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "配置键"}}}},
+    "Configuration key for %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Configuration key for %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "%@的配置键"}}}},
+    "Selected Session" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Selected Session"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选中会话"}}}},
+    "Focused Pane" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Focused Pane"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "焦点窗格"}}}},
     "Go Back" : {
       "extractionState" : "manual",
       "localizations" : {
