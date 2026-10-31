@@ -96,8 +96,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var windows: [WindowState] = [WindowState(id: SessionSnapshot.load()?.windows?.first?.id ?? UUID())]
     var mainWindow: WindowState { windows[0] }
     private var lastKeyWindowID: UUID?
-    @Published private(set) var showingSettings = false
-    private weak var workspaceResponder: NSResponder?
+    var showingSettings: Bool { SettingsWindowController.shared.window?.isVisible == true }
     /// Set once the app starts quitting. Windows then close without taking their terminals along,
     /// so the snapshot written at exit still lists every session.
     var isQuitting = false
@@ -339,7 +338,6 @@ final class AppModel: ObservableObject {
 
     /// The pane is drawn in the main window right now, and that window is on screen.
     func isPaneOnScreen(_ id: UUID) -> Bool {
-        guard !showingSettings else { return false }
         guard let owner = window(containing: id), let nsWindow = MainWindowManager.shared.window(for: owner),
               nsWindow.isVisible, !nsWindow.isMiniaturized else { return false }
         if let zoomed = zoomedPane(in: owner) {
@@ -1272,45 +1270,19 @@ final class AppModel: ObservableObject {
         await SSHTerminalRegistry.killProcessesForApplicationExit()
     }
 
-    func toggleSettings() {
-        if showingSettings { dismissSettings() } else { showSettings() }
-    }
-
     func showSettings() {
-        activate(mainWindow)
-        guard !showingSettings else { return }
-        let native = MainWindowManager.shared.window(for: mainWindow)
-        workspaceResponder = native?.firstResponder
-        mainWindow.hostPickerPresented = false
-        endDrag(in: mainWindow)
-        showingSettings = true
-        native?.makeFirstResponder(nil)
-        FocusedTerminal.shared.refresh()
+        SettingsWindowController.shared.show(model: self)
     }
 
     func dismissSettings() {
-        guard showingSettings else { return }
-        ThemePreview.shared.cancel()
-        showingSettings = false
-        let responder = workspaceResponder
-        workspaceResponder = nil
-        // 等设置移走、原生终端恢复可见后再归还键盘焦点。
-        DispatchQueue.main.async { [weak self] in
-            guard let self, !self.showingSettings,
-                  let native = MainWindowManager.shared.window(for: self.mainWindow) else { return }
-            native.contentView?.layoutSubtreeIfNeeded()
-            if let view = responder as? NSView, view.window === native, !view.isHiddenOrHasHiddenAncestor {
-                native.makeFirstResponder(view)
-            } else if self.mainWindow.section == .terminals, let tab = self.selectedTab(in: self.mainWindow) {
-                SSHTerminalRegistry.focus(tab.sessionID)
-            }
-            FocusedTerminal.shared.refresh()
-        }
+        SettingsWindowController.shared.window?.performClose(nil)
     }
 
     /// Quits through the normal path (sessions and logs are saved first), then opens the app again.
     func requestRestart() {
-        guard !isQuitting, let window = MainWindowManager.shared.window(for: mainWindow) else { return }
+        let parent = SettingsWindowController.shared.window.flatMap { $0.isVisible ? $0 : nil }
+            ?? MainWindowManager.shared.window(for: mainWindow)
+        guard !isQuitting, let window = parent else { return }
         let alert = FamilyAlert()
         alert.messageText = String(localized: "Restart 1Agent?")
         alert.informativeText = String(localized: "Terminal sessions are saved and restored after the restart. Running commands will be interrupted.")

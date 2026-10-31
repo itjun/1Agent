@@ -19,6 +19,7 @@ enum FamilyAppearanceTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
+        NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         defaults.set("liquidGlass", forKey: "sidebar.material")
         defaults.set("light", forKey: TerminalAppearance.storageKey)
         defaults.set("GitHub Light Default", forKey: TerminalAppearance.lightThemeKey)
@@ -116,23 +117,42 @@ enum FamilyAppearanceTests {
         MainWindowManager.shared.show(state, model: settingsModel)
         let settingsOwner = MainWindowManager.shared.window(for: state)!
         settingsOwner.setContentSize(MainWindowFrame.minimumSize)
+        for _ in 0..<5 { drain() }
         let savedFrame = settingsOwner.frame
-        let windowCount = NSApp.windows.count
         settingsModel.showSettings()
-        expect(settingsModel.showingSettings && settingsOwner.identifier == MainWindowManager.windowID,
-               "settings opens inside the main window")
+        let settingsWindow = SettingsWindowController.shared.window!
+        expect(settingsModel.showingSettings && settingsWindow !== settingsOwner
+               && settingsWindow.identifier == SettingsWindowController.windowID,
+               "settings opens in its own native window")
+        expect(settingsOwner.isVisible && settingsOwner.frame == savedFrame,
+               "opening settings leaves the main window visible and unchanged")
+        let mainIdentifiers = accessibilityElements(settingsOwner).compactMap {
+            accessibilityValue($0, "accessibilityIdentifier") as? String
+        }
+        expect(!mainIdentifiers.contains(where: { $0.hasPrefix("settings.") }),
+               "settings is no longer embedded in the main workspace")
         settingsModel.showSettings()
-        expect(NSApp.windows.count == windowCount && MainWindowManager.shared.window(for: state) === settingsOwner,
-               "opening settings again creates no window")
+        expect(SettingsWindowController.shared.window === settingsWindow
+               && NSApp.windows.filter { $0.identifier == SettingsWindowController.windowID }.count == 1,
+               "opening settings again reuses one window")
+        checkSettingsPages(in: settingsWindow)
+        expect(settingsOwner.isVisible && settingsOwner.frame == savedFrame,
+               "resizing settings never resizes or hides the workspace: visible=\(settingsOwner.isVisible), before=\(savedFrame), after=\(settingsOwner.frame)")
         settingsModel.dismissSettings()
         expect(!settingsModel.showingSettings && state.section == .files && state.presentation == savedPresentation,
-               "returning from settings preserves the files workspace")
+               "closing settings preserves the files workspace")
         expect(settingsOwner.frame == savedFrame, "settings does not resize the main window")
-        settingsModel.toggleSettings()
-        expect(settingsModel.showingSettings, "settings shortcut reopens the embedded page")
-        settingsModel.toggleSettings()
-        expect(!settingsModel.showingSettings && NSApp.windows.count == windowCount,
-               "settings shortcut returns without creating a window")
+        settingsModel.showSettings()
+        expect(settingsModel.showingSettings && SettingsWindowController.shared.window === settingsWindow,
+               "settings reopens the retained window")
+        let reopenedIdentifiers = accessibilityElements(settingsWindow).compactMap {
+            accessibilityValue($0, "accessibilityIdentifier") as? String
+        }
+        expect(reopenedIdentifiers.contains("settings.section.about"), "reopening settings retains the selected page")
+        expect(!reopenedIdentifiers.contains("settings.back"), "standalone settings uses native window closing")
+        settingsModel.dismissSettings()
+        expect(!settingsModel.showingSettings && settingsOwner.isVisible,
+               "closing settings again leaves the main window open")
         check(true, true, "closing settings cancels preview")
         expect(TerminalThemeChoice.storedLight() == .slotDefault(dark: false), "closing settings does not save")
         preview.showDefaults()
@@ -358,6 +378,59 @@ enum FamilyAppearanceTests {
             TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
             expect(NSDictionary(dictionary: defaults.persistentDomain(forName: suite)!).isEqual(to: snapshot), "repeated migration does not change persisted preferences")
         }
+    }
+
+    /// Exercise the production settings hierarchy with isolated preferences and no shell/SSH.
+    @MainActor static func checkSettingsPages(in window: NSWindow) {
+        let pages = ["appearance", "appIcon", "font", "terminal", "shortcuts", "systemIntegration", "advanced", "about"]
+        for size in [SettingsLayout.windowMinimumSize, CGSize(width: 1200, height: 800), CGSize(width: 1800, height: 1000)] {
+            window.setContentSize(size)
+            for page in pages {
+                for _ in 0..<5 { drain() }
+                let navigationID = "settings.navigation." + page
+                guard let button = accessibilityElements(window).first(where: {
+                    accessibilityValue($0, "accessibilityIdentifier") as? String == navigationID
+                }) else { expect(false, "settings category exists: " + page); return }
+                let selector = NSSelectorFromString("accessibilityPerformPress")
+                typealias Press = @convention(c) (AnyObject, Selector) -> Bool
+                expect(unsafeBitCast(button.method(for: selector), to: Press.self)(button, selector),
+                       "settings category activates: " + page)
+                for _ in 0..<5 { drain() }
+                let identifiers = accessibilityElements(window).compactMap {
+                    accessibilityValue($0, "accessibilityIdentifier") as? String
+                }
+                expect(Set(identifiers.filter { $0.hasPrefix("settings.section.") }) == ["settings.section." + page],
+                       "only the selected page heading is exposed: " + page)
+                expect(Set(identifiers.filter { $0.hasPrefix("settings.content.") }) == ["settings.content." + page],
+                       "only the selected page scroll area is exposed: " + page)
+                expect(ThemePreview.shared.isActive, "category switching retains theme preview")
+                if let output = ProcessInfo.processInfo.environment["ONEAGENT_SETTINGS_QA_DIR"],
+                   let view = window.contentView,
+                   let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: bitmap)
+                    let directory = URL(fileURLWithPath: output, isDirectory: true)
+                    try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    let file = directory.appendingPathComponent("\(page)-\(Int(size.width))x\(Int(size.height))-dark.png")
+                    try! bitmap.representation(using: .png, properties: [:])!.write(to: file)
+                }
+            }
+        }
+        print("CHECKED: all eight independent settings pages at minimum, common and large window sizes; hidden pages excluded from accessibility; theme preview retained")
+    }
+
+    @MainActor static func accessibilityValue(_ object: NSObject, _ name: String) -> Any? {
+        let selector = NSSelectorFromString(name)
+        return object.responds(to: selector) ? object.perform(selector)?.takeUnretainedValue() : nil
+    }
+
+    @MainActor static func accessibilityElements(_ root: NSObject) -> [NSObject] {
+        var seen = Set<ObjectIdentifier>()
+        func walk(_ object: NSObject) -> [NSObject] {
+            guard seen.insert(ObjectIdentifier(object)).inserted else { return [] }
+            let children = accessibilityValue(object, "accessibilityChildren") as? [NSObject] ?? []
+            return [object] + children.flatMap(walk)
+        }
+        return walk(root)
     }
 
     @MainActor static func drain() { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }

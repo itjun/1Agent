@@ -60,12 +60,12 @@ struct TerminalCanvas: View {
                         dark: terminalIsDark,
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
-                        isPresented: visible && !window.presentation.fullFilesWorkspace && !model.showingSettings,
+                        isPresented: visible && !window.presentation.fullFilesWorkspace,
                         isSelected: window.selectedTabID == tab.id && window.section == .terminals,
                         contentCornerRadius: isShellTransparent ? ShellLayout.contentRadius : 0,
                         isHeaderIntegrated: isShellTransparent,
                         canFocus: {
-                            !model.showingSettings && window.selectedTabID == tab.id && window.section == .terminals &&
+                            window.selectedTabID == tab.id && window.section == .terminals &&
                                 !window.presentation.fullFilesWorkspace
                         },
                         takeInitialInput: { model.takeInitialInput(for: tab.id) },
@@ -96,7 +96,7 @@ struct TerminalCanvas: View {
                         }
                     }
                     .modifier(FloatingContentSurface(isSelected: window.selectedTabID == tab.id && window.section == .terminals
-                        && !window.presentation.fullFilesWorkspace && !model.showingSettings))
+                        && !window.presentation.fullFilesWorkspace))
                     .environment(\.windowChrome, terminalChrome(tab))
                     .position(
                         x: drawn.midX,
@@ -263,7 +263,7 @@ struct TerminalCanvas: View {
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
         let chrome = tab.hasTerminal ? terminalChrome(tab) : self.chrome
         let isSelected = tab.hasTerminal && window.selectedTabID == tab.id && window.section == .terminals
-            && !window.presentation.fullFilesWorkspace && !model.showingSettings
+            && !window.presentation.fullFilesWorkspace
         if (isSplit || isShellTransparent) && headerHeight > 0 {
             ZStack {
                 chrome.panelHeader.opacity(isShellTransparent ? 0 : 1)

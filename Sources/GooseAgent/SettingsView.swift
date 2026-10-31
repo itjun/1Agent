@@ -3,17 +3,23 @@ import GhosttyTheme
 import SwiftUI
 
 enum SettingsLayout {
-    static let appIconColumns = 5
-    static let appIconPreviewSize: CGFloat = 88
-    static let sidebarWidth: CGFloat = 204
+    static let windowMinimumSize = CGSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
+    static let windowDefaultSize = CGSize(width: 1280, height: 820)
+    static let sidebarWidthKey = "settings.sidebarWidth"
+    static let appIconPreviewSize: CGFloat = 64
+    static let appIconIdentityWidth: CGFloat = 200
+    static let appIconChoiceWidth: CGFloat = 52
+    static let appIconSwatchSize: CGFloat = 12
+    static let appIconSelectionSize: CGFloat = 18
     static let pageHeaderHeight: CGFloat = 76
     static let pageTitleSize: CGFloat = 28
-    static let contentMaxWidth: CGFloat = 1040
-    static let sectionSpacing: CGFloat = Theme.Space.xl * 2
+    static let contentMaxWidth: CGFloat = 960
+    static let sectionSpacing: CGFloat = Theme.Space.xl
     static let contentInset: CGFloat = ShellLayout.workspaceInset
-    static let cardRadius: CGFloat = 20
-    static let lightCardOpacity: Double = 0.9
-    static let darkCardOpacity: Double = 0.72
+    static let cardRadius: CGFloat = Theme.Radius.card
+    static let stackedRowBreakpoint: CGFloat = 560
+    static let rowMinimumHeight: CGFloat = 44
+    static let configurationHelpWidth: CGFloat = 320
     /// One page row in the left navigation.
     static let navRowHeight: CGFloat = 40
     /// One segment of the appearance-mode control.
@@ -35,7 +41,7 @@ enum SettingsLayout {
     static let shortcutResetButtonSize: CGFloat = 22
     /// Search field above the shortcut cards, the height of a regular push button row.
     static let shortcutSearchHeight: CGFloat = 32
-    static let integrationTitleSize: CGFloat = 26
+    static let integrationTitleSize: CGFloat = 14
     static let integrationStatusSize: CGFloat = 10
     static let integrationAppColumn: CGFloat = 150
     static let integrationChoiceColumn: CGFloat = 112
@@ -70,18 +76,9 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     }
 }
 
-private struct SettingsSectionFramesKey: PreferenceKey {
-    static let defaultValue: [SettingsPage: CGRect] = [:]
-
-    static func reduce(value: inout [SettingsPage: CGRect], nextValue: () -> [SettingsPage: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-/// 每组设置的标题、操作和内容放在同一张圆角卡片内。
+/// 设置分组共用轻灰底，只有外层内容面板投影。
 struct SettingsCard<Content: View, Accessory: View>: View {
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
     let title: LocalizedStringKey
     @ViewBuilder let content: () -> Content
     @ViewBuilder let accessory: () -> Accessory
@@ -112,15 +109,13 @@ struct SettingsCard<Content: View, Accessory: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
-                .fill(chrome.background.opacity(isShellTransparent
-                    ? (chrome.isDark ? SettingsLayout.darkCardOpacity : SettingsLayout.lightCardOpacity) : 1))
+                .fill(chrome.elevated)
         }
         .overlay {
             RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
-                .strokeBorder(chrome.isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.025), lineWidth: 0.5)
+                .strokeBorder(chrome.hairline.opacity(0.5), lineWidth: 0.5)
                 .allowsHitTesting(false)
         }
-        .shadow(color: .black.opacity(chrome.isDark ? 0.12 : 0.04), radius: Theme.Space.s, y: 3)
     }
 }
 
@@ -131,11 +126,12 @@ extension SettingsCard where Accessory == EmptyView {
 }
 
 struct SettingsView: View {
-    @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPage: SettingsPage = .appearance
-    @State private var requestedPage: SettingsPage?
+    @State private var pageContentBounds: [SettingsPage: CGRect] = [:]
+    @FocusState private var focusedPage: SettingsPage?
+    @AppStorage(SettingsLayout.sidebarWidthKey) private var savedSidebarWidth: Double = SidebarLayout.defaultWidth
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
@@ -153,14 +149,14 @@ struct SettingsView: View {
     @State private var themeFilter: ThemeFilter = .all
     /// User theme waiting for the Move to Trash confirmation.
 
+    // 全局设置不继承最后一个会话的本机／远程配色。
+    private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark, icon: .original) }
     private var sidebarChrome: WindowChrome { chrome }
     private let onRestart: () -> Void
-    private let onBack: () -> Void
 
-    init(onRestart: @escaping () -> Void, onBack: @escaping () -> Void) {
+    init(onRestart: @escaping () -> Void) {
         self.onRestart = onRestart
-        self.onBack = onBack
-        _requestedPage = State(initialValue: GhosttyImportRequests.shared.previewPending ? .advanced : nil)
+        _selectedPage = State(initialValue: GhosttyImportRequests.shared.previewPending ? .advanced : .appearance)
     }
 
     private var appearance: TerminalAppearance {
@@ -197,9 +193,10 @@ struct SettingsView: View {
     var body: some View {
         NativeSidebarSplit(
             isDividerHidden: isShellTransparent,
-            width: SettingsLayout.sidebarWidth,
-            minimumWidth: SettingsLayout.sidebarWidth, maximumWidth: SettingsLayout.sidebarWidth,
-            defaultWidth: SettingsLayout.sidebarWidth
+            width: CGFloat(savedSidebarWidth),
+            minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
+            defaultWidth: SidebarLayout.defaultWidth,
+            onWidthChange: { savedSidebarWidth = Double($0) }
         ) {
             VStack(spacing: 0) {
                 WindowDragArea()
@@ -213,35 +210,28 @@ struct SettingsView: View {
                     .tint(chrome.accent).font(Theme.Font.body)
         } detail: {
             VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    GeometryReader { geometry in
-                        ScrollView {
-                            settingsContent(viewportHeight: geometry.size.height)
-                        }
-                        .coordinateSpace(name: "settingsScroll")
-                        .accessibilityIdentifier("settings.content")
-                        .onPreferenceChange(SettingsSectionFramesKey.self) { frames in
-                            // 以顶部正在阅读的分区为准，跨过标题时同步侧栏。
-                            if let page = SettingsPage.allCases.last(where: {
-                                (frames[$0]?.minY ?? .infinity) <= Theme.Space.xl
-                            }), selectedPage != page {
-                                selectedPage = page
-                            }
-                        }
-                    }
-                    .onChange(of: requestedPage, initial: true) { _, page in
-                        guard let page else { return }
-                        proxy.scrollTo(page, anchor: .top)
-                        requestedPage = nil
-                    }
-                }
+                Text(selectedPage.title)
+                    .font(.system(size: SettingsLayout.pageTitleSize, weight: .semibold))
+                    .foregroundStyle(chrome.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, pageContentBounds[selectedPage]?.minX ?? Theme.Space.xl)
+                    .padding(.trailing, Theme.Space.xl)
+                    .frame(height: SettingsLayout.pageHeaderHeight)
+                    .background(WindowDragArea())
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("settings.section.\(selectedPage.rawValue)")
+                Rectangle().fill(chrome.hairline).frame(height: 0.5)
+                settingsContent
                 if preview.isActive {
                     previewActionBar
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(isShellTransparent ? Color.clear : chrome.elevated)
-            .padding(isShellTransparent ? SettingsLayout.contentInset : 0)
+            .coordinateSpace(name: "settings.detail")
+            .background(chrome.background)
+            .modifier(FloatingContentSurface())
+            .padding(.vertical, isShellTransparent ? SettingsLayout.contentInset : 0)
+            .padding(.trailing, isShellTransparent ? SettingsLayout.contentInset : 0)
             .ignoresSafeArea(edges: .top)
             // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
             .environment(\.windowChrome, chrome)
@@ -261,10 +251,11 @@ struct SettingsView: View {
         }
         .onChange(of: importRequests.previewPending) { _, pending in
             if pending {
-                requestedPage = .advanced
+                selectedPage = .advanced
             }
         }
         .onChange(of: selectedPage) { old, new in
+            themeSearchFocused = false
             if old == .shortcuts && new != .shortcuts {
                 ShortcutRecorder.shared.stop()
             }
@@ -273,18 +264,6 @@ struct SettingsView: View {
 
     private var settingsNavigation: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Button(action: onBack) {
-                Text("Go Back")
-                    .font(Theme.Font.row)
-                    .foregroundStyle(sidebarChrome.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: SettingsLayout.navRowHeight)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(FamilyButtonStyle())
-            .padding(.horizontal, Theme.Space.l)
-            .accessibilityIdentifier("settings.back")
-
             Text("Settings")
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(sidebarChrome.text)
@@ -297,22 +276,36 @@ struct SettingsView: View {
                     ForEach(SettingsPage.allCases) { page in
                         let selected = selectedPage == page
                         Button {
-                            requestedPage = page
+                            // 鼠标选中使用圆角底色；键盘导航保留独立的焦点提示。
+                            focusedPage = nil
+                            selectedPage = page
                         } label: {
                             Text(page.title)
                                 .font(Theme.Font.row.weight(selected ? .semibold : .regular))
-                                .foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.text)
+                                .foregroundStyle(sidebarChrome.text)
                                 .lineLimit(1)
                                 .padding(.horizontal, Theme.Space.m)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(height: SettingsLayout.navRowHeight)
                                 .background(
                                     RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                        .fill(selected ? sidebarChrome.accentFill : Color.clear)
+                                        .fill(selected ? sidebarChrome.hairline : Color.clear)
                                 )
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(FamilyButtonStyle())
+                        .buttonStyle(FamilyButtonStyle(showsFocusRing: false))
+                        .focusable()
+                        .focusEffectDisabled()
+                        .focused($focusedPage, equals: page)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                                .strokeBorder(focusedPage == page ? sidebarChrome.lineStrong : .clear, lineWidth: 1)
+                                .allowsHitTesting(false)
+                        }
+                        .onKeyPress(keys: [.space, .return]) { _ in
+                            selectedPage = page
+                            return .handled
+                        }
                         .accessibilityLabel(Text(page.title))
                         .accessibilityAddTraits(selected ? .isSelected : [])
                         .accessibilityIdentifier("settings.navigation.\(page.rawValue)")
@@ -326,35 +319,39 @@ struct SettingsView: View {
         .background((isShellTransparent ? Color.clear : chrome.sidebarBackground).ignoresSafeArea())
     }
 
-    private func settingsContent(viewportHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+    private var settingsContent: some View {
+        // 分类只显示当前页；稳定保留其他页，切换不会清空搜索、配置草稿或预览。
+        ZStack(alignment: .topLeading) {
             ForEach(SettingsPage.allCases) { page in
-                VStack(alignment: .leading, spacing: Theme.Space.xl) {
-                    Text(page.title)
-                        .font(.system(size: SettingsLayout.pageTitleSize, weight: .semibold))
-                        .foregroundStyle(chrome.text)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(height: SettingsLayout.pageHeaderHeight)
-                        .background(WindowDragArea())
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityIdentifier("settings.section.\(page.rawValue)")
-                    settingsPage(page)
-                }
-                // 留足末尾空间，让最后一个分区也能定位到顶部。
-                .frame(minHeight: page == .about ? max(0, viewportHeight - Theme.Space.xl) : 0, alignment: .top)
-                .id(page)
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(key: SettingsSectionFramesKey.self,
-                            value: [page: geometry.frame(in: .named("settingsScroll"))])
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        settingsPage(page)
+                            .frame(maxWidth: SettingsLayout.contentMaxWidth, alignment: .leading)
+                            .onGeometryChange(for: CGRect.self) { geometry in
+                                let frame = geometry.frame(in: .named("settings.detail"))
+                                return CGRect(x: frame.minX, y: 0, width: frame.width, height: 0)
+                            } action: { bounds in
+                                // 常显滚动条会占宽；标题与操作栏跟随表单的真实边界。
+                                pageContentBounds[page] = bounds
+                            }
+                            .padding(Theme.Space.xl)
+                            .frame(maxWidth: .infinity)
+                            .id(page)
+                    }
+                    .accessibilityIdentifier("settings.content.\(page.rawValue)")
+                    .onChange(of: selectedPage) { _, selected in
+                        if selected == page { proxy.scrollTo(page, anchor: .top) }
                     }
                 }
+                .opacity(selectedPage == page ? 1 : 0)
+                .allowsHitTesting(selectedPage == page)
+                .disabled(selectedPage != page)
+                .accessibilityHidden(selectedPage != page)
+                .zIndex(selectedPage == page ? 1 : 0)
             }
         }
-        .frame(maxWidth: SettingsLayout.contentMaxWidth)
-        .padding(.horizontal, Theme.Space.xl)
-        .padding(.bottom, Theme.Space.xl)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 
     private func settingsPage(_ page: SettingsPage) -> some View {
@@ -375,7 +372,7 @@ struct SettingsView: View {
             case .about:
                 AppUpdateSettingsPage(onRestart: onRestart)
             case .advanced:
-                AdvancedSettingsPage()
+                AdvancedSettingsPage(isActive: selectedPage == .advanced)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -447,30 +444,22 @@ struct SettingsView: View {
     private var fontFamilyCard: some View {
         SettingsCard("Terminal Font") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                HStack(spacing: Theme.Space.m) {
-                    Text("Font")
-                        .font(Theme.Font.body)
-                        .foregroundStyle(chrome.text)
-                        .frame(width: 56, alignment: .leading)
+                SettingsRow("Font", showsSeparator: true) {
                     FamilyPicker(value: $fontFamily, options: fontFamilies.map { ($0, $0) })
-                        .accessibilityLabel(Text("Font"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                HStack(spacing: Theme.Space.m) {
-                    Text("Size")
-                        .font(Theme.Font.body)
-                        .foregroundStyle(chrome.text)
-                        .frame(width: 56, alignment: .leading)
-                    FamilySlider(
-                        value: $fontSize,
-                        range: TerminalDefaults.minFontSize...TerminalDefaults.maxFontSize,
-                        step: 1
-                    )
-                    Text(String(format: String(localized: "%lld px"), Int(fontSize.rounded())))
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(chrome.secondary)
-                        .frame(width: 48, alignment: .trailing)
+                SettingsRow("Size") {
+                    HStack(spacing: Theme.Space.s) {
+                        FamilySlider(
+                            value: $fontSize,
+                            range: TerminalDefaults.minFontSize...TerminalDefaults.maxFontSize,
+                            step: 1
+                        )
+                        Text(String(format: String(localized: "%lld px"), Int(fontSize.rounded())))
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(chrome.secondary)
+                            .frame(width: SettingsLayout.valueLabelWidth, alignment: .trailing)
+                    }
                 }
 
                 fontPreview
@@ -502,10 +491,10 @@ struct SettingsView: View {
     private var fontRenderingCard: some View {
         SettingsCard("Glyphs and Spacing") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                SettingsRow("Thicken", detail: "Draw glyphs a little heavier, which helps thin fonts on some displays.", ghosttyKey: "font-thicken") {
+                SettingsRow("Thicken", detail: "Draw glyphs a little heavier, which helps thin fonts on some displays.", ghosttyKey: "font-thicken", showsSeparator: true) {
                     SettingsSwitch(isOn: $fontThicken.applyingTerminalSettings())
                 }
-                SettingsRow("Thicken Strength", detail: "How much heavier; only used while Thicken is on.", ghosttyKey: "font-thicken-strength") {
+                SettingsRow("Thicken Strength", detail: "How much heavier; only used while Thicken is on.", ghosttyKey: "font-thicken-strength", showsSeparator: true) {
                     SettingsSlider(
                         value: Binding(
                             get: { Double(fontThickenStrength) },
@@ -518,10 +507,10 @@ struct SettingsView: View {
                     )
                     .disabled(!fontThicken)
                 }
-                SettingsRow("Ligatures", detail: "Join character pairs such as -> and => into one glyph when the font supports it.", ghosttyKey: "font-feature") {
+                SettingsRow("Ligatures", detail: "Join character pairs such as -> and => into one glyph when the font supports it.", ghosttyKey: "font-feature", showsSeparator: true) {
                     SettingsSwitch(isOn: $fontLigatures.applyingTerminalSettings())
                 }
-                SettingsRow("Line Height", detail: "Add or remove space between lines, as a share of the font's own line height.", ghosttyKey: "adjust-cell-height") {
+                SettingsRow("Line Height", detail: "Add or remove space between lines, as a share of the font's own line height.", ghosttyKey: "adjust-cell-height", showsSeparator: true) {
                     SettingsSlider(
                         value: Binding(
                             get: { Double(cellHeightAdjust) },
@@ -533,7 +522,7 @@ struct SettingsView: View {
                         onCommit: { GhosttyRuntime.applyTerminalSettings() }
                     )
                 }
-                SettingsRow("Horizontal Padding", detail: "Space between the text and the left and right edges of the terminal.", ghosttyKey: "window-padding-x") {
+                SettingsRow("Horizontal Padding", detail: "Space between the text and the left and right edges of the terminal.", ghosttyKey: "window-padding-x", showsSeparator: true) {
                     paddingStepper($paddingX)
                 }
                 SettingsRow("Vertical Padding", detail: "Space between the text and the bottom edge of the terminal. The top stays close under the title.", ghosttyKey: "window-padding-y") {
@@ -834,8 +823,11 @@ struct SettingsView: View {
             .buttonStyle(FamilyButtonStyle(kind: .primary))
             .accessibilityIdentifier("settings.appearance.preview.save")
         }
-        .padding(.horizontal, 20)
+        .frame(width: pageContentBounds[selectedPage]?.width)
         .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, pageContentBounds[selectedPage]?.minX ?? Theme.Space.xl)
+        .padding(.trailing, Theme.Space.xl)
         .background(chrome.sidebarBackground)
         .overlay(alignment: .top) {
             Rectangle().fill(chrome.hairline).frame(height: 1)
@@ -864,5 +856,79 @@ private enum ThemeFilter: String, CaseIterable, Identifiable {
         case .light: return definition.isLightBackground
         case .dark: return !definition.isLightBackground
         }
+    }
+}
+
+private struct SettingsWindowRoot: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject private var appearanceDriver = AppearanceDriver.shared
+    @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
+
+    var body: some View {
+        SettingsView(onRestart: { model.requestRestart() })
+            .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
+            .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+            .frame(minWidth: SettingsLayout.windowMinimumSize.width, minHeight: SettingsLayout.windowMinimumSize.height)
+            .background {
+                ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, isDark: appearanceDriver.isDark)
+                    .accessibilityHidden(true)
+            }
+            .ignoresSafeArea(edges: .top)
+            .onAppear { appearanceDriver.reapply() }
+            .onChange(of: appearanceRaw) { _, _ in appearanceDriver.reapply() }
+    }
+}
+
+@MainActor
+final class SettingsWindowController: NSObject, NSWindowDelegate {
+    static let shared = SettingsWindowController()
+    static let windowID = NSUserInterfaceItemIdentifier("settings")
+    private(set) var window: NSWindow?
+    private weak var model: AppModel?
+    private weak var owner: NSWindow?
+
+    func show(model: AppModel) {
+        self.model = model
+        if NSApp.keyWindow?.identifier == MainWindowManager.windowID { owner = NSApp.keyWindow }
+        if owner == nil { owner = MainWindowManager.shared.window(for: model.mainWindow) }
+        let settings = window ?? makeWindow(model: model)
+        window = settings
+        MainWindowManager.bringToActiveSpace(settings)
+    }
+
+    private func makeWindow(model: AppModel) -> NSWindow {
+        let host = NSHostingController(rootView: SettingsWindowRoot(model: model))
+        host.sizingOptions = [.minSize]
+        let settings = NSWindow(contentViewController: host)
+        settings.identifier = Self.windowID
+        settings.title = String(localized: "Settings")
+        settings.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        settings.titlebarAppearsTransparent = true
+        settings.titleVisibility = .hidden
+        settings.titlebarSeparatorStyle = .none
+        settings.tabbingMode = .disallowed
+        settings.isRestorable = false
+        settings.isReleasedWhenClosed = false
+        settings.delegate = self
+        settings.contentMinSize = SettingsLayout.windowMinimumSize
+        settings.setContentSize(SettingsLayout.windowDefaultSize)
+        if let visible = (owner?.screen ?? NSScreen.main)?.visibleFrame {
+            let anchor = owner?.frame ?? visible
+            var frame = settings.frame
+            frame.size.width = min(frame.width, visible.width)
+            frame.size.height = min(frame.height, visible.height)
+            frame.origin.x = min(max(anchor.midX - frame.width / 2, visible.minX), visible.maxX - frame.width)
+            frame.origin.y = min(max(anchor.midY - frame.height / 2, visible.minY), visible.maxY - frame.height)
+            settings.setFrame(frame, display: false)
+        }
+        return settings
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        ThemePreview.shared.cancel()
+        ShortcutRecorder.shared.stop()
+        guard model?.isQuitting != true, let owner, owner.isVisible else { return }
+        owner.makeKeyAndOrderFront(nil)
+        FocusedTerminal.shared.refresh()
     }
 }

@@ -157,14 +157,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ShortcutRecorder.isRecording {
             return event
         }
-        if model.showingSettings, NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID {
             guard let chord = KeyChord.from(event: event) else { return event }
-            if chord == AppShortcuts.chord(for: .closeTab) || chord == AppShortcuts.chord(for: .settings) {
+            if chord == AppShortcuts.chord(for: .closeTab) || chord == AppShortcuts.chord(for: .closeWindow) {
                 model.dismissSettings()
                 return nil
             }
+            if chord == AppShortcuts.chord(for: .settings) { model.showSettings(); return nil }
             if togglesFullScreen(chord) { return nil }
-            // 编辑快捷键交给设置控件，工作区快捷键不能操作隐藏的终端。
+            // 设置窗口处理编辑操作，工作区快捷键只在主窗口生效。
             let isWorkspaceShortcut = AppShortcutID.allCases.contains {
                 $0.group != .terminal && $0 != .toggleFullScreen && $0 != .closeWindow && AppShortcuts.chord(for: $0) == chord
             }
@@ -317,7 +318,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ?? (chord == reverseSwitcherChord ? .terminalSwitcher : nil)
         guard let id = matched else { return nil }
         guard let window else { return false }
-        if model.showingSettings || window.hostPickerPresented {
+        if window.hostPickerPresented {
             return false
         }
         if id == .terminalSwitcher {
@@ -366,7 +367,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         guard paneShortcuts.contains(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
         guard let window else { return false }
-        if model.showingSettings || window.hostPickerPresented {
+        if window.hostPickerPresented {
             return false
         }
         // Moving comes first: it shares the arrow keys with focusing and adds Shift.
@@ -622,16 +623,21 @@ struct GooseAgentApp: App {
             let _ = shortcutsRevision
             CommandGroup(replacing: .newItem) {
                 Button("Close Window") {
-                    guard !(NSApp.keyWindow is FamilyModalWindow), let state = appDelegate.model.keyWindow else { return }
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    if NSApp.keyWindow?.identifier == SettingsWindowController.windowID {
+                        appDelegate.model.dismissSettings()
+                        return
+                    }
+                    guard let state = appDelegate.model.keyWindow else { return }
                     MainWindowManager.shared.close(state)
                 }
                     .keyboardShortcut(AppShortcuts.chord(for: .closeWindow).keyboardShortcut)
-                Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow), !appDelegate.model.showingSettings { appDelegate.model.newTab() } }
+                Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow), NSApp.keyWindow?.identifier != SettingsWindowController.windowID { appDelegate.model.newTab() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
                 Button("Open Items Overview") {
-                    guard !(NSApp.keyWindow is FamilyModalWindow), !appDelegate.model.showingSettings else { return }
+                    guard !(NSApp.keyWindow is FamilyModalWindow), NSApp.keyWindow?.identifier != SettingsWindowController.windowID else { return }
                     guard let window = appDelegate.model.keyWindow else { return }
                     DispatchQueue.main.async {
                         TerminalSwitcher.shared.open(model: appDelegate.model, window: window,
@@ -645,7 +651,7 @@ struct GooseAgentApp: App {
                 .keyboardShortcut(AppShortcuts.chord(for: .toggleFullScreen).keyboardShortcut)
             }
             CommandGroup(replacing: .appSettings) {
-                Button("Settings") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.toggleSettings() } }
+                Button("Settings") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.showSettings() } }
                     .keyboardShortcut(AppShortcuts.chord(for: .settings).keyboardShortcut)
             }
             TerminalCommands(focus: FocusedTerminal.shared, model: appDelegate.model) {

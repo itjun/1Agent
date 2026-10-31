@@ -91,17 +91,6 @@ struct RootView: View {
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
-        // 保留工作区视图及其尺寸，切换设置不会重建终端或丢失文件页状态。
-        .opacity(model.showingSettings ? 0 : 1)
-        .allowsHitTesting(!model.showingSettings)
-        .accessibilityHidden(model.showingSettings)
-        .overlay {
-            if model.showingSettings {
-                SettingsView(onRestart: { model.requestRestart() }, onBack: { model.dismissSettings() })
-                    .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
-                    .background(appearanceDriver.isShellTransparent ? Color.clear : chrome.background)
-            }
-        }
         .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
         .background {
             ShellBackdrop(
@@ -157,7 +146,7 @@ struct RootView: View {
                 .preferredColorScheme(appearanceDriver.interfaceColorScheme)
         }
         .onChange(of: window.hostPickerPresented) { _, presented in
-            if !presented && !filesMode && !model.showingSettings {
+            if !presented && !filesMode {
                 if let tab = model.selectedTab(in: window) {
                     SSHTerminalRegistry.focus(tab.sessionID)
                 }
@@ -183,7 +172,6 @@ struct RootView: View {
     /// "root@host" or "~/path" for the selected terminal, else the app name.
     /// Shown in Mission Control and the Window menu.
     private var windowTitle: String {
-        if model.showingSettings { return String(localized: "Settings") }
         if selectedSessionBadge.isEmpty {
             return String(localized: "1Agent")
         }
@@ -565,7 +553,7 @@ struct RootView: View {
 
     private func paneTitleMenu(_ tab: TerminalTab) -> some View {
         let isSelected = tab.hasTerminal && window.selectedTabID == tab.id && window.section == .terminals
-            && !window.presentation.fullFilesWorkspace && !model.showingSettings
+            && !window.presentation.fullFilesWorkspace
         return HStack(spacing: 8) {
             Text(verbatim: numberedSessionTitle(tab))
                 .foregroundStyle(chrome.secondary)

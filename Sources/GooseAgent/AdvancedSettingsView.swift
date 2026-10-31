@@ -4,6 +4,7 @@ import SwiftUI
 /// Settings → Advanced: import from Ghostty's config files, the custom snippet, and the config
 /// Ghostty is running with.
 struct AdvancedSettingsPage: View {
+    var isActive = true
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var diagnostics = TerminalConfigDiagnostics.shared
     @ObservedObject private var importRequests = GhosttyImportRequests.shared
@@ -30,6 +31,9 @@ struct AdvancedSettingsPage: View {
         }
         .onChange(of: importRequests.previewPending) { _, _ in
             openPendingPreview()
+        }
+        .onChange(of: isActive) { _, active in
+            if active { openPendingPreview() }
         }
         .familySheet(isPresented: Binding(
             get: { plan != nil },
@@ -96,7 +100,7 @@ struct AdvancedSettingsPage: View {
     }
 
     private func openPendingPreview() {
-        if !importRequests.previewPending {
+        if !isActive || !importRequests.previewPending {
             return
         }
         importRequests.previewPending = false
@@ -137,6 +141,8 @@ struct AdvancedSettingsPage: View {
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 TextEditor(text: $snippetDraft)
+                    .accessibilityLabel(Text("Custom Configuration Snippet"))
+                    .accessibilityIdentifier("settings.advanced.snippet")
                     .font(Theme.Font.paneTitle)
                     .foregroundStyle(chrome.text)
                     .autocorrectionDisabled()
