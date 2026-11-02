@@ -89,8 +89,14 @@ struct TerminalCanvas: View {
                     .padding(.top, cardHeader)
                     .background(alignment: .top) {
                         if isShellTransparent {
-                            floatingTerminalBackground.opacity(ShellLayout.terminalOpacity)
+                            floatingTerminalBackground
+                                .opacity(window.selectedTabID == tab.id ? 1 : ShellLayout.terminalOpacity)
                                 .frame(height: cardHeader).allowsHitTesting(false)
+                        }
+                    }
+                    .background {
+                        if isShellTransparent && window.selectedTabID == tab.id {
+                            floatingTerminalBackground.allowsHitTesting(false)
                         }
                     }
                     .modifier(FloatingContentSurface())

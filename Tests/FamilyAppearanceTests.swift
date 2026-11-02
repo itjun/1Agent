@@ -195,7 +195,7 @@ enum FamilyAppearanceTests {
             expect(driver.isShellTransparent == isTransparent, "legacy shell choice cannot disable the unified material")
             for target in TerminalThemeTarget.allCases {
                 let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
-                expect(rendered.contains(isTransparent ? "background-opacity = 0.96" : "background-opacity = 1"), "unified shell opacity reaches both terminal engines")
+                expect(rendered.contains(isTransparent ? "background-opacity = 0.84" : "background-opacity = 1"), "unified shell opacity reaches both terminal engines")
             }
             check(true, true, "legacy shell choices preserve both live sessions")
         }

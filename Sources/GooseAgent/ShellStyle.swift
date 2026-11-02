@@ -18,7 +18,7 @@ enum ShellLayout {
     static let compactTitlebarHeight: CGFloat = 32
     static let compactHeaderHeight: CGFloat = 32
     static let titlebarActionWidth: CGFloat = 48
-    static let terminalOpacity: Double = 0.96
+    static let terminalOpacity: Double = 0.84
     static let fileOpacity: Double = 0.98
     static let backdropTintOpacity: CGFloat = 0.25
     static let shadowRadius: CGFloat = 4
