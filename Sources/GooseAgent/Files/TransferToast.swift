@@ -97,7 +97,8 @@ final class TransferToast: ObservableObject {
             window.addChildWindow(panel, ordered: .above)
             panelParent = window
         }
-        let size = CGSize(width: FileBrowserLayout.toastWidth, height: FileBrowserLayout.toastHeight)
+        let contentSize = CGSize(width: FileBrowserLayout.toastWidth, height: FileBrowserLayout.toastHeight)
+        let size = panel.frameRect(forContentRect: CGRect(origin: .zero, size: contentSize)).size
         let frame = window.frame
         panel.setFrame(CGRect(
             x: frame.midX - size.width / 2,
@@ -131,10 +132,10 @@ final class TransferToast: ObservableObject {
 
     private func makePanel() -> NSPanel {
         let panel = ToastPanel(
-            contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true
+            contentRect: .zero, styleMask: [.titled, .utilityWindow, .nonactivatingPanel], backing: .buffered, defer: true
         )
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
+        panel.isOpaque = true
+        panel.backgroundColor = .windowBackgroundColor
         panel.hasShadow = true
         panel.ignoresMouseEvents = true
         panel.contentView = NSHostingView(rootView: TransferToastView(toast: self))
@@ -214,13 +215,6 @@ private struct TransferToastView: View {
         }
         .padding(.horizontal, Theme.Space.m)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .fill(chrome.elevated)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .stroke(failed ? chrome.danger : chrome.hairline, lineWidth: 1)
-        )
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }

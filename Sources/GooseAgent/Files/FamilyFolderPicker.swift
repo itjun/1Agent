@@ -34,11 +34,9 @@ struct FamilyFolderPicker: View {
                     .accessibilityLabel(Text("Parent Folder")).disabled(directory == "/")
                 Button { open(NSHomeDirectory()) } label: { Image(systemName: "house").frame(width: 32, height: 32) }
                     .accessibilityLabel(Text("Home"))
-                TextField("Path", text: $pathDraft).textFieldStyle(.plain).font(Theme.Font.body)
+                TextField("Path", text: $pathDraft).textFieldStyle(.roundedBorder).font(Theme.Font.body)
                     .padding(.horizontal, 8).frame(height: 32).focused($pathFocused)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(pathFocused ? chrome.background : chrome.elevated))
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(pathFocused ? chrome.accent : .clear, lineWidth: 1))
-                    .familyFocusRing(pathFocused).onSubmit { open((pathDraft as NSString).expandingTildeInPath) }
+                    .onSubmit { open((pathDraft as NSString).expandingTildeInPath) }
                     .accessibilityIdentifier("folders.path")
             }.buttonStyle(FamilyButtonStyle()).padding(.horizontal, 24).padding(.bottom, 16)
             Rectangle().fill(chrome.hairline).frame(height: 1)
@@ -62,8 +60,8 @@ struct FamilyFolderPicker: View {
                         .contentShape(Rectangle()).onHover { hovered = $0 ? folder : nil }
                         .onTapGesture(count: 2) { open(folder.path) }
                         .onTapGesture { select(folder); focusedFolder = folder }
-                        .focusable().focusEffectDisabled().focused($focusedFolder, equals: folder)
-                        .familyFocusRing(focusedFolder == folder)
+                        .focusable().focused($focusedFolder, equals: folder)
+
                         .onKeyPress(.return) { open(folder.path); return .handled }
                         .onKeyPress(.space) { select(folder); return .handled }
                         .onMoveCommand { direction in

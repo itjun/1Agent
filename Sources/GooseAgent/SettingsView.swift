@@ -15,7 +15,6 @@ enum SettingsLayout {
     static let pageTitleSize: CGFloat = 28
     static let contentMaxWidth: CGFloat = 960
     static let sectionSpacing: CGFloat = Theme.Space.xl
-    static let contentInset: CGFloat = ShellLayout.workspaceInset
     static let cardRadius: CGFloat = Theme.Radius.card
     static let stackedRowBreakpoint: CGFloat = 560
     static let rowMinimumHeight: CGFloat = 44
@@ -94,29 +93,15 @@ struct SettingsCard<Content: View, Accessory: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.m) {
-            HStack(spacing: Theme.Space.s) {
-                Text(title)
-                    .font(Theme.Font.sectionTitle)
-                    .foregroundStyle(chrome.text)
-                Spacer(minLength: Theme.Space.s)
-                accessory()
-            }
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(Theme.Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
-                .fill(chrome.elevated)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
-                .strokeBorder(chrome.hairline.opacity(0.5), lineWidth: 0.5)
-                .allowsHitTesting(false)
+        GroupBox {
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
+                content().frame(maxWidth: .infinity, alignment: .leading)
+            }.padding(Theme.Space.s)
+        } label: {
+            HStack { Text(title); Spacer(); accessory() }
         }
     }
+
 }
 
 extension SettingsCard where Accessory == EmptyView {
@@ -126,7 +111,6 @@ extension SettingsCard where Accessory == EmptyView {
 }
 
 struct SettingsView: View {
-    @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPage: SettingsPage = .appearance
     @State private var pageContentBounds: [SettingsPage: CGRect] = [:]
@@ -192,20 +176,17 @@ struct SettingsView: View {
 
     var body: some View {
         NativeSidebarSplit(
-            isDividerHidden: isShellTransparent,
+            isDividerHidden: false,
             width: CGFloat(savedSidebarWidth),
             minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
             defaultWidth: SidebarLayout.defaultWidth,
             onWidthChange: { savedSidebarWidth = Double($0) }
         ) {
             VStack(spacing: 0) {
-                WindowDragArea()
-                    .frame(height: isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight)
                 settingsNavigation
             }
-                .ignoresSafeArea(edges: .top)
+
                 .environment(\.windowChrome, sidebarChrome)
-                .environment(\.isShellTransparent, isShellTransparent)
                 .preferredColorScheme(colorScheme)
                     .tint(chrome.accent).font(Theme.Font.body)
         } detail: {
@@ -229,18 +210,16 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .coordinateSpace(name: "settings.detail")
             .background(chrome.background)
-            .modifier(FloatingContentSurface())
-            .padding(.vertical, isShellTransparent ? SettingsLayout.contentInset : 0)
-            .padding(.trailing, isShellTransparent ? SettingsLayout.contentInset : 0)
-            .ignoresSafeArea(edges: .top)
+
+
             // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
             .environment(\.windowChrome, chrome)
-            .environment(\.isShellTransparent, isShellTransparent)
             .preferredColorScheme(colorScheme)
                     .tint(chrome.accent).font(Theme.Font.body)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background((isShellTransparent ? Color.clear : chrome.background).ignoresSafeArea())
+        .background(chrome.background.ignoresSafeArea())
+        .ignoresSafeArea(edges: .top)
 
         .onAppear {
             TerminalThemeChoice.migrateIfNeeded()
@@ -263,60 +242,15 @@ struct SettingsView: View {
     }
 
     private var settingsNavigation: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Settings")
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(sidebarChrome.text)
-                .padding(.horizontal, Theme.Space.l)
-                .padding(.top, Theme.Space.xs)
-                .padding(.bottom, Theme.Space.l)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(SettingsPage.allCases) { page in
-                        let selected = selectedPage == page
-                        Button {
-                            // 鼠标选中使用圆角底色；键盘导航保留独立的焦点提示。
-                            focusedPage = nil
-                            selectedPage = page
-                        } label: {
-                            Text(page.title)
-                                .font(Theme.Font.row.weight(selected ? .semibold : .regular))
-                                .foregroundStyle(sidebarChrome.text)
-                                .lineLimit(1)
-                                .padding(.horizontal, Theme.Space.m)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(height: SettingsLayout.navRowHeight)
-                                .background(
-                                    RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                        .fill(selected ? sidebarChrome.hairline : Color.clear)
-                                )
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(FamilyButtonStyle(showsFocusRing: false))
-                        .focusable()
-                        .focusEffectDisabled()
-                        .focused($focusedPage, equals: page)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                .strokeBorder(focusedPage == page ? sidebarChrome.lineStrong : .clear, lineWidth: 1)
-                                .allowsHitTesting(false)
-                        }
-                        .onKeyPress(keys: [.space, .return]) { _ in
-                            selectedPage = page
-                            return .handled
-                        }
-                        .accessibilityLabel(Text(page.title))
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("settings.navigation.\(page.rawValue)")
-                        .padding(.horizontal, Theme.Space.s)
-                    }
-                }
+        List(selection: $selectedPage) {
+            ForEach(SettingsPage.allCases) { page in
+                Button { selectedPage = page } label: { Text(page.title).frame(maxWidth: .infinity, alignment: .leading) }
+                    .buttonStyle(.plain).tag(page)
+                    .accessibilityIdentifier("settings.navigation.\(page.rawValue)")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background((isShellTransparent ? Color.clear : chrome.sidebarBackground).ignoresSafeArea())
+        .listStyle(.sidebar)
+        .navigationTitle(Text("Settings"))
     }
 
     private var settingsContent: some View {
@@ -602,54 +536,11 @@ struct SettingsView: View {
 
     /// Follow System / Light / Dark as one segmented control. Picking a segment applies at once, as before.
     private var appearanceModeControl: some View {
-        HStack(spacing: 2) {
-            ForEach(TerminalAppearance.allCases) { mode in
-                appearanceSegment(mode)
-            }
+        Picker("Appearance", selection: $appearanceRaw) {
+            ForEach(TerminalAppearance.allCases) { Text($0.title).tag($0.rawValue) }
         }
-        .padding(3)
-        .fixedSize(horizontal: true, vertical: false)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(chrome.background)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
-        )
-    }
-
-    private func appearanceSegment(_ mode: TerminalAppearance) -> some View {
-        let selected = appearance == mode
-        return Button {
-            appearanceRaw = mode.rawValue
-            AppearanceDriver.shared.reapply()
-        } label: {
-            HStack(spacing: Theme.Space.xs + 2) {
-                Image(systemName: SettingsView.appearanceSymbol(mode))
-                    .font(.system(size: 12))
-                Text(mode.title)
-                    .font(.system(size: 13, weight: .medium))
-            }
-            .foregroundStyle(selected ? chrome.accent : chrome.text)
-            .padding(.horizontal, Theme.Space.m)
-            .frame(height: SettingsLayout.segmentHeight)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                    .fill(selected ? chrome.accentFill : Color.clear)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(FamilyButtonStyle())
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-
-    private static func appearanceSymbol(_ mode: TerminalAppearance) -> String {
-        switch mode {
-        case .system: return "circle.lefthalf.filled"
-        case .light: return "sun.max"
-        case .dark: return "moon"
-        }
+        .pickerStyle(.segmented).labelsHidden()
+        .onChange(of: appearanceRaw) { _, _ in AppearanceDriver.shared.reapply() }
     }
 
     /// Restores the shared light and dark themes through the preview transaction.
@@ -711,74 +602,16 @@ struct SettingsView: View {
     }
 
     private var themeSearchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
-                .foregroundStyle(chrome.secondary)
-            TextField("Search themes", text: $themeQuery)
-                .focused($themeSearchFocused)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .foregroundStyle(chrome.text)
-            if !themeQuery.isEmpty {
-                Button {
-                    themeQuery = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(chrome.secondary)
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .help("Clear search")
-            }
-        }
-        .padding(.horizontal, Theme.Space.m)
-        .frame(maxWidth: .infinity)
-        .frame(height: SettingsView.searchControlHeight)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(themeSearchFocused ? chrome.background : chrome.elevated)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(themeSearchFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
-        )
-        .familyFocusRing(themeSearchFocused)
+        TextField("Search themes", text: $themeQuery)
+            .textFieldStyle(.roundedBorder)
+            .focused($themeSearchFocused)
     }
 
     /// Same height and border as the search field, so the row reads as one control group.
     private var themeFilterBar: some View {
-        HStack(spacing: 2) {
-            ForEach(ThemeFilter.allCases) { filter in
-                let selected = themeFilter == filter
-                Button {
-                    themeFilter = filter
-                } label: {
-                    Text(filter.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(selected ? chrome.accent : chrome.text)
-                        .padding(.horizontal, Theme.Space.m)
-                        .frame(maxHeight: .infinity)
-                        .background(
-                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                .fill(selected ? chrome.accentFill : Color.clear)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .frame(height: SettingsView.searchControlHeight)
-        .fixedSize(horizontal: true, vertical: false)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(chrome.background)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
-        )
+        Picker("Appearance", selection: $themeFilter) {
+            ForEach(ThemeFilter.allCases) { Text($0.title).tag($0) }
+        }.pickerStyle(.segmented).labelsHidden().fixedSize()
     }
 
     /// Clicking a current card lists every theme for that slot, so one can be picked and previewed.
@@ -866,26 +699,24 @@ private struct SettingsWindowRoot: View {
 
     var body: some View {
         SettingsView(onRestart: { model.requestRestart() })
-            .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
             .preferredColorScheme(appearanceDriver.interfaceColorScheme)
             .frame(minWidth: SettingsLayout.windowMinimumSize.width, minHeight: SettingsLayout.windowMinimumSize.height)
-            .background {
-                ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, isDark: appearanceDriver.isDark)
-                    .accessibilityHidden(true)
-            }
-            .ignoresSafeArea(edges: .top)
+            .background(Color(nsColor: .windowBackgroundColor))
+
             .onAppear { appearanceDriver.reapply() }
             .onChange(of: appearanceRaw) { _, _ in appearanceDriver.reapply() }
     }
 }
 
 @MainActor
-final class SettingsWindowController: NSObject, NSWindowDelegate {
+final class SettingsWindowController: NSObject, NSWindowDelegate, NSToolbarDelegate {
     static let shared = SettingsWindowController()
     static let windowID = NSUserInterfaceItemIdentifier("settings")
     private(set) var window: NSWindow?
     private weak var model: AppModel?
     private weak var owner: NSWindow?
+    private weak var columns: NSSplitView?
+    private let columnSeparator = NSToolbarItem.Identifier("settings.sidebarSeparator")
 
     func show(model: AppModel) {
         self.model = model
@@ -894,6 +725,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let settings = window ?? makeWindow(model: model)
         window = settings
         MainWindowManager.bringToActiveSpace(settings)
+        DispatchQueue.main.async { [weak self, weak settings] in
+            guard let self, let settings, let root = settings.contentView,
+                  let split = workspaceColumnSplit(in: root) else { return }
+            self.columns = split
+            if settings.toolbar == nil {
+                let toolbar = NSToolbar(identifier: "settings.toolbar")
+                toolbar.delegate = self
+                toolbar.allowsUserCustomization = false
+                settings.toolbarStyle = .unified
+                settings.toolbar = toolbar
+            }
+        }
     }
 
     private func makeWindow(model: AppModel) -> NSWindow {
@@ -903,9 +746,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         settings.identifier = Self.windowID
         settings.title = String(localized: "Settings")
         settings.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        settings.titlebarAppearsTransparent = true
-        settings.titleVisibility = .hidden
-        settings.titlebarSeparatorStyle = .none
+        settings.titlebarAppearsTransparent = false
+        settings.titleVisibility = .visible
+        settings.titlebarSeparatorStyle = .automatic
         settings.tabbingMode = .disallowed
         settings.isRestorable = false
         settings.isReleasedWhenClosed = false
@@ -922,6 +765,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             settings.setFrame(frame, display: false)
         }
         return settings
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [columnSeparator, .flexibleSpace]
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar: Bool) -> NSToolbarItem? {
+        guard identifier == columnSeparator, let columns else { return nil }
+        return NSTrackingSeparatorToolbarItem(identifier: identifier, splitView: columns, dividerIndex: 0)
     }
 
     func windowWillClose(_ notification: Notification) {

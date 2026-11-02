@@ -214,7 +214,7 @@ enum GhosttyRuntime {
     ) -> TerminalConfiguration {
         let entries = (settings.configEntries() + snippet).filter { $0.key != "background-opacity" }
         return TerminalConfiguration { builder in
-            builder.withBackgroundOpacity(ShellStyle.isTransparent ? ShellLayout.terminalOpacity : 1)
+            builder.withBackgroundOpacity(1)
             for entry in entries {
                 builder.withCustom(entry.key, entry.value)
             }
@@ -659,18 +659,6 @@ enum SSHTerminalRegistry {
         views[id]?.window
     }
 
-    /// The rows on screen as plain text. Nil before the terminal was made or once it closed.
-    static func viewportText(for id: String) -> String? {
-        views[id]?.processHost?.session.readViewportText()
-    }
-
-    /// 仅在选中预览时导出样式，避免打开切换器就复制所有会话的历史。
-    static func previewContent(for id: String) -> (output: String, controller: TerminalController)? {
-        guard let view = views[id], let session = view.processHost?.session,
-              let controller = view.controller, let output = session.exportStyledScreen() else { return nil }
-        return (output, controller)
-    }
-
     static func hasRunningCommand(_ id: String) -> Bool {
         guard let host = views[id]?.processHost else { return false }
         return host.isRemote || !host.process.shellIsForeground
@@ -738,6 +726,8 @@ final class SSHTerminalNSView: AppTerminalView {
     let eventRelay = TerminalEventRelay()
     /// Subview rather than SwiftUI: the metal layer covers any SwiftUI view placed over the terminal.
     private let bellBorder = TerminalOverlayView()
+    private let splitFocusRing = TerminalSplitFocusRing()
+    private var wantsSplitFocusRing = false
     private let linkBanner = TerminalLinkBanner()
     private let dropHighlight = TerminalOverlayView()
     private let dropOverlay = DropZoneOverlay()
@@ -776,6 +766,59 @@ final class SSHTerminalNSView: AppTerminalView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         FocusedTerminal.shared.refreshSoon()
+        observeSplitFocusRingWindow()
+        refreshSplitFocusRing()
+    }
+
+    override func layout() {
+        super.layout()
+        guard wantsSplitFocusRing else { return }
+        if splitFocusRing.superview == nil || splitFocusRing.frame.size != bounds.size {
+            refreshSplitFocusRing()
+        }
+    }
+
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        // The surface is attached after the ring. Keep the ring above the metal layer.
+        guard wantsSplitFocusRing, subview !== splitFocusRing, splitFocusRing.superview === self else { return }
+        addSubview(splitFocusRing)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
+    }
+
+    /// 分栏里当前终端的淡蓝焦点框。窗口失焦时收起，和文件列表的系统焦点环一致。
+    func setSplitFocusRing(_ visible: Bool) {
+        wantsSplitFocusRing = visible
+        refreshSplitFocusRing()
+    }
+
+    private func observeSplitFocusRingWindow() {
+        let center = NotificationCenter.default
+        center.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
+        center.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
+        guard let window else { return }
+        center.addObserver(self, selector: #selector(splitFocusRingWindowChanged), name: NSWindow.didBecomeKeyNotification, object: window)
+        center.addObserver(self, selector: #selector(splitFocusRingWindowChanged), name: NSWindow.didResignKeyNotification, object: window)
+    }
+
+    @objc private func splitFocusRingWindowChanged() {
+        refreshSplitFocusRing()
+    }
+
+    private func refreshSplitFocusRing() {
+        guard wantsSplitFocusRing, window?.isKeyWindow == true, bounds.width > 1, bounds.height > 1 else {
+            splitFocusRing.removeFromSuperview()
+            return
+        }
+        splitFocusRing.frame = bounds
+        splitFocusRing.autoresizingMask = [.width, .height]
+        if splitFocusRing.superview !== self {
+            addSubview(splitFocusRing)
+        }
     }
 
     override func keyDown(with event: NSEvent) {
@@ -1372,6 +1415,96 @@ private extension NSEvent {
     }
 }
 
+/// 分栏当前终端的焦点框。颜色和粗细取自系统焦点环，和文件列表一致；点击穿透到终端。
+final class TerminalSplitFocusRing: NSView {
+    private static var strokeColor: NSColor?
+
+    /// The system focus ring, sampled so an accent change stays in step with the file list.
+    static func currentStrokeColor() -> NSColor {
+        if let strokeColor { return strokeColor }
+        let sampled = sampleStrokeColor() ?? NSColor.keyboardFocusIndicatorColor
+        strokeColor = sampled
+        return sampled
+    }
+
+    static func resetStrokeColor() {
+        strokeColor = nil
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        layer?.isOpaque = false
+        layer?.masksToBounds = false
+        applyStroke()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override var isOpaque: Bool { false }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        let center = NotificationCenter.default
+        center.removeObserver(self, name: NSColor.systemColorsDidChangeNotification, object: nil)
+        center.addObserver(self, selector: #selector(redrawFocusRing), name: NSColor.systemColorsDidChangeNotification, object: nil)
+        applyStroke()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        redrawFocusRing()
+    }
+
+    @objc private func redrawFocusRing() {
+        Self.strokeColor = nil
+        applyStroke()
+    }
+
+    private func applyStroke() {
+        layer?.borderWidth = Theme.PaneStyle.focusRingWidth
+        layer?.borderColor = Self.currentStrokeColor().cgColor
+    }
+
+    /// One pixel of `NSFocusRingPlacement`, including its alpha, so the border composites once.
+    private static func sampleStrokeColor() -> NSColor? {
+        let points = NSSize(width: 24, height: 24)
+        let scale: CGFloat = 2
+        let pixels = Int(points.width * scale)
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixels,
+            pixelsHigh: pixels,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return nil }
+        rep.size = points
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSColor.clear.setFill()
+        NSRect(origin: .zero, size: points).fill()
+        NSGraphicsContext.current?.saveGraphicsState()
+        NSFocusRingPlacement.only.set()
+        NSBezierPath(rect: NSRect(x: 8, y: 8, width: 8, height: 8)).fill()
+        NSGraphicsContext.current?.restoreGraphicsState()
+        NSGraphicsContext.restoreGraphicsState()
+        // The ring sits just outside the filled rect. At 2x the rect starts at pixel 16.
+        return (4..<16).compactMap { rep.colorAt(x: $0, y: pixels / 2)?.usingColorSpace(.sRGB) }
+            .first { $0.alphaComponent > 0.2 }
+    }
+}
+
 /// Decoration drawn inside a terminal view. Clicks and hovers go through to the terminal.
 final class TerminalOverlayView: NSView {
     override init(frame frameRect: NSRect) {
@@ -1556,6 +1689,9 @@ final class TerminalHostView: NSView {
         if terminal.superview === self { return }
         terminal.removeFromSuperview()
         terminal.setSurfaceVisible(!isHidden && window?.isMiniaturized != true)
+        // 合并连续尺寸变化，避免多终端在侧栏动画中反复重排。
+        // 引擎保留首帧响应，并在合并窗口结束后补齐最后一次尺寸。
+        terminal.setResizeThrottle(milliseconds: 32)
         terminal.frame = bounds
         terminal.autoresizingMask = [.width, .height]
         addSubview(terminal)
@@ -1583,6 +1719,8 @@ struct SSHTerminalView: NSViewRepresentable {
     var isPresented: Bool = true
     /// Selection is an ongoing focus intent, including views mounted after the open action.
     var isSelected: Bool = true
+    /// Light-blue system focus ring, only on the focused terminal of a split.
+    var showsSplitFocusRing: Bool = false
     var contentCornerRadius: CGFloat = 0
     var isHeaderIntegrated: Bool = false
     var canFocus: () -> Bool = { true }
@@ -1643,6 +1781,7 @@ struct SSHTerminalView: NSViewRepresentable {
         context.coordinator.terminal = terminal
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
+        terminal.setSplitFocusRing(showsSplitFocusRing && isPresented)
         applyAppearance(terminal, dark: dark)
         return container
     }
@@ -1663,6 +1802,7 @@ struct SSHTerminalView: NSViewRepresentable {
         }
         wire(terminal, coordinator: context.coordinator)
         container.attach(terminal)
+        terminal.setSplitFocusRing(showsSplitFocusRing && isPresented)
         applyAppearance(terminal, dark: dark)
     }
 

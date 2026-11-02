@@ -125,11 +125,12 @@ final class CommandLiteralTextField: NSTextField {
     override init(frame: NSRect) {
         super.init(frame: frame)
         cell = CommandLiteralFieldCell(textCell: "")
-        isBezeled = false
+        isBezeled = true
+        bezelStyle = .roundedBezel
         isEditable = true
         isSelectable = true
         drawsBackground = true
-        focusRingType = .none
+        focusRingType = .default
         font = .monospacedSystemFont(ofSize: 14, weight: .regular)
         usesSingleLineMode = true
     }
@@ -157,24 +158,7 @@ private final class CommandLiteralFieldCell: NSTextFieldCell {
         return literalEditor
     }
 
-    override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        let height = min(rect.height, ceil(font.map { $0.ascender - $0.descender + $0.leading } ?? 20))
-        return NSRect(x: rect.minX + 8, y: rect.midY - height / 2, width: max(0, rect.width - 16), height: height)
-    }
 
-    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
-                         delegate: Any?, start selStart: Int, length selLength: Int) {
-        // NSTextField's editor otherwise fills the entire 32pt control and starts
-        // its first line at the top, ignoring the cell's drawing inset.
-        super.select(withFrame: drawingRect(forBounds: rect), in: controlView, editor: textObj,
-                     delegate: delegate, start: selStart, length: selLength)
-    }
-
-    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
-                       delegate: Any?, event: NSEvent?) {
-        super.edit(withFrame: drawingRect(forBounds: rect), in: controlView, editor: textObj,
-                   delegate: delegate, event: event)
-    }
 }
 
 struct CommandLiteralField: NSViewRepresentable {
@@ -184,7 +168,6 @@ struct CommandLiteralField: NSViewRepresentable {
     var backgroundColor: NSColor
     var identifier: String
     var font: NSFont = .monospacedSystemFont(ofSize: 14, weight: .regular)
-    var fillsProposedHeight = false
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
@@ -211,8 +194,8 @@ struct CommandLiteralField: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: CommandLiteralTextField, context: Context) -> CGSize? {
-        guard fillsProposedHeight, let width = proposal.width, let height = proposal.height else { return nil }
-        return CGSize(width: width, height: height)
+        CGSize(width: proposal.width ?? nsView.intrinsicContentSize.width,
+               height: nsView.intrinsicContentSize.height)
     }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {

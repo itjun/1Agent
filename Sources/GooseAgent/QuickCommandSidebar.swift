@@ -6,7 +6,6 @@ struct QuickCommandSidebar: View {
     @ObservedObject var window: WindowState
     @ObservedObject private var store = QuickCommandStore.shared
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
     @State private var search = ""
     @State private var batchSelecting = false
     @State private var selectedIDs: Set<UUID> = []
@@ -37,7 +36,7 @@ struct QuickCommandSidebar: View {
             Divider()
             commandList
         }
-        .foregroundStyle(chrome.text).background(chrome.background.opacity(isShellTransparent ? 0.12 : 1))
+        .foregroundStyle(chrome.text).background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("workspace.toolSidebar")
         .onChange(of: commands.map(\.id)) { _, ids in
@@ -394,12 +393,10 @@ struct CommandTextField: View {
         HStack(spacing: 0) {
             if let symbol { Image(systemName: symbol).foregroundStyle(chrome.secondary).padding(.leading, 10) }
             CommandLiteralField(text: $text, placeholder: placeholder, textColor: NSColor(chrome.text),
-                          backgroundColor: NSColor(chrome.elevated), identifier: identifier,
-                          font: .systemFont(ofSize: 13), fillsProposedHeight: true)
+                          backgroundColor: .textBackgroundColor, identifier: identifier,
+                          font: .systemFont(ofSize: 13))
         }
-            .background(chrome.elevated)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline))
+
     }
 }
 

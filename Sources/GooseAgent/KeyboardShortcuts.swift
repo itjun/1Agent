@@ -18,10 +18,8 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
     case selectTerminal7
     case selectTerminal8
     case selectLastTerminal
-    case terminalSwitcher
     case toggleSidebar
     case toggleToolSidebar
-    case commandPalette
     case duplicateRight
     case duplicateDown
     case openFileBrowser
@@ -59,11 +57,11 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
 
     var group: AppShortcutGroup {
         switch self {
-        case .newTab, .closeWindow, .newLocalTerminal, .openHost, .toggleFullScreen, .settings, .commandPalette:
+        case .newTab, .closeWindow, .newLocalTerminal, .openHost, .toggleFullScreen, .settings:
             return .app
         case .previousTerminal, .nextTerminal,
              .selectTerminal1, .selectTerminal2, .selectTerminal3, .selectTerminal4,
-             .selectTerminal5, .selectTerminal6, .selectTerminal7, .selectTerminal8, .selectLastTerminal, .terminalSwitcher, .toggleSidebar, .toggleToolSidebar:
+             .selectTerminal5, .selectTerminal6, .selectTerminal7, .selectTerminal8, .selectLastTerminal, .toggleSidebar, .toggleToolSidebar:
             return .sidebar
         case .duplicateRight, .duplicateDown, .openFileBrowser, .toggleSplitZoom, .closeTab, .nextPane, .previousPane,
              .paneLeft, .paneRight, .paneUp, .paneDown,
@@ -91,10 +89,8 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
             let number = terminalNumber ?? 0
             return String(localized: "Go to Terminal \(number)")
         case .selectLastTerminal: return String(localized: "Go to Last Terminal")
-        case .terminalSwitcher: return String(localized: "Terminal Switcher")
         case .toggleSidebar: return String(localized: "Toggle Session Sidebar")
         case .toggleToolSidebar: return String(localized: "Toggle Tool Sidebar")
-        case .commandPalette: return String(localized: "Open Items Overview")
         case .duplicateRight: return String(localized: "Split Right")
         case .duplicateDown: return String(localized: "Split Down")
         case .openFileBrowser: return String(localized: "Switch Terminals and Files")
@@ -149,10 +145,8 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .selectTerminal7: return KeyChord(key: "7", modifiers: .command)
         case .selectTerminal8: return KeyChord(key: "8", modifiers: .command)
         case .selectLastTerminal: return KeyChord(key: "9", modifiers: .command)
-        case .terminalSwitcher: return KeyChord(key: "\t", modifiers: .control)
         case .toggleSidebar: return KeyChord(key: "b", modifiers: .command)
         case .toggleToolSidebar: return KeyChord(key: "b", modifiers: [.command, .shift])
-        case .commandPalette: return KeyChord(key: "p", modifiers: [.command, .shift])
         case .duplicateRight: return KeyChord(key: "d", modifiers: .command)
         case .duplicateDown: return KeyChord(key: "d", modifiers: [.command, .shift])
         case .openFileBrowser: return KeyChord(key: "o", modifiers: [.command, .option])

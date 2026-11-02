@@ -1,74 +1,37 @@
+import AppKit
 import SwiftUI
 
-/// 1Panel switch and checkbox drawings, using Toggle's binding and accessibility semantics.
 struct FamilyToggleStyle: ToggleStyle {
     var checkbox = false
     var showsLabel = true
-    @Environment(\.windowChrome) private var chrome
-    @Environment(\.isEnabled) private var enabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @FocusState private var focused: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
-            HStack(spacing: 8) {
-                if checkbox {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: Theme.Radius.tag)
-                            .fill(configuration.isOn ? chrome.accent : chrome.background)
-                        RoundedRectangle(cornerRadius: Theme.Radius.tag)
-                            .strokeBorder(configuration.isOn ? chrome.accent : chrome.lineStrong, lineWidth: 1)
-                        if configuration.isOn { Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(chrome.filledForeground(on: chrome.accent)) }
-                    }.frame(width: 16, height: 16)
-                } else {
-                    Capsule().fill(configuration.isOn ? chrome.accent : chrome.lineStrong)
-                        .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                            Circle().fill(.white).frame(width: 16, height: 16).padding(2)
-                        }
-                        .frame(width: 36, height: 20)
-                        .animation(reduceMotion ? nil : .timingCurve(0.38, 0, 0.24, 1, duration: 0.2), value: configuration.isOn)
-                }
-                if showsLabel { configuration.label }
-            }
-            .contentShape(Rectangle())
+    @ViewBuilder func makeBody(configuration: Configuration) -> some View {
+        if checkbox {
+            control(configuration).toggleStyle(.checkbox)
+        } else {
+            control(configuration).toggleStyle(.switch)
         }
-        .buttonStyle(.plain).focused($focused)
-        .familyFocusRing(focused).opacity(enabled ? 1 : 0.45)
-        .accessibilityRepresentation { Toggle(isOn: configuration.$isOn) { configuration.label } }
+    }
+    @ViewBuilder private func control(_ configuration: Configuration) -> some View {
+        if showsLabel {
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+        } else {
+            Toggle(isOn: configuration.$isOn) { configuration.label }.labelsHidden()
+        }
     }
 }
 
 struct FamilySegments<Value: Hashable>: View {
     @Binding var value: Value
     var options: [(Value, String)]
-    @Environment(\.windowChrome) private var chrome
-    @Environment(\.isEnabled) private var enabled
-    @FocusState private var focused: Value?
+    @Environment(\.settingsControlTitle) private var title
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(options, id: \.0) { item in
-                Button { value = item.0 } label: {
-                    Text(verbatim: item.1).font(.system(size: 14, weight: value == item.0 ? .semibold : .regular))
-                        .foregroundStyle(value == item.0 ? chrome.accent : chrome.text)
-                        .padding(.horizontal, 8).frame(maxWidth: .infinity).frame(height: 28)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.tag).fill(value == item.0 ? chrome.background : .clear))
-                }
-                .buttonStyle(.plain).focused($focused, equals: item.0)
-                .familyFocusRing(focused == item.0)
-                .accessibilityAddTraits(value == item.0 ? [.isSelected] : [])
-                .onMoveCommand { direction in
-                    guard enabled, let index = options.firstIndex(where: { $0.0 == value }) else { return }
-                    let next = direction == .left || direction == .up ? index - 1 : index + 1
-                    if options.indices.contains(next) { value = options[next].0; focused = value }
-                }
-            }
-        }.padding(2).background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.elevated))
-        .opacity(enabled ? 1 : 0.45)
+        Picker(selection: $value) {
+            ForEach(options, id: \.0) { Text(verbatim: $0.1).tag($0.0) }
+        } label: { Text(verbatim: title ?? "") }
+        .pickerStyle(.segmented).labelsHidden()
     }
 }
 
-/// A plain native slider supplies tracking and keyboard/VoiceOver, while its cell draws the
-/// same 4px rail and 16px thumb in every app appearance.
 struct FamilySlider: NSViewRepresentable {
     @Binding var value: Double
     var range: ClosedRange<Double>
@@ -79,11 +42,9 @@ struct FamilySlider: NSViewRepresentable {
     @Environment(\.settingsControlTitle) private var settingsControlTitle
     func makeNSView(context: Context) -> FamilySliderControl {
         let slider = FamilySliderControl()
-        slider.cell = FamilySliderCell()
         slider.target = context.coordinator
         slider.action = #selector(Coordinator.changed(_:))
         slider.isContinuous = true
-        slider.focusRingType = .none
         slider.onEditingChanged = { [weak coordinator = context.coordinator] in coordinator?.parent.onEditingChanged($0) }
         return slider
     }
@@ -93,7 +54,6 @@ struct FamilySlider: NSViewRepresentable {
         slider.doubleValue = value
         slider.step = step
         slider.isEnabled = enabled
-        (slider.cell as? FamilySliderCell)?.chrome = chrome
         slider.setAccessibilityLabel(settingsControlTitle)
         slider.needsDisplay = true
     }
@@ -136,52 +96,20 @@ final class FamilySliderControl: NSSlider {
     override func becomeFirstResponder() -> Bool { let result = super.becomeFirstResponder(); needsDisplay = true; return result }
     override func resignFirstResponder() -> Bool { let result = super.resignFirstResponder(); needsDisplay = true; return result }
 }
-private final class FamilySliderCell: NSSliderCell {
-    var chrome = WindowChrome(isDark: false, icon: .original)
-    override var knobThickness: CGFloat { 16 }
-    override func drawBar(inside rect: NSRect, flipped: Bool) {
-        let track = NSRect(x: rect.minX, y: rect.midY - 2, width: rect.width, height: 4)
-        NSColor(chrome.hairline).setFill(); NSBezierPath(roundedRect: track, xRadius: 2, yRadius: 2).fill()
-        let fraction = (doubleValue - minValue) / max(0.00001, maxValue - minValue)
-        let filled = NSRect(x: track.minX, y: track.minY, width: track.width * fraction, height: 4)
-        NSColor(chrome.accent).setFill(); NSBezierPath(roundedRect: filled, xRadius: 2, yRadius: 2).fill()
-    }
-    override func drawKnob(_ rect: NSRect) {
-        let knob = NSRect(x: rect.midX - 7, y: rect.midY - 7, width: 14, height: 14)
-        if controlView?.window?.firstResponder === controlView {
-            NSColor(chrome.focus).setFill(); NSBezierPath(ovalIn: knob.insetBy(dx: -3, dy: -3)).fill()
-        }
-        NSColor(chrome.background).setFill(); NSBezierPath(ovalIn: knob).fill()
-        NSColor(chrome.accent).setStroke(); let ring = NSBezierPath(ovalIn: knob); ring.lineWidth = 2; ring.stroke()
-    }
-}
-
 struct FamilyNumberInput: View {
-    @Environment(\.settingsControlTitle) private var settingsControlTitle
+    @Environment(\.settingsControlTitle) private var title
     @Binding var value: Int
     var range: ClosedRange<Int>
-    @Environment(\.windowChrome) private var chrome
-    @FocusState private var focused: Bool
-    @State private var draft = ""
     var body: some View {
-        HStack(spacing: 0) {
-            Button { commit(value - 1) } label: { Image(systemName: "minus").frame(width: 28, height: 32) }
-                .disabled(value <= range.lowerBound).accessibilityLabel(Text("Decrease"))
-            TextField("", text: $draft).textFieldStyle(.plain).multilineTextAlignment(.center)
-                .accessibilityLabel(Text(verbatim: settingsControlTitle ?? ""))
-                .font(.system(size: 14, design: .monospaced)).frame(width: 40)
-                .focused($focused).onSubmit { commitDraft() }
-                .onMoveCommand { direction in commit(value + (direction == .up ? 1 : direction == .down ? -1 : 0)) }
-            Button { commit(value + 1) } label: { Image(systemName: "plus").frame(width: 28, height: 32) }
-                .disabled(value >= range.upperBound).accessibilityLabel(Text("Increase"))
+        HStack {
+            TextField("", value: $value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(Text(verbatim: title ?? ""))
+                .frame(width: 60)
+                .onChange(of: value) { _, number in
+                    value = min(max(number, range.lowerBound), range.upperBound)
+                }
+            Stepper(value: $value, in: range) { Text(verbatim: title ?? "") }.labelsHidden()
         }
-        .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.text)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.background))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(focused ? chrome.focus : chrome.lineStrong, lineWidth: 1))
-        .familyFocusRing(focused)
-        .onAppear { draft = String(value) }.onChange(of: value) { _, number in draft = String(number) }
-        .onChange(of: focused) { _, active in if !active { commitDraft() } }
     }
-    private func commitDraft() { commit(Int(draft) ?? value) }
-    private func commit(_ number: Int) { value = min(max(number, range.lowerBound), range.upperBound); draft = String(value) }
 }

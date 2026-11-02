@@ -324,37 +324,9 @@ struct ShortcutsSettingsPage: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: Theme.Space.s) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 13))
-                .foregroundStyle(chrome.secondary)
-            TextField("Search shortcuts", text: $query)
-                .focused($searchFocused)
-                .textFieldStyle(.plain)
-                .font(Theme.Font.body)
-                .foregroundStyle(chrome.text)
-            if !query.isEmpty {
-                Button {
-                    query = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(chrome.secondary)
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .help("Clear search")
-            }
-        }
-        .padding(.horizontal, Theme.Space.m)
-        .frame(maxWidth: .infinity)
-        .frame(height: SettingsLayout.shortcutSearchHeight)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(searchFocused ? chrome.background : chrome.elevated)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(searchFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
-        )
-        .familyFocusRing(searchFocused)
+        TextField("Search shortcuts", text: $query)
+            .textFieldStyle(.roundedBorder)
+            .focused($searchFocused)
     }
+
 }

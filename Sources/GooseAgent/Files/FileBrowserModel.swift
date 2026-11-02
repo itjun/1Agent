@@ -455,10 +455,6 @@ final class FileWorkspace: ObservableObject {
         for column in allTabs { observe(column) }
     }
 
-    func startColumns() {
-        for column in allTabs { column.start(at: column.savedPath) }
-    }
-
     var localColumn: FileColumn { groups[localGroupID]!.active! }
     var remoteColumn: FileColumn? { groups[remoteGroupID]?.active }
     var remoteTabs: [FileColumn] { allTabs.filter(\.isRemote) }
@@ -846,16 +842,8 @@ final class FileBrowserStore {
 
     func existingWorkspace(for window: WindowState) -> FileWorkspace? { workspaces[window.id] }
 
-    /// Restore tab metadata for the overview without opening directories or SSH connections.
-    func previewWorkspace(for window: WindowState, model: AppModel) -> FileWorkspace? {
-        if let existing = workspaces[window.id] { return existing }
-        guard UserDefaults.standard.data(forKey: Self.tabsKey) != nil else { return nil }
-        return workspace(for: window, model: model, loadImmediately: false)
-    }
-
-    func workspace(for window: WindowState, model: AppModel, loadImmediately: Bool = true) -> FileWorkspace {
+    func workspace(for window: WindowState, model: AppModel) -> FileWorkspace {
         if let existing = workspaces[window.id] {
-            if loadImmediately { existing.startColumns() }
             return existing
         }
         let defaults = UserDefaults.standard
@@ -864,7 +852,7 @@ final class FileBrowserStore {
         }
         let saved = defaults.data(forKey: Self.tabsKey)
             .flatMap { try? JSONDecoder().decode(FileWorkspace.Saved.self, from: $0) }
-        let created = FileWorkspace(saved: saved, model: model, window: window, loadImmediately: loadImmediately)
+        let created = FileWorkspace(saved: saved, model: model, window: window)
         created.onChange = { saved in
             if let data = try? JSONEncoder().encode(saved) {
                 UserDefaults.standard.set(data, forKey: Self.tabsKey)

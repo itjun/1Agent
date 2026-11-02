@@ -119,8 +119,8 @@ final class MainWindowManager: NSObject, NSWindowDelegate {
         let window = NSWindow(contentViewController: controller)
         window.identifier = Self.windowID
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = false
+        window.titleVisibility = .visible
         // 1Agent uses its own sidebar terminals, never AppKit title-bar tabs.
         window.tabbingMode = .disallowed
         // Dock / Mission Control: follow the Space the user is looking at.

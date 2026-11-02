@@ -541,8 +541,7 @@ enum AppUpdatePresenter {
                 .buttonStyle(FamilyButtonStyle(kind: .secondary))
                 .frame(width: SheetLayout.appUpdate, height: height)
                 .background(chrome.background)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(chrome.hairline, lineWidth: 1))
+
         )
         let host = NSHostingView(rootView: root)
         let mandatory = AppUpdateController.shared.state.mandatory && !failed
