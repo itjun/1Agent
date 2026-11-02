@@ -61,7 +61,52 @@ enum TerminalPaneActionsTests {
         titleNavigation()
         remoteTitleStatus()
         connectionBannerMouseRouting()
+        splitFocusRing()
         print("ok: merged terminal menu dispatch, directory ownership, split shortcuts, stale target safety, sidebar state preservation and remote title status")
+    }
+
+    @MainActor private static func splitFocusRing() {
+        let focused = UUID()
+        let leaf = PaneNode.leaf(focused)
+        expect(!TerminalCanvas.showsSplitFocusRing(root: leaf, zoomed: nil, isSelected: true),
+               "one terminal does not get a focus border")
+        let split = PaneNode.split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
+                                              leading: .leaf(focused), trailing: .leaf(UUID())))
+        expect(TerminalCanvas.showsSplitFocusRing(root: split, zoomed: nil, isSelected: true),
+               "the focused terminal in a split gets the focus border")
+        expect(!TerminalCanvas.showsSplitFocusRing(root: split, zoomed: nil, isSelected: false),
+               "an unfocused split terminal stays plain")
+        expect(!TerminalCanvas.showsSplitFocusRing(root: split, zoomed: focused, isSelected: true),
+               "zooming to a single pane removes the focus border")
+
+        TerminalSplitFocusRing.resetStrokeColor()
+        let ring = TerminalSplitFocusRing(frame: NSRect(x: 0, y: 0, width: 120, height: 80))
+        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 120, height: 80),
+                               styleMask: [.borderless], backing: .buffered, defer: false)
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 120, height: 80))
+        host.wantsLayer = true
+        host.layer?.backgroundColor = NSColor.white.cgColor
+        window.contentView = host
+        host.addSubview(ring)
+        window.orderFront(nil)
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+            expect(false, "focus ring can be drawn")
+            return
+        }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        func sample(_ x: Int, _ y: Int) -> NSColor {
+            rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) ?? .clear
+        }
+        let edge = sample(1, rep.pixelsHigh / 2)
+        let center = sample(rep.pixelsWide / 2, rep.pixelsHigh / 2)
+        expect(edge.blueComponent > edge.redComponent + 0.15 && edge.blueComponent > 0.85,
+               "the focus ring is a light blue stroke like the file list")
+        expect(center.redComponent > 0.95 && center.blueComponent > 0.95,
+               "the focus ring does not fill the terminal")
+        let stroke = TerminalSplitFocusRing.currentStrokeColor()
+        expect(stroke.alphaComponent > 0.3 && stroke.blueComponent > stroke.redComponent,
+               "the stroke keeps the system focus ring color and alpha")
+        window.orderOut(nil)
     }
 
     @MainActor private static func connectionBannerMouseRouting() {

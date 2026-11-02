@@ -62,6 +62,12 @@ struct TerminalCanvas: View {
                         restoration: tab.restoration,
                         isPresented: visible && !window.presentation.fullFilesWorkspace,
                         isSelected: window.selectedTabID == tab.id && window.section == .terminals,
+                        showsSplitFocusRing: Self.showsSplitFocusRing(
+                            root: root,
+                            zoomed: zoomed,
+                            isSelected: visible && window.selectedTabID == tab.id && window.section == .terminals
+                                && !window.presentation.fullFilesWorkspace
+                        ),
                         contentCornerRadius: isShellTransparent ? ShellLayout.contentRadius : 0,
                         isHeaderIntegrated: isShellTransparent,
                         canFocus: {
@@ -488,6 +494,13 @@ func copySessionInfo(_ tab: TerminalTab, model: AppModel) {
 }
 
 extension TerminalCanvas {
+    /// 多个终端拼成一个面板时，只有当前聚焦的那一个画焦点环。放大成单屏后不再画。
+    static func showsSplitFocusRing(root: PaneNode?, zoomed: UUID?, isSelected: Bool) -> Bool {
+        guard isSelected, zoomed == nil, let root else { return false }
+        if case .split = root { return true }
+        return false
+    }
+
     /// 先确定整张浮动卡片，再预留内部标题、搜索及连接状态区域。
     static func terminalContentFrame(_ frame: CGRect, isFloating: Bool, accessoryHeight: CGFloat = 0) -> CGRect {
         Self.contentFrame(ShellLayout.contentFrame(frame, isFloating: isFloating),

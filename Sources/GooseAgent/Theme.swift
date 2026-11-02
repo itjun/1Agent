@@ -122,6 +122,8 @@ enum Theme {
         static let linkBannerMaxWidthRatio: CGFloat = 0.75
         /// Accent outline while files are dragged over a terminal.
         static let dropHighlightWidth: CGFloat = 2
+        /// Width of the focused split terminal's border. Matches the system focus ring around a file list.
+        static let focusRingWidth: CGFloat = 3.5
         static let dropHighlightFillOpacity: Double = 0.08
         /// Hit area of a button in the title bar (the zoom mark).
         static let headerButtonSize: CGFloat = 20
