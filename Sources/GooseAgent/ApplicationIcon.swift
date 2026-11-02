@@ -74,6 +74,20 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
     }
 }
 
+/// 全部连接共用一套强调色；旧的本机、远程偏好保留但不再参与界面取色。
+enum SharedPalette {
+    static let storageKey = "appearance.sharedPalette"
+    static let defaultPalette: ApplicationIcon = .original
+
+    static func stored(defaults: UserDefaults = .standard) -> ApplicationIcon {
+        SharedPalette.palette(raw: defaults.string(forKey: storageKey))
+    }
+
+    static func palette(raw: String?) -> ApplicationIcon {
+        ApplicationIcon(rawValue: raw ?? "") ?? defaultPalette
+    }
+}
+
 /// Local terminal identity is saved separately from the Dock icon and remote terminals.
 enum LocalPalette {
     static let storageKey = "appearance.localPalette"

@@ -203,11 +203,11 @@ struct WindowChrome: Equatable {
         return black.contrastRatio(with: background) >= white.contrastRatio(with: background) ? .black : .white
     }
 
-    static func resolve(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) -> WindowChrome {
+    static func resolve(isDark: Bool, icon: ApplicationIcon = SharedPalette.stored()) -> WindowChrome {
         WindowChrome(isDark: isDark, icon: icon)
     }
 
-    init(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) {
+    init(isDark: Bool, icon: ApplicationIcon = SharedPalette.stored()) {
         self.isDark = isDark
         func rgb(_ light: String, _ dark: String) -> RGBColor {
             RGBColor(ghosttyHex: isDark ? dark : light)!

@@ -166,8 +166,6 @@ private struct FileEndpointPanel: View {
     @ObservedObject var tabDrag: FileTabDragTracker
     var width: CGFloat
     @Environment(\.windowChrome) private var parentChrome
-    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @Environment(\.isShellTransparent) private var isShellTransparent
     @State private var filterFocused = false
 
@@ -175,8 +173,7 @@ private struct FileEndpointPanel: View {
     private var local: Bool { groupID == workspace.localGroupID }
 
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: parentChrome.isDark,
-            icon: local ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
+        parentChrome
     }
 
     var body: some View {

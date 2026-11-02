@@ -12,8 +12,7 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
-    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
+    @AppStorage(SharedPalette.storageKey) private var sharedPaletteRaw = SharedPalette.defaultPalette.rawValue
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var isMotionReduced
     @StateObject private var dropRelay = CanvasDropRelay()
@@ -29,12 +28,9 @@ struct RootView: View {
     @State private var toolSidebarDragStart: Double?
     @FocusState private var workspaceNameFocused: Bool
 
-    /// The selected connection type supplies its independently saved palette.
+    /// 本机与远程共用强调色，切换连接不会改变外壳。
     private var chrome: WindowChrome {
-        if let id = window.selectedTabID, model.connectionGroup(for: [id]) == .remote {
-            return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: RemotePalette.palette(raw: remotePaletteRaw))
-        }
-        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: LocalPalette.palette(raw: localPaletteRaw))
+        WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: SharedPalette.palette(raw: sharedPaletteRaw))
     }
 
     private var sidebarChrome: WindowChrome { chrome }
@@ -121,12 +117,6 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
         }
         .onChange(of: darkThemeRaw) { _, _ in
-            GhosttyRuntime.applySelectedThemes()
-        }
-        .onChange(of: localPaletteRaw) { _, _ in
-            GhosttyRuntime.applySelectedThemes()
-        }
-        .onChange(of: remotePaletteRaw) { _, _ in
             GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
@@ -904,12 +894,7 @@ struct RootView: View {
 
     private func sessionIconColor(isSelected: Bool, tab: TerminalTab) -> Color {
         guard isSelected else { return sidebarChrome.inactiveIcon }
-        return sessionChrome(tab).accent
-    }
-
-    private func sessionChrome(_ tab: TerminalTab) -> WindowChrome {
-        WindowChrome.resolve(isDark: appearanceDriver.isDark,
-            icon: tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
+        return sidebarChrome.accent
     }
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {
@@ -918,7 +903,7 @@ struct RootView: View {
         }
         if selected {
             guard controlActiveState != .inactive else { return sidebarChrome.hairline }
-            return model.tabs.first(where: { $0.id == tabID }).map { sessionChrome($0).accentFill } ?? sidebarChrome.accentFill
+            return sidebarChrome.accentFill
         }
         if hovered {
             return sidebarChrome.hairline
@@ -997,7 +982,6 @@ private struct FilesSidebar: View {
     @ObservedObject var workspace: FileWorkspace
     var dragArea: PinnedLocationDragArea
     @Environment(\.windowChrome) private var chrome
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     @Environment(\.isShellTransparent) private var isShellTransparent
 
     var body: some View {
@@ -1038,7 +1022,7 @@ private struct FilesSidebar: View {
                 VStack(spacing: 4) {
                     ForEach(workspace.groups[groupID]?.tabs ?? []) { column in
                         FileTabButton(workspace: workspace, column: column, groupID: groupID, tabDrag: workspace.tabDrag)
-                            .environment(\.windowChrome, WindowChrome.resolve(isDark: chrome.isDark, icon: RemotePalette.palette(raw: remotePaletteRaw)))
+                            .environment(\.windowChrome, chrome)
                     }
                 }
                 .background(BoundsAnchor { workspace.tabDrag.strips[groupID] = AnchorBox($0) })

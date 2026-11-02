@@ -10,8 +10,6 @@ struct TerminalCanvas: View {
     @ObservedObject var window: WindowState
     @ObservedObject private var find = TerminalFind.shared
     @ObservedObject private var themePreview = ThemePreview.shared
-    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
     var dropRelay: CanvasDropRelay
     var dark: Bool
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
@@ -97,7 +95,7 @@ struct TerminalCanvas: View {
                     }
                     .modifier(FloatingContentSurface(isSelected: window.selectedTabID == tab.id && window.section == .terminals
                         && !window.presentation.fullFilesWorkspace))
-                    .environment(\.windowChrome, terminalChrome(tab))
+                    .environment(\.windowChrome, chrome)
                     .position(
                         x: drawn.midX,
                         y: drawn.midY - cardHeader / 2
@@ -131,8 +129,7 @@ struct TerminalCanvas: View {
                             }
                             .modifier(FloatingContentSurface(isSelected: window.selectedTabID == tab.id
                                 && window.section == .terminals))
-                            .environment(\.windowChrome, WindowChrome(isDark: chrome.isDark,
-                                icon: LocalPalette.palette(raw: localPaletteRaw)))
+                            .environment(\.windowChrome, chrome)
                             .position(x: content.midX, y: content.midY - cardHeader / 2)
                             .zIndex(1)
                     }
@@ -171,11 +168,6 @@ struct TerminalCanvas: View {
     private var floatingTerminalForeground: Color {
         let theme = terminalIsDark ? themePreview.effectiveDark() : themePreview.effectiveLight()
         return RGBColor(ghosttyHex: theme.definition.foreground)?.color ?? chrome.text
-    }
-
-    private func terminalChrome(_ tab: TerminalTab) -> WindowChrome {
-        WindowChrome.resolve(isDark: terminalIsDark,
-            icon: tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
     }
 
     private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {
@@ -261,7 +253,7 @@ struct TerminalCanvas: View {
 
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
-        let chrome = tab.hasTerminal ? terminalChrome(tab) : self.chrome
+        let chrome = self.chrome
         let isSelected = tab.hasTerminal && window.selectedTabID == tab.id && window.section == .terminals
             && !window.presentation.fullFilesWorkspace
         if (isSplit || isShellTransparent) && headerHeight > 0 {
@@ -439,7 +431,7 @@ struct TerminalCanvas: View {
         }, menuItems: {
             TerminalPaneActions.items(tab: tab, model: model, window: window)
         })
-        .environment(\.windowChrome, terminalChrome(tab))
+        .environment(\.windowChrome, chrome)
     }
 
     private func numberedPaneTitle(_ tab: TerminalTab) -> String {

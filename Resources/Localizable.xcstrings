@@ -1,6 +1,8 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Choose the app icon and shared accent. Local and remote sessions use the same colors; terminal themes stay separate." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the app icon and shared accent. Local and remote sessions use the same colors; terminal themes stay separate."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择应用图标与统一强调色。本机和远程使用相同配色，终端主题独立配置。"}}}},
+    "Use %@ for the app icon and shared colors" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Use %@ for the app icon and shared colors"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "将%@用于应用图标与统一配色"}}}},
     "Choose the local app icon and remote accent independently. Each row previews selection and focus; terminal themes stay separate." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the local app icon and remote accent independently. Each row previews selection and focus; terminal themes stay separate."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "分别选择本机图标和远程配色。每行展示选中与焦点效果，终端主题独立配置。"}}}},
     "Icon and Color" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Icon and Color"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "图标与配色"}}}},
     "Appearance Preview" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Appearance Preview"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "效果预览"}}}},

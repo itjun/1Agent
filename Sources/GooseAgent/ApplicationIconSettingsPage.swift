@@ -3,13 +3,12 @@ import SwiftUI
 struct ApplicationIconSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var icons = ApplicationIconManager.shared
-    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
+    @AppStorage(SharedPalette.storageKey) private var sharedPaletteRaw = SharedPalette.defaultPalette.rawValue
     @State private var hoveredIcon: ApplicationIcon?
 
     var body: some View {
         VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
-            Text("Choose the local app icon and remote accent independently. Each row previews selection and focus; terminal themes stay separate.")
+            Text("Choose the app icon and shared accent. Local and remote sessions use the same colors; terminal themes stay separate.")
                 .font(Theme.Font.rowMeta)
                 .foregroundStyle(chrome.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -22,12 +21,12 @@ struct ApplicationIconSettingsPage: View {
             }
 
             HStack(spacing: Theme.Space.l) {
-                Button("Restore Default Icon") { selectLocalIcon(.defaultIcon) }
+                Button("Restore Default Icon") { selectIcon(.defaultIcon) }
                     .disabled(defaultIsActive)
                     .accessibilityIdentifier("settings.appIcon.restoreDefault")
-                Button("Restore Default Colors") { remotePaletteRaw = RemotePalette.defaultPalette.rawValue }
-                    .disabled(remotePalette == RemotePalette.defaultPalette)
-                    .accessibilityIdentifier("settings.remotePalette.restoreDefault")
+                Button("Restore Default Colors") { sharedPaletteRaw = SharedPalette.defaultPalette.rawValue }
+                    .disabled(SharedPalette.palette(raw: sharedPaletteRaw) == SharedPalette.defaultPalette)
+                    .accessibilityIdentifier("settings.sharedPalette.restoreDefault")
             }
             .font(Theme.Font.rowMeta)
             .foregroundStyle(chrome.text)
@@ -47,20 +46,13 @@ struct ApplicationIconSettingsPage: View {
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.danger)
             }
-            if remotePalette == LocalPalette.palette(raw: localPaletteRaw) {
-                Text("Local and remote terminals use the same palette. Choose different colors to distinguish them.")
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.warning)
-            }
         }
     }
 
     private var defaultIsActive: Bool {
         icons.selected == .defaultIcon && !icons.loadFailed && !icons.finderUpdateFailed
-            && LocalPalette.palette(raw: localPaletteRaw) == LocalPalette.defaultPalette
+            && SharedPalette.palette(raw: sharedPaletteRaw) == ApplicationIcon.defaultIcon
     }
-
-    private var remotePalette: ApplicationIcon { RemotePalette.palette(raw: remotePaletteRaw) }
 
     private var tableHeader: some View {
         ViewThatFits(in: .horizontal) {
@@ -82,14 +74,11 @@ struct ApplicationIconSettingsPage: View {
     }
 
     private var choiceHeadings: some View {
-        HStack(spacing: Theme.Space.s) {
-            Text("This Mac").frame(width: SettingsLayout.appIconChoiceWidth)
-            Text("Remote").frame(width: SettingsLayout.appIconChoiceWidth)
-        }
+        Text("Icon").frame(width: SettingsLayout.appIconChoiceWidth)
     }
 
     private func paletteRow(_ icon: ApplicationIcon) -> some View {
-        let palette = WindowChrome(isDark: chrome.isDark, icon: icon == .original ? LocalPalette.defaultPalette : icon)
+        let palette = WindowChrome(isDark: chrome.isDark, icon: icon)
         return ViewThatFits(in: .horizontal) {
             HStack(spacing: Theme.Space.l) {
                 identity(icon, palette: palette).frame(width: SettingsLayout.appIconIdentityWidth, alignment: .leading)
@@ -134,16 +123,8 @@ struct ApplicationIconSettingsPage: View {
     private func choices(_ icon: ApplicationIcon, palette: WindowChrome) -> some View {
         HStack(spacing: Theme.Space.s) {
             choiceButton(isSelected: icons.selected == icon, palette: palette,
-                         label: String(format: String(localized: "Use %@ for the local app icon"), icon.title),
-                         identifier: "settings.appIcon.\(icon.rawValue)") { selectLocalIcon(icon) }
-            if icon != .original {
-                choiceButton(isSelected: remotePalette == icon, palette: palette,
-                             label: String(format: String(localized: "Use %@ for remote colors"), icon.title),
-                             identifier: "settings.remotePalette.\(icon.rawValue)") { remotePaletteRaw = icon.rawValue }
-            } else {
-                Color.clear.frame(width: SettingsLayout.appIconChoiceWidth, height: SettingsLayout.rowMinimumHeight)
-                    .accessibilityHidden(true)
-            }
+                         label: String(format: String(localized: "Use %@ for the app icon and shared colors"), icon.title),
+                         identifier: "settings.appIcon.\(icon.rawValue)") { selectIcon(icon) }
         }
     }
 
@@ -182,10 +163,10 @@ struct ApplicationIconSettingsPage: View {
         .accessibilityHidden(true)
     }
 
-    private func selectLocalIcon(_ icon: ApplicationIcon) {
+    private func selectIcon(_ icon: ApplicationIcon) {
         icons.select(icon)
         guard icons.selected == icon, !icons.loadFailed else { return }
-        localPaletteRaw = (icon == .original ? LocalPalette.defaultPalette : icon).rawValue
+        sharedPaletteRaw = icon.rawValue
     }
 
     @ViewBuilder

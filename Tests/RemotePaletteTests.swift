@@ -41,6 +41,18 @@ enum RemotePaletteTests {
         try check(RemotePalette.stored(defaults: defaults) == .cloudSoda, "An existing saved remote choice must be kept")
         try check(ApplicationIcon.stored(defaults: defaults) == .strawberryCream, "Terminal choices must not overwrite the Dock icon")
 
+        try check(SharedPalette.stored(defaults: defaults) == .original,
+                  "Shared selection starts neutral blue regardless of legacy connection colors")
+        defaults.set(ApplicationIcon.cloudSoda.rawValue, forKey: SharedPalette.storageKey)
+        try check(SharedPalette.stored(defaults: defaults) == .cloudSoda,
+                  "One shared preference restores the selected color for every connection")
+        try check(LocalPalette.stored(defaults: defaults) == .mintCandy
+                  && RemotePalette.stored(defaults: defaults) == .cloudSoda,
+                  "Shared colors preserve legacy preferences for rollback")
+        defaults.set("unknown", forKey: SharedPalette.storageKey)
+        try check(SharedPalette.stored(defaults: defaults) == .original,
+                  "Invalid shared colors fall back to neutral blue")
+
         for isDark in [false, true] {
             let local = WindowChrome(isDark: isDark, icon: LocalPalette.defaultPalette)
             let remote = WindowChrome(isDark: isDark, icon: RemotePalette.defaultPalette)
