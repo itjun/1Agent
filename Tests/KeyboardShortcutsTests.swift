@@ -10,6 +10,7 @@ enum KeyboardShortcutsTests {
 
         storageSemantics(store)
         legacyData(store)
+        removedOverviewBindings(store)
         restoredToggleSidebar(store)
         conflicts()
         reservedKeys()
@@ -66,6 +67,23 @@ enum KeyboardShortcutsTests {
         else { fail("stored map no longer decodes as [String: KeyChord]") }
         expect(raw["newTab"] == KeyChord(key: "", modifiers: []), "cleared is stored as an empty key in the same format")
         expect(raw["notAShortcutAnyMore"] != nil, "unknown entries are kept")
+        AppShortcuts.resetAll(store: store)
+    }
+
+    /// 旧配置仍能读取，但已移除的预览入口不能占用快捷键或出现在设置中。
+    static func removedOverviewBindings(_ store: UserDefaults) {
+        let removed = ["terminalSwitcher", "commandPalette"]
+        expect(removed.allSatisfy { AppShortcutID(rawValue: $0) == nil }, "Removed overview actions are absent")
+        let oldBindings = ["terminalSwitcher": KeyChord(key: "\t", modifiers: .control),
+                           "commandPalette": KeyChord(key: "p", modifiers: [.command, .shift])]
+        store.set(try! JSONEncoder().encode(oldBindings), forKey: AppShortcuts.storageKey)
+        let bindings = AppShortcuts.bindings(store: store)
+        expect(bindings.count == AppShortcutID.allCases.count, "Legacy entries do not create actions")
+        for chord in oldBindings.values {
+            expect(!bindings.values.contains(chord), "Removed overview bindings are no longer active")
+            expect(AppShortcuts.check(chord, for: .find, bindings: bindings) == .accepted,
+                   "Removed bindings no longer conflict with supported actions")
+        }
         AppShortcuts.resetAll(store: store)
     }
 

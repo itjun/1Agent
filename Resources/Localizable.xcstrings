@@ -23,10 +23,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "返回工作区" } }
       }
     },
-    "↑↓ Select" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "↑↓ Select"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "↑↓ 选择"}}}},
-    "↵ Switch" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "↵ Switch"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "↵ 切换"}}}},
-    "Esc Go Back" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Esc Go Back"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "Esc 返回"}}}},
-    "Switch to view this file" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Switch to view this file"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "切换后查看此文件"}}}},
     "No Items" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "No Items"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "暂无内容"}}}},
     "Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the local appearance colors and app icon. Terminal themes are configured independently. Dark, Clear, and Tinted icons follow the system appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择本机外观配色与应用图标，终端主题独立配置。深色、透明和色调图标跟随系统外观。"}}}},
     "Choose the remote appearance colors. Terminal themes are configured independently." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the remote appearance colors. Terminal themes are configured independently."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择远程外观配色，终端主题独立配置。"}}}},
@@ -410,40 +406,6 @@
     "Close History" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Close History" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭历史" } } } },
     "Loading…" : { "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading" } }, "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "载入中" } } } },
 
-  "Search name, host, IP or path": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Search name, host, IP or path"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "搜索名称、主机、IP 或路径"
-        }
-      }
-    }
-  },
-  "No Matching Open Items": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "No Matching Open Items"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "没有匹配的已打开内容"
-        }
-      }
-    }
-  },
   "Content Type": {
     "extractionState": "manual",
     "localizations": {
@@ -457,40 +419,6 @@
         "stringUnit": {
           "state": "translated",
           "value": "内容类型"
-        }
-      }
-    }
-  },
-  "Open Items Overview": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Open Items Overview"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "已打开内容"
-        }
-      }
-    }
-  },
-  "All Open Items": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "All Open Items"
-        }
-      },
-      "zh-Hans": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "全部"
         }
       }
     }
@@ -994,13 +922,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Host (%@)" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开主机 (%@)" } }
-      }
-    },
-    "%lld panes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld panes" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个窗格" } }
       }
     },
     "No matching hosts" : {
@@ -2823,48 +2744,6 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Sidebar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "侧栏" } }
-      }
-    },
-    "Terminal Switcher" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Terminal Switcher" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端切换器" } }
-      }
-    },
-    "Not started" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not started" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未启动" } }
-      }
-    },
-    "Open Terminals" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Terminals" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已打开的终端" } }
-      }
-    },
-    "Release modifiers to switch · Double-click a card to switch · Esc to go back" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Release modifiers to switch · Double-click a card to switch · Esc to go back" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "松开修饰键切换 · 双击卡片切换 · Esc 返回原处" } }
-      }
-    },
-    "Click to preview · Double-click or Return to switch · Esc to go back" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Click to preview · Double-click or Return to switch · Esc to go back" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "单击预览 · 双击或回车切换 · Esc 返回原处" } }
-      }
-    },
-    "Original Location" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Original Location" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "原位置" } }
       }
     },
     "%@. Keep both copies, or replace the existing items?" : {
