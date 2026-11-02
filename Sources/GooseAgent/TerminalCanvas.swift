@@ -612,6 +612,16 @@ final class PaneDividerView: NSView {
             return
         }
         let start = event.locationInWindow
+        var resizingTerminals: [TerminalHostView] = []
+        func terminalHosts(in view: NSView) -> [TerminalHostView] {
+            guard !view.isHidden else { return [] }
+            if let host = view as? TerminalHostView { return [host] }
+            return view.subviews.flatMap { terminalHosts(in: $0) }
+        }
+        defer {
+            window.contentView?.layoutSubtreeIfNeeded()
+            resizingTerminals.forEach { $0.endDividerResize() }
+        }
         window.trackEvents(
             matching: [.leftMouseDragged, .leftMouseUp],
             timeout: 3600,
@@ -628,6 +638,10 @@ final class PaneDividerView: NSView {
                 return
             }
             let point = event.locationInWindow
+            if resizingTerminals.isEmpty, let content = window.contentView {
+                resizingTerminals = terminalHosts(in: content)
+                resizingTerminals.forEach { $0.beginDividerResize() }
+            }
             if self.vertical {
                 self.onDragChanged(point.x - start.x)
             } else {

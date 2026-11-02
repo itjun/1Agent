@@ -1438,6 +1438,42 @@ final class TerminalHostView: NSView {
     private var isFocusTarget = false
     private var focusPending = false
     private var focusScheduled = false
+    private var isDividerResizing = false
+
+    /// 拖动分隔区时只缩放已有画面，松手再更新终端网格，避免逐像素等待 Metal 重绘。
+    func beginDividerResize() {
+        guard !isDividerResizing else { return }
+        isDividerResizing = true
+    }
+
+    func endDividerResize() {
+        guard isDividerResizing else { return }
+        isDividerResizing = false
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
+            terminal.layer?.setAffineTransform(.identity)
+            if terminal.frame != bounds { terminal.frame = bounds }
+        }
+        CATransaction.commit()
+    }
+
+    override func resizeSubviews(withOldSize oldSize: NSSize) {
+        guard isDividerResizing else {
+            super.resizeSubviews(withOldSize: oldSize)
+            return
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
+            let size = terminal.frame.size
+            guard size.width > 0, size.height > 0 else { continue }
+            terminal.layer?.setAffineTransform(CGAffineTransform(
+                a: bounds.width / size.width, b: 0, c: 0, d: bounds.height / size.height,
+                tx: (bounds.width - size.width) / 2, ty: (bounds.height - size.height) / 2))
+        }
+        CATransaction.commit()
+    }
 
     func setContentCorners(radius: CGFloat, isHeaderIntegrated: Bool) {
         wantsLayer = true
