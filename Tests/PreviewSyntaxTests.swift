@@ -97,6 +97,18 @@ struct PreviewSyntaxTests {
         view.load("x")
         expect(view.string == "x" && view.occurrenceRanges.isEmpty && view.matchedBrackets.isEmpty,
                "switching from a selected long document to a short one clears stale decoration ranges")
+        view.load("ABC abc 123\n修复\n🔧 修复\n")
+        let layout = view.layoutManager!
+        layout.ensureLayout(for: view.textContainer!)
+        for start in view.index.lineStarts.dropLast() {
+            let glyph = layout.glyphIndexForCharacter(at: start)
+            let row = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            let baseline = layout.location(forGlyphAt: glyph).y
+            let center = baseline - (PreviewCodeStyle.font.ascender + PreviewCodeStyle.font.descender) / 2
+            expect(abs(center - row.height / 2) < 0.5,
+                   "Latin, Chinese and emoji lines share a vertically centered baseline in the highlighted row")
+            expect(abs(row.height - PreviewCodeStyle.lineHeight) < 0.1, "centering preserves fixed row height")
+        }
         let container = PreviewCodeContainer()
         container.frame = NSRect(x: 0, y: 0, width: 340, height: 180)
         container.code.load(String(repeating: "long_line ", count: 200) + "\n" + String(repeating: "line\n", count: 100))

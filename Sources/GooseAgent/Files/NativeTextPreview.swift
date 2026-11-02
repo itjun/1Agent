@@ -118,7 +118,7 @@ final class PreviewCodeContainer: NSView {
 }
 
 /// TextKit keeps native copy, find, Unicode selection and keyboard navigation.
-final class PreviewTextView: NSTextView, NSTextViewDelegate {
+final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDelegate {
     override func menu(for event: NSEvent) -> NSMenu? {
         if let menu = super.menu(for: event) {
             FamilyMenuPresenter.shared.show(menu, with: event, for: self)
@@ -143,6 +143,7 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate {
         storage.addLayoutManager(layout)
         layout.addTextContainer(container)
         super.init(frame: .zero, textContainer: container)
+        layout.delegate = self
         delegate = self
         isEditable = false
         isSelectable = true
@@ -164,6 +165,15 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func layoutManager(_ layoutManager: NSLayoutManager, shouldSetLineFragmentRect lineFragmentRect: UnsafeMutablePointer<NSRect>,
+                       lineFragmentUsedRect: UnsafeMutablePointer<NSRect>, baselineOffset: UnsafeMutablePointer<CGFloat>,
+                       in textContainer: NSTextContainer, forGlyphRange glyphRange: NSRange) -> Bool {
+        // 固定行高多出的留白上下均分；直接调整 TextKit 基线，让选区与光标一同对齐。
+        let font = PreviewCodeStyle.font
+        baselineOffset.pointee = (lineFragmentRect.pointee.height + font.ascender + font.descender) / 2
+        return true
+    }
 
     func load(_ text: String) {
         occurrenceRanges = []; matchedBrackets = []; hoveredLine = nil
