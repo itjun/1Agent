@@ -20,9 +20,10 @@ enum ShellLayout {
     static let titlebarActionWidth: CGFloat = 48
     static let terminalOpacity: Double = 0.96
     static let fileOpacity: Double = 0.98
-    static let lightBackdropLiftOpacity: CGFloat = 0.55
-    static let lightAtmosphereOpacity: CGFloat = 0.18
-    static let darkAtmosphereOpacity: CGFloat = 0.035
+    static let backdropTintOpacity: CGFloat = 0.25
+    static let shadowRadius: CGFloat = 4
+    static let shadowOffset: CGFloat = 2
+    static let shadowOpacity: Double = 0.14
 
     static func paneFrames(of node: PaneNode, in bounds: CGRect, isFloating: Bool) -> [UUID: CGRect] {
         let frames = PaneLayout.frames(of: node, in: bounds)
@@ -90,24 +91,15 @@ final class ShellBackdropView: NSVisualEffectView {
     var isTransparent = false
     var isDark = false
     private let washView = NSView()
-    private let atmosphereView = NSImageView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // 与 Surge 的底板一致：headerView 材质叠加淡色图片。
-        // 使用公开 API，保留系统模糊、外观切换和辅助功能行为。
-        material = .headerView
+        // 左右侧栏和窗格间隙共用同一张系统材质底板。
+        material = .sidebar
         washView.wantsLayer = true
         washView.frame = bounds
         washView.autoresizingMask = [.width, .height]
         addSubview(washView)
-        atmosphereView.image = NSImage(named: "WindowAtmosphere")
-        atmosphereView.imageScaling = .scaleAxesIndependently
-        atmosphereView.frame = bounds
-        atmosphereView.autoresizingMask = [.width, .height]
-        atmosphereView.setAccessibilityElement(false)
-        atmosphereView.setAccessibilityHidden(true)
-        addSubview(atmosphereView)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -122,13 +114,13 @@ final class ShellBackdropView: NSVisualEffectView {
         state = .followsWindowActiveState
         isEmphasized = false
         wantsLayer = true
+        appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         let fallback = NSColor.windowBackgroundColor
         layer?.backgroundColor = nil
-        // 浅色底板提亮但不盖住系统模糊；深色直接使用原生材质。
-        let wash = isDark ? NSColor.clear : NSColor.white.withAlphaComponent(ShellLayout.lightBackdropLiftOpacity)
-        washView.layer?.backgroundColor = (isTransparent ? wash : fallback).cgColor
-        atmosphereView.isHidden = !isTransparent
-        atmosphereView.alphaValue = isDark ? ShellLayout.darkAtmosphereOpacity : ShellLayout.lightAtmosphereOpacity
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let wash = NSColor.windowBackgroundColor.withAlphaComponent(ShellLayout.backdropTintOpacity)
+            washView.layer?.backgroundColor = (isTransparent ? wash : fallback).cgColor
+        }
         window?.isOpaque = !isTransparent
         window?.backgroundColor = isTransparent ? .clear : fallback
     }
@@ -140,23 +132,16 @@ final class ShellBackdropView: NSVisualEffectView {
 struct FloatingContentSurface: ViewModifier {
     @Environment(\.isShellTransparent) private var isTransparent
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.accessibilityReduceMotion) private var isMotionReduced
-    var isSelected = false
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: isTransparent ? ShellLayout.contentRadius : 0, style: .continuous)
-        let shadow = isSelected
-            ? chrome.accent.opacity(chrome.isDark ? 0.20 : 0.16)
-            : Color.black.opacity(chrome.isDark ? 0.12 : 0.045)
         content
             .clipShape(shape)
             .overlay {
                 shape.strokeBorder(chrome.isDark ? Color.white.opacity(0.07) : Color.black.opacity(0.045), lineWidth: isTransparent ? 0.5 : 0)
                     .allowsHitTesting(false)
             }
-            .animation(isMotionReduced ? nil : .easeInOut(duration: Theme.Motion.terminalDuration)) { surface in
-                surface.shadow(color: isTransparent ? shadow : .clear,
-                               radius: isSelected ? 6 : 4, y: 2)
-            }
+            .shadow(color: isTransparent ? Color(nsColor: .shadowColor).opacity(ShellLayout.shadowOpacity) : .clear,
+                    radius: ShellLayout.shadowRadius, y: ShellLayout.shadowOffset)
     }
 }

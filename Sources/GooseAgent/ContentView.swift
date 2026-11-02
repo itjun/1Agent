@@ -441,21 +441,24 @@ struct RootView: View {
             let width = ToolSidebarLayout.visibleWidth(detailWidth: geometry.size.width,
                 open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
             ZStack(alignment: .topLeading) {
-                workspaceSurface.frame(width: max(0, geometry.size.width - (width > 0 ? width + 1 : 0)))
+                workspaceSurface.frame(width: max(0, geometry.size.width - (width > 0 ? width + ShellLayout.workspaceInset : 0)))
                 if width > 0 {
                     QuickCommandSidebar(model: model, window: window)
                         .frame(width: width, height: geometry.size.height)
                         .offset(x: geometry.size.width - width)
-                    Rectangle().fill(chrome.hairline).frame(width: 1, height: geometry.size.height)
-                        .overlay {
-                            Color.clear.frame(width: 7).contentShape(Rectangle())
-                                .gesture(DragGesture(minimumDistance: 1).onChanged { value in
-                                    if toolSidebarDragStart == nil { toolSidebarDragStart = Double(width) }
-                                    let next = ToolSidebarLayout.storedWidth((toolSidebarDragStart ?? Double(width)) - value.translation.width)
-                                    model.updatePresentation(in: window) { $0.toolSidebarWidth = next }
-                                }.onEnded { _ in toolSidebarDragStart = nil })
-                        }
-                        .offset(x: geometry.size.width - width - 1)
+                    PaneDividerHandle(
+                        vertical: true,
+                        onHover: { _ in },
+                        onDragChanged: { delta in
+                            if toolSidebarDragStart == nil { toolSidebarDragStart = Double(width) }
+                            let next = ToolSidebarLayout.storedWidth((toolSidebarDragStart ?? Double(width)) - delta)
+                            model.updatePresentation(in: window) { $0.toolSidebarWidth = next }
+                        },
+                        onDragEnded: { toolSidebarDragStart = nil },
+                        onDoubleClick: {}
+                    )
+                        .frame(width: ShellLayout.workspaceInset, height: geometry.size.height)
+                        .offset(x: geometry.size.width - width - ShellLayout.workspaceInset)
                         .accessibilityLabel(Text("Resize Tool Sidebar"))
                 }
             }
@@ -468,7 +471,7 @@ struct RootView: View {
         let outerInset = appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0
         let toolWidth = ToolSidebarLayout.visibleWidth(detailWidth: size.width - inset - outerInset * (collapsed ? 2 : 1),
             open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
-        let detailWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + 1 : 0))
+        let detailWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + ShellLayout.workspaceInset : 0))
         let terminalHeight = size.height - height
         let frames = TerminalCanvas.paneFrames(model.displayRoot(in: window), zoomed: model.zoomedPane(in: window),
             in: CGRect(x: 0, y: 0, width: detailWidth, height: terminalHeight))

@@ -193,7 +193,7 @@ private struct FileEndpointPanel: View {
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         .background(chrome.background.opacity(isShellTransparent ? ShellLayout.fileOpacity : 1))
-        .modifier(FloatingContentSurface(isSelected: workspace.focusedGroupID == groupID && window.section == .files))
+        .modifier(FloatingContentSurface())
         .background(BoundsAnchor {
             relay.filesSideAnchors[.group(groupID)] = AnchorBox($0)
             tabDrag.panes[groupID] = AnchorBox($0)

@@ -37,7 +37,7 @@ struct QuickCommandSidebar: View {
             Divider()
             commandList
         }
-        .foregroundStyle(chrome.text).background(chrome.background.opacity(isShellTransparent ? 0.12 : 1))
+        .foregroundStyle(chrome.text).background(Color.clear)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("workspace.toolSidebar")
         .onChange(of: commands.map(\.id)) { _, ids in

@@ -155,7 +155,7 @@ struct ApplicationIconSettingsPage: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Theme.Space.s)
                 .background(chrome.background)
-                .modifier(FloatingContentSurface(isSelected: true))
+                .modifier(FloatingContentSurface())
                 .environment(\.windowChrome, palette)
         }
         .font(Theme.Font.rowMeta)

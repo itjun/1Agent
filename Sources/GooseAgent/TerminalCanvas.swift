@@ -93,8 +93,7 @@ struct TerminalCanvas: View {
                                 .frame(height: cardHeader).allowsHitTesting(false)
                         }
                     }
-                    .modifier(FloatingContentSurface(isSelected: window.selectedTabID == tab.id && window.section == .terminals
-                        && !window.presentation.fullFilesWorkspace))
+                    .modifier(FloatingContentSurface())
                     .environment(\.windowChrome, chrome)
                     .position(
                         x: drawn.midX,
@@ -127,8 +126,7 @@ struct TerminalCanvas: View {
                                         .frame(height: cardHeader).allowsHitTesting(false)
                                 }
                             }
-                            .modifier(FloatingContentSurface(isSelected: window.selectedTabID == tab.id
-                                && window.section == .terminals))
+                            .modifier(FloatingContentSurface())
                             .environment(\.windowChrome, chrome)
                             .position(x: content.midX, y: content.midY - cardHeader / 2)
                             .zIndex(1)
