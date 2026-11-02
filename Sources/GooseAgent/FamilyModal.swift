@@ -6,73 +6,57 @@ protocol FamilyModalFocusRestoring {
     var canRestoreModalFocus: Bool { get }
 }
 
-/// App-owned modal chrome. No AppKit sheet animation, material, title bar or window shadow.
-/// The full-window child panel keeps pointer input and keyboard focus inside the dialog.
+/// 表单使用系统 sheet；独立展示时使用标准面板。
 @MainActor
 final class FamilyModalPresentation: NSObject {
     static let didCloseNotification = Notification.Name("FamilyModalPresentation.didClose")
-    let window = FamilyModalWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
-    let backdrop = FamilyModalBackdrop()
+    let window: FamilyModalWindow
     private weak var owner: NSWindow?
     private weak var previousResponder: NSResponder?
-    private var observers: [NSObjectProtocol] = []
-    private var completion: (() -> Void)?
     private var finished = false
+    private var ownerObserver: NSObjectProtocol?
     private static var retained: [ObjectIdentifier: FamilyModalPresentation] = [:]
 
     init(content: NSView, size: NSSize, owner: NSWindow?, onCancel: @escaping () -> Void) {
-        super.init()
+        window = FamilyModalWindow(contentRect: NSRect(origin: .zero, size: size),
+                                   styleMask: [.titled], backing: .buffered, defer: false)
         self.owner = owner
         previousResponder = owner?.firstResponder
+        super.init()
         window.isReleasedWhenClosed = false
-        window.hasShadow = false
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.isMovable = false
-        window.animationBehavior = .none
         window.appearance = owner?.effectiveAppearance ?? NSApp.effectiveAppearance
         window.identifier = NSUserInterfaceItemIdentifier("family.dialog")
         window.onCancel = onCancel
-        backdrop.onCancel = onCancel
-        backdrop.cardSize = size
-        backdrop.install(content)
-        window.contentView = backdrop
-        completion = onCancel
-        updateFrame()
+        window.contentView = content
+        window.setContentSize(size)
         if let owner {
-            for name in [NSWindow.didResizeNotification, NSWindow.didMoveNotification, NSWindow.didChangeBackingPropertiesNotification] {
-                observers.append(NotificationCenter.default.addObserver(forName: name, object: owner, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.updateFrame() }
-                })
+            ownerObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification,
+                object: owner, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.window.onCancel?(); self?.close() }
             }
-            observers.append(NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: owner, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.completion?() }
-            })
         }
     }
 
     func show(initialFirstResponder: NSView? = nil) {
         Self.retained[ObjectIdentifier(self)] = self
-        if let owner { owner.addChildWindow(window, ordered: .above) }
-        window.makeKeyAndOrderFront(nil)
-        backdrop.layoutSubtreeIfNeeded()
-        if let initialFirstResponder { window.makeFirstResponder(initialFirstResponder) }
-        else { window.selectNextKeyView(nil) }
-        NSAccessibility.post(element: window, notification: .created)
+        if let initialFirstResponder { window.initialFirstResponder = initialFirstResponder }
+        if let owner {
+            owner.beginSheet(window) { [weak self] _ in self?.close() }
+        } else {
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 
     func close() {
         guard !finished else { return }
         finished = true
-        for observer in observers { NotificationCenter.default.removeObserver(observer) }
-        observers.removeAll()
-        completion = nil
+        if let ownerObserver { NotificationCenter.default.removeObserver(ownerObserver) }
+        ownerObserver = nil
         window.onCancel = nil
-        backdrop.onCancel = nil
-        owner?.removeChildWindow(window)
+        if window.sheetParent != nil { owner?.endSheet(window) }
         window.orderOut(nil)
         if let owner, owner.isVisible {
-            owner.makeKeyAndOrderFront(nil)
             if let previousResponder,
                (previousResponder as? FamilyModalFocusRestoring)?.canRestoreModalFocus != false {
                 owner.makeFirstResponder(previousResponder)
@@ -81,68 +65,12 @@ final class FamilyModalPresentation: NSObject {
         }
         Self.retained.removeValue(forKey: ObjectIdentifier(self))
     }
-
-    private func updateFrame() {
-        let frame = owner?.frame ?? NSRect(x: 0, y: 0, width: backdrop.cardSize.width + 64, height: backdrop.cardSize.height + 64)
-        window.setFrame(frame, display: true)
-        if owner == nil { window.center() }
-        backdrop.needsLayout = true
-    }
 }
 
 final class FamilyModalWindow: NSPanel {
     var onCancel: (() -> Void)?
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
     override func cancelOperation(_ sender: Any?) { onCancel?() }
     override func close() { onCancel?() }
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { onCancel?() } else { super.keyDown(with: event) }
-    }
-}
-
-final class FamilyModalBackdrop: NSView {
-    var card: NSView?
-    private let scroll = NSScrollView()
-    var cardSize = NSSize.zero
-    var onCancel: (() -> Void)?
-    override var isFlipped: Bool { true }
-    func install(_ content: NSView) {
-        card = content
-        scroll.drawsBackground = false
-        scroll.contentView.drawsBackground = false
-        scroll.borderType = .noBorder
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.verticalScrollElasticity = .none
-        scroll.wantsLayer = true
-        scroll.layer?.cornerRadius = Theme.Radius.card
-        scroll.layer?.masksToBounds = true
-        scroll.documentView = content
-        addSubview(scroll)
-    }
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.6).setFill()
-        bounds.fill()
-    }
-    override func layout() {
-        super.layout()
-        let size = NSSize(width: min(cardSize.width, max(0, bounds.width - 32)), height: min(cardSize.height, max(0, bounds.height - 64)))
-        // Center on whole points, then align to this display's backing pixels.
-        // Half-point origins soften the entire hosted text layer on standard
-        // displays and when the Retina surface is sampled at logical resolution.
-        let centered = NSRect(x: ((bounds.width - size.width) / 2).rounded(),
-                              y: ((bounds.height - size.height) / 2).rounded(),
-                              width: size.width, height: size.height)
-        scroll.frame = backingAlignedRect(centered, options: .alignAllEdgesNearest)
-        card?.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: cardSize.height))
-    }
-    override func mouseDown(with event: NSEvent) {
-        // SwiftUI can pass unhandled clicks through the responder chain. A click
-        // within the card (for example on disabled button padding) is not a cancel.
-        guard !scroll.frame.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onCancel?()
-    }
 }
 
 /// SwiftUI sheet content shares the same centered modal host as confirmations.
@@ -170,9 +98,7 @@ private struct FamilySheetAnchor<Sheet: View>: NSViewRepresentable {
             .font(Theme.Font.body).tint(chrome.accent)
             .buttonStyle(FamilyButtonStyle(kind: .secondary))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(chrome.background)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(chrome.hairline, lineWidth: 1)))
+            .background(Color(nsColor: .windowBackgroundColor)))
         // Updating the binding or making a key window inside a SwiftUI update is reentrant.
         DispatchQueue.main.async { [weak view, weak coordinator] in
             guard let coordinator else { return }

@@ -148,6 +148,7 @@ enum ToolSidebarLayout {
 }
 
 enum WorkspaceChromeLayout {
+    static let sidebarTransitionDuration: TimeInterval = 0.35
     static let toolbarHeight: CGFloat = 48
     static let searchHeight: CGFloat = 34
     static let selectionBarHeight: CGFloat = 32

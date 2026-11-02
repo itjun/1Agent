@@ -75,41 +75,6 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
 }
 
 /// Local terminal identity is saved separately from the Dock icon and remote terminals.
-enum LocalPalette {
-    static let storageKey = "appearance.localPalette"
-    static let defaultPalette: ApplicationIcon = .clearSkyBlue
-
-    static func stored(defaults: UserDefaults = .standard) -> ApplicationIcon {
-        LocalPalette.palette(raw: defaults.string(forKey: storageKey))
-    }
-
-    static func palette(raw: String?) -> ApplicationIcon {
-        if let icon = ApplicationIcon(rawValue: raw ?? ""), icon.palette != nil {
-            return icon
-        }
-        return defaultPalette
-    }
-}
-
-/// Remote terminal identity keeps its existing preference key through the palette redesign.
-enum RemotePalette {
-    static let storageKey = "appearance.remotePalette"
-    static let defaultPalette: ApplicationIcon = .vanillaCustard
-
-    static func stored(defaults: UserDefaults = .standard) -> ApplicationIcon {
-        RemotePalette.palette(raw: defaults.string(forKey: storageKey))
-    }
-
-    static func palette(raw: String?) -> ApplicationIcon {
-        if let icon = ApplicationIcon(rawValue: raw ?? ""), icon.palette != nil {
-            return icon
-        }
-        return defaultPalette
-    }
-}
-
-/// Settings → Appearance → Icon & widget style.
-/// Regular is the Default style. Dark, Clear, and Tinted are drawn by macOS from the layered app icon.
 enum SystemIconStyle: Equatable {
     case regular
     case adaptive

@@ -10,7 +10,7 @@ import ObjectiveC
 enum FamilyAppearanceTests {
     @MainActor static func main() {
         checkIndependentTerminalThemes()
-        checkLocalPaletteMigration()
+        checkLegacyPaletteIgnored()
         let suite = "oneagent.family.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
@@ -167,8 +167,8 @@ enum FamilyAppearanceTests {
         let backgrounds = TerminalThemeTarget.allCases.map { GhosttyRuntime.controller(for: $0).backgroundColor }
         for icon in ApplicationIcon.macaronIcons {
             defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
-            defaults.set(icon.rawValue, forKey: LocalPalette.storageKey)
-            defaults.set(icon.rawValue, forKey: RemotePalette.storageKey)
+            defaults.set(icon.rawValue, forKey: "appearance.localPalette")
+            defaults.set(icon.rawValue, forKey: "appearance.remotePalette")
             lightChrome = WindowChrome.resolve(isDark: false)
             darkChrome = WindowChrome.resolve(isDark: true)
             driver.reapply()
@@ -191,28 +191,12 @@ enum FamilyAppearanceTests {
         for legacyStyle in ["classic", "transparent", "automatic", "unknown"] {
             defaults.set(legacyStyle, forKey: "appearance.shellStyle")
             driver.reapply()
-            let isTransparent = !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-            expect(driver.isShellTransparent == isTransparent, "legacy shell choice cannot disable the unified material")
             for target in TerminalThemeTarget.allCases {
                 let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
-                expect(rendered.contains(isTransparent ? "background-opacity = 0.96" : "background-opacity = 1"), "unified shell opacity reaches both terminal engines")
+                expect(rendered.contains("background-opacity = 1"), "unified shell opacity reaches both terminal engines")
             }
             check(true, true, "legacy shell choices preserve both live sessions")
         }
-        let backdrop = ShellBackdropView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
-        let shellWindow = NSWindow(contentRect: backdrop.bounds, styleMask: [], backing: .buffered, defer: false)
-        shellWindow.contentView = backdrop
-        for isTransparent in [true, false, true] {
-            backdrop.isTransparent = isTransparent
-            backdrop.applyStyle()
-            expect(shellWindow.isOpaque == !isTransparent, "shell switch updates native window compositing")
-            expect(shellWindow.backgroundColor.alphaComponent == (isTransparent ? 0 : 1), "native window backing does not block transparency")
-        }
-        let content = CGRect(x: 80, y: 40, width: 400, height: 300)
-        expect(ShellLayout.contentFrame(content, isFloating: false) == content, "accessibility fallback retains existing terminal geometry")
-        let floating = ShellLayout.contentFrame(content, isFloating: true)
-        expect(floating == content, "floating content fills its pane without extra outer spacing")
-        expect(ShellLayout.contentFrame(CGRect(x: 0, y: 0, width: 1, height: 1), isFloating: true).width == 1, "collapsed geometry never produces a negative terminal size")
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         defaults.set("Dark", forKey: "AppleInterfaceStyle")
         // Override only this isolated UserDefaults object's global-domain read for system-mode cases.
@@ -269,7 +253,7 @@ enum FamilyAppearanceTests {
                "undoing an older import merges its restored local choices into the shared slots")
         check(true, true, "legacy import undo updates both runtimes and preserves buffers")
         expect(defaults.string(forKey: "sidebar.material") == "liquidGlass", "obsolete preference is ignored, not erased")
-        print("FamilyAppearanceTests passed: shared terminal themes independent of appearance colors, legacy theme recovery, icon-to-local migration, preview/save/cancel/close/defaults/system, shared settings, two process-free native surfaces and buffer preservation")
+        print("FamilyAppearanceTests passed: shared terminal themes independent of appearance colors, legacy theme recovery, ignored legacy palettes, preview/save/cancel/close/defaults/system, shared settings, two process-free native surfaces and buffer preservation")
     }
 
     static func checkIndependentTerminalThemes() {
@@ -291,8 +275,8 @@ enum FamilyAppearanceTests {
         let darkConfiguration = TerminalThemeChoice.storedDark(defaults: defaults).terminalConfiguration()
         for icon in ApplicationIcon.macaronIcons {
             defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
-            defaults.set(icon.rawValue, forKey: LocalPalette.storageKey)
-            defaults.set(icon.rawValue, forKey: RemotePalette.storageKey)
+            defaults.set(icon.rawValue, forKey: "appearance.localPalette")
+            defaults.set(icon.rawValue, forKey: "appearance.remotePalette")
             TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
             expect(TerminalThemeChoice.storedLight(defaults: defaults).terminalConfiguration() == lightConfiguration
                    && TerminalThemeChoice.storedDark(defaults: defaults).terminalConfiguration() == darkConfiguration,
@@ -341,43 +325,19 @@ enum FamilyAppearanceTests {
                "a fresh install receives the default shared pair")
     }
 
-    static func checkLocalPaletteMigration() {
-        let suite = "oneagent.family.migration.\(UUID().uuidString)"
+    static func checkLegacyPaletteIgnored() {
+        let suite = "oneagent.native-migration.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        for isPreviouslyMigrated in [false, true] {
-            for icon in ApplicationIcon.macaronIcons {
-                defaults.removePersistentDomain(forName: suite)
-                defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
-                defaults.set(ApplicationIcon.vanillaCustard.rawValue, forKey: RemotePalette.storageKey)
-                defaults.set(isPreviouslyMigrated, forKey: TerminalThemeChoice.migrationKey)
-                TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
-                expect(LocalPalette.stored(defaults: defaults) == icon, "saved icon becomes the missing local palette, including previously migrated installations")
-                expect(ApplicationIcon.stored(defaults: defaults) == icon, "palette migration preserves the app icon")
-                expect(RemotePalette.stored(defaults: defaults) == .vanillaCustard, "local migration preserves remote palette")
-            }
-        }
-        for savedIcon in [nil, ApplicationIcon.original.rawValue, "unknown-icon"] as [String?] {
-            defaults.removePersistentDomain(forName: suite)
-            if let savedIcon { defaults.set(savedIcon, forKey: ApplicationIcon.storageKey) }
-            TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
-            expect(LocalPalette.stored(defaults: defaults) == LocalPalette.defaultPalette, "original, missing and unknown icons resolve to default local palette")
-            expect(defaults.string(forKey: ApplicationIcon.storageKey) == savedIcon, "fallback does not rewrite saved icon data")
-        }
-        for isPreviouslyMigrated in [false, true] {
-            defaults.removePersistentDomain(forName: suite)
-            defaults.set(ApplicationIcon.strawberryCream.rawValue, forKey: ApplicationIcon.storageKey)
-            defaults.set(ApplicationIcon.mintCandy.rawValue, forKey: LocalPalette.storageKey)
-            defaults.set(isPreviouslyMigrated, forKey: TerminalThemeChoice.migrationKey)
-            let darkKey = TerminalAppearance.darkThemeKey
-            defaults.set("GitHub Dark Default", forKey: darkKey)
-            TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
-            expect(LocalPalette.stored(defaults: defaults) == .mintCandy, "an existing independent local choice is never replaced by the app icon")
-            expect(defaults.string(forKey: darkKey) == "GitHub Dark Default", "palette migration preserves an existing catalog theme")
-            let snapshot = defaults.persistentDomain(forName: suite)!
-            TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
-            expect(NSDictionary(dictionary: defaults.persistentDomain(forName: suite)!).isEqual(to: snapshot), "repeated migration does not change persisted preferences")
-        }
+        defaults.set(ApplicationIcon.mintCandy.rawValue, forKey: "appearance.localPalette")
+        defaults.set(ApplicationIcon.vanillaCustard.rawValue, forKey: "appearance.remotePalette")
+        defaults.set("GitHub Dark Default", forKey: TerminalAppearance.darkThemeKey)
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(defaults.string(forKey: TerminalAppearance.darkThemeKey) == "GitHub Dark Default", "native migration preserves terminal themes")
+        expect(WindowChrome(isDark: false, icon: .mintCandy) == WindowChrome(isDark: false, icon: .vanillaCustard), "icons no longer recolor application controls")
+        let snapshot = defaults.persistentDomain(forName: suite)!
+        TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
+        expect(NSDictionary(dictionary: defaults.persistentDomain(forName: suite)!).isEqual(to: snapshot), "migration is idempotent")
     }
 
     /// Exercise the production settings hierarchy with isolated preferences and no shell/SSH.
@@ -387,14 +347,16 @@ enum FamilyAppearanceTests {
             window.setContentSize(size)
             for page in pages {
                 for _ in 0..<5 { drain() }
-                let navigationID = "settings.navigation." + page
-                guard let button = accessibilityElements(window).first(where: {
-                    accessibilityValue($0, "accessibilityIdentifier") as? String == navigationID
-                }) else { expect(false, "settings category exists: " + page); return }
-                let selector = NSSelectorFromString("accessibilityPerformPress")
-                typealias Press = @convention(c) (AnyObject, Selector) -> Bool
-                expect(unsafeBitCast(button.method(for: selector), to: Press.self)(button, selector),
-                       "settings category activates: " + page)
+                func outline(in view: NSView) -> NSOutlineView? {
+                    if let list = view as? NSOutlineView { return list }
+                    return view.subviews.compactMap { outline(in: $0) }.first
+                }
+                guard let list = window.contentView.flatMap({ outline(in: $0) }),
+                      let row = pages.firstIndex(of: page) else {
+                    expect(false, "native settings sidebar exists"); return
+                }
+                expect(list.numberOfRows == pages.count, "native sidebar exposes all settings categories")
+                list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
                 for _ in 0..<5 { drain() }
                 let identifiers = accessibilityElements(window).compactMap {
                     accessibilityValue($0, "accessibilityIdentifier") as? String

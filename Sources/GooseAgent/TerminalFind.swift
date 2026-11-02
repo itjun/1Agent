@@ -187,15 +187,6 @@ struct TerminalFindBar: View {
                     .padding(.horizontal, Theme.Space.s)
                     .frame(maxWidth: Theme.PaneStyle.findFieldMaxWidth)
                     .frame(height: Theme.PaneStyle.findFieldHeight)
-                    .background {
-                        RoundedRectangle(cornerRadius: Theme.Radius.row)
-                            .fill(chrome.background)
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: Theme.Radius.row)
-                            .strokeBorder(state.failed ? chrome.danger : state.fieldFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
-                    }
-                    .familyFocusRing(state.fieldFocused)
                 // Ghostty's `navigate_search:next` starts at the bottom match and walks up into older
                 // output, so ↑ is Find Next and ↓ is Find Previous, as in Ghostty's own find bar.
                 button(
@@ -269,9 +260,10 @@ struct TerminalFindField: NSViewRepresentable {
 
     func makeNSView(context: Context) -> TerminalFindTextField {
         let field = TerminalFindTextField()
-        field.isBordered = false
-        field.drawsBackground = false
-        field.focusRingType = .none
+        field.isBezeled = true
+        field.bezelStyle = .roundedBezel
+        field.drawsBackground = true
+        field.focusRingType = .default
         field.usesSingleLineMode = true
         field.cell?.isScrollable = true
         field.cell?.wraps = false

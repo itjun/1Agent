@@ -12,8 +12,8 @@ struct FamilyMenu<Label: View>: View {
     var body: some View {
         Button {
             if let view = anchor.view {
+                onPresentationChange(true)
                 FamilyMenuPresenter.shared.show(items(), below: view, selection: selection, onDismiss: { onPresentationChange(false) })
-                onPresentationChange(!FamilyMenuPresenter.shared.panels.isEmpty)
             }
         } label: { label() }
         .buttonStyle(FamilyButtonStyle())
@@ -42,35 +42,12 @@ struct FamilyMenuLabel: View {
 struct FamilyPicker<Value: Hashable>: View {
     @Binding var value: Value
     var options: [(Value, String)]
-    @Environment(\.windowChrome) private var chrome
-    @Environment(\.settingsControlTitle) private var settingsControlTitle
-    @State private var presented = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
+    @Environment(\.settingsControlTitle) private var title
     var body: some View {
-        FamilyMenu(items: {
-            options.map { option in
-                FamilyMenuItem(title: option.1, checked: value == option.0, action: { value = option.0 })
-            }
-        }, selection: true, onPresentationChange: { presented = $0 }) {
-            HStack(spacing: 8) {
-                Text(verbatim: options.first { $0.0 == value }?.1 ?? "")
-                    .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.down").font(.system(size: 12))
-                    .frame(width: 16, height: 16)
-                    .rotationEffect(.degrees(presented ? 180 : 0))
-            }
-            .font(Theme.Font.body)
-            .foregroundStyle(chrome.text)
-            .padding(.horizontal, 8)
-            .frame(height: Theme.Control.height)
-            .background(RoundedRectangle(cornerRadius: 4).fill(chrome.background))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(presented ? chrome.focus : chrome.lineStrong, lineWidth: 1))
-            .familyFocusRing(presented)
-            .animation(reduceMotion ? nil : .timingCurve(0.38, 0, 0.24, 1, duration: 0.2), value: presented)
-        }
-        .accessibilityLabel(Text(verbatim: settingsControlTitle ?? options.first { $0.0 == value }?.1 ?? ""))
-        .accessibilityValue(Text(verbatim: options.first { $0.0 == value }?.1 ?? ""))
+        Picker(selection: $value) {
+            ForEach(options, id: \.0) { Text(verbatim: $0.1).tag($0.0) }
+        } label: { Text(verbatim: title ?? "") }
+        .pickerStyle(.menu).labelsHidden()
     }
 }
 

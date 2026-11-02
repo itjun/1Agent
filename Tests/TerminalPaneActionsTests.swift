@@ -18,7 +18,7 @@ enum TerminalPaneActionsTests {
             defaults.removePersistentDomain(forName: suite)
         }
         _ = NSApplication.shared
-        NSApp.setActivationPolicy(.prohibited)
+        NSApp.setActivationPolicy(.accessory)
 
         let model = AppModel()
         let window = WindowState()
@@ -126,7 +126,8 @@ enum TerminalPaneActionsTests {
         let editor = NSTextView(frame: NSRect(x: 0, y: 0, width: 640, height: 100))
         root.addSubview(editor)
         owner.contentView = root
-        owner.orderFrontRegardless()
+        owner.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
         owner.makeFirstResponder(editor)
         var recoveries = 0
         var menuBuilds = 0
@@ -141,6 +142,13 @@ enum TerminalPaneActionsTests {
             let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags,
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: owner.windowNumber,
                 context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            if type == .rightMouseDown || (type == .leftMouseDown && flags.contains(.control)) {
+                let timer = Timer(timeInterval: 0.1, repeats: false) { _ in
+                    MainActor.assumeIsolated { FamilyMenuPresenter.shared.dismiss() }
+                }
+                RunLoop.main.add(timer, forMode: .eventTracking)
+                RunLoop.main.add(timer, forMode: .default)
+            }
             NSApp.postEvent(event, atStart: true)
             if let next = NSApp.nextEvent(matching: NSEvent.EventTypeMask(rawValue: 1 << type.rawValue),
                                          until: Date().addingTimeInterval(0.1), inMode: .default, dequeue: true) {
@@ -169,7 +177,7 @@ enum TerminalPaneActionsTests {
                 for x: CGFloat in [35, 320, 590] {
                     let before = menuBuilds
                     send(.rightMouseDown, at: NSPoint(x: x, y: 176))
-                    expect(menuBuilds == before + 1 && !FamilyMenuPresenter.shared.panels.isEmpty,
+                    expect(menuBuilds == before + 1 && !FamilyMenuPresenter.shared.isPresented,
                            "right-click works on banner text, blank space and recovery button in either appearance")
                     expect(commands.first { $0.title == AppShortcutID.closeTab.title }?.enabled == true,
                            "disconnected and reconnecting banners keep the original Close Terminal action")
@@ -192,6 +200,7 @@ enum TerminalPaneActionsTests {
                 }
                 send(.leftMouseDown, at: NSPoint(x: 590, y: 176))
                 send(.leftMouseUp, at: NSPoint(x: 590, y: 176))
+                RunLoop.main.run(until: Date().addingTimeInterval(0.15))
                 expect(recoveries == (isReconnecting ? 0 : 1),
                        "only a normal click on the disconnected recovery button requests one reconnect")
                 host.removeFromSuperview()
@@ -232,17 +241,6 @@ enum TerminalPaneActionsTests {
         expect(menu.allSatisfy { !$0.enabled }, "status lines are information, not actions")
         expect(!menu.contains { $0.title == String(localized: "Switch Tab") }, "the title card does not switch tabs")
         expect(TerminalPaneActions.titleItems(model: model, window: window).isEmpty, "a title click without a pane shows nothing")
-        if let path = ProcessInfo.processInfo.environment["ONEAGENT_REMOTE_MENU_SNAPSHOT"] {
-            let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
-                                 styleMask: [.titled], backing: .buffered, defer: false)
-            FamilyMenuPresenter.shared.show(menu, at: NSPoint(x: 600, y: 700), owner: owner)
-            if let view = FamilyMenuPresenter.shared.panels.first?.contentView,
-               let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-                view.cacheDisplay(in: view.bounds, to: bitmap)
-                try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
-            }
-            FamilyMenuPresenter.shared.dismiss()
-        }
 
         status.report(.commandFinished(exitCode: 0), sessionID: tab.sessionID)
         expect(status.runningCommand(of: tab) == nil, "a finished command gives the title back to the directory")
@@ -430,8 +428,8 @@ enum TerminalPaneActionsTests {
         remote.remoteDirectory = "/srv/project"
         expect(TerminalPaneActions.externalDirectory(of: local)?.path == local.directory, "external tools receive an intact local directory URL")
         expect(TerminalPaneActions.externalDirectory(of: remote) == nil, "remote directories are never mistaken for local editor paths")
-        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 0, width: 500, height: 300)) == 0,
-               "top-row panes use the window title band without a duplicate header")
+        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 0, width: 500, height: 300)) == Theme.PaneStyle.headerHeight,
+               "top-row panes keep their own title below the native toolbar")
         expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 305, width: 500, height: 300)) == Theme.PaneStyle.headerHeight,
                "lower split panes retain their own title and drag handle")
         let panes = (0..<4).map { _ in UUID() }
@@ -440,50 +438,34 @@ enum TerminalPaneActionsTests {
                                      leading: .leaf(panes[0]), trailing: .leaf(panes[1]))),
             trailing: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
                                       leading: .leaf(panes[2]), trailing: .leaf(panes[3])))))
-        let frames = TerminalCanvas.paneFrames(grid, zoomed: nil, in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
-        let cards = frames.mapValues { ShellLayout.contentFrame($0, isFloating: true) }
+        let frames = TerminalCanvas.paneFrames(grid, zoomed: nil, in: CGRect(x: 0, y: 0, width: 1000, height: 700))
+        let cards = frames
         for id in panes {
             let card = cards[id]!
-            let body = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true)
-            expect(TerminalCanvas.headerHeight(for: frames[id]!, isFloating: true) == 32,
-                   "every floating pane, including the top row, reserves an internal title")
+            let body = TerminalCanvas.terminalContentFrame(frames[id]!)
+            expect(TerminalCanvas.headerHeight(for: frames[id]!) == Theme.PaneStyle.headerHeight,
+                   "every pane, including the top row, reserves an internal title")
             expect(body.minX == card.minX && body.maxX == card.maxX && body.maxY == card.maxY,
-                   "title and terminal share one outer card, with no second content inset")
-            expect(body.minY == card.minY + 32, "output starts directly below its own title")
-            let searching = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true,
+                   "title and terminal share one pane, with no second content inset")
+            expect(body.minY == card.minY + Theme.PaneStyle.headerHeight, "output starts directly below its own title")
+            let searching = TerminalCanvas.terminalContentFrame(frames[id]!,
                                                                 accessoryHeight: Theme.PaneStyle.findBarHeight)
             expect(searching.minY == body.minY + Theme.PaneStyle.findBarHeight && searching.maxY == card.maxY,
-                   "opening Find reserves room inside the card without covering terminal output")
+                   "opening Find reserves room inside the pane without covering terminal output")
         }
         let horizontalGap = cards[panes[1]]!.minX - cards[panes[0]]!.maxX
         let verticalGap = cards[panes[2]]!.minY - cards[panes[0]]!.maxY
-        expect(horizontalGap == ShellLayout.workspaceInset && verticalGap == ShellLayout.workspaceInset,
-               "horizontal and vertical pane gaps equal the outer workspace inset")
+        expect(horizontalGap == 1 && verticalGap == 1,
+               "both axes use the native one-point divider")
         expect(cards[panes[0]]!.minX == 0 && cards[panes[0]]!.minY == 0 &&
                cards[panes[3]]!.maxX == 1000 && cards[panes[3]]!.maxY == 700,
                "interior pane gaps do not add a second outer inset")
-        let zoomed = TerminalCanvas.paneFrames(grid, zoomed: panes[0], in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
-        expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!, isFloating: true) == 32,
+        let zoomed = TerminalCanvas.paneFrames(grid, zoomed: panes[0], in: CGRect(x: 0, y: 0, width: 1000, height: 700))
+        expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!) == Theme.PaneStyle.headerHeight,
                "a single or zoomed terminal retains its internal title")
-        let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
-                             styleMask: [.titled], backing: .buffered, defer: false)
-        let anchor = NSView(frame: NSRect(x: 390, y: 540, width: 120, height: 32))
-        owner.contentView?.addSubview(anchor)
-        let presenter = FamilyMenuPresenter.shared
-        presenter.show([FamilyMenuItem(title: "fixture-host", enabled: false)], centeredBelow: anchor)
-        expect(presenter.panels.count == 1, "the title card opens under its anchor")
-        let panel = presenter.panels[0]
-        let anchorScreen = owner.convertToScreen(anchor.convert(anchor.bounds, to: nil))
-        expect(abs(panel.frame.midX - anchorScreen.midX) < 1, "the title card is centered under the title")
-        expect(abs(panel.frame.maxY - (anchorScreen.minY - 4)) < 1, "the title card sits just below the title")
-        if let path = ProcessInfo.processInfo.environment["ONEAGENT_MENU_SNAPSHOT"],
-           let view = panel.contentView,
-           let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-            view.cacheDisplay(in: view.bounds, to: bitmap)
-            try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
-        }
-        presenter.dismiss()
-        owner.orderOut(nil)
+        let menu = FamilyMenuPresenter.menu([FamilyMenuItem(title: "fixture-host", enabled: false)])
+        expect(menu.items.count == 1 && !menu.items[0].isEnabled, "title details use a native menu with disabled informational rows")
+
     }
 
     @MainActor private static func item(_ key: String.LocalizationValue, in items: [FamilyMenuItem]) -> FamilyMenuItem? {

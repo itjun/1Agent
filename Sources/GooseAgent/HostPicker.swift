@@ -206,7 +206,7 @@ struct HostPicker: View {
                 .foregroundStyle(chrome.secondary)
             TextField("Search name, group or IP", text: $query)
                 .accessibilityIdentifier("hosts.search")
-                .textFieldStyle(.plain)
+                .textFieldStyle(.roundedBorder)
                 .font(Theme.Font.body)
                 .foregroundStyle(chrome.text)
                 .focused($searchFocused)
@@ -238,15 +238,7 @@ struct HostPicker: View {
         .padding(.horizontal, Theme.Space.m)
         .frame(maxWidth: .infinity)
         .frame(height: SheetLayout.searchFieldHeight)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(searchFocused ? chrome.background : chrome.elevated)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(searchFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
-        )
-        .familyFocusRing(searchFocused)
+
     }
 
     private func hostRow(_ host: SSHHost) -> some View {

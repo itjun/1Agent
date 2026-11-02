@@ -287,22 +287,10 @@ import SwiftUI
         try check(named("Dissolve Workspace…", in: workspaceItems)?.destructive == false, "Dissolve does not terminate sessions")
         try check(named("Close All Terminals…", in: workspaceItems)?.destructive == true, "Closing workspace is explicitly destructive")
         for menu in [localItems, remoteItems, split, batch, workspaceItems] { try checkSeparators(menu) }
-        if let output = ProcessInfo.processInfo.environment["ONEAGENT_SIDEBAR_MENU_OUTPUT"],
-           let owner = MainWindowManager.shared.window(for: window) {
-            try FileManager.default.createDirectory(atPath: output, withIntermediateDirectories: true)
-            for (name, menu) in [("local", localItems), ("remote", remoteItems), ("split", split),
-                                 ("batch", batch), ("workspace", workspaceItems)] {
-                FamilyMenuPresenter.shared.show(menu, at: NSPoint(x: owner.frame.minX + 30, y: owner.frame.maxY - 60), owner: owner)
-                let panel = FamilyMenuPresenter.shared.panels.first!
-                let view = panel.contentView!
-                view.layoutSubtreeIfNeeded()
-                let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
-                view.cacheDisplay(in: view.bounds, to: bitmap)
-                try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
-                try check(panel.frame.width >= 180 && panel.frame.height > 100, "Native menu has usable dimensions")
-                FamilyMenuPresenter.shared.dismiss()
-            }
-            print("Rendered five production context menus to \(output)")
+        for items in [localItems, remoteItems, split, batch, workspaceItems] {
+            let menu = FamilyMenuPresenter.menu(items)
+            try check(menu.items.count == items.count && menu.items.allSatisfy { $0.view == nil },
+                      "All sidebar context menus use system menu items")
         }
         // Reconnect/reopen availability is based on actual connection state, not directory or focus.
         var remoteTab = model.tabs.first { $0.id == remote }!

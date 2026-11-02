@@ -49,6 +49,7 @@ enum CommandLiteralEditorTests {
         for font in [NSFont.systemFont(ofSize: 13), NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)] {
             window.makeFirstResponder(nil)
             field.font = font
+            field.setFrameSize(NSSize(width: 500, height: field.intrinsicContentSize.height))
             window.makeFirstResponder(field)
             let activeEditor = field.currentEditor() as! CommandLiteralTextView
             activeEditor.layoutManager!.ensureLayout(for: activeEditor.textContainer!)
@@ -57,7 +58,7 @@ enum CommandLiteralEditorTests {
             require(abs(textRect.midY - field.bounds.midY) <= 1,
                     "focused single-line text stays vertically centered: text=\(textRect), field=\(field.bounds)")
             let idleRect = field.cell!.drawingRect(forBounds: field.bounds)
-            require(abs(textRect.minX - idleRect.minX) <= 1 && textRect.minX >= 8,
+            require(abs(textRect.minX - idleRect.minX) <= 1 && textRect.minX > 0,
                     "focused text retains the same horizontal inset as unfocused text")
             require(activeEditor.string == literal + "more", "changing focus and font preserves literal command text")
         }

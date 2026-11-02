@@ -18,16 +18,13 @@ struct FileColumnHeader<Endpoint: View>: View {
     var onFilterFocusChange: (Bool) -> Void = { _ in }
     @ViewBuilder var endpoint: () -> Endpoint
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
-    @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
     @State private var showingFilter = false
     @FocusState private var filterFocused: Bool
 
     var body: some View {
-        let availableTitleWidth = width - titlebarLeadingInset
         VStack(spacing: 0) {
-            titleBar(width: availableTitleWidth)
-            if availableTitleWidth < FileBrowserLayout.compactHeaderThreshold && (showingFilter || !column.filter.isEmpty) {
+            titleBar(width: width)
+            if width < FileBrowserLayout.compactHeaderThreshold && (showingFilter || !column.filter.isEmpty) {
                 filterField
                     .padding(.horizontal, Theme.Space.m)
                     .padding(.bottom, Theme.Space.xs)
@@ -45,7 +42,7 @@ struct FileColumnHeader<Endpoint: View>: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12)).foregroundStyle(chrome.secondary)
             TextField(String(localized: "Filter"), text: $column.filter)
-                .textFieldStyle(.plain).font(Theme.Font.body)
+                .textFieldStyle(.roundedBorder).font(Theme.Font.body)
                 .focused($filterFocused)
                 .background(FilePointerObserver { onFilterFocusChange(true) })
                 .accessibilityLabel(Text("Filter"))
@@ -69,8 +66,7 @@ struct FileColumnHeader<Endpoint: View>: View {
         }
         .padding(.horizontal, Theme.Space.s)
         .frame(height: Theme.Control.height)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(filterFocused ? chrome.background : chrome.elevated))
-        .familyFocusRing(filterFocused)
+
     }
 
     // MARK: Navigation and actions
@@ -98,9 +94,8 @@ struct FileColumnHeader<Endpoint: View>: View {
             .accessibilityIdentifier("files.actions")
         }
         .padding(.horizontal, Theme.Space.m)
-        .padding(.leading, titlebarLeadingInset)
         .frame(height: FileBrowserLayout.tabStripHeight)
-        .background(isShellTransparent ? Color.clear : chrome.background)
+        .background(chrome.background)
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -207,9 +202,7 @@ struct FileColumnView: View {
                 }
                 .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
                     .fill(editingPath || pathHovered ? chrome.elevated : Color.clear))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control)
-                    .stroke(pathFieldFocused ? chrome.accent : Color.clear, lineWidth: 1))
-                .familyFocusRing(pathFieldFocused)
+
                 .onHover { pathHovered = $0 }
 
         }
@@ -237,7 +230,7 @@ struct FileColumnView: View {
         Group {
             if editingPath {
                 TextField("", text: $pathDraft)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.roundedBorder)
                     .font(Theme.Font.body)
                     .accessibilityLabel(Text("Edit Path"))
                     .accessibilityIdentifier("files.path.editor")
@@ -435,7 +428,7 @@ struct FileColumnView: View {
             column.clearSelection()
         }
         .focusable(interactions: .edit)
-        .focusEffectDisabled()
+
         .focused($focused)
         .onAppear { focused = workspace.focusedColumn === column }
         .onChange(of: workspace.focusedColumn?.id) { _, id in

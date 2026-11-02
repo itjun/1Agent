@@ -12,8 +12,6 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
     @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
-    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var isMotionReduced
     @StateObject private var dropRelay = CanvasDropRelay()
@@ -26,80 +24,55 @@ struct RootView: View {
     @State private var skipWorkspaceRenameCommit = false
     @State private var hoveredTabID: UUID?
     @State private var availableWidth: CGFloat = 0
-    @State private var toolSidebarDragStart: Double?
     @FocusState private var workspaceNameFocused: Bool
 
-    /// The selected connection type supplies its independently saved palette.
-    private var chrome: WindowChrome {
-        if let id = window.selectedTabID, model.connectionGroup(for: [id]) == .remote {
-            return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: RemotePalette.palette(raw: remotePaletteRaw))
-        }
-        return WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: LocalPalette.palette(raw: localPaletteRaw))
-    }
-
+    private var chrome: WindowChrome { WindowChrome(isDark: appearanceDriver.isDark) }
     private var sidebarChrome: WindowChrome { chrome }
-
 
     var body: some View {
         let _ = shortcutsRevision
         GeometryReader { geometry in
             let collapsed = sidebarIsCollapsed(totalWidth: geometry.size.width)
             let shownSidebarWidth = sidebarDisplayWidth(totalWidth: geometry.size.width)
-            // 透明模式把按钮叠在内容上，悬停只改变按钮显示，不占一整行。
-            VStack(spacing: 0) {
-                if !appearanceDriver.isShellTransparent {
-                    workspaceTitlebar(collapsed: collapsed, sidebarWidth: shownSidebarWidth, size: geometry.size)
-                }
-                NativeSidebarSplit(
-                    collapsed: collapsed, isDividerHidden: appearanceDriver.isShellTransparent, width: shownSidebarWidth,
-                    minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
-                    defaultWidth: SidebarLayout.defaultWidth,
-                    onWidthChange: {
-                        // A temporary narrow-window fit must not replace the user's saved width.
-                        if shownSidebarWidth >= CGFloat(sidebarWidth) { sidebarWidth = Double($0) }
-                    }
-                ) {
-                    sidebar
-                        .padding(.top, appearanceDriver.isShellTransparent ? ShellLayout.compactTitlebarHeight : 0)
-                        .scrollIndicators(.never)
-                        .environment(\.windowChrome, sidebarChrome)
-                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
-                        .tint(chrome.accent).font(Theme.Font.body)
-                        .ignoresSafeArea(edges: .top)
-                        .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-
-                } detail: {
-                    workspaceWithTools
-                        .padding(.vertical, appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0)
-                        .padding(.trailing, appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0)
-                        .padding(.leading, appearanceDriver.isShellTransparent && collapsed ? ShellLayout.workspaceInset : 0)
-                        .scrollIndicators(.never)
-                        .environment(\.workspaceTitlebarLeadingInset, appearanceDriver.isShellTransparent && collapsed
-                            ? SidebarLayout.trafficLightInset + SidebarLayout.iconButtonSize * 2 : 0)
+            let detailWidth = geometry.size.width - (collapsed ? 0 : shownSidebarWidth + 1)
+            let toolWidth = ToolSidebarLayout.visibleWidth(detailWidth: detailWidth,
+                open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+            NativeSidebarSplit(
+                collapsed: collapsed, width: shownSidebarWidth,
+                minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
+                defaultWidth: SidebarLayout.defaultWidth,
+                onWidthChange: {
+                    if shownSidebarWidth >= CGFloat(sidebarWidth) { sidebarWidth = Double($0) }
+                },
+                onCollapseChange: { value in
+                    if value != collapsed { model.toggleSidebar(in: window) }
+                },
+                inspector: NativeInspectorConfiguration(isCollapsed: toolWidth == 0,
+                    width: toolWidth > 0 ? toolWidth : CGFloat(window.presentation.toolSidebarWidth),
+                    onWidthChange: { width in
+                        model.updatePresentation(in: window) { $0.toolSidebarWidth = ToolSidebarLayout.storedWidth(Double(width)) }
+                    }, onCollapseChange: { value in
+                        model.updatePresentation(in: window) { $0.toolSidebarOpen = !value }
+                    }, content: AnyView(QuickCommandSidebar(model: model, window: window)
                         .environment(\.windowChrome, chrome)
-                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
                         .tint(chrome.accent).font(Theme.Font.body)
-                        .ignoresSafeArea(edges: .top)
-                        .preferredColorScheme(appearanceDriver.interfaceColorScheme)
-
-                }
-            }
-            .overlay(alignment: .top) {
-                if appearanceDriver.isShellTransparent {
-                    workspaceTitlebar(collapsed: collapsed, sidebarWidth: shownSidebarWidth, size: geometry.size)
-                }
+                        .preferredColorScheme(appearanceDriver.interfaceColorScheme)))
+            ) {
+                sidebar
+                    .background(NativeSidebarMaterial())
+                    .environment(\.windowChrome, sidebarChrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
+                    .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+            } detail: {
+                workspaceSurface
+                    .environment(\.windowChrome, chrome)
+                    .tint(chrome.accent).font(Theme.Font.body)
+                    .preferredColorScheme(appearanceDriver.interfaceColorScheme)
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
-        .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
-        .background {
-            ShellBackdrop(
-                isTransparent: appearanceDriver.isShellTransparent,
-                isDark: appearanceDriver.isDark
-            )
-            .accessibilityHidden(true)
-        }
         .ignoresSafeArea(edges: .top)
+        .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
         .onChange(of: appearanceRaw) { _, _ in
             appearanceDriver.reapply()
         }
@@ -123,13 +96,7 @@ struct RootView: View {
         .onChange(of: darkThemeRaw) { _, _ in
             GhosttyRuntime.applySelectedThemes()
         }
-        .onChange(of: localPaletteRaw) { _, _ in
-            GhosttyRuntime.applySelectedThemes()
-        }
-        .onChange(of: remotePaletteRaw) { _, _ in
-            GhosttyRuntime.applySelectedThemes()
-        }
-        .background(WindowTitleSync(title: windowTitle))
+        .background(WindowTitleSync(title: windowTitle, model: model, state: window))
         .modifier(HostInformationPresentation(model: model, window: window))
         .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let confirmation = window.quickCommandConfirmation {
@@ -212,7 +179,7 @@ struct RootView: View {
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 14)
-            Divider().padding(.horizontal, 16).opacity(appearanceDriver.isShellTransparent ? 0 : 1)
+            Divider().padding(.horizontal, 16)
 
             if filesMode {
                 FilesSidebar(model: model, window: window, workspace: model.fileWorkspace(for: window), dragArea: pinnedLocationDrag)
@@ -222,11 +189,12 @@ struct RootView: View {
                 if selectedPanelCount > 1 { selectionActions }
             }
         }
+        .scrollIndicators(.never)
         .background(BoundsAnchor {
             dropRelay.sidebarAnchor = filesMode ? nil : $0
             pinnedLocationDrag.sidebar = filesMode ? $0 : nil
         })
-        .background(appearanceDriver.isShellTransparent ? Color.clear : chrome.panelHeader)
+        .background(Color.clear)
         .onChange(of: filesMode) { _, _ in
             commitPanelRename()
             clearSidebarDrag()
@@ -443,174 +411,12 @@ struct RootView: View {
         } files: {
             FilesDockView(model: model, window: window, relay: dropRelay)
         }
-        .background(appearanceDriver.isShellTransparent ? Color.clear : chrome.background)
-    }
-
-    private var workspaceWithTools: some View {
-        GeometryReader { geometry in
-            let width = ToolSidebarLayout.visibleWidth(detailWidth: geometry.size.width,
-                open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
-            ZStack(alignment: .topLeading) {
-                workspaceSurface.frame(width: max(0, geometry.size.width - (width > 0 ? width + 1 : 0)))
-                if width > 0 {
-                    QuickCommandSidebar(model: model, window: window)
-                        .frame(width: width, height: geometry.size.height)
-                        .offset(x: geometry.size.width - width)
-                    Rectangle().fill(chrome.hairline).frame(width: 1, height: geometry.size.height)
-                        .overlay {
-                            Color.clear.frame(width: 7).contentShape(Rectangle())
-                                .gesture(DragGesture(minimumDistance: 1).onChanged { value in
-                                    if toolSidebarDragStart == nil { toolSidebarDragStart = Double(width) }
-                                    let next = ToolSidebarLayout.storedWidth((toolSidebarDragStart ?? Double(width)) - value.translation.width)
-                                    model.updatePresentation(in: window) { $0.toolSidebarWidth = next }
-                                }.onEnded { _ in toolSidebarDragStart = nil })
-                        }
-                        .offset(x: geometry.size.width - width - 1)
-                        .accessibilityLabel(Text("Resize Tool Sidebar"))
-                }
-            }
-        }
-    }
-
-    private func workspaceTitlebar(collapsed: Bool, sidebarWidth: CGFloat, size: CGSize) -> some View {
-        let height = appearanceDriver.isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight
-        let inset = collapsed ? 0 : sidebarWidth + 1
-        let outerInset = appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0
-        let toolWidth = ToolSidebarLayout.visibleWidth(detailWidth: size.width - inset - outerInset * (collapsed ? 2 : 1),
-            open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
-        let detailWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + 1 : 0))
-        let terminalHeight = size.height - height
-        let frames = TerminalCanvas.paneFrames(model.displayRoot(in: window), zoomed: model.zoomedPane(in: window),
-            in: CGRect(x: 0, y: 0, width: detailWidth, height: terminalHeight))
-        let topTabs = model.tabs.filter { frames[$0.id].map { $0.minY < 1 } == true }
-        return ZStack(alignment: .topLeading) {
-            (appearanceDriver.isShellTransparent ? Color.clear : chrome.panelHeader)
-                .allowsHitTesting(false)
-            if !appearanceDriver.isShellTransparent && (filesMode || topTabs.isEmpty) {
-                Text(filesMode ? "Files" : "Terminal")
-                    .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)
-                    .padding(.horizontal, 8)
-                    .frame(width: detailWidth, height: height, alignment: .leading)
-                    .accessibilityIdentifier("workspace.titleMenu")
-                    .offset(x: inset)
-            } else if !appearanceDriver.isShellTransparent {
-                ForEach(topTabs) { tab in
-                    if let frame = frames[tab.id] {
-                        let trailingInset: CGFloat = toolWidth == 0 && frame.maxX >= detailWidth - 1
-                            ? Theme.PaneStyle.titlebarAccessoryInset : 0
-                        let leadingInset: CGFloat = collapsed && frame.minX < 1 ? SidebarLayout.trafficLightInset + 56 : 0
-                        paneTitleMenu(tab)
-                            .padding(.leading, leadingInset)
-                            .padding(.trailing, trailingInset)
-                            .frame(width: frame.width, height: height)
-                            .overlay(alignment: .bottom) {
-                                PaneProgressBar(sessionID: tab.sessionID).allowsHitTesting(false)
-                            }
-                            .offset(x: inset + frame.minX)
-                    }
-                }
-            }
-            HoverRevealingRegion { hovering in
-                HStack(spacing: 0) {
-                    WindowDragArea().frame(maxWidth: .infinity, maxHeight: .infinity)
-                    sidebarHeaderActions(collapsed: collapsed, visible: hovering)
-                }
-                .padding(.leading, SidebarLayout.trafficLightInset)
-                .padding(.trailing, collapsed ? 0 : 8)
-                .frame(width: collapsed ? SidebarLayout.trafficLightInset + 56 : sidebarWidth,
-                       height: height)
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("workspace.sidebarHeader")
-            if !filesMode {
-                HoverRevealingRegion { hovering in
-                    HStack {
-                        Spacer(minLength: 0)
-                        Button { model.toggleToolSidebar(in: window) } label: {
-                            Image(systemName: "sidebar.right").frame(width: 28, height: 28)
-                        }
-                        .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
-                        .help(shortcutHelp(.toggleToolSidebar))
-                        .accessibilityLabel(Text(toolWidth > 0 ? "Hide Tool Sidebar" : "Show Tool Sidebar"))
-                        .accessibilityIdentifier("workspace.toggleToolSidebar")
-                        .opacity(hovering ? 1 : 0)
-                        .allowsHitTesting(hovering)
-                        .accessibilityHidden(!hovering)
-                    }
-                    .padding(.trailing, 8)
-                    .frame(width: ShellLayout.titlebarActionWidth, height: height)
-                }
-                .offset(x: size.width - ShellLayout.titlebarActionWidth)
-            }
-        }
-        .frame(height: height)
-        .background {
-            if !appearanceDriver.isShellTransparent { WindowDragArea() }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("workspace.titlebar")
-    }
-
-    private func paneTitleMenu(_ tab: TerminalTab) -> some View {
-        let isSelected = tab.hasTerminal && window.selectedTabID == tab.id && window.section == .terminals
-            && !window.presentation.fullFilesWorkspace
-        return HStack(spacing: 8) {
-            Text(verbatim: numberedSessionTitle(tab))
-                .foregroundStyle(chrome.secondary)
-                .lineLimit(1).truncationMode(.middle)
-                .layoutPriority(1)
-            RemoteTitleStatus(tab: tab)
-        }
-            .font(Theme.Font.paneTitle.weight(.regular))
-            .fixedSize(horizontal: true, vertical: false)
-            .frame(maxWidth: 520, maxHeight: .infinity)
-            .allowsHitTesting(false)
-            .overlay {
-                // Use the same native event tracking as lower split headers: it owns
-                // the press before AppKit can turn a titlebar drag into a window drag.
-                TabDragHandle(
-                    onClick: { _, _ in },
-                    onActivate: { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id, anchor: $0) },
-                    onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
-                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    freezesWindow: true
-                )
-            }
-            .help("Click the title for session details. Drag it to move the pane.")
-            .accessibilityElement(children: .ignore)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
-            .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) }
-            .accessibilityLabel(Text(verbatim: numberedSessionTitle(tab)))
-            .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
+        .background(chrome.background)
     }
 
     private func shortcutHelp(_ id: AppShortcutID) -> String {
         let key = AppShortcuts.display(for: id)
         return key.isEmpty ? id.title : id.title + " (" + key + ")"
-    }
-
-    private func sidebarHeaderActions(collapsed: Bool, visible: Bool) -> some View {
-        HStack(spacing: 0) {
-            Button { model.openLocalTerminal(in: window) } label: {
-                Image(systemName: "plus").frame(width: 28, height: 28)
-            }
-            .help(shortcutHelp(.newLocalTerminal))
-            .accessibilityLabel(Text("New Local Terminal"))
-            .accessibilityIdentifier("workspace.newLocalTerminal")
-            Button { model.toggleSidebar(in: window) } label: {
-                Image(systemName: "sidebar.left").frame(width: 28, height: 28)
-            }
-            .help(shortcutHelp(.toggleSidebar))
-            .accessibilityLabel(Text(collapsed ? "Show Session Sidebar" : "Hide Session Sidebar"))
-            .accessibilityIdentifier(collapsed ? "workspace.revealSidebar" : "workspace.hideSidebar")
-        }
-        .opacity(visible ? 1 : 0)
-        .allowsHitTesting(visible)
-        .accessibilityHidden(!visible)
-        .font(Theme.Font.body).buttonStyle(FamilyButtonStyle())
-        .foregroundStyle(sidebarChrome.secondary)
     }
 
     private func selectSession(_ id: UUID, command: Bool, shift: Bool) {
@@ -909,7 +715,7 @@ struct RootView: View {
 
     private func sessionChrome(_ tab: TerminalTab) -> WindowChrome {
         WindowChrome.resolve(isDark: appearanceDriver.isDark,
-            icon: tab.isLocal ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
+            icon: .original)
     }
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {
@@ -997,8 +803,6 @@ private struct FilesSidebar: View {
     @ObservedObject var workspace: FileWorkspace
     var dragArea: PinnedLocationDragArea
     @Environment(\.windowChrome) private var chrome
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
-    @Environment(\.isShellTransparent) private var isShellTransparent
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1015,7 +819,7 @@ private struct FilesSidebar: View {
             .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
             .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 6)
             openedTabs.layoutPriority(1)
-            Divider().padding(.horizontal, 16).opacity(isShellTransparent ? 0 : 1)
+            Divider().padding(.horizontal, 16)
             PinnedLocationsSidebar(workspace: workspace, dragArea: dragArea) { model.focusFiles(in: window) }
         }
         .onDisappear { workspace.tabDrag.strips.removeAll() }
@@ -1033,12 +837,12 @@ private struct FilesSidebar: View {
             }
             ForEach(remoteGroups, id: \.self) { groupID in
                 if remoteGroups.first != groupID {
-                    Divider().padding(.horizontal, 10).opacity(isShellTransparent ? 0 : 1)
+                    Divider().padding(.horizontal, 10)
                 }
                 VStack(spacing: 4) {
                     ForEach(workspace.groups[groupID]?.tabs ?? []) { column in
                         FileTabButton(workspace: workspace, column: column, groupID: groupID, tabDrag: workspace.tabDrag)
-                            .environment(\.windowChrome, WindowChrome.resolve(isDark: chrome.isDark, icon: RemotePalette.palette(raw: remotePaletteRaw)))
+                            .environment(\.windowChrome, WindowChrome.resolve(isDark: chrome.isDark, icon: .original))
                     }
                 }
                 .background(BoundsAnchor { workspace.tabDrag.strips[groupID] = AnchorBox($0) })
@@ -1201,7 +1005,7 @@ enum FileBrowserLayout {
     static let toolbarButtonSize: CGFloat = 28
     /// Includes the gaps on both sides, so the entire inter-folder area edits the path.
     static let pathSeparatorWidth: CGFloat = 20
-    static let folderColor = Color(red: 0x4C / 255, green: 0x8D / 255, blue: 0xFF / 255)
+    static let folderColor = Color(nsColor: .systemBlue)
     /// A full-height overlay follows the source pane's physical side, including moved tabs.
     static let previewMinimumWidth: CGFloat = 360
     static let previewWidthShare: CGFloat = 0.5
@@ -1224,32 +1028,6 @@ enum FileBrowserLayout {
     static let tabMaxWidth: CGFloat = 180
     /// Share of a pane's width and height kept from each edge: dropping a tab inside joins the pane.
     static let joinZoneInset: CGFloat = 0.3
-}
-
-/// 已打开内容切换器共用尺寸；宽窗口并排预览，窄窗口上下排列。
-enum SwitcherLayout {
-    static let windowInset: CGFloat = 24
-    static let maskOpacity: CGFloat = 0.22
-    static let windowCornerRadius: CGFloat = 16
-    static let panelPadding: CGFloat = 20
-    static let panelCornerRadius: CGFloat = 14
-    static let maxWidth: CGFloat = 1600
-    static let contentHeight: CGFloat = 760
-    static let headerHeight: CGFloat = 24
-    static let searchHeight: CGFloat = 36
-    static let scopeHeight: CGFloat = 30
-    static let footerHeight: CGFloat = 32
-    static let spacing: CGFloat = 12
-    static let detailGap: CGFloat = 16
-    static let listWidth: CGFloat = 340
-    static let listShare: CGFloat = 0.34
-    static let sideBySideWidth: CGFloat = 660
-    static let rowHeight: CGFloat = 60
-    static let previewCornerRadius: CGFloat = 8
-    static let previewFontSize: CGFloat = 12
-    static var chromeHeight: CGFloat {
-        2 * panelPadding + headerHeight + searchHeight + scopeHeight + footerHeight + 4 * spacing
-    }
 }
 
 /// A small colored dot before a host title that is open more than once. The color is per alias,

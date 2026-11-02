@@ -46,7 +46,6 @@ struct TerminalConnectionBanner: View {
                     Label(tab.isLocal ? String(localized: "Reopen Terminal") : String(localized: "Reconnect"),
                           systemImage: "arrow.clockwise")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(chrome.background)
                         .fixedSize()
                         .frame(minHeight: 32)
                 }

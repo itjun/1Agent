@@ -2,21 +2,6 @@ import AppKit
 import SwiftUI
 
 enum Theme {
-    private static func dynamic(_ light: NSColor, _ dark: NSColor) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-        })
-    }
-
-    private static func hex(_ value: UInt32, alpha: CGFloat = 1) -> NSColor {
-        NSColor(
-            srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
-            green: CGFloat((value >> 8) & 0xFF) / 255,
-            blue: CGFloat(value & 0xFF) / 255,
-            alpha: alpha
-        )
-    }
-
     static let sidebarRowTitle = SwiftUI.Font.system(size: 14, weight: .medium)
     static let sidebarRowMeta = Theme.Font.rowMeta
 
@@ -32,7 +17,6 @@ enum Theme {
         static let rowMeta = SwiftUI.Font.system(size: 12)
         /// Pane title bar above each terminal; monospaced so paths align with the terminal.
         static let paneTitle = SwiftUI.Font.system(size: 12, weight: .medium, design: .monospaced)
-        static let floatingPaneTitle = SwiftUI.Font.system(size: 12)
         /// Section headline inside settings and sheets.
         static let sectionTitle = SwiftUI.Font.system(size: 14, weight: .semibold)
         /// Default body text.
@@ -64,10 +48,6 @@ enum Theme {
     enum Motion {
         static let selectionDuration: TimeInterval = 0.14
         static let terminalDuration: TimeInterval = 0.16
-        static let overviewInDuration: TimeInterval = 0.22
-        static let overviewOutDuration: TimeInterval = 0.16
-        static let overviewInitialScale: CGFloat = 0.97
-        static let overviewOffset: CGFloat = 8
     }
 
     enum Control {
@@ -83,15 +63,8 @@ enum Theme {
         /// Height of the system title bar band; the traffic lights sit centered in it.
         /// A lone pane gets a strip this tall instead of a title bar, and the sidebar header matches it.
         static let titlebarHeight: CGFloat = 32
-        /// Strip above a lone pane. Shorter than the title bar band so the terminal starts close under the title.
-        static let stripHeight: CGFloat = 26
-        /// Vertical center of the traffic lights from the window top; the lone pane's title sits on it.
-        static let trafficLightCenterY: CGFloat = 16
-        /// Kept free on both sides of the lone pane's centered title, so it never runs under the zoom button.
-        static let stripTitleInset: CGFloat = 40
         /// Title bar of each pane in a split. Dragging the title text merges panes; the terminal starts right below.
         static let headerHeight: CGFloat = 28
-        static let titlebarAccessoryInset: CGFloat = 44
         /// Disconnected / reconnecting banner shown under the title bar.
         static let bannerHeight: CGFloat = 48
         /// Icon size next to the pane title (reconnecting / disconnected).
@@ -130,14 +103,7 @@ enum Theme {
     }
 
     /// Dot colors for a host alias that is open more than once. No red: red means a broken connection.
-    static let duplicateHostMarks: [Color] = [
-        dynamic(hex(0x0052D9), hex(0x366EF4)),
-        dynamic(hex(0xE37318), hex(0xE37318)),
-        dynamic(hex(0x2BA471), hex(0x2BA471)),
-        dynamic(hex(0x8E56DD), hex(0xAD75FE)),
-        dynamic(hex(0x029CD4), hex(0x029CD4)),
-        dynamic(hex(0xC9489B), hex(0xE06CB8)),
-    ]
+    static let duplicateHostMarks: [Color] = [.blue, .orange, .green, .purple, .cyan, .pink]
 
     static func duplicateHostMark(_ index: Int) -> Color {
         let palette = Theme.duplicateHostMarks
@@ -145,18 +111,10 @@ enum Theme {
         return palette[wrapped]
     }
 
-    /// 使用持久 ID 分色，重命名、拖动或重启都不会改变文件夹的色系。
-    static func folderPalette(for id: UUID) -> ApplicationIcon {
-        let palettes: [ApplicationIcon] = [
-            .apricotCream, .taroMilkshake, .vanillaCustard,
-            .strawberryCream, .cloudSoda, .coralPeach,
-        ]
-        let hash = id.uuidString.utf8.reduce(UInt64(14695981039346656037)) { ($0 ^ UInt64($1)) &* 1099511628211 }
-        return palettes[Int(hash % UInt64(palettes.count))]
-    }
+
 }
 
-/// Fixed family chrome. Terminal themes own only the terminal rendering surface.
+/// 系统语义色映射；终端主题只负责终端内容。
 struct WindowChrome: Equatable {
     let isDark: Bool
     var background: Color
@@ -178,92 +136,37 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
-    var inactiveIcon: Color { isDark ? RGBColor(ghosttyHex: "878B92")!.color : secondary }
+    var inactiveIcon: Color { Color(nsColor: .secondaryLabelColor) }
 
-    /// 沿用马卡龙色板，并混入当前主题；文字在普通、悬停和选中背景上均可辨认。
-    func folderColor(_ icon: ApplicationIcon) -> Color {
-        guard let palette = icon.palette else { return accent }
-        func rgb(_ color: Color) -> RGBColor {
-            let value = NSColor(color).usingColorSpace(.sRGB)!
-            return RGBColor(red: value.redComponent, green: value.greenComponent, blue: value.blueComponent)
-        }
-        var tone = RGBColor(ghosttyHex: isDark ? palette.fill : palette.ink)!
-            .mixed(with: rgb(accent), amount: 0.12)
-        let target = RGBColor(red: isDark ? 1 : 0, green: isDark ? 1 : 0, blue: isDark ? 1 : 0)
-        for background in [sidebarBackground, hairline, accentFill] {
-            tone = RGBColor.ensureContrast(tone, against: rgb(background), toward: target, minimum: 4.5)
-        }
-        return tone.color
+    func filledForeground(on fill: Color) -> Color { Color(nsColor: .selectedControlTextColor) }
+
+    static func resolve(isDark: Bool, icon: ApplicationIcon = .original) -> WindowChrome {
+        WindowChrome(isDark: isDark)
     }
 
-    /// 实心控件根据填充选择黑字或白字，避免马卡龙色上的白字失去对比。
-    func filledForeground(on fill: Color) -> Color {
-        let resolved = NSColor(fill).usingColorSpace(.sRGB)!
-        let background = RGBColor(red: resolved.redComponent, green: resolved.greenComponent, blue: resolved.blueComponent)
-        let black = RGBColor(red: 0, green: 0, blue: 0)
-        let white = RGBColor(red: 1, green: 1, blue: 1)
-        return black.contrastRatio(with: background) >= white.contrastRatio(with: background) ? .black : .white
-    }
-
-    static func resolve(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) -> WindowChrome {
-        WindowChrome(isDark: isDark, icon: icon)
-    }
-
-    init(isDark: Bool, icon: ApplicationIcon = LocalPalette.stored()) {
+    // 保留语义映射供现有内容视图使用；系统负责深浅色、强调色和辅助功能适配。
+    init(isDark: Bool, icon: ApplicationIcon = .original) {
         self.isDark = isDark
-        func rgb(_ light: String, _ dark: String) -> RGBColor {
-            RGBColor(ghosttyHex: isDark ? dark : light)!
-        }
-        func color(_ light: String, _ dark: String) -> Color {
-            rgb(light, dark).color
-        }
-        // 色板只决定选中与焦点；底板、文字和普通控件在所有方案中一致。
-        let white = RGBColor(red: 1, green: 1, blue: 1)
-        let black = RGBColor(red: 0, green: 0, blue: 0)
-        let backgroundRGB = rgb("FCFCFD", "20242B")
-        let sidebarRGB = isDark
-            ? backgroundRGB.mixed(with: black, amount: 0.08)
-            : rgb("F1F4F8", "12161F")
-        background = backgroundRGB.color
-        sidebarBackground = sidebarRGB.color
-        let elevatedRGB = isDark ? backgroundRGB.mixed(with: white, amount: 0.035) : rgb("F3F4F6", "232A38")
-        let hairlineRGB = isDark ? backgroundRGB.mixed(with: white, amount: 0.065) : rgb("E5E7EB", "2C3445")
-        elevated = elevatedRGB.color
-        text = color("1F2937", "EEF0F3")
-        secondary = color("5B626D", "B0B3BA")
-        tertiary = secondary
-        hairline = hairlineRGB.color
-        accent = color("0052D9", "8CB8FF")
-        accentFill = color("E8EFFF", "313D50")
-        panelHeader = sidebarBackground
-        danger = color("D54941", "F06C63")
-        warning = color("D35A00", "F29A4A")
-        success = color("1A7F52", "56C08D")
-        accentHover = color("366EF4", "A3C6FF")
-        accentActive = color("003CAB", "779CD9")
-        focus = color("0052D9", "8CB8FF")
-        selection = color("C9DAFF", "274A8C")
-        lineStrong = color("7C838D", "717B8C")
-
-        guard let palette = icon.palette else { return }
-        let fill = RGBColor(ghosttyHex: palette.fill)!
-        let ring = RGBColor(ghosttyHex: palette.ring)!
-        let ink = RGBColor(ghosttyHex: palette.ink)!
-        let selectedRGB = isDark ? backgroundRGB.mixed(with: fill, amount: 0.14) : fill.mixed(with: white, amount: 0.55)
-        // 按最不利的选中／悬停背景校正强调色。
-        var tone = isDark ? ring : ink
-        for surface in [backgroundRGB, sidebarRGB, elevatedRGB, hairlineRGB, selectedRGB] {
-            tone = RGBColor.ensureContrast(tone, against: surface,
-                                          toward: isDark ? white : black, minimum: 4.5)
-        }
-        accent = tone.color
-        accentHover = tone.mixed(with: white, amount: 0.2).color
-        accentActive = tone.mixed(with: black, amount: isDark ? 0.15 : 0.2).color
-        accentFill = selectedRGB.color
-        focus = tone.color
-        selection = selectedRGB.color
-        panelHeader = sidebarBackground
+        background = Color(nsColor: .textBackgroundColor)
+        sidebarBackground = Color(nsColor: .windowBackgroundColor)
+        elevated = Color(nsColor: .controlBackgroundColor)
+        text = Color(nsColor: .labelColor)
+        secondary = Color(nsColor: .secondaryLabelColor)
+        tertiary = Color(nsColor: .tertiaryLabelColor)
+        hairline = Color(nsColor: .separatorColor)
+        accent = Color(nsColor: .controlAccentColor)
+        accentFill = Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+        panelHeader = Color(nsColor: .windowBackgroundColor)
+        danger = .red
+        warning = .orange
+        success = .green
+        accentHover = accent
+        accentActive = accent
+        focus = Color(nsColor: .keyboardFocusIndicatorColor)
+        selection = Color(nsColor: .selectedContentBackgroundColor)
+        lineStrong = Color(nsColor: .separatorColor)
     }
+
 }
 
 struct RGBColor {

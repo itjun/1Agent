@@ -17,7 +17,6 @@ struct FilesDockView: View {
     @ObservedObject var workspace: FileWorkspace
     var relay: CanvasDropRelay
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(model: AppModel, window: WindowState, relay: CanvasDropRelay) {
@@ -29,9 +28,8 @@ struct FilesDockView: View {
 
     var body: some View {
         FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
-            .padding(.horizontal, isShellTransparent ? 0 : Theme.Space.s)
-            .padding(.vertical, isShellTransparent ? ShellLayout.paneVerticalInset : Theme.Space.s)
-            .background(isShellTransparent ? Color.clear : chrome.background)
+
+            .background(chrome.background)
             .allowsHitTesting(workspace.selectedPreviewColumn == nil)
             .accessibilityHidden(workspace.selectedPreviewColumn != nil)
             .overlay(alignment: .bottom) { TransferStatusBar(window: window).allowsHitTesting(false) }
@@ -47,7 +45,7 @@ struct FilesDockView: View {
         if let column = workspace.selectedPreviewColumn {
             GeometryReader { geometry in
                 let bounds = CGRect(origin: .zero, size: geometry.size)
-                let frames = ShellLayout.paneFrames(of: workspace.layout, in: bounds, isFloating: isShellTransparent)
+                let frames = PaneLayout.frames(of: workspace.layout, in: bounds)
                 let source = workspace.groupID(of: column).flatMap { frames[$0] } ?? bounds
                 let frame = FileBrowserLayout.previewFrame(in: bounds, source: source)
                 let leading = frame.minX == bounds.minX
@@ -80,21 +78,18 @@ private struct FilePairGrid: View {
     var relay: CanvasDropRelay
     @ObservedObject var tabDrag: FileTabDragTracker
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
-    @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
     @State private var ratioDrag: (id: UUID, start: CGFloat)?
     @State private var hoveredDividerID: UUID?
 
     var body: some View {
         GeometryReader { geometry in
-            let panelInset = isShellTransparent ? ShellLayout.paneInset : Theme.Space.xs
+            let panelInset = CGFloat.zero
             let rect = CGRect(origin: .zero, size: geometry.size)
-            let frames = ShellLayout.paneFrames(of: workspace.layout, in: rect, isFloating: isShellTransparent)
+            let frames = PaneLayout.frames(of: workspace.layout, in: rect)
             ZStack(alignment: .topLeading) {
                 ForEach(workspace.groupIDs, id: \.self) { id in
                     if let frame = frames[id] {
                         FileEndpointPanel(workspace: workspace, groupID: id, model: model, window: window, relay: relay, tabDrag: tabDrag, width: max(0, frame.width - panelInset * 2))
-                            .environment(\.workspaceTitlebarLeadingInset, frame.minX < 1 && frame.minY < 1 ? titlebarLeadingInset : 0)
                             .padding(.horizontal, panelInset)
                             .frame(width: frame.width, height: frame.height, alignment: .topLeading)
                             .clipped()
@@ -166,9 +161,6 @@ private struct FileEndpointPanel: View {
     @ObservedObject var tabDrag: FileTabDragTracker
     var width: CGFloat
     @Environment(\.windowChrome) private var parentChrome
-    @AppStorage(LocalPalette.storageKey) private var localPaletteRaw = LocalPalette.defaultPalette.rawValue
-    @AppStorage(RemotePalette.storageKey) private var remotePaletteRaw = RemotePalette.defaultPalette.rawValue
-    @Environment(\.isShellTransparent) private var isShellTransparent
     @State private var filterFocused = false
 
     private var column: FileColumn? { workspace.groups[groupID]?.active }
@@ -176,7 +168,7 @@ private struct FileEndpointPanel: View {
 
     private var chrome: WindowChrome {
         WindowChrome.resolve(isDark: parentChrome.isDark,
-            icon: local ? LocalPalette.palette(raw: localPaletteRaw) : RemotePalette.palette(raw: remotePaletteRaw))
+            icon: .original)
     }
 
     var body: some View {
@@ -195,8 +187,7 @@ private struct FileEndpointPanel: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background.opacity(isShellTransparent ? ShellLayout.fileOpacity : 1))
-        .modifier(FloatingContentSurface(isSelected: workspace.focusedGroupID == groupID && window.section == .files))
+        .background(chrome.background)
         .background(BoundsAnchor {
             relay.filesSideAnchors[.group(groupID)] = AnchorBox($0)
             tabDrag.panes[groupID] = AnchorBox($0)

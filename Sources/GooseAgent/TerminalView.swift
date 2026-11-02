@@ -214,7 +214,7 @@ enum GhosttyRuntime {
     ) -> TerminalConfiguration {
         let entries = (settings.configEntries() + snippet).filter { $0.key != "background-opacity" }
         return TerminalConfiguration { builder in
-            builder.withBackgroundOpacity(ShellStyle.isTransparent ? ShellLayout.terminalOpacity : 1)
+            builder.withBackgroundOpacity(1)
             for entry in entries {
                 builder.withCustom(entry.key, entry.value)
             }
@@ -657,11 +657,6 @@ enum SSHTerminalRegistry {
     /// The terminal's window, for sheets and progress shown over it.
     static func window(for id: String) -> NSWindow? {
         views[id]?.window
-    }
-
-    /// The rows on screen as plain text. Nil before the terminal was made or once it closed.
-    static func viewportText(for id: String) -> String? {
-        views[id]?.processHost?.session.readViewportText()
     }
 
     static func hasRunningCommand(_ id: String) -> Bool {
@@ -1694,6 +1689,9 @@ final class TerminalHostView: NSView {
         if terminal.superview === self { return }
         terminal.removeFromSuperview()
         terminal.setSurfaceVisible(!isHidden && window?.isMiniaturized != true)
+        // 合并连续尺寸变化，避免多终端在侧栏动画中反复重排。
+        // 引擎保留首帧响应，并在合并窗口结束后补齐最后一次尺寸。
+        terminal.setResizeThrottle(milliseconds: 32)
         terminal.frame = bounds
         terminal.autoresizingMask = [.width, .height]
         addSubview(terminal)

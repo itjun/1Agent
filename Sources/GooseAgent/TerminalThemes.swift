@@ -116,7 +116,6 @@ final class AppearanceDriver: ObservableObject {
 
     @Published private(set) var interfaceIsDark: Bool
     @Published private(set) var terminalIsDark: Bool
-    @Published private(set) var isShellTransparent: Bool
     var isDark: Bool { interfaceIsDark }
     private let themeWatcher = SystemThemeWatcher()
 
@@ -124,7 +123,6 @@ final class AppearanceDriver: ObservableObject {
         let mode = TerminalAppearance.stored()
         interfaceIsDark = mode.resolvesDark()
         terminalIsDark = mode.resolvesDark()
-        isShellTransparent = ShellStyle.isTransparent
         themeWatcher.start()
     }
 
@@ -144,11 +142,7 @@ final class AppearanceDriver: ObservableObject {
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
         GhosttyRuntime.applyColorSchemes(isDark: dark)
-        let isTransparent = ShellStyle.isTransparent
-        if isShellTransparent != isTransparent {
-            isShellTransparent = isTransparent
-            GhosttyRuntime.applyTerminalSettings()
-        }
+
     }
 }
 
@@ -242,11 +236,7 @@ struct TerminalThemeChoice: Equatable, Hashable {
 
     /// Prefer the current local choices when merging connection themes. Keep the old keys for recovery.
     static func migrateIfNeeded(defaults: UserDefaults = .standard) {
-        if defaults.object(forKey: LocalPalette.storageKey) == nil {
-            let icon = ApplicationIcon.stored(defaults: defaults)
-            defaults.set((icon.palette == nil ? LocalPalette.defaultPalette : icon).rawValue,
-                forKey: LocalPalette.storageKey)
-        }
+
         guard !defaults.bool(forKey: TerminalThemeChoice.migrationKey) else { return }
         for dark in [false, true] {
             let slot = dark ? "dark" : "light"

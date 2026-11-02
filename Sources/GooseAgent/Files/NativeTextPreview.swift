@@ -1,17 +1,15 @@
 import AppKit
 import SwiftUI
 
-/// Code colors intentionally follow 1Panel's independent Monokai surface.
+/// 内容和语法标记使用随系统外观变化的语义色。
 enum PreviewCodeStyle {
-    static func color(_ hex: UInt32) -> NSColor {
-        NSColor(srgbRed: CGFloat((hex >> 16) & 255) / 255, green: CGFloat((hex >> 8) & 255) / 255,
-                blue: CGFloat(hex & 255) / 255, alpha: 1)
-    }
-    static let background = color(0x191C21), foreground = color(0xE5E7EB), bright = color(0xF8F8F2)
-    static let selection = color(0x365D91), occurrence = color(0x2B4567), bracket = color(0x48637C)
-    static let accent = color(0x66D9EF), gutter = color(0x8B98A8), activeGutter = color(0x29384B)
-    static let activeLine = color(0x6699DC).withAlphaComponent(0.14)
-    static let hoverLine = accent.withAlphaComponent(0.08)
+    static let background = NSColor.textBackgroundColor, foreground = NSColor.textColor, bright = NSColor.labelColor
+    static let selection = NSColor.selectedTextBackgroundColor
+    static let occurrence = NSColor.unemphasizedSelectedTextBackgroundColor, bracket = NSColor.findHighlightColor
+    static let accent = NSColor.controlAccentColor, gutter = NSColor.secondaryLabelColor
+    static let activeGutter = NSColor.unemphasizedSelectedContentBackgroundColor
+    static let activeLine = NSColor.quaternaryLabelColor
+    static let hoverLine = NSColor.quaternaryLabelColor
     static let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
     static let lineHeight: CGFloat = 21.7
 
@@ -19,14 +17,14 @@ enum PreviewCodeStyle {
         let root = scope.split(separator: ".").first.map(String.init) ?? scope
         switch root {
         case "comment", "quote":
-            return [.foregroundColor: color(0x75715E), .font: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)]
-        case "keyword", "selector-tag", "literal": return [.foregroundColor: color(0xF92672)]
+            return [.foregroundColor: NSColor.secondaryLabelColor, .font: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)]
+        case "keyword", "selector-tag", "literal": return [.foregroundColor: NSColor.systemPink]
         case "section", "attribute", "attr", "built_in", "type": return [.foregroundColor: accent]
-        case "string", "title", "name": return [.foregroundColor: color(0xE6DB74)]
-        case "number", "meta": return [.foregroundColor: color(0xAE81FF)]
+        case "string", "title", "name": return [.foregroundColor: NSColor.systemBrown]
+        case "number", "meta": return [.foregroundColor: NSColor.systemPurple]
         case "punctuation", "bullet", "operator": return [.foregroundColor: bright]
-        case "addition": return [.foregroundColor: color(0xA6E22E)]
-        case "deletion": return [.foregroundColor: color(0xF92672)]
+        case "addition": return [.foregroundColor: NSColor.systemGreen]
+        case "deletion": return [.foregroundColor: NSColor.systemPink]
         default: return [:]
         }
     }

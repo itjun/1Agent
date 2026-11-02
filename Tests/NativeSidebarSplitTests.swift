@@ -171,7 +171,7 @@ struct NativeSidebarSplitTests {
             precondition(controller.splitViewItems[1] === originalDetailItem)
             precondition(field.window === window, "detail view must remain attached")
             precondition(window.firstResponder === responder, "input focus must survive content and width updates")
-            precondition(controller.splitViewItems[0].behavior == .default)
+            precondition(controller.splitViewItems[0].behavior == .sidebar)
         }
         for _ in 0..<3 {
             controller.configure(width: 310, minimum: 200, maximum: 420,
@@ -220,10 +220,88 @@ struct NativeSidebarSplitTests {
         precondition(controller.splitViewItems[0].minimumThickness == controller.splitViewItems[0].maximumThickness)
         print("ok: native sidebar behaviors, stable hosts/detail item/input view/focus, width restoration and drag reporting")
         window.close()
+        verifyThreeColumns()
         verifyHiddenDivider()
         verifyEmbeddedCanvasGeometry()
         verifySettingsTitlebarGeometry()
         verifyDockGeometry()
+        verifyMenuDisplayCycleOpensSplit()
+    }
+
+    @MainActor private static func verifyThreeColumns() {
+        let probe = Probe()
+        let inspectorProbe = Probe()
+        var widths: [CGFloat] = []
+        var collapses: [Bool] = []
+        func inspector(_ collapsed: Bool = false, width: CGFloat = 350) -> NativeInspectorConfiguration {
+            NativeInspectorConfiguration(isCollapsed: collapsed, width: width,
+                onWidthChange: { widths.append($0) }, onCollapseChange: { collapses.append($0) },
+                content: AnyView(InputProbe(probe: inspectorProbe, output: "search")))
+        }
+        let controller = NativeSidebarSplitController(sidebar: Color.clear,
+            detail: InputProbe(probe: probe, output: "terminal"), inspector: inspector())
+        controller.configure(width: 260, minimum: 200, maximum: 420, defaultWidth: 260,
+                             onWidthChange: { _ in }, inspector: inspector())
+        let window = NSWindow(contentViewController: controller)
+        window.styleMask = [.titled, .resizable, .fullSizeContentView]
+        window.setContentSize(NSSize(width: 880, height: 600))
+        window.contentView?.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        precondition(widths.isEmpty, "provisional small window must not overwrite saved inspector width")
+        window.setContentSize(NSSize(width: 1400, height: 800))
+        func settle() {
+            window.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        }
+        func configure(left: Bool = false, right: Bool = false, width: CGFloat = 350) {
+            controller.configure(width: 260, minimum: 200, maximum: 420, defaultWidth: 260,
+                collapsed: left, onWidthChange: { _ in }, inspector: inspector(right, width: width))
+            settle()
+        }
+        configure()
+        for index in 0..<2 {
+            let columns = controller.splitView
+            precondition(columns.acceptsFirstMouse(for: nil), "column dividers must accept a drag from an inactive window")
+            let x = columns.arrangedSubviews[index].frame.maxX + columns.dividerThickness / 2
+            for offset: CGFloat in [-2, 0, 2] {
+                let point = columns.convert(NSPoint(x: x + offset, y: columns.bounds.midY), to: columns.superview)
+                let hit = columns.hitTest(point)
+                precondition(hit === columns, "native divider \(index) must receive mouse events within its drag tolerance, offset=\(offset), got \(String(describing: hit))")
+            }
+        }
+        let originalField = probe.field!
+        let originalInspector = controller.inspectorHost!
+        precondition(controller.splitViewItems[2].behavior == .inspector)
+        precondition(window.makeFirstResponder(originalField))
+        let responder = window.firstResponder
+        for (left, right) in [(true, false), (true, true), (false, true), (false, false)] {
+            configure(left: left, right: right)
+            precondition(controller.splitViewItems[0].isCollapsed == left)
+            precondition(controller.splitViewItems[2].isCollapsed == right)
+            precondition(controller.inspectorHost === originalInspector)
+            precondition(probe.created == 1 && inspectorProbe.created == 1,
+                         "column toggles must retain terminal and inspector inputs")
+            precondition(originalField.window === window && window.firstResponder === responder,
+                         "column toggles preserve terminal attachment and focus")
+            if !right { precondition(abs(originalInspector.view.frame.width - 350) < 1) }
+        }
+        controller.splitView.setPosition(controller.splitView.bounds.width - 410 - controller.splitView.dividerThickness,
+                                         ofDividerAt: 1)
+        settle()
+        precondition(abs((widths.last ?? 0) - 410) < 1, "inspector drag publishes its actual width")
+        configure(width: 410)
+        window.setContentSize(NSSize(width: 1200, height: 680))
+        settle()
+        precondition(abs(originalInspector.view.frame.width - 410) < 1, "window resize retains inspector width")
+        precondition(controller.detailHost.view.frame.width >= WorkspaceChromeLayout.minimumTerminalWidth)
+        controller.splitViewItems[2].isCollapsed = true
+        settle()
+        precondition(collapses.last == true, "native inspector collapse updates application state")
+        configure()
+        precondition(abs(originalInspector.view.frame.width - 350) < 1)
+        precondition(probe.created == 1 && inspectorProbe.created == 1)
+        window.close()
+        print("ok: three columns preserve hosts/focus across four toggle states, inspector drag/resize/collapse restore")
     }
 
     @MainActor private static func verifyHiddenDivider() {
@@ -405,5 +483,83 @@ struct NativeSidebarSplitTests {
         }
         print("ok: settings split extends through titlebar with safe controls and fixed sidebar in repeated updates")
         window.close()
+    }
+
+    /// Opening settings from its shortcut lays the new split out inside the menu display cycle.
+    /// Geometry feedback used to re-enter divider placement until AppKit aborted the process.
+    @MainActor private static func verifyMenuDisplayCycleOpensSplit() {
+        let opener = MenuDisplayCycleOpener()
+        let menu = NSMenu(title: "App")
+        let item = NSMenuItem(title: "Settings", action: #selector(MenuDisplayCycleOpener.open), keyEquivalent: ",")
+        item.keyEquivalentModifierMask = .command
+        item.target = opener
+        menu.addItem(item)
+        let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+                                      timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0,
+                                      context: nil, characters: ",", charactersIgnoringModifiers: ",",
+                                      isARepeat: false, keyCode: 43)!
+        precondition(menu.performKeyEquivalent(with: event), "settings shortcut must run")
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
+        precondition(opener.window?.isVisible == true, "settings-style split must stay open through the menu display cycle")
+        opener.window?.close()
+        print("ok: menu display cycle opens a settings-style split without exhausting layout")
+    }
+}
+
+private struct MenuDisplayCycleFixture: View {
+    @State private var bounds: [Int: CGRect] = [:]
+    @State private var selected = 0
+    @State private var sidebarWidth: CGFloat = 220
+
+    var body: some View {
+        NativeSidebarSplit(width: sidebarWidth, minimumWidth: 180, maximumWidth: 420, defaultWidth: 220,
+                           onWidthChange: { sidebarWidth = $0 }) {
+            List(selection: $selected) {
+                ForEach(0..<8, id: \.self) { page in
+                    Text("Page \(page)").tag(page)
+                }
+            }
+            .listStyle(.sidebar)
+        } detail: {
+            VStack(spacing: 0) {
+                Text("Title")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, bounds[selected]?.minX ?? 24)
+                    .frame(height: 76)
+                ZStack {
+                    ForEach(0..<8, id: \.self) { page in
+                        ScrollView {
+                            Text("form \(page) \(Int(bounds[page]?.width ?? 0))")
+                                .frame(maxWidth: 960, alignment: .leading)
+                                .onGeometryChange(for: CGRect.self) { geometry in
+                                    let frame = geometry.frame(in: .named("settings.detail"))
+                                    return CGRect(x: frame.minX, y: 0, width: frame.width, height: 0)
+                                } action: { bounds[page] = $0 }
+                                .padding(24)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .opacity(selected == page ? 1 : 0)
+                    }
+                }
+            }
+            .coordinateSpace(name: "settings.detail")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea(edges: .top)
+    }
+}
+
+private final class MenuDisplayCycleOpener: NSObject {
+    var window: NSWindow?
+    @objc func open() {
+        let host = NSHostingController(rootView: MenuDisplayCycleFixture())
+        host.sizingOptions = [.minSize]
+        let window = NSWindow(contentViewController: host)
+        window.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+        window.contentMinSize = NSSize(width: 760, height: 520)
+        window.setContentSize(NSSize(width: 1100, height: 720))
+        window.makeKeyAndOrderFront(nil)
+        self.window = window
     }
 }
