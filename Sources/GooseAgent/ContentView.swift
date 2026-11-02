@@ -26,6 +26,7 @@ struct RootView: View {
     @State private var hoveredTabID: UUID?
     @State private var availableWidth: CGFloat = 0
     @State private var toolSidebarDragStart: Double?
+    @State private var previewDragStart: Double?
     @FocusState private var workspaceNameFocused: Bool
 
     /// 本机与远程共用强调色，切换连接不会改变外壳。
@@ -440,10 +441,29 @@ struct RootView: View {
         GeometryReader { geometry in
             let width = ToolSidebarLayout.visibleWidth(detailWidth: geometry.size.width,
                 open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+            let contentWidth = max(0, geometry.size.width - (width > 0 ? width + ShellLayout.workspaceInset : 0))
+            let previewWidth = WorkspacePreviewLayout.visibleWidth(available: contentWidth,
+                isOpen: width > 0 && window.isToolPreviewOpen, preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
+            let terminalWidth = max(0, contentWidth - (previewWidth > 0 ? previewWidth + ShellLayout.workspaceInset : 0))
             ZStack(alignment: .topLeading) {
-                workspaceSurface.frame(width: max(0, geometry.size.width - (width > 0 ? width + ShellLayout.workspaceInset : 0)))
+                workspaceSurface.frame(width: terminalWidth)
+                if previewWidth > 0 {
+                    WorkspaceFilePreview(model: model, window: window)
+                        .frame(width: previewWidth, height: geometry.size.height)
+                        .offset(x: terminalWidth + ShellLayout.workspaceInset)
+                    PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
+                        if previewDragStart == nil { previewDragStart = Double(previewWidth) }
+                        window.isToolPreviewEqualSplit = false
+                        window.toolPreviewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(previewWidth)) - delta)
+                    }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
+                        window.isToolPreviewEqualSplit = true
+                    })
+                    .frame(width: ShellLayout.workspaceInset, height: geometry.size.height)
+                    .offset(x: terminalWidth)
+                    .accessibilityLabel(Text("Resize File Preview"))
+                }
                 if width > 0 {
-                    QuickCommandSidebar(model: model, window: window)
+                    WorkspaceToolSidebar(model: model, window: window)
                         .frame(width: width, height: geometry.size.height)
                         .offset(x: geometry.size.width - width)
                     PaneDividerHandle(
@@ -471,7 +491,10 @@ struct RootView: View {
         let outerInset = appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0
         let toolWidth = ToolSidebarLayout.visibleWidth(detailWidth: size.width - inset - outerInset * (collapsed ? 2 : 1),
             open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
-        let detailWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + ShellLayout.workspaceInset : 0))
+        let contentWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + ShellLayout.workspaceInset : 0))
+        let previewWidth = WorkspacePreviewLayout.visibleWidth(available: contentWidth,
+            isOpen: toolWidth > 0 && window.isToolPreviewOpen, preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
+        let detailWidth = max(1, contentWidth - (previewWidth > 0 ? previewWidth + ShellLayout.workspaceInset : 0))
         let terminalHeight = size.height - height
         let frames = TerminalCanvas.paneFrames(model.displayRoot(in: window), zoomed: model.zoomedPane(in: window),
             in: CGRect(x: 0, y: 0, width: detailWidth, height: terminalHeight))

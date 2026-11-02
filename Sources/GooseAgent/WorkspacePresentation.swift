@@ -139,6 +139,21 @@ enum CommandPreviewLayout {
     }
 }
 
+/// 预览是工作区内的并排卡片；临时适配窄窗口，不写入分屏树或比例。
+enum WorkspacePreviewLayout {
+    static let defaultWidth: Double = 480
+    static let minimumWidth: CGFloat = 280
+    static let minimumTerminalWidth: CGFloat = 200
+    static func storedWidth(_ width: Double) -> Double {
+        width.isFinite ? max(minimumWidth, width) : defaultWidth
+    }
+    static func visibleWidth(available: CGFloat, isOpen: Bool, preferred: Double, isEqualSplit: Bool = false) -> CGFloat {
+        guard isOpen else { return 0 }
+        if isEqualSplit { return max(0, (available - 8) / 2) }
+        return min(CGFloat(storedWidth(preferred)), max(0, available - minimumTerminalWidth - 8))
+    }
+}
+
 enum ToolSidebarLayout {
     static func storedWidth(_ width: Double) -> Double { width.isFinite ? min(480, max(300, width)) : 350 }
     static func visibleWidth(detailWidth: CGFloat, open: Bool, filesMode: Bool, preferred: Double) -> CGFloat {

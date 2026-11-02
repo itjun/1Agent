@@ -318,6 +318,13 @@ struct TerminalCanvas: View {
                 .padding(.horizontal, isShellTransparent && frame.minY < 1 ? ShellLayout.titlebarActionWidth : 0)
             }
             .overlay(alignment: .trailing) {
+                if tab.hasTerminal && frame.width > 420 {
+                    TerminalGitBadge(tab: tab, model: model, window: window)
+                        .frame(maxWidth: min(220, frame.width * 0.38), alignment: .trailing)
+                        .padding(.trailing, isZoomed ? 36 : Theme.Space.s)
+                }
+            }
+            .overlay(alignment: .trailing) {
                 if isShellTransparent && isZoomed { zoomMark.padding(.trailing, Theme.Space.s) }
             }
             .frame(width: frame.width, height: headerHeight)

@@ -18,6 +18,38 @@ final class WindowState: ObservableObject, Identifiable {
     var terminalMRU: [UUID] = []
     /// Which area owns keyboard commands; both areas may be visible.
     @Published var section: AppSection = .terminals
+    @Published var toolSidebarTab: WorkspaceToolTab = .commands
+    @Published var toolGitBranchComparison = false
+    @Published var toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
+    @Published var toolPreviewColumn: FileColumn?
+    @Published var toolGitPreview: GitPreviewRequest?
+    @Published var isToolPreviewEqualSplit = false
+    var isToolPreviewOpen: Bool { toolPreviewColumn != nil || toolGitPreview != nil }
+    func openToolGitPreview(_ request: GitPreviewRequest) {
+        prepareToolPreview()
+        toolPreviewColumn = nil
+        toolGitPreview = request
+    }
+    func openToolFilePreview(_ column: FileColumn) {
+        prepareToolPreview()
+        toolGitPreview = nil
+        toolPreviewColumn = column
+    }
+    private func prepareToolPreview() {
+        guard !isToolPreviewOpen else { return }
+        toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
+        isToolPreviewEqualSplit = false
+    }
+    private var toolContextSessionID: String?
+    private var toolContextLocation: GitLocation?
+    func synchronizeToolContext(sessionID: String?, location: GitLocation?) {
+        guard toolContextSessionID != sessionID || toolContextLocation != location else { return }
+        toolContextSessionID = sessionID
+        toolContextLocation = location
+        toolGitBranchComparison = false
+        toolPreviewColumn = nil
+        toolGitPreview = nil
+    }
     @Published var presentation = WorkspacePresentation()
     /// An explicit reveal wins over automatic narrow-window collapse until hidden again.
     @Published var sidebarRevealed = false

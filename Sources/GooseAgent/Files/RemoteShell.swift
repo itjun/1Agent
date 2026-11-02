@@ -89,7 +89,7 @@ enum ProcessRunner {
     }
 
     /// Runs to the end on a background thread, reading both outputs at once so neither pipe fills.
-    static func run(_ process: Process, input: Data? = nil) async throws -> ProcessResult {
+    static func run(_ process: Process, input: Data? = nil, outputLimit: Int? = nil) async throws -> ProcessResult {
         signal(SIGPIPE, SIG_IGN)
         let cancellation = FileOperationContext.cancellation
         try cancellation?.check()
@@ -116,10 +116,24 @@ enum ProcessRunner {
                     try? stdin.fileHandleForWriting.write(contentsOf: input)
                     try? stdin.fileHandleForWriting.close()
                 }
-                let stdout = out.fileHandleForReading.readDataToEndOfFile()
+                var stdout = Data()
+                var exceeded = false
+                while true {
+                    let chunk = out.fileHandleForReading.readData(ofLength: chunkSize)
+                    if chunk.isEmpty { break }
+                    if let outputLimit, stdout.count + chunk.count > outputLimit {
+                        exceeded = true
+                        cancellation?.cancel()
+                        if process.isRunning { process.terminate() }
+                        break
+                    }
+                    stdout.append(chunk)
+                }
                 process.waitUntilExit()
                 let stderr = errors.wait()
-                if cancellation?.shouldAbort == true {
+                if exceeded {
+                    continuation.resume(throwing: FileError.message(String(localized: "Output is too large to preview. Open the file in an editor.")))
+                } else if cancellation?.shouldAbort == true {
                     continuation.resume(throwing: CancellationError())
                 } else {
                     continuation.resume(returning: ProcessResult(status: process.terminationStatus, stdout: stdout, stderr: stderr))

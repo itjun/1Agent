@@ -7,6 +7,7 @@ struct QuickCommandSidebar: View {
     @ObservedObject private var store = QuickCommandStore.shared
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
+    var showsHeader = true
     @State private var search = ""
     @State private var batchSelecting = false
     @State private var selectedIDs: Set<UUID> = []
@@ -32,9 +33,11 @@ struct QuickCommandSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Commands").font(Theme.Font.row)
-                .frame(maxWidth: .infinity).frame(height: 42)
-            Divider()
+            if showsHeader {
+                Text("Commands").font(Theme.Font.row)
+                    .frame(maxWidth: .infinity).frame(height: 42)
+                Divider()
+            }
             commandList
         }
         .foregroundStyle(chrome.text).background(Color.clear)

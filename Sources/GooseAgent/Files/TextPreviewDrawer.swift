@@ -5,6 +5,7 @@ import SwiftUI
 struct TextPreviewDrawer: View {
     @ObservedObject var column: FileColumn
     var onClose: (() -> Void)? = nil
+    var isWorkspaceCard = false
     @Environment(\.windowChrome) private var chrome
     @State private var converting = false
     @State private var convertError: String?
@@ -21,7 +22,7 @@ struct TextPreviewDrawer: View {
                 Divider()
                 if showingFormat { formatSheet(preview) }
                 else { content(preview) }
-                if !preview.isQuickLook && !showingFormat { formatBar(preview.decoded, preview: preview) }
+                if !isWorkspaceCard && !preview.isQuickLook && !showingFormat { formatBar(preview.decoded, preview: preview) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(showingFormat ? chrome.panelHeader : chrome.background)
@@ -41,8 +42,12 @@ struct TextPreviewDrawer: View {
 
     private func header(_ preview: FileColumn.Preview) -> some View {
         HStack(spacing: Theme.Space.s) {
-            Image(systemName: preview.isQuickLook ? "eye" : "doc.text")
-            Text(verbatim: "\(column.title) · \(preview.entry.path)")
+            if isWorkspaceCard {
+                FileTypeIcon(name: preview.entry.name)
+            } else {
+                Image(systemName: preview.isQuickLook ? "eye" : "doc.text")
+            }
+            Text(verbatim: isWorkspaceCard ? preview.entry.name : "\(column.title) · \(preview.entry.path)")
                 .font(Theme.Font.body.weight(.medium))
                 .lineLimit(1).truncationMode(.middle)
                 .help(preview.entry.path)
@@ -54,7 +59,7 @@ struct TextPreviewDrawer: View {
             Button(action: close) { Image(systemName: "xmark") }
                 .help("Close Preview").accessibilityLabel(Text("Close Preview"))
                 .accessibilityIdentifier("files.preview.close")
-                .keyboardShortcut(.cancelAction)
+                .keyboardShortcut(isWorkspaceCard ? nil : KeyboardShortcut.cancelAction)
         }
         .buttonStyle(FamilyButtonStyle())
         .foregroundStyle(chrome.text)

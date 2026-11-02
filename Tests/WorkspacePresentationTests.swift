@@ -4,6 +4,12 @@ import CoreGraphics
 @main
 struct WorkspacePresentationTests {
     static func main() throws {
+        for width in [CGFloat(600), 1420, 2200] {
+            let preview = WorkspacePreviewLayout.visibleWidth(available: width, isOpen: true, preferred: 480, isEqualSplit: true)
+            precondition(preview == width - 8 - preview, "double click evenly splits at every window width")
+        }
+        precondition(WorkspacePreviewLayout.visibleWidth(available: 1600, isOpen: true, preferred: 1100) == 1100,
+                     "wide diff can grow past the old fixed cap")
         let fresh = WorkspacePresentation.restored(nil, legacyFiles: false)
         precondition(!fresh.filesVisible && fresh.filesWidth == 360)
         precondition(fresh.sidebarCollapsed && fresh.filesWorkspace,
