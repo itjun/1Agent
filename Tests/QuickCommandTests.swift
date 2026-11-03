@@ -65,7 +65,7 @@ struct QuickCommandTests {
         let preserved = try Data(contentsOf: store.url)
         assert(String(data: preserved, encoding: .utf8) == "bad")
         var presentation = WorkspacePresentation()
-        assert(!presentation.toolSidebarOpen && presentation.toolSidebarWidth == 350)
+        assert(!presentation.toolSidebarOpen && presentation.toolSidebarWidth == WorkspaceChromeLayout.defaultSidebarWidth)
         presentation.toolSidebarOpen = true; presentation.toolSidebarWidth = 410
         let restored = try JSONDecoder().decode(WorkspacePresentation.self, from: JSONEncoder().encode(presentation))
         assert(restored == presentation)
@@ -79,7 +79,7 @@ struct QuickCommandTests {
         }
         let old = try JSONDecoder().decode(WorkspacePresentation.self, from: Data("{\"presentationVersion\":4}".utf8))
         assert(!old.toolSidebarOpen)
-        assert(ToolSidebarLayout.visibleWidth(detailWidth: 650, open: true, filesMode: false, preferred: 350) == 0)
+        assert(ToolSidebarLayout.visibleWidth(detailWidth: 650, open: true, filesMode: false, preferred: 350) == 249)
         assert(ToolSidebarLayout.visibleWidth(detailWidth: 750, open: true, filesMode: false, preferred: 350) == 349)
         assert(ToolSidebarLayout.visibleWidth(detailWidth: 900, open: true, filesMode: true, preferred: 350) == 0)
         let scriptItem = QuickCommand(alias: "Script", command: "printf '%s\\n' '你好'; exit 7", scope: .local)

@@ -30,7 +30,7 @@ enum FileWorkspaceLayout: String, Codable, CaseIterable {
 /// Window chrome only. Session identities, sidebar ordering and pane trees stay in their
 /// existing models. Files can occupy the full workspace or a resizable dock below the terminal.
 struct WorkspacePresentation: Codable, Equatable {
-    private static let currentVersion = 6
+    private static let currentVersion = 7
     private var presentationVersion = currentVersion
     var filesVisible = false
     var filesExpanded = false
@@ -41,7 +41,7 @@ struct WorkspacePresentation: Codable, Equatable {
     var filesWidth: Double = WorkspaceChromeLayout.defaultFilesWidth
     var sidebarCollapsed = true
     var toolSidebarOpen = false
-    var toolSidebarWidth: Double = 350
+    var toolSidebarWidth: Double = WorkspaceChromeLayout.defaultSidebarWidth
     var commandPreviewExpanded = true
     var commandPreviewHeight: Double = CommandPreviewLayout.defaultHeight
     var collapsedWorkspaces: Set<UUID> = []
@@ -71,7 +71,8 @@ struct WorkspacePresentation: Codable, Equatable {
             try values.decodeIfPresent(Double.self, forKey: .filesWidth) ?? WorkspaceChromeLayout.defaultFilesWidth)
         sidebarCollapsed = try values.decodeIfPresent(Bool.self, forKey: .sidebarCollapsed) ?? true
         toolSidebarOpen = try values.decodeIfPresent(Bool.self, forKey: .toolSidebarOpen) ?? false
-        toolSidebarWidth = ToolSidebarLayout.storedWidth(try values.decodeIfPresent(Double.self, forKey: .toolSidebarWidth) ?? 350)
+        toolSidebarWidth = ToolSidebarLayout.storedWidth(try values.decodeIfPresent(Double.self, forKey: .toolSidebarWidth)
+            ?? WorkspaceChromeLayout.defaultSidebarWidth)
         commandPreviewExpanded = try values.decodeIfPresent(Bool.self, forKey: .commandPreviewExpanded) ?? true
         commandPreviewHeight = CommandPreviewLayout.storedHeight(
             try values.decodeIfPresent(Double.self, forKey: .commandPreviewHeight) ?? CommandPreviewLayout.defaultHeight)
@@ -85,6 +86,10 @@ struct WorkspacePresentation: Codable, Equatable {
         }
         // The redesigned Files page is independent; old dock placement is migrated, not exposed.
         if savedVersion < 4 { filesLayout = .sideBySide; filesExpanded = false }
+        // 旧版默认右栏宽度跟随新的左右等宽默认值，保留其他自定义宽度。
+        if savedVersion < 7 && toolSidebarWidth == 350 {
+            toolSidebarWidth = WorkspaceChromeLayout.defaultSidebarWidth
+        }
         presentationVersion = max(savedVersion, Self.currentVersion)
     }
 
@@ -155,14 +160,19 @@ enum WorkspacePreviewLayout {
 }
 
 enum ToolSidebarLayout {
-    static func storedWidth(_ width: Double) -> Double { width.isFinite ? min(480, max(300, width)) : 350 }
-    static func visibleWidth(detailWidth: CGFloat, open: Bool, filesMode: Bool, preferred: Double) -> CGFloat {
-        guard open, !filesMode, detailWidth >= 701 else { return 0 }
-        return min(CGFloat(storedWidth(preferred)), detailWidth - 401)
+    static let minimumWidth: CGFloat = 200
+    static func storedWidth(_ width: Double) -> Double {
+        width.isFinite ? min(480, max(minimumWidth, width)) : WorkspaceChromeLayout.defaultSidebarWidth
+    }
+    static func visibleWidth(detailWidth: CGFloat, open: Bool, filesMode: Bool, preferred: Double,
+                             surroundingWidth: CGFloat = 0) -> CGFloat {
+        guard open, !filesMode, detailWidth >= minimumWidth + 401 else { return 0 }
+        return min(CGFloat(storedWidth(preferred)) - surroundingWidth, detailWidth - 401)
     }
 }
 
 enum WorkspaceChromeLayout {
+    static let defaultSidebarWidth: Double = 260
     static let toolbarHeight: CGFloat = 48
     static let searchHeight: CGFloat = 34
     static let selectionBarHeight: CGFloat = 32

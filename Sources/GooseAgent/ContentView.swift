@@ -437,10 +437,16 @@ struct RootView: View {
         .background(appearanceDriver.isShellTransparent ? Color.clear : chrome.background)
     }
 
+    // 右栏宽度包含两侧留白；扣除与左侧原生分隔线相同的 1pt，让可见占位对称。
+    private var toolSidebarSurroundingWidth: CGFloat {
+        ShellLayout.workspaceInset + (appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0) - 1
+    }
+
     private var workspaceWithTools: some View {
         GeometryReader { geometry in
             let width = ToolSidebarLayout.visibleWidth(detailWidth: geometry.size.width,
-                open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+                open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth,
+                surroundingWidth: toolSidebarSurroundingWidth)
             let contentWidth = max(0, geometry.size.width - (width > 0 ? width + ShellLayout.workspaceInset : 0))
             let previewWidth = WorkspacePreviewLayout.visibleWidth(available: contentWidth,
                 isOpen: width > 0 && window.isToolPreviewOpen, preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
@@ -471,7 +477,8 @@ struct RootView: View {
                         onHover: { _ in },
                         onDragChanged: { delta in
                             if toolSidebarDragStart == nil { toolSidebarDragStart = Double(width) }
-                            let next = ToolSidebarLayout.storedWidth((toolSidebarDragStart ?? Double(width)) - delta)
+                            let next = ToolSidebarLayout.storedWidth((toolSidebarDragStart ?? Double(width)) - delta
+                                + toolSidebarSurroundingWidth)
                             model.updatePresentation(in: window) { $0.toolSidebarWidth = next }
                         },
                         onDragEnded: { toolSidebarDragStart = nil },
@@ -490,7 +497,8 @@ struct RootView: View {
         let inset = collapsed ? 0 : sidebarWidth + 1
         let outerInset = appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0
         let toolWidth = ToolSidebarLayout.visibleWidth(detailWidth: size.width - inset - outerInset * (collapsed ? 2 : 1),
-            open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+            open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth,
+            surroundingWidth: toolSidebarSurroundingWidth)
         let contentWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + ShellLayout.workspaceInset : 0))
         let previewWidth = WorkspacePreviewLayout.visibleWidth(available: contentWidth,
             isOpen: toolWidth > 0 && window.isToolPreviewOpen, preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
@@ -1062,7 +1070,7 @@ private struct FilesSidebar: View {
 
 /// Sidebar geometry. The user drags the divider between `minWidth` and `maxWidth`.
 enum SidebarLayout {
-    static let defaultWidth: CGFloat = 236
+    static let defaultWidth: CGFloat = WorkspaceChromeLayout.defaultSidebarWidth
     static let minWidth: CGFloat = 200
     static let maxWidth: CGFloat = 420
     /// Top strip that holds the window controls and the new-tab button. As tall as the system

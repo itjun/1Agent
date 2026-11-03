@@ -11,6 +11,26 @@ struct WorkspacePresentationTests {
         precondition(WorkspacePreviewLayout.visibleWidth(available: 1600, isOpen: true, preferred: 1100) == 1100,
                      "wide diff can grow past the old fixed cap")
         let fresh = WorkspacePresentation.restored(nil, legacyFiles: false)
+        precondition(fresh.toolSidebarWidth == WorkspaceChromeLayout.defaultSidebarWidth)
+        precondition(ToolSidebarLayout.visibleWidth(detailWidth: 1000, open: true, filesMode: false,
+            preferred: fresh.toolSidebarWidth) == WorkspaceChromeLayout.defaultSidebarWidth)
+        for surroundingWidth: CGFloat in [7, 15] {
+            let visibleWidth = ToolSidebarLayout.visibleWidth(detailWidth: 1000, open: true, filesMode: false,
+                preferred: fresh.toolSidebarWidth, surroundingWidth: surroundingWidth)
+            precondition(visibleWidth + surroundingWidth == WorkspaceChromeLayout.defaultSidebarWidth,
+                         "sidebar width includes surrounding chrome in opaque and transparent modes")
+        }
+        let oldDefaultSidebar = try JSONDecoder().decode(WorkspacePresentation.self,
+            from: Data(#"{"presentationVersion":6,"toolSidebarWidth":350}"#.utf8))
+        precondition(oldDefaultSidebar.toolSidebarWidth == WorkspaceChromeLayout.defaultSidebarWidth)
+        let customSidebar = try JSONDecoder().decode(WorkspacePresentation.self,
+            from: Data(#"{"presentationVersion":7,"toolSidebarWidth":350}"#.utf8))
+        precondition(customSidebar.toolSidebarWidth == 350, "new custom widths survive restoration")
+        precondition(ToolSidebarLayout.storedWidth(.nan) == WorkspaceChromeLayout.defaultSidebarWidth)
+        precondition(ToolSidebarLayout.visibleWidth(detailWidth: 601, open: true, filesMode: false,
+            preferred: 260) == 200)
+        precondition(ToolSidebarLayout.visibleWidth(detailWidth: 600, open: true, filesMode: false,
+            preferred: 260) == 0)
         precondition(!fresh.filesVisible && fresh.filesWidth == 360)
         precondition(fresh.sidebarCollapsed && fresh.filesWorkspace,
                      "new windows start with a hidden sidebar and a full file workspace")
@@ -77,7 +97,7 @@ struct WorkspacePresentationTests {
                         && migratedWorkspace.collapsedWorkspaces == [collapsedGroup],
                      "the version-two chrome migration keeps saved widths and workspace identities")
         let migratedJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(migratedWorkspace)) as! [String: Any]
-        precondition(migratedJSON["presentationVersion"] as? Int == 6)
+        precondition(migratedJSON["presentationVersion"] as? Int == 7)
         precondition(migratedJSON["filesWorkspace"] == nil)
         precondition(migratedJSON["filesLayout"] as? String == "sideBySide")
         let minimalSnapshot = try JSONDecoder().decode(WorkspacePresentation.self, from: Data("{}".utf8))
