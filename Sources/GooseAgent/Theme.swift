@@ -154,10 +154,11 @@ enum Theme {
     }
 }
 
-/// 一套完整预设同时供窗口、设置和终端使用；图标与旧 Ghostty 偏好不参与取色。
+/// 一套完整预设同时决定窗口、终端和应用图标；旧 Ghostty 偏好不参与取色。
 enum AppTheme {
-    static let id = "M05"
-    static var title: String { String(localized: "Mint Candy") }
+    static let icon: ApplicationIcon = .mintCandy
+    static var id: String { AppTheme.icon.rawValue }
+    static var title: String { AppTheme.icon.title }
 
     struct Colors {
         let gradient: [String]

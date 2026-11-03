@@ -51,7 +51,6 @@ enum SettingsLayout {
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
     case appearance
-    case appIcon
     case font
     case terminal
     case shortcuts
@@ -64,7 +63,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     var title: LocalizedStringKey {
         switch self {
         case .appearance: "Appearance"
-        case .appIcon: "Icon"
         case .font: "Font"
         case .terminal: "Terminal"
         case .shortcuts: "Hotkeys"
@@ -329,8 +327,6 @@ struct SettingsView: View {
             switch page {
             case .appearance:
                 appearancePage
-            case .appIcon:
-                ApplicationIconSettingsPage()
             case .font:
                 fontPage
             case .terminal:
@@ -355,9 +351,7 @@ struct SettingsView: View {
             }
 
             SettingsCard("Preset Theme") {
-                Text(AppTheme.title)
-                    .font(Theme.Font.body.weight(.medium))
-                    .foregroundStyle(chrome.text)
+                AppThemeIdentity()
                 LazyVGrid(columns: themeColumns, spacing: Theme.Space.m) {
                     ThemePreviewCard(isDark: false)
                     ThemePreviewCard(isDark: true)

@@ -84,6 +84,17 @@ enum ApplicationIconTests {
                   "Restore default must save the original")
         try check(finderMatches(applicationURL, manager.image(for: .defaultIcon)!), "Restore default must synchronize Finder back to the original")
 
+        // 切换完整外观会覆盖旧的独立图标选择，并同步实际 AppKit / Finder 图标。
+        manager.applyPresetIcon(.mintCandy)
+        try check(manager.selected == .mintCandy && ApplicationIcon.stored(defaults: defaults) == .mintCandy,
+                  "Preset icon overrides the old independent icon choice")
+        try check(samePixels(NSApp.applicationIconImage, manager.image(for: .mintCandy)!)
+                  && finderMatches(applicationURL, manager.image(for: .mintCandy)!),
+                  "Preset icon is applied to both running app and Finder")
+        manager.applyPresetIcon(.mintCandy)
+        try check(!manager.loadFailed && !manager.finderUpdateFailed,
+                  "Reapplying the current preset is safe")
+
         defaults.set(ApplicationIcon.cloudSoda.rawValue, forKey: ApplicationIcon.storageKey)
         let unavailable = ApplicationIconManager(defaults: defaults, bundle: .main, applicationURL: applicationURL)
         let previousImage = NSApp.applicationIconImage

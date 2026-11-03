@@ -20,6 +20,7 @@
 		15EE643104E39D97BAEDC26A /* PreviewSyntax.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 66F6C38EE4A145B579647ECD /* PreviewSyntax.LICENSE.txt */; };
 		1636AC069370AAA94DBDAA12 /* HostInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9F0D8F78708C18C3CEDAB3 /* HostInformationView.swift */; };
 		176FFF8AC7BC238D1A0B9284 /* ShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651A72E339CED37F30858736 /* ShellIntegration.swift */; };
+		180BEB49A9C119AC570A5A8A /* AppThemeIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 085A590371129A1465BFB337 /* AppThemeIdentity.swift */; };
 		18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */; };
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
 		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
@@ -40,7 +41,6 @@
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
-		3CFD4C61C9572EF64DF11BE9 /* ApplicationIconSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43AC2234E9399E765452B45C /* ApplicationIconSettingsPage.swift */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
 		416014875AEC9FB700D4AC69 /* TerminalConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A01572B5CD98B6FE9E0DE8 /* TerminalConnectionBanner.swift */; };
@@ -160,6 +160,7 @@
 		0465AA079B8A127DDAA44D22 /* QuickCommandPasteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandPasteView.swift; sourceTree = "<group>"; };
 		05AE4E358BFA6A96AE1123E8 /* HostPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPicker.swift; sourceTree = "<group>"; };
 		079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandDrag.swift; sourceTree = "<group>"; };
+		085A590371129A1465BFB337 /* AppThemeIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppThemeIdentity.swift; sourceTree = "<group>"; };
 		0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettingsPage.swift; sourceTree = "<group>"; };
 		11B7BE5E018ED46FA154243C /* shell-integration */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "shell-integration"; path = "Resources/shell-integration"; sourceTree = SOURCE_ROOT; };
 		13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZoneLayout.swift; sourceTree = "<group>"; };
@@ -195,7 +196,6 @@
 		4085933113D9936B6D98C8FC /* RemoteShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShell.swift; sourceTree = "<group>"; };
 		4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-rounded.png"; sourceTree = "<group>"; };
 		423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarActions.swift; sourceTree = "<group>"; };
-		43AC2234E9399E765452B45C /* ApplicationIconSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationIconSettingsPage.swift; sourceTree = "<group>"; };
 		440DFBB9CC120A82EAE3507C /* SSHConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfig.swift; sourceTree = "<group>"; };
 		4439A8E93DB3E5BDBC1423C2 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		4593F1AFD8A1C705239302B9 /* LocalCommandBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCommandBridge.swift; sourceTree = "<group>"; };
@@ -422,8 +422,8 @@
 				8904A001DE23C1175D7692D4 /* AppIcon.icon */,
 				CDE68855BD120DF7421F24EE /* AppLanguage.swift */,
 				2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */,
-				43AC2234E9399E765452B45C /* ApplicationIconSettingsPage.swift */,
 				32D91EB1556003521E0650B7 /* AppModel.swift */,
+				085A590371129A1465BFB337 /* AppThemeIdentity.swift */,
 				1D45F8AE073D54FC747AEACC /* AppUpdate.swift */,
 				63227BCF8DA29CF6C2F95597 /* AppUpdateController.swift */,
 				ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */,
@@ -624,12 +624,12 @@
 				5239E4B061DE3741F2558E6C /* AdvancedSettingsView.swift in Sources */,
 				04696D0CA687AB607C42CE64 /* AppLanguage.swift in Sources */,
 				CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */,
+				180BEB49A9C119AC570A5A8A /* AppThemeIdentity.swift in Sources */,
 				F650B15BB9E7C184E5DDD3C3 /* AppUpdate.swift in Sources */,
 				9854DBF312A18A9614642BBA /* AppUpdateController.swift in Sources */,
 				C0D5997471F66D63679D1F6A /* AppUpdateInstall.swift in Sources */,
 				74C77B01ECA7B1792330D91B /* AppUpdateSettings.swift in Sources */,
 				F4B1E0B0F3895EFA22477278 /* ApplicationIcon.swift in Sources */,
-				3CFD4C61C9572EF64DF11BE9 /* ApplicationIconSettingsPage.swift in Sources */,
 				5C951E0FE24055E131A2123A /* CommandFinishedPolicy.swift in Sources */,
 				0F3FE3B884B9BD0A7FA3D3E6 /* CommandLiteralEditor.swift in Sources */,
 				6633572CB49A2155FA32EFF2 /* ContentView.swift in Sources */,

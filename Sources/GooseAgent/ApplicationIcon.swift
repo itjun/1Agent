@@ -195,6 +195,12 @@ final class ApplicationIconManager: ObservableObject {
         selected = icon
     }
 
+    /// 外观预设是图标的唯一来源；安装更新、系统图标样式切换和失败重试均沿用此选择。
+    func applyPresetIcon(_ icon: ApplicationIcon) {
+        defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
+        applyStoredIcon()
+    }
+
     @discardableResult
     func select(_ icon: ApplicationIcon) -> Bool {
         guard apply(icon) else { return false }

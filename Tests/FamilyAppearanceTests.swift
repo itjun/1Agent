@@ -221,11 +221,11 @@ enum FamilyAppearanceTests {
         check(true, true, "undo preserves preset colors and sessions")
         expect(legacyKeys.map { defaults.string(forKey: $0) } == legacyValues, "old Ghostty preferences remain available for rollback")
         expect(defaults.string(forKey: "sidebar.material") == "liquidGlass", "obsolete preferences are retained")
-        print("FamilyAppearanceTests passed: preset modes, legacy preference preservation, blocked overrides, import/undo, icon independence, settings navigation, transparency fallback, two native surfaces and retained buffers")
+        print("FamilyAppearanceTests passed: preset modes, legacy preference preservation, blocked overrides, import/undo, preset-owned icon, settings navigation, transparency fallback, two native surfaces and retained buffers")
     }
 
     @MainActor static func checkSettingsPages(in window: NSWindow) {
-        let pages = ["appearance", "appIcon", "font", "terminal", "shortcuts", "systemIntegration", "advanced", "about"]
+        let pages = ["appearance", "font", "terminal", "shortcuts", "systemIntegration", "advanced", "about"]
         for size in [SettingsLayout.windowMinimumSize, CGSize(width: 1200, height: 800), CGSize(width: 1800, height: 1000)] {
             window.setContentSize(size)
             for page in pages {
@@ -247,6 +247,8 @@ enum FamilyAppearanceTests {
                 expect(Set(identifiers.filter { $0.hasPrefix("settings.content.") }) == ["settings.content." + page],
                        "only the selected page scroll area is exposed: " + page)
                 if page == "appearance" {
+                    expect(identifiers.contains("settings.preset.identity"), "appearance includes the linked preset icon")
+                    expect(!identifiers.contains("settings.navigation.appIcon"), "icons cannot be selected separately")
                     expect(identifiers.contains("settings.preset.light") && identifiers.contains("settings.preset.dark"),
                            "appearance shows both matching preset samples")
                     expect(!identifiers.contains("settings.appearance.preview.save"), "no external theme transaction remains")
@@ -262,7 +264,7 @@ enum FamilyAppearanceTests {
                 }
             }
         }
-        print("CHECKED: all eight independent settings pages at minimum, common and large window sizes; hidden pages excluded from accessibility; preset appearance retained")
+        print("CHECKED: all seven independent settings pages at minimum, common and large window sizes; hidden pages excluded from accessibility; preset appearance retained")
     }
 
     @MainActor static func accessibilityValue(_ object: NSObject, _ name: String) -> Any? {
