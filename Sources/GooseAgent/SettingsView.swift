@@ -73,7 +73,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     }
 }
 
-/// 设置分组共用轻灰底，只有外层内容面板投影。
+/// 设置分组直接排在统一底壳上，用标题和间距区分。
 struct SettingsCard<Content: View, Accessory: View>: View {
     @Environment(\.windowChrome) private var chrome
     let title: LocalizedStringKey
@@ -102,17 +102,7 @@ struct SettingsCard<Content: View, Accessory: View>: View {
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(Theme.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
-                .fill(chrome.elevated)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: SettingsLayout.cardRadius, style: .continuous)
-                .strokeBorder(chrome.hairline.opacity(0.5), lineWidth: 0.5)
-                .allowsHitTesting(false)
-        }
     }
 }
 
@@ -196,9 +186,6 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .coordinateSpace(name: "settings.detail")
             .background(chrome.background)
-            .modifier(FloatingContentSurface())
-            .padding(.vertical, isShellTransparent ? SettingsLayout.contentInset : 0)
-            .padding(.trailing, isShellTransparent ? SettingsLayout.contentInset : 0)
             .ignoresSafeArea(edges: .top)
             // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
             .environment(\.windowChrome, chrome)
@@ -207,7 +194,7 @@ struct SettingsView: View {
                     .tint(chrome.accent).font(Theme.Font.body)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background((isShellTransparent ? Color.clear : chrome.background).ignoresSafeArea())
+        .background(chrome.background.ignoresSafeArea())
 
         .onAppear {
             if !fontFamilies.contains(fontFamily) {
@@ -281,7 +268,7 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background((isShellTransparent ? Color.clear : chrome.sidebarBackground).ignoresSafeArea())
+        .background(chrome.background.ignoresSafeArea())
     }
 
     private var settingsContent: some View {

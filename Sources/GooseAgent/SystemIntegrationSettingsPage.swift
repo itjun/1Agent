@@ -156,7 +156,6 @@ struct SystemIntegrationSettingsPage: View {
             .foregroundStyle(chrome.secondary)
             .padding(.horizontal, Theme.Space.l)
             .frame(minHeight: SettingsLayout.integrationHeaderHeight)
-            .background(chrome.elevated)
 
             line
             entry(.executable)
@@ -175,11 +174,6 @@ struct SystemIntegrationSettingsPage: View {
             .frame(minHeight: SettingsLayout.integrationRowHeight)
         }
         .foregroundStyle(chrome.text)
-        .background(chrome.background)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(chrome.hairline, lineWidth: 1)
-        }
     }
 
     private func entry(_ kind: TerminalEntryKind) -> some View {
