@@ -38,10 +38,12 @@ struct ThemePreviewCard: View {
             .background(colors.color(colors.background), in: RoundedRectangle(cornerRadius: Theme.Radius.row))
             .padding(isCompact ? Theme.Space.s : Theme.Space.m)
             .background {
-                LinearGradient(colors: colors.gradientColors, startPoint: .top, endPoint: .bottom)
+                LinearGradient(stops: zip(colors.gradientColors, ShellLayout.backdropLocations).map {
+                    Gradient.Stop(color: $0.0, location: $0.1)
+                }, startPoint: .top, endPoint: .bottom)
                     .overlay {
                         LinearGradient(colors: [colors.color(colors.glow).opacity(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity), .clear],
-                                       startPoint: .topTrailing, endPoint: .center)
+                                       startPoint: .top, endPoint: UnitPoint(x: 0.5, y: ShellLayout.glowEndY))
                     }
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))

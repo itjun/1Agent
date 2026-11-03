@@ -22,9 +22,12 @@ enum ShellLayout {
     static let terminalOpacity: Double = 0.96
     static let fileOpacity: Double = 0.98
     static let lightBackdropOpacity: CGFloat = 0.90
-    static let darkBackdropOpacity: CGFloat = 0.62
-    static let lightGlowOpacity: CGFloat = 0.25
-    static let darkGlowOpacity: CGFloat = 0.20
+    static let darkBackdropOpacity: CGFloat = 0.88
+    static let lightGlowOpacity: CGFloat = 0.10
+    static let darkGlowOpacity: CGFloat = 0.04
+    // 整窗共用垂直渐变；同一高度的左右侧栏不因各自宽高或光晕产生色差。
+    static let backdropLocations: [CGFloat] = [0, 0.55, 1]
+    static let glowEndY: CGFloat = 0.55
     static let shadowRadius: CGFloat = 4
     static let shadowOffset: CGFloat = 2
     static let shadowOpacity: Double = 0.14
@@ -113,9 +116,9 @@ final class ShellBackdropView: NSView {
         washView.wantsLayer = true
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 1)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
-        gradientLayer.locations = [0, 0.5, 1]
-        glowLayer.startPoint = CGPoint(x: 1, y: 1)
-        glowLayer.endPoint = CGPoint(x: 0.5, y: 0.5)
+        gradientLayer.locations = ShellLayout.backdropLocations.map { NSNumber(value: Double($0)) }
+        glowLayer.startPoint = CGPoint(x: 0.5, y: 1)
+        glowLayer.endPoint = CGPoint(x: 0.5, y: 1 - ShellLayout.glowEndY)
         washView.layer?.addSublayer(gradientLayer)
         washView.layer?.addSublayer(glowLayer)
         for view in [wallpaperView, materialView, washView] {

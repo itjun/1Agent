@@ -207,7 +207,8 @@ struct RootView: View {
             dropRelay.sidebarAnchor = filesMode ? nil : $0
             pinnedLocationDrag.sidebar = filesMode ? $0 : nil
         })
-        .background(appearanceDriver.isShellTransparent ? Color.clear : chrome.panelHeader)
+        // 不透明模式也露出整窗的不透明渐变，避免左右侧栏使用不同底色。
+        .background(Color.clear)
         .onChange(of: filesMode) { _, _ in
             commitPanelRename()
             clearSidebarDrag()
