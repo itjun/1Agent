@@ -260,7 +260,10 @@ enum FamilyAppearanceTests {
                        "only the selected page scroll area is exposed: " + page)
                 if page == "appearance" {
                     expect(identifiers.contains("settings.preset.identity"), "appearance includes the linked preset icon")
-                    expect(identifiers.contains("settings.preset.picker"), "only completed presets have a selection control")
+                    expect(Set(identifiers.filter { $0.hasPrefix("settings.preset.choice.") })
+                           == Set(AppThemePreset.allCases.map { "settings.preset.choice." + $0.id }),
+                           "every completed preset is directly selectable in the theme row")
+                    expect(!identifiers.contains("settings.preset.picker"), "preset choices are visible without opening a menu")
                     expect(!identifiers.contains("settings.navigation.appIcon"), "icons cannot be selected separately")
                     expect(identifiers.contains("settings.preset.light") && identifiers.contains("settings.preset.dark"),
                            "appearance shows both matching preset samples")
