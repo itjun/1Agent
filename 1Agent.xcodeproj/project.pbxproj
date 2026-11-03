@@ -115,6 +115,7 @@
 		BDE0F6784FE455B5144022E1 /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 0A4845DDBF4FBE86870CF14E /* GhosttyTheme */; };
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
 		C0D5997471F66D63679D1F6A /* AppUpdateInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */; };
+		C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */; };
 		C47DE107C61A6FF1CC5E4109 /* FileTransferQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */; };
 		CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D91EB1556003521E0650B7 /* AppModel.swift */; };
 		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
@@ -188,6 +189,7 @@
 		388A1951E4AD6C678189139A /* FileRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRules.swift; sourceTree = "<group>"; };
 		3A04B67162E2B0A44E4CF076 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		3A4766D4FB85A03ACB975776 /* ShellStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellStyle.swift; sourceTree = "<group>"; };
+		3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewPolicy.swift; sourceTree = "<group>"; };
 		3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalEvents.swift; sourceTree = "<group>"; };
 		3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewDrawer.swift; sourceTree = "<group>"; };
 		4085933113D9936B6D98C8FC /* RemoteShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShell.swift; sourceTree = "<group>"; };
@@ -325,6 +327,7 @@
 				AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */,
 				9287816E82C9C005D220C098 /* FileBrowserModel.swift */,
 				D303E19F85127FB7B052F2ED /* FileBrowserView.swift */,
+				3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */,
 				388A1951E4AD6C678189139A /* FileRules.swift */,
 				F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */,
 				76AB46074F2E387D4CB2E709 /* FilesWorkspaceView.swift */,
@@ -644,6 +647,7 @@
 				14211F306FED1B2D11F4BC58 /* FileBrowserModel.swift in Sources */,
 				97B86305AC381C8700A523A5 /* FileBrowserView.swift in Sources */,
 				3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */,
+				C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */,
 				EE772365BA73023DCA562619 /* FileRules.swift in Sources */,
 				E0BD4F8705C1FE9362A54143 /* FileSafety.swift in Sources */,
 				6B078EE00CB2CBDDF4EBBB5C /* FileSystem.swift in Sources */,

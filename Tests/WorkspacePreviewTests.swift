@@ -14,6 +14,7 @@ import SwiftUI
         NSApp.run()
     }
     @MainActor static func run() async throws {
+        verifyPreviewPolicy()
         let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ONEAGENT_PREVIEW_FIXTURE"]!)
         let location = GitLocation(directory: root.path)
         let snapshot = try await WorkspaceGit.snapshot(at: location)!
@@ -77,6 +78,44 @@ import SwiftUI
         precondition(!state.isToolPreviewOpen, "host change clears previous preview")
         window.contentView = nil
         print("WorkspacePreviewTests passed: resize performance and terminal/directory/host context")
+    }
+    @MainActor static func verifyPreviewPolicy() {
+        let blocked = ["service.jar", "APP.EXE", "image.bin", "backup.zip", "archive.tar.gz", "archive.7z",
+                       "data.rar", "archive.zst", "library.so", "library.dll", "disk.dmg", "package.deb",
+                       "module.class", "store.sqlite", "unknown.xyz", "executable", ".env.jar", "movie.mp4"]
+        for name in ["README.md", "Makefile", "config.yml", ".env.production", "script.sh", "app.swift"] {
+            precondition(FilePreviewPolicy.kind(for: name) == .text)
+        }
+        for name in ["photo.PNG", "photo.jpg", "image.webp", "scan.pdf", "report.docx", "table.xlsx", "slides.pptx"] {
+            precondition(FilePreviewPolicy.kind(for: name) == .quickLook)
+        }
+        let model = AppModel()
+        let state = WindowState()
+        let workspace = FileWorkspace(saved: nil, model: model, window: state, loadImmediately: false)
+        let systems: [any FileSystem] = [LocalFileSystem(), RemoteFileSystem(alias: "preview-test.invalid")]
+        for system in systems {
+            let column = FileColumn(fileSystem: system)
+            for name in blocked {
+                precondition(FilePreviewPolicy.kind(for: name) == nil)
+                let entry = FileEntry(name: name, path: "/unread-preview-fixture/" + name,
+                                      isDirectory: false, size: 1_000_000_000, mode: "-rw-r--r--")
+                column.showPreview(entry)
+                precondition(column.preview == nil, "binary text preview must stop before starting a read")
+                column.showQuickLook(entry, window: nil)
+                precondition(column.preview == nil, "binary Quick Look must stop before starting a download")
+                workspace.open(entry, in: column, window: nil)
+                precondition(column.preview == nil, "file workspace must use the same preview policy")
+            }
+            let previous = FileColumn.Preview(entry: FileEntry(name: "previous.txt", path: "/previous.txt",
+                isDirectory: false, size: 0, mode: "-rw-r--r--"), truncated: false)
+            column.preview = previous
+            let binary = FileEntry(name: "blocked.jar", path: "/blocked.jar", isDirectory: false,
+                                  size: 1_000_000_000, mode: "-rw-r--r--")
+            column.showQuickLook(binary, window: nil)
+            workspace.open(binary, in: column, window: nil)
+            precondition(column.preview == previous, "unsupported selection keeps the existing preview")
+        }
+        print("Preview policy passed: local/remote archives, executables and unknown files never start preview")
     }
     @MainActor static func textViews(in view: NSView) -> [NSTextView] {
         (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap { textViews(in: $0) }

@@ -271,8 +271,9 @@ struct WorkspaceFilesView: View {
                     ForEach(column.shown) { entry in
                         WorkspaceFileRow(entry: entry, fileSystem: column.fileSystem, showHidden: column.showHidden, depth: 0, selectedPath: column.selection.first) { file in
                             column.selection = [file.path]
+                            guard !file.isDirectory, let kind = FilePreviewPolicy.kind(for: file.name) else { return }
                             window.openToolFilePreview(column)
-                            if TextFile.isTextName(file.name) { column.showPreview(file) }
+                            if kind == .text { column.showPreview(file) }
                             else { column.showQuickLook(file, window: nil) }
                         }
                     }
@@ -300,12 +301,14 @@ private struct WorkspaceFileRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Button {
-                if entry.isDirectory { isExpanded.toggle() } else { open(entry) }
+                open(entry)
+                if entry.isDirectory { isExpanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     if entry.isDirectory {
                         Image(systemName: isExpanded ? "chevron.down" : "chevron.right").frame(width: 12)
-                        Image(systemName: "folder.fill").foregroundStyle(chrome.secondary)
+                        Image(systemName: "folder.fill")
+                            .foregroundStyle(selectedPath == entry.path ? chrome.accent : chrome.secondary)
                     } else {
                         FileTypeIcon(name: entry.name)
                     }
@@ -317,6 +320,8 @@ private struct WorkspaceFileRow: View {
                     .background(selectedPath == entry.path ? chrome.accentFill : .clear,
                                 in: RoundedRectangle(cornerRadius: 6))
             }.buttonStyle(.plain)
+                .accessibilityAddTraits(selectedPath == entry.path ? .isSelected : [])
+                .accessibilityIdentifier("workspace.fileRow." + entry.path)
             if isExpanded {
                 if let error { Text(verbatim: error).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger) }
                 ForEach(children.filter { showHidden || !$0.isHidden }) { child in

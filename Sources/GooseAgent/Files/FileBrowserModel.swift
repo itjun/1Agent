@@ -8,7 +8,7 @@ import Foundation
 final class FileColumn: ObservableObject, Identifiable {
     typealias SortKey = FileSortKey
 
-    /// Text, or a Quick Look of any other file, shown in the preview drawer.
+    /// Text, or a Quick Look of a supported image/document, shown in the preview drawer.
     struct Preview: Equatable {
         var entry: FileEntry
         var decoded: TextFile.Decoded?
@@ -297,6 +297,7 @@ final class FileColumn: ObservableObject, Identifiable {
     // MARK: Preview
 
     func showPreview(_ entry: FileEntry, using encoding: TextFile.Encoding? = nil) {
+        guard !entry.isDirectory, FilePreviewPolicy.kind(for: entry.name) == .text else { return }
         readingEncoding = encoding
         let request = UUID()
         previewRequest = request
@@ -328,8 +329,9 @@ final class FileColumn: ObservableObject, Identifiable {
         showPreview(current.entry, using: encoding)
     }
 
-    /// Quick Look of a non-text file. A file on the host is downloaded to a temporary folder first.
+    /// 仅允许支持的图片和文档；在创建临时目录或下载前拒绝其他类型。
     func showQuickLook(_ entry: FileEntry, window: NSWindow?) {
+        guard !entry.isDirectory, FilePreviewPolicy.kind(for: entry.name) == .quickLook else { return }
         guard isRemote else {
             preview = Preview(
                 entry: entry, decoded: nil, truncated: false, error: nil,
@@ -806,16 +808,16 @@ final class FileWorkspace: ObservableObject {
         }
     }
 
-    /// A folder opens in place; any file opens in the preview drawer, as text when it can be read
-    /// as text, otherwise as Quick Look.
+    /// 文件夹进入目录；只有文本、图片和文档打开预览。
     func open(_ entry: FileEntry, in column: FileColumn, window: NSWindow?) {
         focus(column)
+        guard entry.isDirectory || FilePreviewPolicy.kind(for: entry.name) != nil else { return }
         if !entry.isDirectory {
             for other in allTabs where other !== column && other.preview != nil { other.preview = nil }
         }
         if entry.isDirectory {
             column.open(entry.path)
-        } else if TextFile.isTextName(entry.name) {
+        } else if FilePreviewPolicy.kind(for: entry.name) == .text {
             column.showPreview(entry)
         } else {
             column.showQuickLook(entry, window: window)
