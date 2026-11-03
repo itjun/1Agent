@@ -79,6 +79,7 @@ extension EnvironmentValues {
 struct ShellBackdrop: NSViewRepresentable {
     var isTransparent: Bool
     var isDark: Bool
+    var preset: AppThemePreset = AppTheme.stored()
 
     func makeNSView(context: Context) -> ShellBackdropView {
         ShellBackdropView()
@@ -87,6 +88,7 @@ struct ShellBackdrop: NSViewRepresentable {
     func updateNSView(_ view: ShellBackdropView, context: Context) {
         view.isTransparent = isTransparent
         view.isDark = isDark
+        view.preset = preset
         view.applyStyle()
     }
 }
@@ -94,6 +96,7 @@ struct ShellBackdrop: NSViewRepresentable {
 final class ShellBackdropView: NSView {
     var isTransparent = false
     var isDark = false
+    var preset = AppTheme.stored()
     private let wallpaperView = DesktopWallpaperView()
     private let materialView = NSVisualEffectView()
     private let washView = NSView()
@@ -141,10 +144,10 @@ final class ShellBackdropView: NSView {
     func applyStyle() {
         wantsLayer = true
         appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        let colors = AppTheme.colors(isDark: isDark)
+        let colors = AppTheme.colors(isDark: isDark, preset: preset)
         let fallback = NSColor(colors.color(colors.gradient[1]))
         let opacity = isTransparent ? (isDark ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity) : 1
-        let glow = NSColor(AppTheme.light.color("A5D7B4"))
+        let glow = NSColor(colors.color(colors.glow))
             .withAlphaComponent(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity)
         CATransaction.begin()
         CATransaction.setDisableActions(true)

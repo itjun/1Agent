@@ -3,9 +3,10 @@ import SwiftUI
 /// 同一预设的浅／深色示意，使用实际窗口和终端色值，不提供额外主题选择。
 struct ThemePreviewCard: View {
     let isDark: Bool
+    var preset: AppThemePreset = AppTheme.stored()
 
     var body: some View {
-        let colors = AppTheme.colors(isDark: isDark)
+        let colors = AppTheme.colors(isDark: isDark, preset: preset)
         VStack(alignment: .leading, spacing: Theme.Space.s) {
             Text(isDark ? "Dark" : "Light")
                 .font(Theme.Font.rowMeta.weight(.medium))
@@ -36,7 +37,7 @@ struct ThemePreviewCard: View {
             .background {
                 LinearGradient(colors: colors.gradientColors, startPoint: .top, endPoint: .bottom)
                     .overlay {
-                        LinearGradient(colors: [colors.color("A5D7B4").opacity(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity), .clear],
+                        LinearGradient(colors: [colors.color(colors.glow).opacity(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity), .clear],
                                        startPoint: .topTrailing, endPoint: .center)
                     }
             }
@@ -44,7 +45,7 @@ struct ThemePreviewCard: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(isDark ? "Dark" : "Light"))
-        .accessibilityValue(Text(AppTheme.title))
+        .accessibilityValue(Text(preset.icon.title))
         .accessibilityIdentifier(isDark ? "settings.preset.dark" : "settings.preset.light")
     }
 }

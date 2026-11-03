@@ -154,14 +154,36 @@ enum Theme {
     }
 }
 
+/// 这里只列出已经逐款确认并实现的外观。
+enum AppThemePreset: String, CaseIterable, Identifiable {
+    case strawberryCream = "M01"
+    case mintCandy = "M05"
+
+    var id: String { rawValue }
+    var icon: ApplicationIcon {
+        switch self {
+        case .strawberryCream: .strawberryCream
+        case .mintCandy: .mintCandy
+        }
+    }
+}
+
 /// 一套完整预设同时决定窗口、终端和应用图标；旧 Ghostty 偏好不参与取色。
 enum AppTheme {
-    static let icon: ApplicationIcon = .mintCandy
+    static let storageKey = "appearance.preset"
+    static let defaultPreset: AppThemePreset = .mintCandy
+
+    static func stored(defaults: UserDefaults = .standard) -> AppThemePreset {
+        AppThemePreset(rawValue: defaults.string(forKey: AppTheme.storageKey) ?? "") ?? AppTheme.defaultPreset
+    }
+
+    static var icon: ApplicationIcon { AppTheme.stored().icon }
     static var id: String { AppTheme.icon.rawValue }
     static var title: String { AppTheme.icon.title }
 
     struct Colors {
         let gradient: [String]
+        let glow: String
         let background: String
         let foreground: String
         let secondary: String
@@ -169,28 +191,52 @@ enum AppTheme {
         let selection: String
         let hover: String
         let border: String
+        let outline: String
         let ansi: [String]
 
         func color(_ hex: String) -> Color { RGBColor(ghosttyHex: hex)!.color }
         var gradientColors: [Color] { gradient.map { color($0) } }
     }
 
-    static let light = Colors(
-        gradient: ["DDEFE4", "E8F3E7", "F4F1DE"],
+    private static let mintLight = Colors(
+        gradient: ["DDEFE4", "E8F3E7", "F4F1DE"], glow: "A5D7B4",
         background: "F7FAF6", foreground: "243A2D", secondary: "53675A",
-        accent: "356F4A", selection: "D4E9DA", hover: "E8F2E9", border: "D7E5DA",
+        accent: "356F4A", selection: "D4E9DA", hover: "E8F2E9", border: "D7E5DA", outline: "78877C",
         ansi: ["243A2D", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "5D7062",
                "53675A", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "344D3C"]
     )
-    static let dark = Colors(
-        gradient: ["2E3E34", "323A34", "3F3F34"],
+    private static let mintDark = Colors(
+        gradient: ["2E3E34", "323A34", "3F3F34"], glow: "A5D7B4",
         background: "27292B", foreground: "E6E8E7", secondary: "ABB2AE",
-        accent: "A5D7B4", selection: "36473D", hover: "303633", border: "3A3E3B",
+        accent: "A5D7B4", selection: "36473D", hover: "303633", border: "3A3E3B", outline: "7D8982",
         ansi: ["84978B", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "C3D7CA",
                "95AA9D", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E6E8E7"]
     )
 
-    static func colors(isDark: Bool) -> Colors { isDark ? dark : light }
+    private static let strawberryLight = Colors(
+        gradient: ["F4E0E9", "F5E9EE", "F5EFE3"], glow: "EDAFC9",
+        background: "FCF8FA", foreground: "432D37", secondary: "705764",
+        accent: "884963", selection: "EED2DF", hover: "F5E8EF", border: "E7D7E0", outline: "8C7882",
+        ansi: ["432D37", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "705764",
+               "705764", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "573B49"]
+    )
+    private static let strawberryDark = Colors(
+        gradient: ["43333D", "393338", "403B32"], glow: "EDAFC9",
+        background: "29272B", foreground: "EEE7EB", secondary: "B9ABB3",
+        accent: "E5A8C4", selection: "4A3641", hover: "393137", border: "493D44", outline: "96828D",
+        ansi: ["A18B97", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "D7C3CE",
+               "B9ABB3", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "EEE7EB"]
+    )
+
+    static var light: Colors { AppTheme.colors(isDark: false) }
+    static var dark: Colors { AppTheme.colors(isDark: true) }
+
+    static func colors(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) -> Colors {
+        switch preset {
+        case .mintCandy: isDark ? AppTheme.mintDark : AppTheme.mintLight
+        case .strawberryCream: isDark ? AppTheme.strawberryDark : AppTheme.strawberryLight
+        }
+    }
 }
 
 /// 所有窗口共用当前预设，终端读取同一组底色、文字和强调色。
@@ -246,9 +292,9 @@ struct WindowChrome: Equatable {
         WindowChrome(isDark: isDark)
     }
 
-    init(isDark: Bool) {
+    init(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) {
         self.isDark = isDark
-        let colors = AppTheme.colors(isDark: isDark)
+        let colors = AppTheme.colors(isDark: isDark, preset: preset)
         background = colors.color(colors.background)
         sidebarBackground = colors.color(colors.gradient[1])
         elevated = colors.color(colors.hover)
@@ -267,7 +313,7 @@ struct WindowChrome: Equatable {
         accentActive = tone.mixed(with: RGBColor(red: 0, green: 0, blue: 0), amount: 0.12).color
         focus = accent
         selection = accentFill
-        lineStrong = colors.color(isDark ? "7D8982" : "78877C")
+        lineStrong = colors.color(colors.outline)
     }
 
 }

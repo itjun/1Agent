@@ -56,7 +56,9 @@ enum FamilyAppearanceTests {
         func check(_ uiDark: Bool, _ terminalDark: Bool, _ context: String) {
             drain()
             expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == terminalDark, context + ": driver states")
-            expect(WindowChrome.resolve(isDark: uiDark) == (uiDark ? darkChrome : lightChrome), context + ": fixed palette")
+            let expectedChrome = AppTheme.stored() == .mintCandy
+                ? (uiDark ? darkChrome : lightChrome) : WindowChrome(isDark: uiDark, preset: .strawberryCream)
+            expect(WindowChrome.resolve(isDark: uiDark) == expectedChrome, context + ": selected preset palette")
             for (index, target) in TerminalThemeTarget.allCases.enumerated() {
                 let runtime = GhosttyRuntime.controller(for: target)
                 let definition = AppTheme.terminalDefinition(isDark: terminalDark)
@@ -80,6 +82,16 @@ enum FamilyAppearanceTests {
             defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             driver.reapply()
             check(isDark, isDark, "mode changes the whole app without replacing sessions")
+        }
+        for preset in [AppThemePreset.strawberryCream, .mintCandy, .strawberryCream, .mintCandy] {
+            driver.selectPreset(preset)
+            expect(AppTheme.stored() == preset && driver.preset == preset, "preset choice persists and publishes")
+            expect(ApplicationIcon.stored() == preset.icon, "changing appearance selects its paired icon")
+            for isDark in [false, true] {
+                defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
+                driver.reapply()
+                check(isDark, isDark, "preset switches preserve native sessions in both modes")
+            }
         }
         for icon in ApplicationIcon.allCases {
             defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
@@ -248,6 +260,7 @@ enum FamilyAppearanceTests {
                        "only the selected page scroll area is exposed: " + page)
                 if page == "appearance" {
                     expect(identifiers.contains("settings.preset.identity"), "appearance includes the linked preset icon")
+                    expect(identifiers.contains("settings.preset.picker"), "only completed presets have a selection control")
                     expect(!identifiers.contains("settings.navigation.appIcon"), "icons cannot be selected separately")
                     expect(identifiers.contains("settings.preset.light") && identifiers.contains("settings.preset.dark"),
                            "appearance shows both matching preset samples")

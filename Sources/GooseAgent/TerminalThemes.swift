@@ -117,6 +117,7 @@ final class AppearanceDriver: ObservableObject {
     @Published private(set) var interfaceIsDark: Bool
     @Published private(set) var terminalIsDark: Bool
     @Published private(set) var isShellTransparent: Bool
+    @Published private(set) var preset: AppThemePreset
     var isDark: Bool { interfaceIsDark }
     private let themeWatcher = SystemThemeWatcher()
 
@@ -125,6 +126,7 @@ final class AppearanceDriver: ObservableObject {
         interfaceIsDark = mode.resolvesDark()
         terminalIsDark = mode.resolvesDark()
         isShellTransparent = ShellStyle.isTransparent
+        preset = AppTheme.stored()
         themeWatcher.start()
     }
 
@@ -137,6 +139,12 @@ final class AppearanceDriver: ObservableObject {
 
     /// 外观模式同时切换窗口与所有本机／远程终端。
     func reapply() {
+        let selectedPreset = AppTheme.stored()
+        if preset != selectedPreset {
+            preset = selectedPreset
+            GhosttyRuntime.applySelectedThemes()
+            ApplicationIconManager.shared.applyPresetIcon(selectedPreset.icon)
+        }
         let mode = TerminalAppearance.stored()
         let dark = mode.resolvesDark()
         let terminalDark = dark
@@ -149,6 +157,11 @@ final class AppearanceDriver: ObservableObject {
             isShellTransparent = isTransparent
             GhosttyRuntime.applyTerminalSettings()
         }
+    }
+
+    func selectPreset(_ preset: AppThemePreset) {
+        UserDefaults.standard.set(preset.rawValue, forKey: AppTheme.storageKey)
+        reapply()
     }
 }
 

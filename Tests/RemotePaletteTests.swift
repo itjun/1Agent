@@ -53,9 +53,15 @@ enum RemotePaletteTests {
         try check(SharedPalette.stored(defaults: defaults) == .original,
                   "Invalid shared colors fall back to neutral blue")
 
+        try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Existing installs retain Mint Candy")
+        defaults.set("M10", forKey: AppTheme.storageKey)
+        try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Unreleased presets cannot be selected")
+        defaults.set("M01", forKey: AppTheme.storageKey)
+        try check(AppTheme.stored(defaults: defaults) == .strawberryCream, "Strawberry Cream persists")
+        for preset in AppThemePreset.allCases {
         for isDark in [false, true] {
-            let chrome = WindowChrome(isDark: isDark)
-            let colors = AppTheme.colors(isDark: isDark)
+            let chrome = WindowChrome(isDark: isDark, preset: preset)
+            let colors = AppTheme.colors(isDark: isDark, preset: preset)
             let terminalBackground = RGBColor(ghosttyHex: colors.background)!
             try check(colors.ansi.count == 16, "Preset includes every ANSI slot")
             for color in colors.ansi {
@@ -79,10 +85,12 @@ enum RemotePaletteTests {
             try check(rgb(chrome.text).contrastRatio(with: terminalBackground) >= 7,
                       "Reading text has strong contrast")
         }
-        try check(saturation(rgb(WindowChrome(isDark: true).background)) < 0.12,
+        try check(saturation(rgb(WindowChrome(isDark: true, preset: preset).background)) < 0.12,
                   "Dark reading panels remain neutral charcoal instead of green")
-        try check(AppTheme.light.gradient.count > 1 && AppTheme.dark.gradient.count > 1,
+        try check(AppTheme.colors(isDark: false, preset: preset).gradient.count > 1
+                  && AppTheme.colors(isDark: true, preset: preset).gradient.count > 1,
                   "Both appearances retain the gradient")
+        }
     }
 
     static func check(_ condition: Bool, _ message: String) throws {

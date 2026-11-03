@@ -4,6 +4,7 @@ import SwiftUI
 struct AppThemeIdentity: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var icons = ApplicationIconManager.shared
+    @AppStorage(AppTheme.storageKey) private var presetRaw = AppTheme.defaultPreset.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.s) {
@@ -17,9 +18,18 @@ struct AppThemeIdentity: View {
                         .accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                    Text(AppTheme.title)
-                        .font(Theme.Font.body.weight(.medium))
-                        .foregroundStyle(chrome.text)
+                    Picker("Preset Theme", selection: Binding(
+                        get: { AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset },
+                        set: { AppearanceDriver.shared.selectPreset($0) }
+                    )) {
+                        ForEach(AppThemePreset.allCases) { preset in
+                            Text(preset.icon.title).tag(preset)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .accessibilityIdentifier("settings.preset.picker")
                     Text("The app icon follows the appearance preset.")
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.secondary)

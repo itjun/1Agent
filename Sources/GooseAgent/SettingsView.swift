@@ -128,6 +128,7 @@ struct SettingsView: View {
     @State private var selectedPage: SettingsPage = .appearance
     @State private var pageContentBounds: [SettingsPage: CGRect] = [:]
     @FocusState private var focusedPage: SettingsPage?
+    @AppStorage(AppTheme.storageKey) private var presetRaw = AppTheme.defaultPreset.rawValue
     @AppStorage(SettingsLayout.sidebarWidthKey) private var savedSidebarWidth: Double = SidebarLayout.defaultWidth
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
@@ -353,8 +354,8 @@ struct SettingsView: View {
             SettingsCard("Preset Theme") {
                 AppThemeIdentity()
                 LazyVGrid(columns: themeColumns, spacing: Theme.Space.m) {
-                    ThemePreviewCard(isDark: false)
-                    ThemePreviewCard(isDark: true)
+                    ThemePreviewCard(isDark: false, preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset)
+                    ThemePreviewCard(isDark: true, preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset)
                 }
                 Text("Window and terminal colors follow this preset. Custom Ghostty colors are no longer applied.")
                     .font(Theme.Font.rowMeta)
@@ -393,7 +394,7 @@ struct SettingsView: View {
     /// 外观模式与可读性设置立即应用，旧主题偏好保留但不再参与取色。
     private func restoreAppearancePageDefaults() {
         appearanceRaw = TerminalAppearance.system.rawValue
-        AppearanceDriver.shared.reapply()
+        AppearanceDriver.shared.selectPreset(AppTheme.defaultPreset)
         minimumContrast = TerminalSettings.defaults.minimumContrast
         GhosttyRuntime.applyTerminalSettings()
     }
