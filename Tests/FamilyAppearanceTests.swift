@@ -3,6 +3,7 @@ import Combine
 import GhosttyTerminal
 import GhosttyTheme
 import ObjectiveC
+import QuartzCore
 @testable import GooseAgent
 
 /// 完整预设、原生窗口与两个无进程终端；不启动 shell 或 SSH。
@@ -139,6 +140,26 @@ enum FamilyAppearanceTests {
         expect(SettingsWindowController.shared.window === settingsWindow
                && NSApp.windows.filter { $0.identifier == SettingsWindowController.windowID }.count == 1,
                "opening settings again reuses one window")
+        func findBackdrop(in view: NSView) -> ShellBackdropView? {
+            if let backdrop = view as? ShellBackdropView { return backdrop }
+            for child in view.subviews {
+                if let backdrop = findBackdrop(in: child) { return backdrop }
+            }
+            return nil
+        }
+        for preset in AppThemePreset.allCases + [.cocoaMilkTea] {
+            driver.selectPreset(preset)
+            for isDark in [false, true] {
+                defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
+                driver.reapply()
+                for _ in 0..<5 { drain() }
+                let material = findBackdrop(in: settingsWindow.contentView!)
+                expect(material?.preset == preset && material?.isDark == isDark,
+                       "settings keeps a wallpaper material for every selected preset and mode")
+                expect(material?.isTransparent == driver.isShellTransparent,
+                       "settings passes the underlying transparency policy into its material")
+            }
+        }
         checkSettingsPages(in: settingsWindow)
         expect(settingsOwner.isVisible && settingsOwner.frame == savedFrame,
                "resizing settings never resizes or hides the workspace: visible=\(settingsOwner.isVisible), before=\(savedFrame), after=\(settingsOwner.frame)")
@@ -177,12 +198,29 @@ enum FamilyAppearanceTests {
         expect(wallpaperMaterial?.state == .active, "wallpaper tint remains visible when the window loses focus")
         let shellWindow = NSWindow(contentRect: backdrop.bounds, styleMask: [], backing: .buffered, defer: false)
         shellWindow.contentView = backdrop
-        for isTransparent in [true, false, true] {
-            backdrop.isTransparent = isTransparent
-            backdrop.applyStyle()
-            expect(shellWindow.isOpaque == !isTransparent, "shell switch updates native window compositing")
-            expect(shellWindow.backgroundColor.alphaComponent == (isTransparent ? 0 : 1), "native window backing does not block transparency")
-            expect(wallpaperMaterial?.isHidden == !isTransparent, "reduce transparency hides the wallpaper material")
+        for preset in AppThemePreset.allCases {
+            backdrop.preset = preset
+            for isDark in [false, true] {
+                backdrop.isDark = isDark
+                for isTransparent in [true, false, true] {
+                    backdrop.isTransparent = isTransparent
+                    backdrop.applyStyle()
+                    expect(shellWindow.isOpaque == !isTransparent, "shell switch updates native window compositing")
+                    expect(shellWindow.backgroundColor.alphaComponent == (isTransparent ? 0 : 1), "native window backing does not block transparency")
+                    expect(wallpaperMaterial?.isHidden == !isTransparent, "reduce transparency hides the wallpaper material")
+                    expect(backdrop.subviews.first?.isHidden == !isTransparent,
+                           "every preset exposes desktop wallpaper only when transparency is enabled")
+                    let layers = backdrop.subviews.last!.layer!.sublayers!
+                    let colors = (layers[0] as! CAGradientLayer).colors as! [CGColor]
+                    expect(colors.allSatisfy { isTransparent ? $0.alpha < 0.75 : $0.alpha == 1 },
+                           "every preset leaves the wallpaper visible with an opaque accessibility fallback")
+                    if preset == .system {
+                        expect(layers[1].isHidden, "system material has no colored glow")
+                        expect(Set(colors.map { NSColor(cgColor: $0)!.usingColorSpace(.sRGB)!.redComponent }).count == 1,
+                               "system material uses a uniform neutral wash")
+                    }
+                }
+            }
         }
         let wallpaperScreen = CGRect(x: -1920, y: 120, width: 1920, height: 1080)
         let squareWallpaper = CGSize(width: 1000, height: 1000)

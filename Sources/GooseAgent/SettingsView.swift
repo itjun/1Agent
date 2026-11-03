@@ -135,6 +135,7 @@ struct SettingsView: View {
     // 全局设置不继承最后一个会话的本机／远程配色。
     private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark) }
     private var sidebarChrome: WindowChrome { chrome }
+    private var settingsBackground: Color { isShellTransparent ? .clear : chrome.background }
     private let onRestart: () -> Void
 
     init(onRestart: @escaping () -> Void) {
@@ -185,7 +186,7 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .coordinateSpace(name: "settings.detail")
-            .background(chrome.background)
+            .background(settingsBackground)
             .ignoresSafeArea(edges: .top)
             // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
             .environment(\.windowChrome, chrome)
@@ -194,7 +195,12 @@ struct SettingsView: View {
                     .tint(chrome.accent).font(Theme.Font.body)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background.ignoresSafeArea())
+        .background {
+            ShellBackdrop(isTransparent: isShellTransparent, isDark: colorScheme == .dark,
+                          preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset)
+                .ignoresSafeArea()
+                .accessibilityHidden(true)
+        }
 
         .onAppear {
             if !fontFamilies.contains(fontFamily) {
@@ -268,7 +274,7 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(chrome.background.ignoresSafeArea())
+        .background(settingsBackground.ignoresSafeArea())
     }
 
     private var settingsContent: some View {
@@ -611,10 +617,6 @@ private struct SettingsWindowRoot: View {
             .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
             .preferredColorScheme(appearanceDriver.interfaceColorScheme)
             .frame(minWidth: SettingsLayout.windowMinimumSize.width, minHeight: SettingsLayout.windowMinimumSize.height)
-            .background {
-                ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, isDark: appearanceDriver.isDark)
-                    .accessibilityHidden(true)
-            }
             .ignoresSafeArea(edges: .top)
             .onAppear { appearanceDriver.reapply() }
             .onChange(of: appearanceRaw) { _, _ in appearanceDriver.reapply() }
