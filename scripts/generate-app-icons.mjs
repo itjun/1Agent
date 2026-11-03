@@ -1,4 +1,5 @@
-// Regenerate the original default and ten approved alternatives with Xcode's native macOS icon compiler.
+// Regenerate theme icons with Xcode's native macOS icon compiler.
+// Use --macarons-only --palette=M11 --palette=M12 to generate selected alternatives.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -62,7 +63,11 @@ if (!isMacaronsOnly) {
   console.log('Original: white and blue default restored; original mark unchanged');
 }
 
-for (const palette of palettes) {
+const selectedIDs = process.argv.filter(arg => arg.startsWith('--palette=')).map(arg => arg.slice('--palette='.length));
+for (const id of selectedIDs) {
+  if (!palettes.some(palette => palette.id === id)) throw new Error(`Unknown palette: ${id}`);
+}
+for (const palette of palettes.filter(palette => selectedIDs.length === 0 || selectedIDs.includes(palette.id))) {
   const ink = rgb(palette.ink), fill = rgb(palette.fill), ring = rgb(palette.ring);
   // Map the original black/blue/white colors; leave alpha and geometry untouched.
   const rows = ink.map((value, index) => {

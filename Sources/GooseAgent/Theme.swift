@@ -154,7 +154,7 @@ enum Theme {
     }
 }
 
-/// 完整马卡龙预设，共用名称、图标以及浅深色外观。
+/// 完整外观预设，共用名称、图标以及浅深色外观。
 enum AppThemePreset: String, CaseIterable, Identifiable {
     case strawberryCream = "M01"
     case apricotCream = "M02"
@@ -166,6 +166,8 @@ enum AppThemePreset: String, CaseIterable, Identifiable {
     case taroMilkshake = "M08"
     case coralPeach = "M09"
     case cocoaMilkTea = "M10"
+    case apricotSea = "M11"
+    case appleMilkTea = "M12"
 
     var id: String { rawValue }
     var icon: ApplicationIcon {
@@ -180,6 +182,8 @@ enum AppThemePreset: String, CaseIterable, Identifiable {
         case .taroMilkshake: .taroMilkshake
         case .coralPeach: .coralPeach
         case .cocoaMilkTea: .cocoaMilkTea
+        case .apricotSea: .apricotSea
+        case .appleMilkTea: .appleMilkTea
         }
     }
 }
@@ -214,11 +218,8 @@ enum AppTheme {
         var gradientColors: [Color] { gradient.map { color($0) } }
     }
 
-    // 渐变按 OKLCH 统一感知明度与彩度，保留各主题色相。
-    // 浅色 L: 0.93 → 0.95 → 0.965，C: 0.035 → 0.017 → 0.006；
-    // 深色 L: 0.34 → 0.31 → 0.29，C: 0.025 → 0.012 → 0.004。
-    // 蓝色降低彩度以留在 sRGB 色域，可可保留更低彩度，避免与杏色趋同。
-    // 底部收敛到暖中性色；深色单独配制，不反转浅色或在底部重新提亮。
+    // 前十组使用柔和的同色系渐变，选中态沿用主色；仅最后两组保留撞色。
+    // 深色保留炭灰阅读底，壁纸材质由共用外壳叠加。
     private static let mintLight = Colors(
         gradient: ["D5F0E0", "E5F2EA", "F5F3EF"], glow: "A5D7B4",
         background: "F7FAF6", foreground: "243A2D", secondary: "53675A",
@@ -376,6 +377,39 @@ enum AppTheme {
                "B6ADA1", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "EBE6DF"]
     )
 
+    // 参考本机 1Panel 的杏橙海盐、青苹奶茶；保留冷暖撞色，深色阅读底沿用低饱和炭灰。
+    private static let apricotSeaLight = Colors(
+        gradient: ["BCE7EA", "FFF2E8", "FFFEFA"], glow: "BCE7EA",
+        background: "FFF2E8", foreground: "30343D", secondary: "5F636C",
+        accent: "865844", selection: "F8E4B5", hover: "F8E7DB", border: "E3D3C7", outline: "887266",
+        ansi: ["30343D", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "5F636C",
+               "5F636C", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "30343D"]
+    )
+
+    private static let apricotSeaDark = Colors(
+        gradient: ["1F3036", "342E2D", "2B2928"], glow: "EDC3A6",
+        background: "2B2928", foreground: "F0EDF1", secondary: "BFC6CD",
+        accent: "EDC3A6", selection: "5F503A", hover: "373230", border: "4B423B", outline: "A18E7F",
+        ansi: ["BFC6CD", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "BFC6CD",
+               "BFC6CD", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "F0EDF1"]
+    )
+
+    private static let appleMilkTeaLight = Colors(
+        gradient: ["CAD5F6", "EFF8EB", "FCFEFA"], glow: "CAD5F6",
+        background: "EFF8EB", foreground: "30343D", secondary: "595D66",
+        accent: "4C6158", selection: "F9E1CC", hover: "E3EEDD", border: "CCDCCB", outline: "718475",
+        ansi: ["30343D", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "595D66",
+               "595D66", "BB3548", "287A46", "896511", "3E6CB1", "945195", "157778", "30343D"]
+    )
+
+    private static let appleMilkTeaDark = Colors(
+        gradient: ["202B3C", "2B3430", "282B29"], glow: "BCD7BF",
+        background: "282B29", foreground: "F0EDF1", secondary: "BEC5CD",
+        accent: "BCD7BF", selection: "5F4E44", hover: "303833", border: "3D4B42", outline: "899E90",
+        ansi: ["BEC5CD", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "BEC5CD",
+               "BEC5CD", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "F0EDF1"]
+    )
+
     static var light: Colors { AppTheme.colors(isDark: false) }
     static var dark: Colors { AppTheme.colors(isDark: true) }
 
@@ -391,6 +425,8 @@ enum AppTheme {
         case .taroMilkshake: isDark ? AppTheme.taroMilkshakeDark : AppTheme.taroMilkshakeLight
         case .coralPeach: isDark ? AppTheme.coralPeachDark : AppTheme.coralPeachLight
         case .cocoaMilkTea: isDark ? AppTheme.cocoaMilkTeaDark : AppTheme.cocoaMilkTeaLight
+        case .apricotSea: isDark ? AppTheme.apricotSeaDark : AppTheme.apricotSeaLight
+        case .appleMilkTea: isDark ? AppTheme.appleMilkTeaDark : AppTheme.appleMilkTeaLight
         }
     }
 }

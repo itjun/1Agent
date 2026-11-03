@@ -1,6 +1,8 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Apricot Sea Salt" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Apricot Sea Salt"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "杏橙海盐"}}}},
+    "Apple Milk Tea" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Apple Milk Tea"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "青苹奶茶"}}}},
     "The app icon follows the appearance preset." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "The app icon follows the appearance preset."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "应用图标随外观预设自动切换。"}}}},
     "The preset icon could not be fully applied. Retry to sync the Dock and Finder icons." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "The preset icon could not be fully applied. Retry to sync the Dock and Finder icons."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "预设图标未能完整应用，请重试以同步 Dock 和访达图标。"}}}},
     "Retry Icon Sync" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Retry Icon Sync"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重试同步图标"}}}},

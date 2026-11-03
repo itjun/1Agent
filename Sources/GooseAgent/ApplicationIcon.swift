@@ -13,6 +13,8 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
     case taroMilkshake = "M08"
     case coralPeach = "M09"
     case cocoaMilkTea = "M10"
+    case apricotSea = "M11"
+    case appleMilkTea = "M12"
 
     static let storageKey = "appearance.applicationIcon"
     static let defaultIcon: Self = .original
@@ -33,6 +35,8 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
         case .taroMilkshake: String(localized: "Taro Milkshake")
         case .coralPeach: String(localized: "Coral Peach")
         case .cocoaMilkTea: String(localized: "Cocoa Milk Tea")
+        case .apricotSea: String(localized: "Apricot Sea Salt")
+        case .appleMilkTea: String(localized: "Apple Milk Tea")
         }
     }
 
@@ -61,6 +65,8 @@ enum ApplicationIcon: String, CaseIterable, Identifiable {
         case .taroMilkshake: Palette(fill: "C6ACE0", ring: "A589BF", ink: "84659E", terminalBackground: "21182C", terminalForeground: "F1E9F8")
         case .coralPeach: Palette(fill: "EDA99A", ring: "C8887A", ink: "A26759", terminalBackground: "281913", terminalForeground: "F9EAE5")
         case .cocoaMilkTea: Palette(fill: "CDB59F", ring: "AD947F", ink: "8C735F", terminalBackground: "231C17", terminalForeground: "F1E9E1")
+        case .apricotSea: Palette(fill: "EDC3A6", ring: "B78869", ink: "865844", terminalBackground: "2B2928", terminalForeground: "F0EDF1")
+        case .appleMilkTea: Palette(fill: "BCD7BF", ring: "8DAF98", ink: "4C6158", terminalBackground: "282B29", terminalForeground: "F0EDF1")
         }
     }
 

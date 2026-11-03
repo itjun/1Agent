@@ -58,9 +58,9 @@ enum ApplicationIconTests {
         defaults.removeObject(forKey: ApplicationIcon.storageKey)
 
         let manager = ApplicationIconManager(defaults: defaults, bundle: bundle, applicationURL: applicationURL)
-        try check(ApplicationIcon.allCases.count == 11, "The original and all ten approved palettes must ship")
-        try check(ApplicationIcon.macaronIcons.count == 10 && !ApplicationIcon.macaronIcons.contains(.original),
-                  "All ten macaron alternatives must remain available separately from the original")
+        try check(ApplicationIcon.allCases.count == 13, "The original and all twelve preset palettes must ship")
+        try check(ApplicationIcon.macaronIcons.count == 12 && !ApplicationIcon.macaronIcons.contains(.original),
+                  "All twelve preset alternatives must remain available separately from the original")
         try checkPalettesMatchBundledJSON(bundle)
         guard let defaultURL = bundle.url(forResource: "Original", withExtension: "icns", subdirectory: "ApplicationIcons"),
               let bundledDefault = NSImage(contentsOf: defaultURL),
@@ -127,7 +127,7 @@ enum ApplicationIconTests {
         try check(manager.select(.defaultIcon), "Restore default after the clear-style check")
 
         defaults.removePersistentDomain(forName: suite)
-        print("ApplicationIconTests passed: original default, 10 alternatives, 11 Finder/Dock icons, saved M05 preservation, persistence, failure handling, and clear style")
+        print("ApplicationIconTests passed: original default, 12 alternatives, 13 Finder/Dock icons, saved M05 preservation, persistence, failure handling, and clear style")
     }
 
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) throws {

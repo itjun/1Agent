@@ -98,5 +98,25 @@
     "ink": "#8C735F",
     "terminalBackground": "#231C17",
     "terminalForeground": "#F1E9E1"
+  },
+  {
+    "id": "M11",
+    "name": "杏橙海盐",
+    "bg": "#FFFFFF",
+    "fill": "#EDC3A6",
+    "ring": "#B78869",
+    "ink": "#865844",
+    "terminalBackground": "#2B2928",
+    "terminalForeground": "#F0EDF1"
+  },
+  {
+    "id": "M12",
+    "name": "青苹奶茶",
+    "bg": "#FFFFFF",
+    "fill": "#BCD7BF",
+    "ring": "#8DAF98",
+    "ink": "#4C6158",
+    "terminalBackground": "#282B29",
+    "terminalForeground": "#F0EDF1"
   }
 ]
