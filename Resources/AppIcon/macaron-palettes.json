@@ -2,7 +2,7 @@
   {
     "id": "M01",
     "name": "草莓奶霜",
-    "bg": "#FFF2F7",
+    "bg": "#FFFFFF",
     "fill": "#EDAFC9",
     "ring": "#C389A4",
     "ink": "#98627E",
@@ -12,7 +12,7 @@
   {
     "id": "M02",
     "name": "杏桃奶酪",
-    "bg": "#FFF5EC",
+    "bg": "#FFFFFF",
     "fill": "#F0BD91",
     "ring": "#C5976F",
     "ink": "#9A704C",
@@ -22,7 +22,7 @@
   {
     "id": "M03",
     "name": "香草奶黄",
-    "bg": "#FFFBEA",
+    "bg": "#FFFFFF",
     "fill": "#EEDB8D",
     "ring": "#C2B06A",
     "ink": "#958447",
@@ -32,7 +32,7 @@
   {
     "id": "M04",
     "name": "开心果绿",
-    "bg": "#F7FAEC",
+    "bg": "#FFFFFF",
     "fill": "#C8D98F",
     "ring": "#A1B36F",
     "ink": "#7A8D4E",
@@ -42,7 +42,7 @@
   {
     "id": "M05",
     "name": "薄荷奶糖",
-    "bg": "#EFF9F2",
+    "bg": "#FFFFFF",
     "fill": "#A5D7B4",
     "ring": "#80B18F",
     "ink": "#5A8A69",
@@ -52,7 +52,7 @@
   {
     "id": "M06",
     "name": "云朵苏打",
-    "bg": "#EFF9FA",
+    "bg": "#FFFFFF",
     "fill": "#96D4D8",
     "ring": "#74ADB2",
     "ink": "#52858B",
@@ -62,7 +62,7 @@
   {
     "id": "M07",
     "name": "晴空蓝",
-    "bg": "#F1F6FD",
+    "bg": "#FFFFFF",
     "fill": "#A8C4EB",
     "ring": "#85A1C8",
     "ink": "#617DA4",
@@ -72,7 +72,7 @@
   {
     "id": "M08",
     "name": "香芋奶昔",
-    "bg": "#F8F2FC",
+    "bg": "#FFFFFF",
     "fill": "#C6ACE0",
     "ring": "#A589BF",
     "ink": "#84659E",
@@ -82,7 +82,7 @@
   {
     "id": "M09",
     "name": "珊瑚蜜桃",
-    "bg": "#FFF1EB",
+    "bg": "#FFFFFF",
     "fill": "#EDA99A",
     "ring": "#C8887A",
     "ink": "#A26759",
@@ -92,7 +92,7 @@
   {
     "id": "M10",
     "name": "可可奶茶",
-    "bg": "#F9F4EE",
+    "bg": "#FFFFFF",
     "fill": "#CDB59F",
     "ring": "#AD947F",
     "ink": "#8C735F",
