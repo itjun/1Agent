@@ -17,13 +17,14 @@ struct WorkspaceToolSidebar: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @Environment(\.windowChrome) private var chrome
+    @State private var hoveredTab: WorkspaceToolTab?
     private var location: GitLocation? {
         let context = model.quickCommandContext(in: window)
         return context.directory.map { GitLocation(host: context.host, directory: $0) }
     }
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 4) {
+            HStack(spacing: 0) {
                 ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
                     Button {
                         if tab == .changes { window.toolGitBranchComparison = false }
@@ -31,13 +32,32 @@ struct WorkspaceToolSidebar: View {
                     } label: {
                         Text(verbatim: tab.title).font(Theme.Font.row)
                             .frame(maxWidth: .infinity).frame(height: 30)
-                            .background(window.toolSidebarTab == tab ? chrome.accentFill : .clear,
-                                        in: RoundedRectangle(cornerRadius: 6))
+                            .background(window.toolSidebarTab == tab ? chrome.accentFill :
+                                            hoveredTab == tab ? chrome.hairline : .clear)
+                            .overlay(alignment: .trailing) {
+                                if tab != .files {
+                                    Rectangle().fill(chrome.hairline).frame(width: 1, height: 16)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                            .contentShape(Rectangle())
                     }.buttonStyle(.plain)
+                        .onHover { isHovered in
+                            if isHovered { hoveredTab = tab }
+                            else if hoveredTab == tab { hoveredTab = nil }
+                        }
                         .accessibilityAddTraits(window.toolSidebarTab == tab ? .isSelected : [])
                         .accessibilityIdentifier("workspace.tools." + tab.rawValue)
                 }
-            }.padding(.horizontal, 12).frame(height: 42)
+            }
+            .background(chrome.elevated)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .strokeBorder(chrome.hairline, lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+            .padding(.horizontal, 12).frame(height: 42)
             switch window.toolSidebarTab {
             case .commands: QuickCommandSidebar(model: model, window: window, showsHeader: false)
             case .changes:
