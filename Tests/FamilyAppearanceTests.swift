@@ -200,6 +200,11 @@ enum FamilyAppearanceTests {
             check(true, true, "legacy shell choices preserve both live sessions")
         }
         let backdrop = ShellBackdropView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
+        expect(backdrop.isOpaque, "wallpaper backing must block other windows instead of sampling them")
+        let wallpaperMaterial = backdrop.subviews.compactMap { $0 as? NSVisualEffectView }.first
+        expect(wallpaperMaterial?.blendingMode == .withinWindow,
+               "material must blur the wallpaper supplied inside the window")
+        expect(wallpaperMaterial?.state == .active, "wallpaper tint remains visible when the window loses focus")
         let shellWindow = NSWindow(contentRect: backdrop.bounds, styleMask: [], backing: .buffered, defer: false)
         shellWindow.contentView = backdrop
         for isTransparent in [true, false, true] {
@@ -207,7 +212,21 @@ enum FamilyAppearanceTests {
             backdrop.applyStyle()
             expect(shellWindow.isOpaque == !isTransparent, "shell switch updates native window compositing")
             expect(shellWindow.backgroundColor.alphaComponent == (isTransparent ? 0 : 1), "native window backing does not block transparency")
+            expect(wallpaperMaterial?.isHidden == !isTransparent, "reduce transparency hides the wallpaper material")
         }
+        let wallpaperScreen = CGRect(x: -1920, y: 120, width: 1920, height: 1080)
+        let squareWallpaper = CGSize(width: 1000, height: 1000)
+        expect(DesktopWallpaperLayout.imageFrame(imageSize: squareWallpaper, screenFrame: wallpaperScreen,
+            scaling: .scaleProportionallyUpOrDown, allowsClipping: true) == CGRect(x: -1920, y: -300, width: 1920, height: 1920),
+               "fill wallpaper crops centrally and preserves the external screen origin")
+        expect(DesktopWallpaperLayout.imageFrame(imageSize: squareWallpaper, screenFrame: wallpaperScreen,
+            scaling: .scaleProportionallyUpOrDown, allowsClipping: false) == CGRect(x: -1500, y: 120, width: 1080, height: 1080),
+               "fit wallpaper preserves desktop margins")
+        expect(DesktopWallpaperLayout.imageFrame(imageSize: squareWallpaper, screenFrame: wallpaperScreen,
+            scaling: .scaleAxesIndependently, allowsClipping: true) == wallpaperScreen, "stretch follows the desktop setting")
+        expect(DesktopWallpaperLayout.imageFrame(imageSize: squareWallpaper, screenFrame: wallpaperScreen,
+            scaling: .scaleNone, allowsClipping: false) == CGRect(x: -1460, y: 160, width: 1000, height: 1000),
+               "center wallpaper keeps its original size")
         let content = CGRect(x: 80, y: 40, width: 400, height: 300)
         expect(ShellLayout.contentFrame(content, isFloating: false) == content, "accessibility fallback retains existing terminal geometry")
         let floating = ShellLayout.contentFrame(content, isFloating: true)

@@ -87,19 +87,26 @@ struct ShellBackdrop: NSViewRepresentable {
     }
 }
 
-final class ShellBackdropView: NSVisualEffectView {
+final class ShellBackdropView: NSView {
     var isTransparent = false
     var isDark = false
+    private let wallpaperView = DesktopWallpaperView()
+    private let materialView = NSVisualEffectView()
     private let washView = NSView()
+    override var isOpaque: Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // 左右侧栏和窗格间隙共用同一张系统材质底板。
-        material = .sidebar
+        // 先铺壁纸，再在窗内模糊；不采样窗口后面的其他应用。
+        materialView.material = .sidebar
+        materialView.blendingMode = .withinWindow
+        materialView.state = .active
         washView.wantsLayer = true
-        washView.frame = bounds
-        washView.autoresizingMask = [.width, .height]
-        addSubview(washView)
+        for view in [wallpaperView, materialView, washView] {
+            view.frame = bounds
+            view.autoresizingMask = [.width, .height]
+            addSubview(view)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -110,22 +117,131 @@ final class ShellBackdropView: NSVisualEffectView {
     }
 
     func applyStyle() {
-        blendingMode = .behindWindow
-        state = .followsWindowActiveState
-        isEmphasized = false
         wantsLayer = true
         appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         let fallback = NSColor.windowBackgroundColor
-        layer?.backgroundColor = nil
         effectiveAppearance.performAsCurrentDrawingAppearance {
+            // 即使壁纸无法读取，也用不透明底色阻止其他窗口内容穿透。
+            layer?.backgroundColor = fallback.cgColor
             let wash = NSColor.windowBackgroundColor.withAlphaComponent(ShellLayout.backdropTintOpacity)
             washView.layer?.backgroundColor = (isTransparent ? wash : fallback).cgColor
         }
+        let wasHidden = wallpaperView.isHidden
+        wallpaperView.isHidden = !isTransparent
+        materialView.isHidden = !isTransparent
+        if wasHidden && isTransparent { wallpaperView.refresh() }
         window?.isOpaque = !isTransparent
         window?.backgroundColor = isTransparent ? .clear : fallback
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+enum DesktopWallpaperLayout {
+    static func imageFrame(imageSize: CGSize, screenFrame: CGRect, scaling: NSImageScaling,
+                           allowsClipping: Bool) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return screenFrame }
+        if scaling == .scaleAxesIndependently { return screenFrame }
+        var scale: CGFloat = 1
+        if scaling != .scaleNone {
+            let ratios = (screenFrame.width / imageSize.width, screenFrame.height / imageSize.height)
+            scale = allowsClipping ? max(ratios.0, ratios.1) : min(ratios.0, ratios.1)
+            if scaling == .scaleProportionallyDown { scale = min(1, scale) }
+        }
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(x: screenFrame.midX - size.width / 2, y: screenFrame.midY - size.height / 2,
+                      width: size.width, height: size.height)
+    }
+}
+
+/// 只读取系统配置的壁纸，不截屏。按屏幕坐标绘制，移动窗口时壁纸保持与桌面对齐。
+private final class DesktopWallpaperView: NSView {
+    private struct Wallpaper {
+        var screenFrame: CGRect
+        var image: NSImage?
+        var scaling: NSImageScaling
+        var allowsClipping: Bool
+        var fill: NSColor
+    }
+    private var wallpapers: [Wallpaper] = []
+    private static let images: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 8
+        return cache
+    }()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        let notifications = NotificationCenter.default
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+            notifications.addObserver(self, selector: #selector(windowGeometryChanged(_:)), name: name, object: nil)
+        }
+        for name in [NSApplication.didBecomeActiveNotification, NSApplication.didChangeScreenParametersNotification] {
+            notifications.addObserver(self, selector: #selector(refresh), name: name, object: nil)
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(refresh),
+            name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { refresh() }
+    }
+
+    @objc private func windowGeometryChanged(_ notification: Notification) {
+        guard let changedWindow = notification.object as? NSWindow, changedWindow === window else { return }
+        needsDisplay = true
+    }
+
+    @objc func refresh() {
+        guard window != nil, !isHidden else { return }
+        let workspace = NSWorkspace.shared
+        wallpapers = NSScreen.screens.map { screen in
+            let options = workspace.desktopImageOptions(for: screen) ?? [:]
+            var image: NSImage?
+            if let url = workspace.desktopImageURL(for: screen) {
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+                let key = "\(url.absoluteString):\(modified?.timeIntervalSince1970 ?? 0)" as NSString
+                image = Self.images.object(forKey: key)
+                if image == nil, let loaded = NSImage(contentsOf: url) {
+                    Self.images.setObject(loaded, forKey: key)
+                    image = loaded
+                }
+            }
+            return Wallpaper(screenFrame: screen.frame, image: image,
+                scaling: (options[.imageScaling] as? NSNumber).flatMap { NSImageScaling(rawValue: $0.uintValue) } ?? .scaleProportionallyUpOrDown,
+                allowsClipping: (options[.allowClipping] as? NSNumber)?.boolValue ?? true,
+                fill: (options[.fillColor] as? NSColor)?.withAlphaComponent(1) ?? .windowBackgroundColor)
+        }
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.windowBackgroundColor.setFill()
+        dirtyRect.fill()
+        guard let window else { return }
+        for wallpaper in wallpapers {
+            let screenFrame = convert(window.convertFromScreen(wallpaper.screenFrame), from: nil)
+            guard screenFrame.intersects(dirtyRect) else { continue }
+            NSGraphicsContext.saveGraphicsState()
+            screenFrame.clip()
+            wallpaper.fill.setFill()
+            screenFrame.fill()
+            if let image = wallpaper.image {
+                let frame = DesktopWallpaperLayout.imageFrame(imageSize: image.size, screenFrame: screenFrame,
+                    scaling: wallpaper.scaling, allowsClipping: wallpaper.allowsClipping)
+                image.draw(in: frame, from: .zero, operation: .sourceOver, fraction: 1)
+            }
+            NSGraphicsContext.restoreGraphicsState()
+        }
+    }
 }
 
 /// 共享文件面板与终端的圆角、边界；减少透明度时使用实色回退。
