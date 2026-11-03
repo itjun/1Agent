@@ -193,6 +193,56 @@ import SwiftUI
         try check(abs(memberHeight - standaloneHeight) < 0.1 && memberHeight == 44,
                   "Grouped and standalone terminal rows share the same height")
 
+        // 复现截图中的落点：从独立机子拖到“本机”标题下、第一组上方的空白。
+        let looseRow = productionRelay.rowAnchors[outsider]!.view!
+        let firstGroup = productionRelay.rowAnchors[first]!.view!
+        let looseStart = looseRow.convert(NSPoint(x: 80, y: looseRow.bounds.midY), to: nil)
+        let beforeGroups = firstGroup.convert(NSPoint(x: 80, y: -8), to: nil)
+        productionRelay.showPreview(for: .tabs([outsider], source: window), windowPoint: beforeGroups)
+        let overlay = productionRelay.catcher!.overlay
+        try check(overlay.drawsInsertionLine && overlay.preview != nil,
+                  "The category gap previews a row insertion")
+        let previewFrame = overlay.convert(overlay.preview!, to: nil)
+        try check(abs(previewFrame.midY - firstGroup.convert(firstGroup.bounds, to: nil).maxY) < 1,
+                  "The preview line matches the eventual position above the first group")
+        productionRelay.hidePreview()
+        for (type, point) in [(NSEvent.EventType.leftMouseDown, looseStart),
+                              (.leftMouseDragged, NSPoint(x: looseStart.x, y: looseStart.y + 12)),
+                              (.leftMouseDragged, beforeGroups), (.leftMouseUp, beforeGroups)] {
+            let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: native.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)!
+            NSApp.postEvent(event, atStart: false)
+        }
+        try await Task.sleep(for: .milliseconds(200))
+        native.contentView?.layoutSubtreeIfNeeded()
+        try check(model.panelRows(in: window).map(\.focusedTabID) == [outsider, first, otherFirst],
+                  "Dropping in the gap above the first group must put the standalone terminal first, not last")
+        try check(model.workspaces == [split, otherSplit],
+                  "Moving above the groups preserves standalone status and both split layouts")
+        let movedRow = productionRelay.rowAnchors[outsider]!.view!
+        let movedGroup = productionRelay.rowAnchors[first]!.view!
+        try check(movedRow.convert(movedRow.bounds, to: nil).midY > movedGroup.convert(movedGroup.bounds, to: nil).midY,
+                  "The production sidebar visibly renders the standalone terminal above the group")
+        let gapSnapshot = try JSONDecoder().decode(SessionSnapshot.self, from: defaults.data(forKey: SessionSnapshot.storageKey)!)
+        let restoredWindow = WindowState()
+        gapSnapshot.apply(to: restoredWindow, keeping: Set(model.tabs.map(\.id)))
+        try check(restoredWindow.looseMembers[.localGroup] == [outsider, first, second, otherFirst, otherSecond],
+                  "The gap drop order survives saving and session restoration")
+        if let output = ProcessInfo.processInfo.environment["ONEAGENT_SIDEBAR_DROP_PREVIEW_OUTPUT"],
+           let view = native.contentView, let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+            view.cacheDisplay(in: view.bounds, to: image)
+            try image.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output))
+        }
+        let sidebarBottom = productionRelay.sidebarAnchor!
+        let belowGroups = sidebarBottom.convert(NSPoint(x: 80, y: sidebarBottom.bounds.maxY - 8), to: nil)
+        productionRelay.dragBegan(outsider)
+        productionRelay.dragEnded(windowPoint: belowGroups)
+        try check(model.panelRows(in: window).map(\.focusedTabID) == [first, otherFirst, outsider],
+                  "The blank area below the groups still appends a standalone terminal")
+        reset()
+        try await Task.sleep(for: .milliseconds(150))
+        native.contentView?.layoutSubtreeIfNeeded()
         // Ctrl+Tab 文件预览与直接切页都会走这条路径；返回后新注册的锚点不能被清空。
         model.showSection(.files, in: window)
         try await Task.sleep(for: .milliseconds(200))
@@ -333,6 +383,13 @@ import SwiftUI
         let reorderedSnapshot = try JSONDecoder().decode(SessionSnapshot.self, from: defaults.data(forKey: SessionSnapshot.storageKey)!)
         try check(WorkspaceBoard.leafIDs(reorderedSnapshot.workspaces.first!.panels.first!.layout) == [first, second, outsider],
                   "The right-side order persists across session restoration")
+        let panelLayouts = Dictionary(uniqueKeysWithValues: model.workspaces.flatMap(\.panels).map { ($0.id, $0.layout) })
+        let beforeFirstGroup = productionRelay.rowAnchors[first]!.view!.convert(NSPoint(x: 80, y: -8), to: nil)
+        productionRelay.dragBegan(otherFirst)
+        productionRelay.dragEnded(windowPoint: beforeFirstGroup)
+        try check(model.panelRows(in: window).first?.focusedTabID == otherFirst &&
+                  Dictionary(uniqueKeysWithValues: model.workspaces.flatMap(\.panels).map { ($0.id, $0.layout) }) == panelLayouts,
+                  "A complete split panel can move into the same top gap without changing panel identities or layouts")
         try check(terminalViews.allSatisfy { $0.processHost == nil },
                   "Drop verification never starts a shell")
         print("Verified matching row heights, member reorder and split proportions, extraction/rejoin, header/member delivery, self/outside drops and persistence")

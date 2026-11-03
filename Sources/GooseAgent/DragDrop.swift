@@ -391,6 +391,14 @@ final class CanvasDropRelay: ObservableObject {
                 guard model.canMoveToLooseGroup(Array(dragged), block, in: window) else { return nil }
                 target = .loose(block, beside: slot?.id, after: slot?.after ?? true)
             }
+        } else if model.panelRows(in: payload.source).filter({ !dragged.isDisjoint(with: $0.leafIDs) }).count == 1 {
+            // 单个面板落在分类标题或外侧空白时，仍按本分类的行边缘排序。
+            // 不能走 gap 的追加分支，否则拖到第一组上方也会跳回末尾。
+            let block = model.looseBlock(for: model.connectionGroup(for: Array(dragged)))
+            guard model.canMoveToLooseGroup(Array(dragged), block, in: window) else { return nil }
+            let rows = model.panelRows(in: block, window: window).filter { dragged.isDisjoint(with: $0.leafIDs) }
+            let slot = nearestRowEdge(windowPoint: windowPoint, ids: rows.map(\.focusedTabID), skipping: dragged)
+            target = .loose(block, beside: slot?.id, after: slot?.after ?? true)
         } else {
             target = .gap(index: gapIndex(windowPoint: windowPoint, window: window))
         }
