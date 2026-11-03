@@ -23,7 +23,8 @@ codesign --force --sign - --timestamp=none "$fixture_app"
 codesign --verify --deep --strict "$fixture_app"
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 xcrun swiftc -parse-as-library -module-cache-path "$repo_dir/build/AppIconTestsModuleCache.noindex" \
-    "$repo_dir/Sources/GooseAgent/ApplicationIcon.swift" "$repo_dir/Tests/ApplicationIconTests.swift" \
+    "$repo_dir/Sources/GooseAgent/ApplicationIcon.swift" "$repo_dir/Sources/GooseAgent/SystemNotificationIcon.swift" \
+    "$repo_dir/Tests/ApplicationIconTests.swift" \
     -o "$test_dir/app-icon-tests"
 for phase in test save restore; do
     CFFIXED_USER_HOME="$test_dir/home" "$test_dir/app-icon-tests" "$app_bundle" "$test_suite" "$phase" "$fixture_app"

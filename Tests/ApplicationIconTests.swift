@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 
 @main
 enum ApplicationIconTests {
@@ -68,6 +69,7 @@ enum ApplicationIconTests {
             throw Failure(message: "The bundled default and original icon must both exist")
         }
         try check(samePixels(bundledDefault, originalImage), "The original settings option must use Original.icns independently of the system's layered AppIcon")
+        try checkNotificationIcons(bundle)
         manager.applyStoredIcon()
         try check(finderMatches(applicationURL, manager.image(for: .original)!), "First launch must apply the original icon to Finder")
         for icon in ApplicationIcon.allCases {
@@ -132,6 +134,40 @@ enum ApplicationIconTests {
 
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) throws {
         if !condition() { throw Failure(message: message) }
+    }
+
+    @MainActor
+    static func checkNotificationIcons(_ bundle: Bundle) throws {
+        let getter = NSSelectorFromString("icon")
+        let content = UNMutableNotificationContent()
+        guard content.responds(to: getter), NSClassFromString("UNNotificationIcon") != nil else {
+            print("Notification theme icons unavailable on this macOS; bundled fallback verified")
+            return
+        }
+        var previous: NSObject?
+        for icon in ApplicationIcon.allCases {
+            let content = UNMutableNotificationContent()
+            content.title = "图标验收"
+            content.userInfo = ["tabID": "test-session"]
+            try check(SystemNotificationIcon.apply(to: content, icon: icon, bundle: bundle),
+                      "Each theme must supply its notification icon: \(icon.rawValue)")
+            let request = UNNotificationRequest(identifier: icon.rawValue, content: content, trigger: nil)
+            let data = try NSKeyedArchiver.archivedData(withRootObject: request, requiringSecureCoding: true)
+            let decoded = try NSKeyedUnarchiver.unarchivedObject(ofClass: UNNotificationRequest.self, from: data)!
+            let restoredIcon = decoded.content.perform(getter)?.takeUnretainedValue() as? NSObject
+            try check(restoredIcon != nil, "Theme icon must survive notification transport serialization")
+            if let previous, let restoredIcon {
+                try check(!previous.isEqual(restoredIcon), "Changing theme must change the next notification icon")
+            }
+            previous = restoredIcon
+            try check(decoded.content.title == content.title && decoded.content.userInfo["tabID"] as? String == "test-session",
+                      "Adding an icon must preserve notification text and click routing")
+        }
+        let missing = UNMutableNotificationContent()
+        try check(!SystemNotificationIcon.apply(to: missing, icon: .mintCandy, bundle: Bundle(for: NSImage.self)),
+                  "Missing icon resources must fall back without blocking notifications")
+        try check(missing.perform(getter)?.takeUnretainedValue() == nil, "Failed customization must leave the system fallback intact")
+        print("Verified 13 distinct notification icons, secure serialization, click routing, and missing-resource fallback")
     }
 
     /// Window chrome reads the same hex triples as icon generation; keep Swift and JSON aligned.

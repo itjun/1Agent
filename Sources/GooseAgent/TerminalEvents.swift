@@ -582,6 +582,7 @@ final class TerminalNotifications: NSObject, UNUserNotificationCenterDelegate {
         content.body = body
         content.sound = .default
         content.userInfo = [TerminalNotifications.tabIDKey: tabID.uuidString]
+        SystemNotificationIcon.apply(to: content, icon: AppTheme.icon)
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound]) { granted, error in

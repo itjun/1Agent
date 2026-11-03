@@ -78,6 +78,7 @@
 		72CF34389AD438388A7057E5 /* GhosttyConfigImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01647B79038286A152A66C27 /* GhosttyConfigImport.swift */; };
 		74B09B24A21C58B67ABB214A /* TerminalPlatformIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */; };
 		74C77B01ECA7B1792330D91B /* AppUpdateSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D82C3644F27E84ABEB8266B /* AppUpdateSettings.swift */; };
+		77027B17A94FD46EEB0FC797 /* SystemNotificationIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9906E5414F71915E67A800 /* SystemNotificationIcon.swift */; };
 		7860366F3F23C4E9EFA09527 /* goose-agent-icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */; };
 		7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */; };
 		7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */; };
@@ -254,6 +255,7 @@
 		A9B18799BA36F4789180EC87 /* QuickCommandHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistoryView.swift; sourceTree = "<group>"; };
 		AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyFolderPicker.swift; sourceTree = "<group>"; };
 		AC04379ABB1F67A2FA6C90F0 /* FamilyMenuControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenuControls.swift; sourceTree = "<group>"; };
+		AD9906E5414F71915E67A800 /* SystemNotificationIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemNotificationIcon.swift; sourceTree = "<group>"; };
 		AF18AD26B40C268A98044CC5 /* WorkspacePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePresentation.swift; sourceTree = "<group>"; };
 		AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ghostty-source.png"; sourceTree = "<group>"; };
 		B2D39CACC49F126CA35409C0 /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
@@ -483,6 +485,7 @@
 				440DFBB9CC120A82EAE3507C /* SSHConfig.swift */,
 				BEAD42576853180D4E34F59B /* SSHLaunch.swift */,
 				C9913CB31A48D7D7573940C7 /* SystemIntegrationSettingsPage.swift */,
+				AD9906E5414F71915E67A800 /* SystemNotificationIcon.swift */,
 				F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */,
 				D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */,
 				043B43BD36E404CF638EB54F /* TerminalCanvas.swift */,
@@ -701,6 +704,7 @@
 				FF4027301CF818E6FC6374CD /* SidebarActions.swift in Sources */,
 				814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */,
 				683CC41EC0037F47E07D4F7E /* SystemIntegrationSettingsPage.swift in Sources */,
+				77027B17A94FD46EEB0FC797 /* SystemNotificationIcon.swift in Sources */,
 				7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */,
 				23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */,
 				38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */,
