@@ -87,6 +87,13 @@ targets:
             NSSendTypes:
               - NSFilenamesPboardType
               - public.plain-text
+    postBuildScripts:
+      - name: Install readable fallback icon
+        basedOnDependencyAnalysis: false
+        script: |
+          # 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。
+          # 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。
+          cp "${SRCROOT}/Resources/ApplicationIcons/Original.icns" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AppIcon.icns"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent

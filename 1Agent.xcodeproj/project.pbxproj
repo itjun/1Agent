@@ -533,6 +533,7 @@
 				5A8316C63BDF238B209E5696 /* Sources */,
 				5AE29F9C2F01172D1FAAEEA2 /* Resources */,
 				CAB0B723CEEB01D8A20A4321 /* Frameworks */,
+				60AE8236B2BDEF8275CA330E /* Install readable fallback icon */,
 			);
 			buildRules = (
 			);
@@ -618,6 +619,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		60AE8236B2BDEF8275CA330E /* Install readable fallback icon */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install readable fallback icon";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。\n# 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。\ncp \"${SRCROOT}/Resources/ApplicationIcons/Original.icns\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AppIcon.icns\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5A8316C63BDF238B209E5696 /* Sources */ = {

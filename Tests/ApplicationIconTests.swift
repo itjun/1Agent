@@ -69,6 +69,9 @@ enum ApplicationIconTests {
             throw Failure(message: "The bundled default and original icon must both exist")
         }
         try check(samePixels(bundledDefault, originalImage), "The original settings option must use Original.icns independently of the system's layered AppIcon")
+        let fallbackURL = bundle.url(forResource: "AppIcon", withExtension: "icns")!
+        try check(samePixels(NSImage(contentsOf: fallbackURL)!, originalImage),
+                  "Notification fallback must contain the readable original, not the white layered glyph")
         try checkNotificationIcons(bundle)
         manager.applyStoredIcon()
         try check(finderMatches(applicationURL, manager.image(for: .original)!), "First launch must apply the original icon to Finder")
