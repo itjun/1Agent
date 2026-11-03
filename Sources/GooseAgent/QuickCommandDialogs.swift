@@ -19,7 +19,7 @@ struct QuickCommandEditor: View {
     }
     var body: some View {
         CommandDialog(title: "Edit Quick Command", close: onClose) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     field("Alias", text: $item.alias, id: "quickCommand.alias")
                     VStack(alignment: .leading, spacing: 6) {
@@ -135,7 +135,7 @@ struct QuickCommandConfirmation: View {
     private var request: QuickCommandRunRequest? { try? QuickCommandRunRequest(item: item, context: captured, directory: directory) }
     var body: some View {
         CommandDialog(title: "Confirm Execution", close: onClose) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     CommandInfoRow(title: "Alias", value: item.alias)
                     CommandInfoRow(title: "Target Host", value: captured.host ?? String(localized: "This Mac"))

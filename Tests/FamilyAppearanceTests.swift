@@ -259,6 +259,9 @@ enum FamilyAppearanceTests {
                        "only the selected page heading is exposed: " + page)
                 expect(Set(identifiers.filter { $0.hasPrefix("settings.content.") }) == ["settings.content." + page],
                        "only the selected page scroll area is exposed: " + page)
+                expect(!accessibilityElements(window).contains {
+                    accessibilityValue($0, "accessibilityRole") as? String == "AXScrollBar"
+                }, "settings pages and sidebar expose no scrollbars: " + page)
                 if page == "appearance" {
                     expect(identifiers.contains("settings.preset.identity"), "appearance includes the linked preset icon")
                     expect(Set(identifiers.filter { $0.hasPrefix("settings.preset.choice.") })

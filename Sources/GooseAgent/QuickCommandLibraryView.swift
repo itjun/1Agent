@@ -27,7 +27,7 @@ struct QuickCommandLibraryView: View {
                         .accessibilityIdentifier("quickCommands.library.export")
                 }
                 if let message = error ?? store.loadError { Text(verbatim: message).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta) }
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(store.commands.filter { query.isEmpty || ($0.alias + $0.command + $0.group).localizedCaseInsensitiveContains(query) }
                             .sorted { $0.order < $1.order }) { item in
@@ -122,7 +122,7 @@ struct QuickCommandImportView: View {
     private var incomingHosts: [String] { Array(Set(library.commands.compactMap(\.host))).sorted() }
     var body: some View {
         CommandDialog(title: "Restore Command Library", close: onClose) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Review host mappings and folders. Unresolved bindings are imported disabled until repaired.")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)

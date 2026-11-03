@@ -237,7 +237,7 @@ struct SettingsView: View {
                 .padding(.top, Theme.Space.xs)
                 .padding(.bottom, Theme.Space.l)
 
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(SettingsPage.allCases) { page in
                         let selected = selectedPage == page
@@ -290,14 +290,14 @@ struct SettingsView: View {
         ZStack(alignment: .topLeading) {
             ForEach(SettingsPage.allCases) { page in
                 ScrollViewReader { proxy in
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         settingsPage(page)
                             .frame(maxWidth: SettingsLayout.contentMaxWidth, alignment: .leading)
                             .onGeometryChange(for: CGRect.self) { geometry in
                                 let frame = geometry.frame(in: .named("settings.detail"))
                                 return CGRect(x: frame.minX, y: 0, width: frame.width, height: 0)
                             } action: { bounds in
-                                // 常显滚动条会占宽；标题与操作栏跟随表单的真实边界。
+                                // 标题与操作栏跟随表单的真实边界。
                                 pageContentBounds[page] = bounds
                             }
                             .padding(Theme.Space.xl)

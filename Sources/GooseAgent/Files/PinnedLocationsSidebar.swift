@@ -30,7 +30,7 @@ struct PinnedLocationsSidebar: View {
             }
             .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
             .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 6)
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 4) {
                     ForEach(locations.items) { item in
                         PinnedLocationRow(item: item, title: title(item), editing: editing,

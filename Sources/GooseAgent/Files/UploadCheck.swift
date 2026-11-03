@@ -118,7 +118,8 @@ enum UploadCheck {
         let width = SheetLayout.uploadCheckListWidth
         let height = min(SheetLayout.uploadCheckListMaxHeight, max(24, stack.fittingSize.height) + 4)
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        scroll.hasVerticalScroller = true
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
         scroll.drawsBackground = false

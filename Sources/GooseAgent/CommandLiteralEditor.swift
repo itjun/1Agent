@@ -81,7 +81,8 @@ struct CommandLiteralEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
         let editor = CommandLiteralTextView(frame: .zero)

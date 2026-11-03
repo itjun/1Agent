@@ -46,7 +46,7 @@ struct FamilyFolderPicker: View {
             if let error {
                 Text(verbatim: error).foregroundStyle(chrome.danger).frame(maxWidth: .infinity, alignment: .leading).padding(24)
             }
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 0) {
                     ForEach(folders, id: \.self) { folder in
                         HStack(spacing: 8) {

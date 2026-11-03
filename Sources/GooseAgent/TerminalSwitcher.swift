@@ -686,7 +686,7 @@ struct TerminalSwitcherView: View {
 
     private var results: some View {
         ScrollViewReader { reader in
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 2) {
                     ForEach(switcher.filteredItems) { item in
                         SwitcherRow(item: item, isHighlighted: item.id == switcher.highlighted, chrome: chrome)
@@ -889,7 +889,7 @@ private struct SwitcherDetail: View {
     }
 
     private var filePreview: some View {
-        ScrollView([.horizontal, .vertical]) {
+        ScrollView([.horizontal, .vertical], showsIndicators: false) {
             VStack(alignment: .leading, spacing: 10) {
                 if let status = item.fileStatus {
                     Text(verbatim: status).foregroundStyle(chrome.secondary)

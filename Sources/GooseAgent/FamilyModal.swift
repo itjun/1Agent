@@ -112,7 +112,8 @@ final class FamilyModalBackdrop: NSView {
         scroll.drawsBackground = false
         scroll.contentView.drawsBackground = false
         scroll.borderType = .noBorder
-        scroll.hasVerticalScroller = true
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         scroll.verticalScrollElasticity = .none
         scroll.wantsLayer = true

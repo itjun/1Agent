@@ -247,7 +247,7 @@ struct RootView: View {
 
     private var sidebarList: some View {
         ScrollViewReader { proxy in
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 4) {
                     let rows = model.panelRows(in: window)
                     let blocks = model.sidebarBlocks(in: window)

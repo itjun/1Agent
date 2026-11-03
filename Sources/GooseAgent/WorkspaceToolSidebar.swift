@@ -152,7 +152,7 @@ struct WorkspaceChangesView: View {
                         .foregroundStyle(chrome.secondary)
                     if let stats { GitLineStatsLabel(stats: stats) }
                 }.font(Theme.Font.rowMeta)
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 2) {
                         ForEach(GitChangeTree.visibleRows(treeRows, collapsed: collapsedDirectories)) { row in
                             if let change = row.change {
@@ -286,7 +286,7 @@ struct WorkspaceFilesView: View {
                 .frame(height: 32)
             if let error = column.error { Text(verbatim: error).foregroundStyle(chrome.danger) }
             if column.loading { ProgressView().frame(maxWidth: .infinity) }
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(column.shown) { entry in
                         WorkspaceFileRow(entry: entry, fileSystem: column.fileSystem, showHidden: column.showHidden, depth: 0, selectedPath: column.selection.first) { file in
@@ -419,7 +419,7 @@ private struct WorkspaceGitPreview: View {
                     .background(chrome.panelHeader)
                 if isLoading { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
                 else if let error {
-                    ScrollView { Text(verbatim: error).foregroundStyle(chrome.danger).padding(12).textSelection(.enabled) }
+                    ScrollView(showsIndicators: false) { Text(verbatim: error).foregroundStyle(chrome.danger).padding(12).textSelection(.enabled) }
                 } else if document.unified.isEmpty {
                     Text("No changes").foregroundStyle(chrome.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
@@ -530,7 +530,7 @@ private final class GitDiffTextScroll: NSScrollView {
     init() {
         super.init(frame: .zero)
         automaticallyAdjustsContentInsets = false
-        hasVerticalScroller = true; hasHorizontalScroller = true; autohidesScrollers = true
+        hasVerticalScroller = false; hasHorizontalScroller = false; autohidesScrollers = true
         borderType = .noBorder
         code.isEditable = false; code.isSelectable = true; code.isRichText = false
         code.isHorizontallyResizable = true; code.isVerticallyResizable = true

@@ -398,7 +398,7 @@ struct FileColumnView: View {
     private func rows(width: CGFloat) -> some View {
         let shown = column.shown
         return ScrollViewReader { proxy in
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 0) {
                     if !column.loading && column.error == nil && !column.directory.isEmpty && shown.isEmpty {
                         Text(verbatim: emptyText)

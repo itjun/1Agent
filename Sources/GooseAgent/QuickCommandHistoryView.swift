@@ -79,7 +79,7 @@ struct QuickCommandHistoryView: View {
                 CommandTextField(text: $query, placeholder: String(localized: "Search commands"), identifier: "quickCommands.history.search", symbol: "magnifyingglass").frame(height: 32)
                 FamilyPicker(value: $recentFirst, options: [(false, String(localized: "Most Frequent")), (true, String(localized: "Most Recent"))])
             }
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     ForEach(candidates) { candidate in
                         HStack(alignment: .top) {
@@ -124,7 +124,7 @@ struct QuickCommandHistoryView: View {
                 }
                 Toggle("Include Subfolders", isOn: $includesSubdirectories)
             }
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     ForEach($drafts) { $draft in
                         VStack(alignment: .leading, spacing: 6) {

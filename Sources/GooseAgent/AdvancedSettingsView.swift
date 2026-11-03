@@ -141,6 +141,7 @@ struct AdvancedSettingsPage: View {
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 TextEditor(text: $snippetDraft)
+                    .scrollIndicators(.never)
                     .accessibilityLabel(Text("Custom Configuration Snippet"))
                     .accessibilityIdentifier("settings.advanced.snippet")
                     .font(Theme.Font.paneTitle)
@@ -220,7 +221,7 @@ struct AdvancedSettingsPage: View {
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if showsRenderedConfig {
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         Text(verbatim: renderedConfig)
                             .font(Theme.Font.paneTitle)
                             .foregroundStyle(chrome.text)
@@ -283,7 +284,7 @@ struct GhosttyImportPreviewSheet: View {
 
             Rectangle().fill(chrome.hairline).frame(height: 1)
 
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: Theme.Space.l) {
                     if plan.changesNothing {
                         Text("Nothing to change: the app already matches your Ghostty configuration.")

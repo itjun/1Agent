@@ -135,7 +135,7 @@ struct HostPicker: View {
                 Spacer()
             } else {
                 ScrollViewReader { proxy in
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         LazyVStack(alignment: .leading, spacing: 2) {
                             ForEach(rows) { row in
                                 switch row {

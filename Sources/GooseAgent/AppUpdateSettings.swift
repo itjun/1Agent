@@ -125,7 +125,7 @@ struct AppUpdateDialogView: View {
                 .foregroundStyle(chrome.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if updates.state.hasUpdate && !updates.state.notes.isEmpty {
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     Text(updates.state.notes)
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(chrome.text)

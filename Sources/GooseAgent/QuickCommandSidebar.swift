@@ -124,7 +124,7 @@ struct QuickCommandSidebar: View {
     }
 
     private var commandRows: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 ForEach(0..<3, id: \.self) { section in
                     let rows = commands.filter { $0.section == section }
@@ -343,7 +343,7 @@ struct QuickCommandPreview: View {
                 .help(isExpanded ? "Collapse Command Preview" : "Expand Command Preview")
             if isExpanded, let item {
                 GeometryReader { geometry in
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(verbatim: item.alias).font(Theme.Font.sectionTitle).textSelection(.enabled)
                             detail("Scope", value: item.scope.title)
@@ -435,7 +435,7 @@ struct CommandCodePreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Full Command").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-            ScrollView(wrapsLines ? .vertical : [.horizontal, .vertical]) {
+            ScrollView(wrapsLines ? .vertical : [.horizontal, .vertical], showsIndicators: false) {
                 Text(verbatim: text).font(.system(size: 13, design: .monospaced)).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .topLeading).padding(12)
             }.background(chrome.elevated).clipShape(RoundedRectangle(cornerRadius: 4))

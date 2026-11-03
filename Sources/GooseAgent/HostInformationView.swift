@@ -23,7 +23,7 @@ struct HostInformationView: View {
 
     var body: some View {
         CommandDialog(title: "Host Information", close: onClose) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
                     if let tab = model.tabs.first(where: { $0.id == tabID && $0.hasTerminal }) {
                         CommandInfoRow(title: "Target Host", value: tab.isLocal ? String(localized: "This Mac") : tab.alias ?? String(localized: "Unknown"))

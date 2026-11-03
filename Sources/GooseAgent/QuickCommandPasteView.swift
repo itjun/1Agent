@@ -66,7 +66,7 @@ struct QuickCommandPasteView: View {
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                 }
                 Text("Commands to Add").font(Theme.Font.sectionTitle)
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         ForEach(copies ?? request.drafts) { item in
                             VStack(alignment: .leading, spacing: 5) {

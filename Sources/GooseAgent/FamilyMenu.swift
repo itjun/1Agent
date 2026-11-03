@@ -291,7 +291,8 @@ private final class FamilyMenuContent: NSView {
         setAccessibilityRole(.menu)
         let scroll = NSScrollView(frame: bounds.insetBy(dx: 4, dy: 4))
         scroll.drawsBackground = false
-        scroll.hasVerticalScroller = height > maxHeight
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         let document = FamilyMenuDocument(frame: NSRect(x: 0, y: 0, width: scroll.contentSize.width, height: height - 8))
         var y: CGFloat = 0
