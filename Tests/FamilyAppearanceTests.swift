@@ -239,6 +239,7 @@ enum FamilyAppearanceTests {
 
     @MainActor static func checkSettingsPages(in window: NSWindow) {
         let pages = ["appearance", "font", "terminal", "shortcuts", "systemIntegration", "advanced", "about"]
+        var themeCardHeight: CGFloat?
         for size in [SettingsLayout.windowMinimumSize, CGSize(width: 1200, height: 800), CGSize(width: 1800, height: 1000)] {
             window.setContentSize(size)
             for page in pages {
@@ -273,20 +274,39 @@ enum FamilyAppearanceTests {
                     let elements = accessibilityElements(window)
                     let list = elements.first { accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.preset.identity" }!
                     let listFrame = accessibilityFrame(list)
+                    let scrollArea = elements.first {
+                        accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.content.appearance"
+                    }!
+                    let viewport = accessibilityFrame(scrollArea)
                     let rows = AppThemePreset.allCases.map { preset in
                         let choice = elements.first {
                             accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.preset.choice." + preset.id
                         }!
                         expect(accessibilityValue(choice, "accessibilityRole") as? String == "AXButton",
-                               "each theme row is one accessible selection button: " + preset.id)
+                               "each theme card is one accessible selection button: " + preset.id)
                         return accessibilityFrame(choice)
                     }
                     expect(rows.allSatisfy { $0.width > 0 && $0.height > 0
                         && $0.minX >= listFrame.minX - 1 && $0.maxX <= listFrame.maxX + 1 },
-                           "theme rows stay within the list width at every window size")
-                    for (previous, next) in zip(rows, rows.dropFirst()) {
-                        expect(next.maxY <= previous.minY + 1 && abs(next.minX - previous.minX) <= 1,
-                               "themes form a nonoverlapping vertical list")
+                           "theme cards stay within the grid width at every window size")
+                    expect(rows.allSatisfy { $0.minX >= viewport.minX - 1 && $0.maxX <= viewport.maxX + 1 },
+                           "theme choices stay inside the visible settings viewport")
+                    if let themeCardHeight {
+                        expect(rows.allSatisfy { abs($0.height - themeCardHeight) <= 1 },
+                               "wider windows do not add empty height to theme cards")
+                    } else {
+                        themeCardHeight = rows.first?.height
+                    }
+                    expect(rows.allSatisfy { $0.width <= 220 },
+                           "theme choices stay narrow even in large settings windows")
+                    let firstRow = rows.filter { abs($0.maxY - rows[0].maxY) <= 1 }
+                    expect(firstRow.count >= (size.width >= 1200 ? 4 : 2),
+                           "theme grid uses the available width for more choices")
+                    for (index, frame) in rows.enumerated() {
+                        for other in rows.dropFirst(index + 1) {
+                            expect(!frame.insetBy(dx: 1, dy: 1).intersects(other),
+                                   "theme choices never overlap at any window size")
+                        }
                     }
 
                 }

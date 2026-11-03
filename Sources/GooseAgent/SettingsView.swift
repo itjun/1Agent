@@ -5,9 +5,8 @@ enum SettingsLayout {
     static let windowMinimumSize = CGSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
     static let windowDefaultSize = CGSize(width: 1280, height: 820)
     static let sidebarWidthKey = "settings.sidebarWidth"
-    static let appIconPreviewSize: CGFloat = 64
-    static let appIconIdentityWidth: CGFloat = 200
-    static let presetPreviewMinimumWidth: CGFloat = 160
+    static let presetChoiceWidth: CGFloat = 200
+    static let appIconPreviewSize: CGFloat = 40
     static let appIconChoiceWidth: CGFloat = 52
     static let appIconSwatchSize: CGFloat = 12
     static let appIconSelectionSize: CGFloat = 18

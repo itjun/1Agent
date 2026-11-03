@@ -8,38 +8,13 @@ struct AppThemeIdentity: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.s) {
-            VStack(spacing: Theme.Space.s) {
-                ForEach(AppThemePreset.allCases) { preset in
-                    let isSelected = preset.rawValue == presetRaw
-                    Button { AppearanceDriver.shared.selectPreset(preset) } label: {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: Theme.Space.m) {
-                                identity(for: preset, isSelected: isSelected)
-                                    .frame(width: SettingsLayout.appIconIdentityWidth, alignment: .leading)
-                                previews(for: preset)
-                                    .frame(minWidth: SettingsLayout.presetPreviewMinimumWidth * 2 + Theme.Space.s)
-                            }
-                            VStack(alignment: .leading, spacing: Theme.Space.s) {
-                                identity(for: preset, isSelected: isSelected)
-                                previews(for: preset)
-                            }
-                        }
-                        .padding(Theme.Space.s)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(isSelected ? chrome.selection : .clear, in: RoundedRectangle(cornerRadius: Theme.Radius.control))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: Theme.Radius.control)
-                                .strokeBorder(isSelected ? chrome.accent : .clear, lineWidth: 1)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(FamilyButtonStyle())
-                    .accessibilityLabel(Text(preset.icon.title))
-                    .accessibilityValue(Text(verbatim: preset.id))
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
-                    .accessibilityIdentifier("settings.preset.choice." + preset.id)
-                }
+            ViewThatFits(in: .horizontal) {
+                presetGrid(columns: 4)
+                presetGrid(columns: 3)
+                presetGrid(columns: 2)
+                presetGrid(columns: 1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("settings.preset.identity")
             Text("The app icon follows the appearance preset.")
@@ -57,6 +32,41 @@ struct AppThemeIdentity: View {
         }
     }
 
+    private func presetGrid(columns: Int) -> some View {
+        Grid(horizontalSpacing: Theme.Space.m, verticalSpacing: Theme.Space.m) {
+            ForEach(0..<((AppThemePreset.allCases.count + columns - 1) / columns), id: \.self) { row in
+                GridRow {
+                    ForEach(Array(AppThemePreset.allCases.dropFirst(row * columns).prefix(columns))) { preset in
+                        choice(for: preset)
+                            .frame(width: SettingsLayout.presetChoiceWidth)
+                    }
+                }
+            }
+        }
+    }
+
+    private func choice(for preset: AppThemePreset) -> some View {
+        let isSelected = preset.rawValue == presetRaw
+        return Button { AppearanceDriver.shared.selectPreset(preset) } label: {
+            VStack(alignment: .leading, spacing: Theme.Space.s) {
+                identity(for: preset, isSelected: isSelected)
+                previews(for: preset)
+            }
+                .padding(Theme.Space.m)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(isSelected ? chrome.selection : .clear, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card)
+                        .strokeBorder(isSelected ? chrome.accent : .clear, lineWidth: 1)
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(FamilyButtonStyle())
+        .accessibilityLabel(Text(preset.icon.title))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("settings.preset.choice." + preset.id)
+    }
+
     private func identity(for preset: AppThemePreset, isSelected: Bool) -> some View {
         HStack(spacing: Theme.Space.s) {
             if let image = icons.image(for: preset.icon) {
@@ -67,19 +77,14 @@ struct AppThemeIdentity: View {
                     .frame(width: SettingsLayout.appIconPreviewSize, height: SettingsLayout.appIconPreviewSize)
                     .accessibilityHidden(true)
             }
-            VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                Text(preset.icon.title)
-                    .font(Theme.Font.body.weight(.medium))
-                    .foregroundStyle(isSelected ? chrome.accent : chrome.text)
-                Text(verbatim: preset.id)
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.secondary)
-            }
+            Text(preset.icon.title)
+                .font(Theme.Font.body.weight(.medium))
+                .foregroundStyle(isSelected ? chrome.accent : chrome.text)
         }
     }
 
     private func previews(for preset: AppThemePreset) -> some View {
-        HStack(spacing: Theme.Space.s) {
+        VStack(spacing: Theme.Space.s) {
             ThemePreviewCard(isDark: false, preset: preset, isCompact: true)
             ThemePreviewCard(isDark: true, preset: preset, isCompact: true)
         }

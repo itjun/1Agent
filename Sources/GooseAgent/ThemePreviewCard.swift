@@ -8,10 +8,8 @@ struct ThemePreviewCard: View {
 
     var body: some View {
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
-        VStack(alignment: .leading, spacing: Theme.Space.s) {
-            Text(isDark ? "Dark" : "Light")
-                .font(Theme.Font.rowMeta.weight(.medium))
-            VStack(alignment: .leading, spacing: Theme.Space.s) {
+        VStack(alignment: .leading, spacing: isCompact ? Theme.Space.xs : Theme.Space.s) {
+            VStack(alignment: .leading, spacing: isCompact ? Theme.Space.xs : Theme.Space.s) {
                 HStack {
                     Text("Aa").font(.system(size: isCompact ? 16 : 20, weight: .medium))
                     Spacer()
@@ -34,9 +32,9 @@ struct ThemePreviewCard: View {
                 .accessibilityHidden(true)
             }
             .foregroundStyle(colors.color(colors.foreground))
-            .padding(isCompact ? Theme.Space.s : Theme.Space.m)
+            .padding(isCompact ? Theme.Space.xs + 2 : Theme.Space.m)
             .background(colors.color(colors.background), in: RoundedRectangle(cornerRadius: Theme.Radius.row))
-            .padding(isCompact ? Theme.Space.s : Theme.Space.m)
+            .padding(isCompact ? Theme.Space.xs + 2 : Theme.Space.m)
             .background {
                 LinearGradient(stops: zip(colors.gradientColors, ShellLayout.backdropLocations).map {
                     Gradient.Stop(color: $0.0, location: $0.1)
