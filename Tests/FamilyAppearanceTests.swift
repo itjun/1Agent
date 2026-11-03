@@ -57,7 +57,7 @@ enum FamilyAppearanceTests {
             drain()
             expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == terminalDark, context + ": driver states")
             let expectedChrome = AppTheme.stored() == .mintCandy
-                ? (uiDark ? darkChrome : lightChrome) : WindowChrome(isDark: uiDark, preset: .strawberryCream)
+                ? (uiDark ? darkChrome : lightChrome) : WindowChrome(isDark: uiDark, preset: AppTheme.stored())
             expect(WindowChrome.resolve(isDark: uiDark) == expectedChrome, context + ": selected preset palette")
             for (index, target) in TerminalThemeTarget.allCases.enumerated() {
                 let runtime = GhosttyRuntime.controller(for: target)
@@ -83,7 +83,7 @@ enum FamilyAppearanceTests {
             driver.reapply()
             check(isDark, isDark, "mode changes the whole app without replacing sessions")
         }
-        for preset in [AppThemePreset.strawberryCream, .mintCandy, .strawberryCream, .mintCandy] {
+        for preset in AppThemePreset.allCases + AppThemePreset.allCases.reversed() + [.mintCandy] {
             driver.selectPreset(preset)
             expect(AppTheme.stored() == preset && driver.preset == preset, "preset choice persists and publishes")
             expect(ApplicationIcon.stored() == preset.icon, "changing appearance selects its paired icon")
@@ -122,6 +122,7 @@ enum FamilyAppearanceTests {
         settingsOwner.setContentSize(MainWindowFrame.minimumSize)
         for _ in 0..<5 { drain() }
         let savedFrame = settingsOwner.frame
+        driver.selectPreset(.cocoaMilkTea)
         settingsModel.showSettings()
         let settingsWindow = SettingsWindowController.shared.window!
         expect(settingsModel.showingSettings && settingsWindow !== settingsOwner

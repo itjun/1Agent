@@ -154,16 +154,32 @@ enum Theme {
     }
 }
 
-/// 这里只列出已经逐款确认并实现的外观。
+/// 完整马卡龙预设，共用名称、图标以及浅深色外观。
 enum AppThemePreset: String, CaseIterable, Identifiable {
     case strawberryCream = "M01"
+    case apricotCream = "M02"
+    case vanillaCustard = "M03"
+    case pistachioGreen = "M04"
     case mintCandy = "M05"
+    case cloudSoda = "M06"
+    case clearSkyBlue = "M07"
+    case taroMilkshake = "M08"
+    case coralPeach = "M09"
+    case cocoaMilkTea = "M10"
 
     var id: String { rawValue }
     var icon: ApplicationIcon {
         switch self {
         case .strawberryCream: .strawberryCream
+        case .apricotCream: .apricotCream
         case .mintCandy: .mintCandy
+        case .vanillaCustard: .vanillaCustard
+        case .pistachioGreen: .pistachioGreen
+        case .cloudSoda: .cloudSoda
+        case .clearSkyBlue: .clearSkyBlue
+        case .taroMilkshake: .taroMilkshake
+        case .coralPeach: .coralPeach
+        case .cocoaMilkTea: .cocoaMilkTea
         }
     }
 }
@@ -228,6 +244,133 @@ enum AppTheme {
                "B9ABB3", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "EEE7EB"]
     )
 
+    private static let apricotLight = Colors(
+        gradient: ["F5DFC9", "F7EBDD", "F5F0DE"], glow: "EFC394",
+        background: "FCF9F5", foreground: "40332A", secondary: "6D5C4D",
+        accent: "85522F", selection: "EEDBC5", hover: "F5EBDD", border: "E6D9C9", outline: "897C70",
+        ansi: ["40332A", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "6D5C4D",
+               "6D5C4D", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "554333"]
+    )
+    private static let apricotDark = Colors(
+        gradient: ["45392F", "3C3731", "3F3D32"], glow: "EFC394",
+        background: "292827", foreground: "EDE8E2", secondary: "B8AEA3",
+        accent: "E7B887", selection: "4B3D31", hover: "39342F", border: "494139", outline: "968878",
+        ansi: ["A39485", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "D7C9BA",
+               "B8AEA3", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "EDE8E2"]
+    )
+
+    private static let vanillaCustardLight = Colors(
+        gradient: ["F3E9BD", "F5EED7", "F8F3E5"], glow: "EEDB8D",
+        background: "FCFAF3", foreground: "3E3825", secondary: "696149",
+        accent: "78601F", selection: "EAE0B8", hover: "F3EEDC", border: "E4DEC5", outline: "877F65",
+        ansi: ["3E3825", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "696149",
+               "696149", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "3E3825"]
+    )
+
+    private static let vanillaCustardDark = Colors(
+        gradient: ["413D2C", "39382F", "3F3B34"], glow: "EEDB8D",
+        background: "292927", foreground: "EEEBDD", secondary: "B8B29D",
+        accent: "E5D18D", selection: "47432F", hover: "38372F", border: "464435", outline: "928B72",
+        ansi: ["B8B29D", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B29D",
+               "B8B29D", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "EEEBDD"]
+    )
+
+    private static let pistachioGreenLight = Colors(
+        gradient: ["E2EBC7", "ECF0DC", "F5F0DF"], glow: "C8D98F",
+        background: "F9FBF4", foreground: "303B25", secondary: "59664A",
+        accent: "536A2C", selection: "DCE6BF", hover: "EDF2DF", border: "DCE4CA", outline: "7B8568",
+        ansi: ["303B25", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "59664A",
+               "59664A", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "303B25"]
+    )
+
+    private static let pistachioGreenDark = Colors(
+        gradient: ["39412E", "353B30", "3F3E32"], glow: "C8D98F",
+        background: "282A27", foreground: "E9EDDF", secondary: "ADB79E",
+        accent: "C5D58E", selection: "3F482F", hover: "343A30", border: "404735", outline: "879477",
+        ansi: ["ADB79E", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "ADB79E",
+               "ADB79E", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E9EDDF"]
+    )
+
+    private static let cloudSodaLight = Colors(
+        gradient: ["D4ECEE", "E2F0EF", "EEF2E5"], glow: "96D4D8",
+        background: "F4FAFA", foreground: "263B3E", secondary: "4C6669",
+        accent: "2F6970", selection: "CDE4E5", hover: "E3F0F0", border: "CEE2E3", outline: "6F8487",
+        ansi: ["263B3E", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "4C6669",
+               "4C6669", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "263B3E"]
+    )
+
+    private static let cloudSodaDark = Colors(
+        gradient: ["2C4144", "303B3D", "373E38"], glow: "96D4D8",
+        background: "272A2B", foreground: "E1ECEE", secondary: "A2B5B8",
+        accent: "96D4D8", selection: "30474B", hover: "2E393C", border: "35474B", outline: "799195",
+        ansi: ["A2B5B8", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "A2B5B8",
+               "A2B5B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E1ECEE"]
+    )
+
+    private static let clearSkyBlueLight = Colors(
+        gradient: ["DBE7F6", "E7EEF6", "F1F0E9"], glow: "A8C4EB",
+        background: "F7F9FD", foreground: "29374B", secondary: "53637B",
+        accent: "41658F", selection: "D5E1F1", hover: "E7EEF7", border: "D4DFED", outline: "758399",
+        ansi: ["29374B", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "53637B",
+               "53637B", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "29374B"]
+    )
+
+    private static let clearSkyBlueDark = Colors(
+        gradient: ["303B4B", "333B43", "3A3C3E"], glow: "A8C4EB",
+        background: "282A2D", foreground: "E5EBF3", secondary: "AAB5C5",
+        accent: "A8C4EB", selection: "344257", hover: "313741", border: "3B4554", outline: "8190A6",
+        ansi: ["AAB5C5", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "AAB5C5",
+               "AAB5C5", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E5EBF3"]
+    )
+
+    private static let taroMilkshakeLight = Colors(
+        gradient: ["E7DDF1", "EFE7F4", "F3EEE5"], glow: "C6ACE0",
+        background: "FAF7FC", foreground: "3A2F46", secondary: "665771",
+        accent: "70518A", selection: "E0D4EB", hover: "F0E8F5", border: "E0D5E9", outline: "877891",
+        ansi: ["3A2F46", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "665771",
+               "665771", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "3A2F46"]
+    )
+
+    private static let taroMilkshakeDark = Colors(
+        gradient: ["3E3449", "39343F", "3E3A39"], glow: "C6ACE0",
+        background: "2A282C", foreground: "ECE5F3", secondary: "B6ABBF",
+        accent: "C6ACE0", selection: "45364F", hover: "37303E", border: "46394F", outline: "93839F",
+        ansi: ["B6ABBF", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B6ABBF",
+               "B6ABBF", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "ECE5F3"]
+    )
+
+    private static let coralPeachLight = Colors(
+        gradient: ["F4DCD2", "F5E6DE", "F6EEDF"], glow: "EDA99A",
+        background: "FCF8F5", foreground: "453129", secondary: "73594F",
+        accent: "8A4E3E", selection: "EED4C9", hover: "F7E9E1", border: "E9D6CC", outline: "92796D",
+        ansi: ["453129", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "73594F",
+               "73594F", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "453129"]
+    )
+
+    private static let coralPeachDark = Colors(
+        gradient: ["493731", "3E3532", "403C33"], glow: "EDA99A",
+        background: "2B2827", foreground: "F1E6E0", secondary: "C0ADA3",
+        accent: "EDA99A", selection: "4E3932", hover: "3D332F", border: "4E3D35", outline: "9E867B",
+        ansi: ["C0ADA3", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "C0ADA3",
+               "C0ADA3", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "F1E6E0"]
+    )
+
+    private static let cocoaMilkTeaLight = Colors(
+        gradient: ["E6DBD0", "EEE7DE", "F4EFE4"], glow: "CDB59F",
+        background: "FBF8F4", foreground: "3C332C", secondary: "675C50",
+        accent: "71543E", selection: "E4D7C9", hover: "F0E9E0", border: "E0D6C9", outline: "877B6C",
+        ansi: ["3C332C", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "675C50",
+               "675C50", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "3C332C"]
+    )
+
+    private static let cocoaMilkTeaDark = Colors(
+        gradient: ["40382F", "383532", "3B3A35"], glow: "CDB59F",
+        background: "292827", foreground: "EBE6DF", secondary: "B6ADA1",
+        accent: "CDB59F", selection: "453C32", hover: "35322E", border: "443E35", outline: "918675",
+        ansi: ["B6ADA1", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B6ADA1",
+               "B6ADA1", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "EBE6DF"]
+    )
+
     static var light: Colors { AppTheme.colors(isDark: false) }
     static var dark: Colors { AppTheme.colors(isDark: true) }
 
@@ -235,6 +378,14 @@ enum AppTheme {
         switch preset {
         case .mintCandy: isDark ? AppTheme.mintDark : AppTheme.mintLight
         case .strawberryCream: isDark ? AppTheme.strawberryDark : AppTheme.strawberryLight
+        case .apricotCream: isDark ? AppTheme.apricotDark : AppTheme.apricotLight
+        case .vanillaCustard: isDark ? AppTheme.vanillaCustardDark : AppTheme.vanillaCustardLight
+        case .pistachioGreen: isDark ? AppTheme.pistachioGreenDark : AppTheme.pistachioGreenLight
+        case .cloudSoda: isDark ? AppTheme.cloudSodaDark : AppTheme.cloudSodaLight
+        case .clearSkyBlue: isDark ? AppTheme.clearSkyBlueDark : AppTheme.clearSkyBlueLight
+        case .taroMilkshake: isDark ? AppTheme.taroMilkshakeDark : AppTheme.taroMilkshakeLight
+        case .coralPeach: isDark ? AppTheme.coralPeachDark : AppTheme.coralPeachLight
+        case .cocoaMilkTea: isDark ? AppTheme.cocoaMilkTeaDark : AppTheme.cocoaMilkTeaLight
         }
     }
 }

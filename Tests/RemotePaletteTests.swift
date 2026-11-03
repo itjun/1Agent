@@ -54,11 +54,17 @@ enum RemotePaletteTests {
                   "Invalid shared colors fall back to neutral blue")
 
         try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Existing installs retain Mint Candy")
-        defaults.set("M10", forKey: AppTheme.storageKey)
-        try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Unreleased presets cannot be selected")
+        defaults.set("M99", forKey: AppTheme.storageKey)
+        try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Unknown presets fall back to Mint Candy")
         defaults.set("M01", forKey: AppTheme.storageKey)
         try check(AppTheme.stored(defaults: defaults) == .strawberryCream, "Strawberry Cream persists")
+        defaults.set("M02", forKey: AppTheme.storageKey)
+        try check(AppTheme.stored(defaults: defaults) == .apricotCream, "Apricot Cream persists")
+        try check(Set(AppThemePreset.allCases.map(\.icon)) == Set(ApplicationIcon.macaronIcons),
+                  "Every existing macaron identity has a complete theme")
         for preset in AppThemePreset.allCases {
+        defaults.set(preset.rawValue, forKey: AppTheme.storageKey)
+        try check(AppTheme.stored(defaults: defaults) == preset, "Every preset choice persists")
         for isDark in [false, true] {
             let chrome = WindowChrome(isDark: isDark, preset: preset)
             let colors = AppTheme.colors(isDark: isDark, preset: preset)
@@ -73,7 +79,7 @@ enum RemotePaletteTests {
             for surface in surfaces {
                 for foreground in [chrome.text, chrome.secondary, chrome.accent] {
                     try check(rgb(foreground).contrastRatio(with: rgb(surface)) >= 4.5,
-                              "Text and controls remain readable on every preset surface, dark=\(isDark)")
+                              "Text and controls remain readable on every preset surface, preset=\(preset.id), dark=\(isDark)")
                 }
             }
             for fill in [chrome.accent, chrome.accentHover, chrome.accentActive, chrome.danger] {
