@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "System Default" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "System Default"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "系统默认"}}}},
     "Apricot Sea Salt" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Apricot Sea Salt"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "杏橙海盐"}}}},
     "Apple Milk Tea" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Apple Milk Tea"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "青苹奶茶"}}}},
     "The app icon follows the appearance preset." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "The app icon follows the appearance preset."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "应用图标随外观预设自动切换。"}}}},

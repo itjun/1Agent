@@ -49,7 +49,7 @@ struct ThemePreviewCard: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(isDark ? "Dark" : "Light"))
-        .accessibilityValue(Text(preset.icon.title))
+        .accessibilityValue(Text(preset.title))
         .accessibilityIdentifier("settings.preset." + (isDark ? "dark." : "light.") + preset.id)
     }
 }

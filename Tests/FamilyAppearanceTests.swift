@@ -56,7 +56,7 @@ enum FamilyAppearanceTests {
         func check(_ uiDark: Bool, _ terminalDark: Bool, _ context: String) {
             drain()
             expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == terminalDark, context + ": driver states")
-            let expectedChrome = AppTheme.stored() == .mintCandy
+            let expectedChrome = AppTheme.stored() == .system
                 ? (uiDark ? darkChrome : lightChrome) : WindowChrome(isDark: uiDark, preset: AppTheme.stored())
             expect(WindowChrome.resolve(isDark: uiDark) == expectedChrome, context + ": selected preset palette")
             for (index, target) in TerminalThemeTarget.allCases.enumerated() {

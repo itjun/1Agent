@@ -26,6 +26,8 @@ enum ShellLayout {
     static let fileOpacity: Double = 0.98
     static let lightBackdropOpacity: CGFloat = 0.90
     static let darkBackdropOpacity: CGFloat = 0.88
+    static let systemLightBackdropOpacity: CGFloat = 0.60
+    static let systemDarkBackdropOpacity: CGFloat = 0.58
     static let lightGlowOpacity: CGFloat = 0.10
     static let darkGlowOpacity: CGFloat = 0.04
     // 整窗共用垂直渐变；同一高度的左右侧栏不因各自宽高或光晕产生色差。
@@ -152,7 +154,10 @@ final class ShellBackdropView: NSView {
         appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         let fallback = NSColor(colors.color(colors.gradient[1]))
-        let opacity = isTransparent ? (isDark ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity) : 1
+        let tintOpacity = preset == .system
+            ? (isDark ? ShellLayout.systemDarkBackdropOpacity : ShellLayout.systemLightBackdropOpacity)
+            : (isDark ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity)
+        let opacity = isTransparent ? tintOpacity : 1
         let glow = NSColor(colors.color(colors.glow))
             .withAlphaComponent(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity)
         CATransaction.begin()
@@ -161,6 +166,7 @@ final class ShellBackdropView: NSView {
         layer?.backgroundColor = fallback.cgColor
         gradientLayer.colors = colors.gradient.map { NSColor(colors.color($0)).withAlphaComponent(opacity).cgColor }
         glowLayer.colors = [glow.cgColor, glow.withAlphaComponent(0).cgColor]
+        glowLayer.isHidden = preset == .system
         gradientLayer.frame = washView.bounds
         glowLayer.frame = washView.bounds
         CATransaction.commit()

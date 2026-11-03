@@ -15,6 +15,13 @@ enum RemotePaletteTests {
     }
 
     static func run() throws {
+        for isDark in [false, true] {
+            let colors = AppTheme.colors(isDark: isDark, preset: .system)
+            for hex in colors.gradient + [colors.background, colors.foreground, colors.secondary, colors.accent, colors.selection] {
+                let color = RGBColor(ghosttyHex: hex)!
+                try check(color.red == color.green && color.green == color.blue, "System chrome stays neutral")
+            }
+        }
         let suite = "oneagent.remote-palette.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -53,14 +60,16 @@ enum RemotePaletteTests {
         try check(SharedPalette.stored(defaults: defaults) == .original,
                   "Invalid shared colors fall back to neutral blue")
 
-        try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Existing installs retain Mint Candy")
+        try check(AppTheme.stored(defaults: defaults) == .system, "New installs start with the system preset")
         defaults.set("M99", forKey: AppTheme.storageKey)
-        try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Unknown presets fall back to Mint Candy")
+        try check(AppTheme.stored(defaults: defaults) == .system, "Unknown presets fall back to the system preset")
+        defaults.set("M05", forKey: AppTheme.storageKey)
+        try check(AppTheme.stored(defaults: defaults) == .mintCandy, "Existing saved themes survive the new default")
         defaults.set("M01", forKey: AppTheme.storageKey)
         try check(AppTheme.stored(defaults: defaults) == .strawberryCream, "Strawberry Cream persists")
         defaults.set("M02", forKey: AppTheme.storageKey)
         try check(AppTheme.stored(defaults: defaults) == .apricotCream, "Apricot Cream persists")
-        try check(Set(AppThemePreset.allCases.map(\.icon)) == Set(ApplicationIcon.macaronIcons),
+        try check(Set(AppThemePreset.allCases.map(\.icon)) == Set(ApplicationIcon.allCases),
                   "Every existing macaron identity has a complete theme")
         for preset in AppThemePreset.allCases {
         defaults.set(preset.rawValue, forKey: AppTheme.storageKey)

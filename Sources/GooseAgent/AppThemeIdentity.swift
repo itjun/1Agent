@@ -62,7 +62,7 @@ struct AppThemeIdentity: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(FamilyButtonStyle())
-        .accessibilityLabel(Text(preset.icon.title))
+        .accessibilityLabel(Text(preset.title))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("settings.preset.choice." + preset.id)
     }
@@ -77,7 +77,7 @@ struct AppThemeIdentity: View {
                     .frame(width: SettingsLayout.appIconPreviewSize, height: SettingsLayout.appIconPreviewSize)
                     .accessibilityHidden(true)
             }
-            Text(preset.icon.title)
+            Text(preset.title)
                 .font(Theme.Font.body.weight(.medium))
                 .foregroundStyle(isSelected ? chrome.accent : chrome.text)
         }

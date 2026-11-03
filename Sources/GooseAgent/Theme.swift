@@ -156,6 +156,7 @@ enum Theme {
 
 /// 完整外观预设，共用名称、图标以及浅深色外观。
 enum AppThemePreset: String, CaseIterable, Identifiable {
+    case system = "system"
     case strawberryCream = "M01"
     case apricotCream = "M02"
     case vanillaCustard = "M03"
@@ -170,8 +171,10 @@ enum AppThemePreset: String, CaseIterable, Identifiable {
     case appleMilkTea = "M12"
 
     var id: String { rawValue }
+    var title: String { self == .system ? String(localized: "System Default") : icon.title }
     var icon: ApplicationIcon {
         switch self {
+        case .system: .original
         case .strawberryCream: .strawberryCream
         case .apricotCream: .apricotCream
         case .mintCandy: .mintCandy
@@ -191,15 +194,15 @@ enum AppThemePreset: String, CaseIterable, Identifiable {
 /// 一套完整预设同时决定窗口、终端和应用图标；旧 Ghostty 偏好不参与取色。
 enum AppTheme {
     static let storageKey = "appearance.preset"
-    static let defaultPreset: AppThemePreset = .mintCandy
+    static let defaultPreset: AppThemePreset = .system
 
     static func stored(defaults: UserDefaults = .standard) -> AppThemePreset {
         AppThemePreset(rawValue: defaults.string(forKey: AppTheme.storageKey) ?? "") ?? AppTheme.defaultPreset
     }
 
     static var icon: ApplicationIcon { AppTheme.stored().icon }
-    static var id: String { AppTheme.icon.rawValue }
-    static var title: String { AppTheme.icon.title }
+    static var id: String { AppTheme.stored().rawValue }
+    static var title: String { AppTheme.stored().title }
 
     struct Colors {
         let gradient: [String]
@@ -217,6 +220,23 @@ enum AppTheme {
         func color(_ hex: String) -> Color { RGBColor(ghosttyHex: hex)!.color }
         var gradientColors: [Color] { gradient.map { color($0) } }
     }
+
+    // 系统预设只给窗口材质使用黑白中性色；终端 ANSI 保留语义色，便于辨认输出。
+    private static let systemLight = Colors(
+        gradient: ["F5F5F5", "F5F5F5", "F5F5F5"], glow: "FFFFFF",
+        background: "FAFAFA", foreground: "202020", secondary: "5C5C5C",
+        accent: "303030", selection: "DEDEDE", hover: "EEEEEE", border: "D8D8D8", outline: "808080",
+        ansi: ["202020", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "5C5C5C",
+               "5C5C5C", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "202020"]
+    )
+
+    private static let systemDark = Colors(
+        gradient: ["292929", "292929", "292929"], glow: "292929",
+        background: "242424", foreground: "F2F2F2", secondary: "B8B8B8",
+        accent: "E8E8E8", selection: "424242", hover: "333333", border: "454545", outline: "898989",
+        ansi: ["B8B8B8", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
+               "B8B8B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "F2F2F2"]
+    )
 
     // 前十组使用柔和的同色系渐变，选中态沿用主色；仅最后两组保留撞色。
     // 深色保留炭灰阅读底，壁纸材质由共用外壳叠加。
@@ -415,6 +435,7 @@ enum AppTheme {
 
     static func colors(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) -> Colors {
         switch preset {
+        case .system: isDark ? AppTheme.systemDark : AppTheme.systemLight
         case .mintCandy: isDark ? AppTheme.mintDark : AppTheme.mintLight
         case .strawberryCream: isDark ? AppTheme.strawberryDark : AppTheme.strawberryLight
         case .apricotCream: isDark ? AppTheme.apricotDark : AppTheme.apricotLight
