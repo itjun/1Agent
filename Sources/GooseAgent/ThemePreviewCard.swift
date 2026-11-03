@@ -4,6 +4,7 @@ import SwiftUI
 struct ThemePreviewCard: View {
     let isDark: Bool
     var preset: AppThemePreset = AppTheme.stored()
+    var isCompact = false
 
     var body: some View {
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
@@ -12,15 +13,17 @@ struct ThemePreviewCard: View {
                 .font(Theme.Font.rowMeta.weight(.medium))
             VStack(alignment: .leading, spacing: Theme.Space.s) {
                 HStack {
-                    Text("Aa").font(.system(size: 20, weight: .medium))
+                    Text("Aa").font(.system(size: isCompact ? 16 : 20, weight: .medium))
                     Spacer()
                     Text(verbatim: "~/")
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(colors.color(colors.selection), in: RoundedRectangle(cornerRadius: Theme.Radius.control))
                     Rectangle().fill(colors.color(colors.accent)).frame(width: 6, height: 15)
                 }
-                Text(verbatim: "$ git status")
-                    .font(.system(size: 12, design: .monospaced))
+                if !isCompact {
+                    Text(verbatim: "$ git status")
+                        .font(.system(size: 12, design: .monospaced))
+                }
                 HStack(spacing: 3) {
                     ForEach(0..<16, id: \.self) { index in
                         RoundedRectangle(cornerRadius: 2)
@@ -31,9 +34,9 @@ struct ThemePreviewCard: View {
                 .accessibilityHidden(true)
             }
             .foregroundStyle(colors.color(colors.foreground))
-            .padding(Theme.Space.m)
+            .padding(isCompact ? Theme.Space.s : Theme.Space.m)
             .background(colors.color(colors.background), in: RoundedRectangle(cornerRadius: Theme.Radius.row))
-            .padding(Theme.Space.m)
+            .padding(isCompact ? Theme.Space.s : Theme.Space.m)
             .background {
                 LinearGradient(colors: colors.gradientColors, startPoint: .top, endPoint: .bottom)
                     .overlay {
@@ -43,10 +46,11 @@ struct ThemePreviewCard: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
         }
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(isDark ? "Dark" : "Light"))
         .accessibilityValue(Text(preset.icon.title))
-        .accessibilityIdentifier(isDark ? "settings.preset.dark" : "settings.preset.light")
+        .accessibilityIdentifier("settings.preset." + (isDark ? "dark." : "light.") + preset.id)
     }
 }
 

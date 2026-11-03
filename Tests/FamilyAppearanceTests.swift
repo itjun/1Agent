@@ -263,12 +263,29 @@ enum FamilyAppearanceTests {
                     expect(identifiers.contains("settings.preset.identity"), "appearance includes the linked preset icon")
                     expect(Set(identifiers.filter { $0.hasPrefix("settings.preset.choice.") })
                            == Set(AppThemePreset.allCases.map { "settings.preset.choice." + $0.id }),
-                           "every completed preset is directly selectable in the theme row")
+                           "every completed preset is directly selectable in the theme list")
                     expect(!identifiers.contains("settings.preset.picker"), "preset choices are visible without opening a menu")
                     expect(!identifiers.contains("settings.navigation.appIcon"), "icons cannot be selected separately")
-                    expect(identifiers.contains("settings.preset.light") && identifiers.contains("settings.preset.dark"),
-                           "appearance shows both matching preset samples")
                     expect(!identifiers.contains("settings.appearance.preview.save"), "no external theme transaction remains")
+                    let elements = accessibilityElements(window)
+                    let list = elements.first { accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.preset.identity" }!
+                    let listFrame = accessibilityFrame(list)
+                    let rows = AppThemePreset.allCases.map { preset in
+                        let choice = elements.first {
+                            accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.preset.choice." + preset.id
+                        }!
+                        expect(accessibilityValue(choice, "accessibilityRole") as? String == "AXButton",
+                               "each theme row is one accessible selection button: " + preset.id)
+                        return accessibilityFrame(choice)
+                    }
+                    expect(rows.allSatisfy { $0.width > 0 && $0.height > 0
+                        && $0.minX >= listFrame.minX - 1 && $0.maxX <= listFrame.maxX + 1 },
+                           "theme rows stay within the list width at every window size")
+                    for (previous, next) in zip(rows, rows.dropFirst()) {
+                        expect(next.maxY <= previous.minY + 1 && abs(next.minX - previous.minX) <= 1,
+                               "themes form a nonoverlapping vertical list")
+                    }
+
                 }
                 if let output = ProcessInfo.processInfo.environment["ONEAGENT_SETTINGS_QA_DIR"],
                    let view = window.contentView,
@@ -287,6 +304,12 @@ enum FamilyAppearanceTests {
     @MainActor static func accessibilityValue(_ object: NSObject, _ name: String) -> Any? {
         let selector = NSSelectorFromString(name)
         return object.responds(to: selector) ? object.perform(selector)?.takeUnretainedValue() : nil
+    }
+
+    @MainActor static func accessibilityFrame(_ object: NSObject) -> CGRect {
+        let selector = NSSelectorFromString("accessibilityFrame")
+        typealias Frame = @convention(c) (AnyObject, Selector) -> CGRect
+        return unsafeBitCast(object.method(for: selector), to: Frame.self)(object, selector)
     }
 
     @MainActor static func accessibilityElements(_ root: NSObject) -> [NSObject] {

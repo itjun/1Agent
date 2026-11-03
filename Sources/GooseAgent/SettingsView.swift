@@ -7,6 +7,7 @@ enum SettingsLayout {
     static let sidebarWidthKey = "settings.sidebarWidth"
     static let appIconPreviewSize: CGFloat = 64
     static let appIconIdentityWidth: CGFloat = 200
+    static let presetPreviewMinimumWidth: CGFloat = 160
     static let appIconChoiceWidth: CGFloat = 52
     static let appIconSwatchSize: CGFloat = 12
     static let appIconSelectionSize: CGFloat = 18
@@ -159,10 +160,6 @@ struct SettingsView: View {
     private var fontFamilies: [String] {
         TerminalFontSettings.availableFamilies()
     }
-
-    private let themeColumns = [
-        GridItem(.adaptive(minimum: 300), spacing: Theme.Space.m),
-    ]
 
     var body: some View {
         NativeSidebarSplit(
@@ -353,10 +350,6 @@ struct SettingsView: View {
 
             SettingsCard("Preset Theme") {
                 AppThemeIdentity()
-                LazyVGrid(columns: themeColumns, spacing: Theme.Space.m) {
-                    ThemePreviewCard(isDark: false, preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset)
-                    ThemePreviewCard(isDark: true, preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset)
-                }
                 Text("Window and terminal colors follow this preset. Custom Ghostty colors are no longer applied.")
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
