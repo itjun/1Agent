@@ -237,6 +237,10 @@ enum TerminalSettingsTests {
         expect(!TerminalSettings.keybindConflictsWithApp("ctrl+c=text:a"), "⌃C does not conflict")
         expect(parsed.invalidLines == ["bogus", "= 3"], "invalid: \(parsed.invalidLines)")
         expect(TerminalSettings.parseCustomConfig("") == TerminalCustomConfigParse(), "empty snippet")
+        let colors = "theme = Dracula\nbackground = #000000\nforeground = #ffffff\npalette = 0=#000000\nbold-color = #fff000\ncursor-color = #ff0000\ncursor-text = #000000\nselection-background = #ff0000\nselection-foreground = #ffffff\nbackground-image = /tmp/image.png\nbackground-opacity = 0.5\nconfig-file = /tmp/colors\n"
+        let preset = TerminalSettings.parseCustomConfig(colors + "cursor-style = bar\n")
+        expect(preset.entries == [TerminalConfigEntry(key: "cursor-style", value: "bar")], "color overrides cannot bypass the preset")
+        expect(preset.skippedLines.count == 12, "every ignored override is reported")
     }
 
     /// A fake engine that refuses any configuration containing a key from `bad`.

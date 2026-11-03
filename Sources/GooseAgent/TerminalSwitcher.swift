@@ -864,8 +864,7 @@ private struct SwitcherDetail: View {
     private var terminalPreview: some View {
         GeometryReader { proxy in
             let frames = PaneLayout.frames(of: item.layout, in: CGRect(origin: .zero, size: proxy.size))
-            let theme = AppearanceDriver.shared.terminalIsDark
-                ? ThemePreview.shared.effectiveDark().definition : ThemePreview.shared.effectiveLight().definition
+            let theme = AppTheme.terminalDefinition(isDark: AppearanceDriver.shared.terminalIsDark)
             let background = RGBColor(ghosttyHex: theme.background)!.color
             let foreground = RGBColor(ghosttyHex: theme.foreground)!.color
             ZStack(alignment: .topLeading) {

@@ -532,7 +532,7 @@ enum AppUpdatePresenter {
         let state = AppUpdateController.shared.state
         let height = !state.hasUpdate || state.notes.isEmpty ? SheetLayout.appUpdateCompactHeight : SheetLayout.appUpdateHeight
         let owner = frontWindow()
-        let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark, icon: ApplicationIcon.stored())
+        let chrome = WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark)
         let root = AnyView(
             AppUpdateDialogView(failed: failed)
                 .environment(\.windowChrome, chrome)

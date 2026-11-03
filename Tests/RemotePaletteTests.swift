@@ -54,68 +54,35 @@ enum RemotePaletteTests {
                   "Invalid shared colors fall back to neutral blue")
 
         for isDark in [false, true] {
-            let local = WindowChrome(isDark: isDark, icon: LocalPalette.defaultPalette)
-            let remote = WindowChrome(isDark: isDark, icon: RemotePalette.defaultPalette)
-            try check(local.sidebarBackground == remote.sidebarBackground, "Local and remote share neutral surfaces (dark: \(isDark))")
-            try check(local.accent != remote.accent, "Local and remote focus accents must differ (dark: \(isDark))")
-        }
-        for isDark in [false, true] {
-            let neutral = WindowChrome(isDark: isDark, icon: .original)
-            for icon in ApplicationIcon.allCases {
-                let chrome = WindowChrome(isDark: isDark, icon: icon)
-                try check(chrome.background == neutral.background && chrome.sidebarBackground == neutral.sidebarBackground
-                          && chrome.elevated == neutral.elevated && chrome.hairline == neutral.hairline,
-                          "Every palette shares neutral surfaces: \(icon.rawValue)")
-                try check(chrome.text == neutral.text && chrome.secondary == neutral.secondary
-                          && chrome.inactiveIcon == neutral.inactiveIcon && chrome.lineStrong == neutral.lineStrong,
-                          "Ordinary text, icons and controls stay neutral: \(icon.rawValue)")
-                for background in [chrome.background, chrome.elevated] {
-                    try check(rgb(chrome.lineStrong).contrastRatio(with: rgb(background)) >= 3,
-                              "Necessary control outlines remain identifiable: \(icon.rawValue)")
-                }
-                for surface in [chrome.background, chrome.sidebarBackground, chrome.elevated, chrome.hairline, chrome.accentFill] {
-                    for foreground in [chrome.text, chrome.secondary, chrome.accent] {
-                        try check(rgb(foreground).contrastRatio(with: rgb(surface)) >= 4.5,
-                                  "Text and selected icons stay readable on every surface: \(icon.rawValue), dark=\(isDark)")
-                    }
-                    try check(rgb(chrome.focus).contrastRatio(with: rgb(surface)) >= 3,
-                              "Keyboard focus stays visible: \(icon.rawValue), dark=\(isDark)")
-                }
-                try check(rgb(chrome.inactiveIcon).contrastRatio(with: rgb(chrome.sidebarBackground)) >= 3,
-                          "Unselected icons remain identifiable: \(icon.rawValue), dark=\(isDark)")
-                for fill in [chrome.accent, chrome.accentHover, chrome.accentActive, chrome.danger] {
-                    try check(rgb(chrome.filledForeground(on: fill)).contrastRatio(with: rgb(fill)) >= 4.5,
-                              "Black or white control labels stay readable in every state: \(icon.rawValue), dark=\(isDark)")
-                }
-                if isDark {
-                    try check(chrome.inactiveIcon == WindowChrome(isDark: true, icon: .original).inactiveIcon,
-                              "Unselected terminal icons stay neutral across all palettes")
-                    try check(rgb(chrome.inactiveIcon).relativeLuminance < rgb(chrome.accent).relativeLuminance,
-                              "Only the active terminal icon gets the brighter accent")
-                    try check(rgb(chrome.sidebarBackground).relativeLuminance < rgb(chrome.background).relativeLuminance
-                              && rgb(chrome.background).relativeLuminance < rgb(chrome.elevated).relativeLuminance
-                              && rgb(chrome.elevated).relativeLuminance < rgb(chrome.hairline).relativeLuminance
-                              && rgb(chrome.hairline).relativeLuminance < rgb(chrome.accentFill).relativeLuminance,
-                              "Dark surfaces, hover and selection retain a clear luminance hierarchy: \(icon.rawValue)")
+            let chrome = WindowChrome(isDark: isDark)
+            let colors = AppTheme.colors(isDark: isDark)
+            let terminalBackground = RGBColor(ghosttyHex: colors.background)!
+            try check(colors.ansi.count == 16, "Preset includes every ANSI slot")
+            for color in colors.ansi {
+                try check(RGBColor(ghosttyHex: color)!.contrastRatio(with: terminalBackground) >= 4.5,
+                          "ANSI text remains readable: \(color), dark=\(isDark)")
+            }
+            let surfaces = [chrome.background, chrome.sidebarBackground, chrome.elevated, chrome.accentFill]
+                + colors.gradientColors
+            for surface in surfaces {
+                for foreground in [chrome.text, chrome.secondary, chrome.accent] {
+                    try check(rgb(foreground).contrastRatio(with: rgb(surface)) >= 4.5,
+                              "Text and controls remain readable on every preset surface, dark=\(isDark)")
                 }
             }
+            for fill in [chrome.accent, chrome.accentHover, chrome.accentActive, chrome.danger] {
+                try check(rgb(chrome.filledForeground(on: fill)).contrastRatio(with: rgb(fill)) >= 4.5,
+                          "Filled controls retain readable labels")
+            }
+            try check(rgb(chrome.lineStrong).contrastRatio(with: rgb(chrome.background)) >= 3,
+                      "Necessary control outlines remain identifiable")
+            try check(rgb(chrome.text).contrastRatio(with: terminalBackground) >= 7,
+                      "Reading text has strong contrast")
         }
-        for icon in ApplicationIcon.macaronIcons {
-            let palette = icon.palette!
-            let background = RGBColor(ghosttyHex: palette.terminalBackground)!
-            let foreground = RGBColor(ghosttyHex: palette.terminalForeground)!
-            let accent = RGBColor(ghosttyHex: palette.terminalAccent)!
-            try check(foreground.contrastRatio(with: background) >= 7,
-                      "Terminal body text must remain readable for \(icon.rawValue)")
-            try check(accent.contrastRatio(with: background) >= 4.5,
-                      "Focus borders and identity labels must remain clear for \(icon.rawValue)")
-            let light = WindowChrome(isDark: false, icon: icon)
-            let dark = WindowChrome(isDark: true, icon: icon)
-            try check(rgb(light.sidebarBackground).relativeLuminance > 0.8 && rgb(dark.sidebarBackground).relativeLuminance < 0.03,
-                      "Every existing appearance has a light and dark counterpart: \(icon.rawValue)")
-            try check(saturation(rgb(dark.background)) < saturation(background),
-                      "Dark appearance softens the old highly tinted background: \(icon.rawValue)")
-        }
+        try check(saturation(rgb(WindowChrome(isDark: true).background)) < 0.12,
+                  "Dark reading panels remain neutral charcoal instead of green")
+        try check(AppTheme.light.gradient.count > 1 && AppTheme.dark.gradient.count > 1,
+                  "Both appearances retain the gradient")
     }
 
     static func check(_ condition: Bool, _ message: String) throws {

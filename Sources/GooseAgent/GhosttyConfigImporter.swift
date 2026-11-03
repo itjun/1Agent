@@ -93,6 +93,7 @@ enum GhosttyIgnoreReason: Equatable {
     case appLevel
     case blur
     case shader
+    case preset
 
     var message: String {
         switch self {
@@ -108,6 +109,8 @@ enum GhosttyIgnoreReason: Equatable {
             return String(localized: "This terminal engine does not support background blur")
         case .shader:
             return String(localized: "This terminal engine does not support custom shaders")
+        case .preset:
+            return String(localized: "Colors are managed by the app preset")
         }
     }
 }
@@ -362,8 +365,8 @@ enum GhosttyConfigImporter {
         }
 
         for entry in config.entries {
-            if entry.key == "theme" {
-                plan.theme = GhosttyConfigImporter.themePlan(entry.value, context: context)
+            if TerminalSettings.presetColorKeys.contains(entry.key) {
+                plan.ignored.append(GhosttyIgnoredLine(line: entry.text, reason: .preset))
                 continue
             }
             if entry.key == "keybind" {

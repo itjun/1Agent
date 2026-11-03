@@ -1,5 +1,4 @@
 import AppKit
-import GhosttyTheme
 import SwiftUI
 
 enum SettingsLayout {
@@ -142,15 +141,10 @@ struct SettingsView: View {
     @AppStorage(TerminalSettings.paddingXKey) private var paddingX = TerminalSettings.defaults.paddingX
     @AppStorage(TerminalSettings.paddingYKey) private var paddingY = TerminalSettings.defaults.paddingY
     @AppStorage(TerminalSettings.minimumContrastKey) private var minimumContrast = TerminalSettings.defaults.minimumContrast
-    @ObservedObject private var preview = ThemePreview.shared
     @ObservedObject private var importRequests = GhosttyImportRequests.shared
-    @State private var themeQuery = ""
-    @FocusState private var themeSearchFocused: Bool
-    @State private var themeFilter: ThemeFilter = .all
-    /// User theme waiting for the Move to Trash confirmation.
 
     // 全局设置不继承最后一个会话的本机／远程配色。
-    private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark, icon: .original) }
+    private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark) }
     private var sidebarChrome: WindowChrome { chrome }
     private let onRestart: () -> Void
 
@@ -170,25 +164,6 @@ struct SettingsView: View {
     private let themeColumns = [
         GridItem(.adaptive(minimum: 300), spacing: Theme.Space.m),
     ]
-
-    private static let searchControlHeight: CGFloat = 32
-
-    private var trimmedQuery: String {
-        themeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// The list opens once the user types or picks Dark / Light. All with an empty search stays closed.
-    private var showsThemeList: Bool {
-        !trimmedQuery.isEmpty || themeFilter != .all
-    }
-
-    /// Search only Ghostty's official bundled catalog.
-    private var matchingThemes: [GhosttyThemeDefinition] {
-        let themes = trimmedQuery.isEmpty ? GhosttyThemeCatalog.allThemes : GhosttyThemeCatalog.search(trimmedQuery)
-        return themes
-            .filter { themeFilter.includes($0) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
 
     var body: some View {
         NativeSidebarSplit(
@@ -222,9 +197,6 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.section.\(selectedPage.rawValue)")
                 Rectangle().fill(chrome.hairline).frame(height: 0.5)
                 settingsContent
-                if preview.isActive {
-                    previewActionBar
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .coordinateSpace(name: "settings.detail")
@@ -243,7 +215,6 @@ struct SettingsView: View {
         .background((isShellTransparent ? Color.clear : chrome.background).ignoresSafeArea())
 
         .onAppear {
-            TerminalThemeChoice.migrateIfNeeded()
             if !fontFamilies.contains(fontFamily) {
                 fontFamily = TerminalDefaults.defaultFontFamily
             }
@@ -255,7 +226,6 @@ struct SettingsView: View {
             }
         }
         .onChange(of: selectedPage) { old, new in
-            themeSearchFocused = false
             if old == .shortcuts && new != .shortcuts {
                 ShortcutRecorder.shared.stop()
             }
@@ -384,10 +354,17 @@ struct SettingsView: View {
                 appearanceModeControl
             }
 
-            SettingsCard("Terminal Colors") {
-                themePicker
-            } accessory: {
-                restoreDefaultThemesButton
+            SettingsCard("Preset Theme") {
+                Text(AppTheme.title)
+                    .font(Theme.Font.body.weight(.medium))
+                    .foregroundStyle(chrome.text)
+                LazyVGrid(columns: themeColumns, spacing: Theme.Space.m) {
+                    ThemePreviewCard(isDark: false)
+                    ThemePreviewCard(isDark: true)
+                }
+                Text("Window and terminal colors follow this preset. Custom Ghostty colors are no longer applied.")
+                    .font(Theme.Font.rowMeta)
+                    .foregroundStyle(chrome.secondary)
             }
 
             contrastCard
@@ -419,16 +396,12 @@ struct SettingsView: View {
         }
     }
 
-    /// Mode and contrast apply at once; the default themes are previewed first, like the
-    /// card's own restore button, and saved from the action bar.
+    /// 外观模式与可读性设置立即应用，旧主题偏好保留但不再参与取色。
     private func restoreAppearancePageDefaults() {
         appearanceRaw = TerminalAppearance.system.rawValue
         AppearanceDriver.shared.reapply()
         minimumContrast = TerminalSettings.defaults.minimumContrast
         GhosttyRuntime.applyTerminalSettings()
-        if !preview.showsDefaults {
-            preview.showDefaults()
-        }
     }
 
     private var fontPage: some View {
@@ -652,211 +625,6 @@ struct SettingsView: View {
         }
     }
 
-    /// Restores the shared light and dark themes through the preview transaction.
-    private var restoreDefaultThemesButton: some View {
-        let disabled = preview.showsDefaults
-        return Button {
-            preview.showDefaults()
-        } label: {
-            Text("Restore Default Themes")
-                .font(.system(size: 13, weight: .medium))
-                // Accent while clickable; the muted tertiary alone reads as disabled.
-                .foregroundStyle(disabled ? chrome.tertiary : chrome.accent)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(FamilyButtonStyle())
-        .disabled(disabled)
-    }
-
-    /// The two themes in use (or being previewed) stay on top; clicking one lists that slot's themes.
-    /// The list opens on typing or on Dark / Light; previews apply to every terminal.
-    private var themePicker: some View {
-        let results = matchingThemes
-        return VStack(alignment: .leading, spacing: Theme.Space.l) {
-            // 与下方结果网格共用列定义，两张卡占前两列并与结果卡对齐。
-            LazyVGrid(columns: themeColumns, alignment: .leading, spacing: Theme.Space.m) {
-                currentThemeCard(title: "Current light theme", choice: preview.effectiveLight(), filter: .light)
-                currentThemeCard(title: "Current dark theme", choice: preview.effectiveDark(), filter: .dark)
-            }
-
-            HStack(spacing: Theme.Space.m) {
-                themeSearchField
-                themeFilterBar
-            }
-
-            if !showsThemeList {
-                Text(String(format: String(localized: "Type to search %lld themes"), results.count))
-                    .font(Theme.sidebarRowMeta)
-                    .foregroundStyle(chrome.secondary)
-            } else if results.isEmpty {
-                Text("No matching themes")
-                    .font(Theme.sidebarRowMeta)
-                    .foregroundStyle(chrome.secondary)
-            } else {
-                Text(String(format: String(localized: "Showing %lld themes"), results.count))
-                    .font(Theme.sidebarRowMeta)
-                    .foregroundStyle(chrome.secondary)
-                LazyVGrid(columns: themeColumns, spacing: Theme.Space.m) {
-                    ForEach(results) { definition in
-                        ThemePreviewCard(
-                            definition: definition,
-                            selected: isInUse(definition)
-                        ) {
-                            preview.show(definition)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var themeSearchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
-                .foregroundStyle(chrome.secondary)
-            TextField("Search themes", text: $themeQuery)
-                .focused($themeSearchFocused)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .foregroundStyle(chrome.text)
-            if !themeQuery.isEmpty {
-                Button {
-                    themeQuery = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(chrome.secondary)
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .help("Clear search")
-            }
-        }
-        .padding(.horizontal, Theme.Space.m)
-        .frame(maxWidth: .infinity)
-        .frame(height: SettingsView.searchControlHeight)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(themeSearchFocused ? chrome.background : chrome.elevated)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(themeSearchFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
-        )
-        .familyFocusRing(themeSearchFocused)
-    }
-
-    /// Same height and border as the search field, so the row reads as one control group.
-    private var themeFilterBar: some View {
-        HStack(spacing: 2) {
-            ForEach(ThemeFilter.allCases) { filter in
-                let selected = themeFilter == filter
-                Button {
-                    themeFilter = filter
-                } label: {
-                    Text(filter.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(selected ? chrome.accent : chrome.text)
-                        .padding(.horizontal, Theme.Space.m)
-                        .frame(maxHeight: .infinity)
-                        .background(
-                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                .fill(selected ? chrome.accentFill : Color.clear)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .frame(height: SettingsView.searchControlHeight)
-        .fixedSize(horizontal: true, vertical: false)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(chrome.background)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .stroke(chrome.hairline, lineWidth: 1)
-        )
-    }
-
-    /// Clicking a current card lists every theme for that slot, so one can be picked and previewed.
-    private func currentThemeCard(title: LocalizedStringKey, choice: TerminalThemeChoice, filter: ThemeFilter) -> some View {
-        let hint: LocalizedStringKey = filter == .light ? "Show all light themes" : "Show all dark themes"
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(chrome.secondary)
-            ThemePreviewCard(
-                definition: choice.definition,
-                selected: themeFilter == filter
-            ) {
-                themeQuery = ""
-                themeFilter = filter
-            }
-            .help(hint)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func isInUse(_ definition: GhosttyThemeDefinition) -> Bool {
-        definition.name == preview.effectiveLight().name
-            || definition.name == preview.effectiveDark().name
-    }
-
-    private var previewActionBar: some View {
-        HStack(spacing: 10) {
-            Text(String(format: String(localized: "Previewing: %@"), preview.previewedNames.joined(separator: " · ")))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(chrome.text)
-                .lineLimit(1)
-            Spacer(minLength: 8)
-            Button("Cancel") {
-                preview.cancel()
-            }
-            .accessibilityIdentifier("settings.appearance.preview.cancel")
-            Button("Save") {
-                preview.save()
-            }
-            .keyboardShortcut("s", modifiers: .command)
-            .buttonStyle(FamilyButtonStyle(kind: .primary))
-            .accessibilityIdentifier("settings.appearance.preview.save")
-        }
-        .frame(width: pageContentBounds[selectedPage]?.width)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, pageContentBounds[selectedPage]?.minX ?? Theme.Space.xl)
-        .padding(.trailing, Theme.Space.xl)
-        .background(chrome.sidebarBackground)
-        .overlay(alignment: .top) {
-            Rectangle().fill(chrome.hairline).frame(height: 1)
-        }
-    }
-}
-
-private enum ThemeFilter: String, CaseIterable, Identifiable {
-    case all
-    case light
-    case dark
-
-    var id: Self { self }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .all: "Filter: All"
-        case .light: "Filter: Light"
-        case .dark: "Filter: Dark"
-        }
-    }
-
-    func includes(_ definition: GhosttyThemeDefinition) -> Bool {
-        switch self {
-        case .all: return true
-        case .light: return definition.isLightBackground
-        case .dark: return !definition.isLightBackground
-        }
-    }
 }
 
 private struct SettingsWindowRoot: View {
@@ -925,7 +693,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        ThemePreview.shared.cancel()
         ShortcutRecorder.shared.stop()
         guard model?.isQuitting != true, let owner, owner.isVisible else { return }
         owner.makeKeyAndOrderFront(nil)

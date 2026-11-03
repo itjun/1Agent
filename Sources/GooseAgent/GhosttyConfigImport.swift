@@ -38,12 +38,9 @@ enum GhosttyConfigImport {
         )
         let context = GhosttyImportContext(
             settings: TerminalSettings.load(),
-            lightTheme: TerminalThemeChoice.storedLight().name,
-            darkTheme: TerminalThemeChoice.storedDark().name,
-            lookupTheme: { name in
-                guard let choice = TerminalThemeChoice(raw: name) else { return nil }
-                return GhosttyThemeLookup(isLightBackground: choice.definition.isLightBackground)
-            }
+            lightTheme: AppTheme.terminalDefinition(isDark: false).name,
+            darkTheme: AppTheme.terminalDefinition(isDark: true).name,
+            lookupTheme: { _ in nil }
         )
         return GhosttyConfigImporter.makePlan(config: config, context: context)
     }
@@ -62,20 +59,11 @@ enum GhosttyConfigImport {
         defaults.dictionary(forKey: GhosttyConfigImport.backupKey) != nil
     }
 
-    /// Writes settings, theme slots, shortcuts and the snippet in one go, then applies them to every
-    /// terminal. Theme slots accept built-in names only.
+    /// 只导入字体、行为和快捷键；配色由应用预设管理，旧主题偏好原样保留。
     static func applyPlan(_ plan: GhosttyImportPlan, defaults: UserDefaults = .standard) {
         GhosttyConfigImport.saveBackup(defaults: defaults)
-        ThemePreview.shared.cancel()
 
         plan.newSettings.save(to: defaults)
-
-        if let light = plan.theme.light, let choice = TerminalThemeChoice(raw: light.name) {
-            defaults.set(choice.name, forKey: TerminalAppearance.lightThemeKey)
-        }
-        if let dark = plan.theme.dark, let choice = TerminalThemeChoice(raw: dark.name) {
-            defaults.set(choice.name, forKey: TerminalAppearance.darkThemeKey)
-        }
 
         var chords: [AppShortcutID: KeyChord] = [:]
         for shortcut in plan.shortcuts {
@@ -93,7 +81,6 @@ enum GhosttyConfigImport {
     /// Restores the values saved by the last import and forgets the backup.
     static func undoLastImport(defaults: UserDefaults = .standard) {
         guard let backup = defaults.dictionary(forKey: GhosttyConfigImport.backupKey) else { return }
-        ThemePreview.shared.cancel()
         let values = backup["values"] as? [String: Any] ?? [:]
         let absent = backup["absent"] as? [String] ?? []
         for (key, value) in values {
@@ -101,11 +88,6 @@ enum GhosttyConfigImport {
         }
         for key in absent {
             defaults.removeObject(forKey: key)
-        }
-        // Older import backups restore separate connection slots; merge those restored choices too.
-        if (Array(values.keys) + absent).contains(where: { $0.hasPrefix("appearance.terminalTheme.local.") || $0.hasPrefix("appearance.terminalTheme.remote.") }) {
-            defaults.removeObject(forKey: TerminalThemeChoice.migrationKey)
-            TerminalThemeChoice.migrateIfNeeded(defaults: defaults)
         }
         defaults.set(defaults.integer(forKey: AppShortcuts.revisionKey) + 1, forKey: AppShortcuts.revisionKey)
         defaults.removeObject(forKey: GhosttyConfigImport.backupKey)
@@ -166,7 +148,7 @@ enum GhosttyConfigImport {
             return
         }
         let alert = FamilyAlert()
-        alert.messageText = String(localized: "Found a Ghostty config file. Import its font, theme and other settings?")
+        alert.messageText = String(localized: "Found a Ghostty config file. Import its font and terminal settings?")
         var paths: [String] = []
         for url in files {
             paths.append((url.path as NSString).abbreviatingWithTildeInPath)

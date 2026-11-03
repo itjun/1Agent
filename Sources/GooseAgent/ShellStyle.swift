@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 enum ShellStyle {
@@ -18,9 +19,12 @@ enum ShellLayout {
     static let compactTitlebarHeight: CGFloat = 32
     static let compactHeaderHeight: CGFloat = 32
     static let titlebarActionWidth: CGFloat = 48
-    static let terminalOpacity: Double = 0.84
+    static let terminalOpacity: Double = 0.96
     static let fileOpacity: Double = 0.98
-    static let backdropTintOpacity: CGFloat = 0.25
+    static let lightBackdropOpacity: CGFloat = 0.90
+    static let darkBackdropOpacity: CGFloat = 0.62
+    static let lightGlowOpacity: CGFloat = 0.25
+    static let darkGlowOpacity: CGFloat = 0.20
     static let shadowRadius: CGFloat = 4
     static let shadowOffset: CGFloat = 2
     static let shadowOpacity: Double = 0.14
@@ -93,6 +97,8 @@ final class ShellBackdropView: NSView {
     private let wallpaperView = DesktopWallpaperView()
     private let materialView = NSVisualEffectView()
     private let washView = NSView()
+    private let gradientLayer = CAGradientLayer()
+    private let glowLayer = CAGradientLayer()
     override var isOpaque: Bool { true }
 
     override init(frame frameRect: NSRect) {
@@ -102,6 +108,13 @@ final class ShellBackdropView: NSView {
         materialView.blendingMode = .withinWindow
         materialView.state = .active
         washView.wantsLayer = true
+        gradientLayer.startPoint = CGPoint(x: 0.5, y: 1)
+        gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
+        gradientLayer.locations = [0, 0.5, 1]
+        glowLayer.startPoint = CGPoint(x: 1, y: 1)
+        glowLayer.endPoint = CGPoint(x: 0.5, y: 0.5)
+        washView.layer?.addSublayer(gradientLayer)
+        washView.layer?.addSublayer(glowLayer)
         for view in [wallpaperView, materialView, washView] {
             view.frame = bounds
             view.autoresizingMask = [.width, .height]
@@ -116,16 +129,32 @@ final class ShellBackdropView: NSView {
         applyStyle()
     }
 
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradientLayer.frame = washView.bounds
+        glowLayer.frame = washView.bounds
+        CATransaction.commit()
+    }
+
     func applyStyle() {
         wantsLayer = true
         appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        let fallback = NSColor.windowBackgroundColor
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            // 即使壁纸无法读取，也用不透明底色阻止其他窗口内容穿透。
-            layer?.backgroundColor = fallback.cgColor
-            let wash = NSColor.windowBackgroundColor.withAlphaComponent(ShellLayout.backdropTintOpacity)
-            washView.layer?.backgroundColor = (isTransparent ? wash : fallback).cgColor
-        }
+        let colors = AppTheme.colors(isDark: isDark)
+        let fallback = NSColor(colors.color(colors.gradient[1]))
+        let opacity = isTransparent ? (isDark ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity) : 1
+        let glow = NSColor(AppTheme.light.color("A5D7B4"))
+            .withAlphaComponent(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        // 实色底板阻止其他窗口内容穿透；只在材质下采样桌面壁纸。
+        layer?.backgroundColor = fallback.cgColor
+        gradientLayer.colors = colors.gradient.map { NSColor(colors.color($0)).withAlphaComponent(opacity).cgColor }
+        glowLayer.colors = [glow.cgColor, glow.withAlphaComponent(0).cgColor]
+        gradientLayer.frame = washView.bounds
+        glowLayer.frame = washView.bounds
+        CATransaction.commit()
         let wasHidden = wallpaperView.isHidden
         wallpaperView.isHidden = !isTransparent
         materialView.isHidden = !isTransparent

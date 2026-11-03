@@ -603,7 +603,6 @@ struct GooseAgentApp: App {
         CommandLineLaunch.handOffIfAnotherInstanceRuns()
         LegacyDefaultsMigration.runIfNeeded()
         AppLanguage.synchronize()
-        TerminalThemeChoice.migrateIfNeeded()
         // AppKit's own View → Enter Full Screen always shows 🌐F. View → Toggle Full Screen below replaces it,
         // so its key follows `AppShortcuts`. Registered, not written, so the defaults domain is unchanged.
         // A terminal never wants AutoFill guessing at its input; official Ghostty turns it off the same way.

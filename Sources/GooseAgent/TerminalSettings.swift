@@ -190,7 +190,16 @@ struct TerminalSettings: Equatable {
 
     /// Keys the advanced snippet may not set: the app drives them itself, or they would
     /// make Ghostty read files outside the app. `keybind` is allowed, see `keybindConflictsWithApp`.
-    static let managedKeys: Set<String> = [
+    /// 配色只来自完整预设；包含能间接覆盖底色的图片与着色器入口。
+    static let presetColorKeys: Set<String> = [
+        "theme", "background", "foreground", "palette", "bold-color",
+        "cursor-color", "cursor-text", "selection-background", "selection-foreground",
+        "background-opacity", "background-opacity-cells", "unfocused-split-fill",
+        "background-image", "background-image-opacity", "background-image-position",
+        "background-image-fit", "background-image-repeat", "custom-shader", "custom-shader-animation",
+    ]
+
+    static let managedKeys: Set<String> = TerminalSettings.presetColorKeys.union([
         "font-family",
         "font-size",
         "background-opacity",
@@ -199,7 +208,7 @@ struct TerminalSettings: Equatable {
         "mouse-shift-capture",
         "config-file",
         "config-default-files",
-    ]
+    ])
 
     /// Ghostty's macOS default triggers for the actions in the app's Terminal menu and Edit → Find
     /// (Config.zig). Unbound so only the app's shortcuts run them, even after the user rebinds one elsewhere.

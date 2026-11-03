@@ -3,12 +3,11 @@ import SwiftUI
 struct ApplicationIconSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var icons = ApplicationIconManager.shared
-    @AppStorage(SharedPalette.storageKey) private var sharedPaletteRaw = SharedPalette.defaultPalette.rawValue
     @State private var hoveredIcon: ApplicationIcon?
 
     var body: some View {
         VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
-            Text("Choose the app icon and shared accent. Local and remote sessions use the same colors; terminal themes stay separate.")
+            Text("Choose the app icon. Window and terminal colors stay on the selected preset.")
                 .font(Theme.Font.rowMeta)
                 .foregroundStyle(chrome.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -24,9 +23,6 @@ struct ApplicationIconSettingsPage: View {
                 Button("Restore Default Icon") { selectIcon(.defaultIcon) }
                     .disabled(defaultIsActive)
                     .accessibilityIdentifier("settings.appIcon.restoreDefault")
-                Button("Restore Default Colors") { sharedPaletteRaw = SharedPalette.defaultPalette.rawValue }
-                    .disabled(SharedPalette.palette(raw: sharedPaletteRaw) == SharedPalette.defaultPalette)
-                    .accessibilityIdentifier("settings.sharedPalette.restoreDefault")
             }
             .font(Theme.Font.rowMeta)
             .foregroundStyle(chrome.text)
@@ -51,19 +47,18 @@ struct ApplicationIconSettingsPage: View {
 
     private var defaultIsActive: Bool {
         icons.selected == .defaultIcon && !icons.loadFailed && !icons.finderUpdateFailed
-            && SharedPalette.palette(raw: sharedPaletteRaw) == ApplicationIcon.defaultIcon
     }
 
     private var tableHeader: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Theme.Space.l) {
-                Text("Icon and Color").frame(width: SettingsLayout.appIconIdentityWidth, alignment: .leading)
-                Text("Appearance Preview").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Icon").frame(width: SettingsLayout.appIconIdentityWidth, alignment: .leading)
+                Spacer(minLength: Theme.Space.m)
                 choiceHeadings
             }
             .frame(minWidth: SettingsLayout.stackedRowBreakpoint)
             HStack(spacing: Theme.Space.l) {
-                Text("Icon and Color").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Icon").frame(maxWidth: .infinity, alignment: .leading)
                 choiceHeadings
             }
         }
@@ -78,11 +73,11 @@ struct ApplicationIconSettingsPage: View {
     }
 
     private func paletteRow(_ icon: ApplicationIcon) -> some View {
-        let palette = WindowChrome(isDark: chrome.isDark, icon: icon)
+        let palette = chrome
         return ViewThatFits(in: .horizontal) {
             HStack(spacing: Theme.Space.l) {
                 identity(icon, palette: palette).frame(width: SettingsLayout.appIconIdentityWidth, alignment: .leading)
-                effectPreview(palette).frame(maxWidth: .infinity)
+                Spacer(minLength: Theme.Space.m)
                 choices(icon, palette: palette)
             }
             .frame(minWidth: SettingsLayout.stackedRowBreakpoint)
@@ -91,7 +86,6 @@ struct ApplicationIconSettingsPage: View {
                     identity(icon, palette: palette).frame(maxWidth: .infinity, alignment: .leading)
                     choices(icon, palette: palette)
                 }
-                effectPreview(palette)
             }
         }
         .padding(.horizontal, Theme.Space.m)
@@ -108,7 +102,7 @@ struct ApplicationIconSettingsPage: View {
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 Text(verbatim: icon.title).font(Theme.Font.body).foregroundStyle(chrome.text)
                 HStack(spacing: Theme.Space.xs) {
-                    Circle().fill(palette.accentFill)
+                    Circle().fill(icon.palette.map { RGBColor(ghosttyHex: $0.fill)!.color } ?? palette.accentFill)
                         .overlay(Circle().strokeBorder(palette.accent, lineWidth: 1))
                         .frame(width: SettingsLayout.appIconSwatchSize, height: SettingsLayout.appIconSwatchSize)
                         .accessibilityHidden(true)
@@ -123,7 +117,7 @@ struct ApplicationIconSettingsPage: View {
     private func choices(_ icon: ApplicationIcon, palette: WindowChrome) -> some View {
         HStack(spacing: Theme.Space.s) {
             choiceButton(isSelected: icons.selected == icon, palette: palette,
-                         label: String(format: String(localized: "Use %@ for the app icon and shared colors"), icon.title),
+                         label: String(format: String(localized: "Use %@ for the app icon"), icon.title),
                          identifier: "settings.appIcon.\(icon.rawValue)") { selectIcon(icon) }
         }
     }
@@ -145,28 +139,8 @@ struct ApplicationIconSettingsPage: View {
         .accessibilityIdentifier(identifier)
     }
 
-    private func effectPreview(_ palette: WindowChrome) -> some View {
-        HStack(spacing: Theme.Space.s) {
-            Text("Selected Session")
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Space.s)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(palette.accentFill))
-            Text("Focused Pane")
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Space.s)
-                .background(chrome.background)
-                .modifier(FloatingContentSurface())
-                .environment(\.windowChrome, palette)
-        }
-        .font(Theme.Font.rowMeta)
-        .foregroundStyle(chrome.text)
-        .accessibilityHidden(true)
-    }
-
     private func selectIcon(_ icon: ApplicationIcon) {
         icons.select(icon)
-        guard icons.selected == icon, !icons.loadFailed else { return }
-        sharedPaletteRaw = icon.rawValue
     }
 
     @ViewBuilder

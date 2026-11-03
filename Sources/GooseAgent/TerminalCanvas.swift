@@ -9,7 +9,6 @@ struct TerminalCanvas: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @ObservedObject private var find = TerminalFind.shared
-    @ObservedObject private var themePreview = ThemePreview.shared
     var dropRelay: CanvasDropRelay
     var dark: Bool
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
@@ -90,13 +89,8 @@ struct TerminalCanvas: View {
                     .background(alignment: .top) {
                         if isShellTransparent {
                             floatingTerminalBackground
-                                .opacity(window.selectedTabID == tab.id ? 1 : ShellLayout.terminalOpacity)
+                                .opacity(ShellLayout.terminalOpacity)
                                 .frame(height: cardHeader).allowsHitTesting(false)
-                        }
-                    }
-                    .background {
-                        if isShellTransparent && window.selectedTabID == tab.id {
-                            floatingTerminalBackground.allowsHitTesting(false)
                         }
                     }
                     .modifier(FloatingContentSurface())
@@ -161,17 +155,17 @@ struct TerminalCanvas: View {
     }
 
     private var terminalIsDark: Bool {
-        themePreview.previewingDark ?? TerminalAppearance.stored().resolvesDark()
+        dark
     }
 
     private var floatingTerminalBackground: Color {
-        let theme = terminalIsDark ? themePreview.effectiveDark() : themePreview.effectiveLight()
-        return RGBColor(ghosttyHex: theme.definition.background)?.color ?? chrome.background
+        let theme = AppTheme.terminalDefinition(isDark: terminalIsDark)
+        return RGBColor(ghosttyHex: theme.background)?.color ?? chrome.background
     }
 
     private var floatingTerminalForeground: Color {
-        let theme = terminalIsDark ? themePreview.effectiveDark() : themePreview.effectiveLight()
-        return RGBColor(ghosttyHex: theme.definition.foreground)?.color ?? chrome.text
+        let theme = AppTheme.terminalDefinition(isDark: terminalIsDark)
+        return RGBColor(ghosttyHex: theme.foreground)?.color ?? chrome.text
     }
 
     private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {

@@ -192,17 +192,16 @@ enum GhosttyRuntime {
 
     static func applyColorSchemes(isDark: Bool) {
         for target in TerminalThemeTarget.allCases {
-            let dark = ThemePreview.shared.previewingDark ?? isDark
+            let dark = isDark
             controller(for: target).setColorScheme(dark ? .dark : .light)
         }
         SSHTerminalRegistry.applyAppearances(isDark: isDark)
     }
 
     private static func selectedThemes() -> TerminalTheme {
-        TerminalThemeChoice.migrateIfNeeded()
         return TerminalTheme(
-            light: ThemePreview.shared.effectiveLight().terminalConfiguration(),
-            dark: ThemePreview.shared.effectiveDark().terminalConfiguration()
+            light: AppTheme.terminalDefinition(isDark: false).terminalConfiguration(),
+            dark: AppTheme.terminalDefinition(isDark: true).terminalConfiguration()
         )
     }
 
@@ -212,7 +211,7 @@ enum GhosttyRuntime {
         settings: TerminalSettings,
         snippet: [TerminalConfigEntry]
     ) -> TerminalConfiguration {
-        let entries = (settings.configEntries() + snippet).filter { $0.key != "background-opacity" }
+        let entries = (settings.configEntries() + snippet).filter { !TerminalSettings.presetColorKeys.contains($0.key) }
         return TerminalConfiguration { builder in
             builder.withBackgroundOpacity(ShellStyle.isTransparent ? ShellLayout.terminalOpacity : 1)
             for entry in entries {
@@ -501,7 +500,7 @@ enum SSHTerminalRegistry {
 
     static func applyAppearances(isDark: Bool) {
         for view in views.values {
-            let dark = ThemePreview.shared.previewingDark ?? isDark
+            let dark = isDark
             view.applyTerminalAppearance(dark: dark)
         }
     }
@@ -1769,7 +1768,7 @@ struct SSHTerminalView: NSViewRepresentable {
     }
 
     private func applyAppearance(_ view: SSHTerminalNSView, dark: Bool) {
-        let resolvedDark = ThemePreview.shared.previewingDark ?? AppearanceDriver.shared.interfaceIsDark
+        let resolvedDark = AppearanceDriver.shared.interfaceIsDark
         view.applyTerminalAppearance(dark: resolvedDark)
     }
 

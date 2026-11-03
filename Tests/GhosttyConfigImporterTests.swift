@@ -212,7 +212,6 @@ enum GhosttyConfigImporterTests {
             "font-family|SF Mono|Maple Mono NF CN",
             "font-size|14|14",
             "cursor-style|block|bar",
-            "background-opacity|1|0.95",
             "window-padding-x|8|18",
             "font-feature|Ligatures on|Ligatures off",
             "cursor-style-blink|true|true",
@@ -228,19 +227,22 @@ enum GhosttyConfigImporterTests {
 
         let ignored = plan.ignored.map { "\($0.line)|\($0.reason)" }
         expect(ignored == [
+            "background-opacity = 0.95|preset",
+            "selection-background = #333333|preset",
             "window-save-state = always|window",
             "macos-titlebar-style = tabs|window",
             "background-blur = 20|blur",
             "gtk-single-instance = true|platform",
-            "custom-shader = foo.glsl|shader",
+            "custom-shader = foo.glsl|preset",
             "command = /bin/zsh|process",
             "quick-terminal-position = top|appLevel",
             "auto-update = off|appLevel",
+            "theme = light:GitHub Light Default,dark:GitHub Dark Default|preset",
         ], "ignored: \(ignored)")
 
         let unmigrated = plan.unmigrated.map(\.line)
         expect(unmigrated == ["font-family = Symbols Nerd Font", "clipboard-write = deny"], "unmigrated: \(unmigrated)")
-        expect(plan.theme.light?.name == "GitHub Light Default" && plan.theme.dark?.name == "GitHub Dark Default", "theme planned")
+        expect(plan.theme.isEmpty, "import cannot replace the app preset")
         expect(!plan.changesNothing, "plan changes something")
 
         expect(GhosttyConfigImporter.ignoreReason(forKey: "window-padding-y") == nil, "padding is imported")

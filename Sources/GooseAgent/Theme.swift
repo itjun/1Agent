@@ -154,7 +154,45 @@ enum Theme {
     }
 }
 
-/// Fixed family chrome. Terminal themes own only the terminal rendering surface.
+/// 一套完整预设同时供窗口、设置和终端使用；图标与旧 Ghostty 偏好不参与取色。
+enum AppTheme {
+    static let id = "M05"
+    static var title: String { String(localized: "Mint Candy") }
+
+    struct Colors {
+        let gradient: [String]
+        let background: String
+        let foreground: String
+        let secondary: String
+        let accent: String
+        let selection: String
+        let hover: String
+        let border: String
+        let ansi: [String]
+
+        func color(_ hex: String) -> Color { RGBColor(ghosttyHex: hex)!.color }
+        var gradientColors: [Color] { gradient.map { color($0) } }
+    }
+
+    static let light = Colors(
+        gradient: ["DDEFE4", "E8F3E7", "F4F1DE"],
+        background: "F7FAF6", foreground: "243A2D", secondary: "53675A",
+        accent: "356F4A", selection: "D4E9DA", hover: "E8F2E9", border: "D7E5DA",
+        ansi: ["243A2D", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "5D7062",
+               "53675A", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "344D3C"]
+    )
+    static let dark = Colors(
+        gradient: ["2E3E34", "323A34", "3F3F34"],
+        background: "27292B", foreground: "E6E8E7", secondary: "ABB2AE",
+        accent: "A5D7B4", selection: "36473D", hover: "303633", border: "3A3E3B",
+        ansi: ["84978B", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "C3D7CA",
+               "95AA9D", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E6E8E7"]
+    )
+
+    static func colors(isDark: Bool) -> Colors { isDark ? dark : light }
+}
+
+/// 所有窗口共用当前预设，终端读取同一组底色、文字和强调色。
 struct WindowChrome: Equatable {
     let isDark: Bool
     var background: Color
@@ -203,65 +241,34 @@ struct WindowChrome: Equatable {
         return black.contrastRatio(with: background) >= white.contrastRatio(with: background) ? .black : .white
     }
 
-    static func resolve(isDark: Bool, icon: ApplicationIcon = SharedPalette.stored()) -> WindowChrome {
-        WindowChrome(isDark: isDark, icon: icon)
+    static func resolve(isDark: Bool) -> WindowChrome {
+        WindowChrome(isDark: isDark)
     }
 
-    init(isDark: Bool, icon: ApplicationIcon = SharedPalette.stored()) {
+    init(isDark: Bool) {
         self.isDark = isDark
-        func rgb(_ light: String, _ dark: String) -> RGBColor {
-            RGBColor(ghosttyHex: isDark ? dark : light)!
-        }
-        func color(_ light: String, _ dark: String) -> Color {
-            rgb(light, dark).color
-        }
-        // 色板只决定选中与焦点；底板、文字和普通控件在所有方案中一致。
-        let white = RGBColor(red: 1, green: 1, blue: 1)
-        let black = RGBColor(red: 0, green: 0, blue: 0)
-        let backgroundRGB = rgb("FCFCFD", "20242B")
-        let sidebarRGB = isDark
-            ? backgroundRGB.mixed(with: black, amount: 0.08)
-            : rgb("F1F4F8", "12161F")
-        background = backgroundRGB.color
-        sidebarBackground = sidebarRGB.color
-        let elevatedRGB = isDark ? backgroundRGB.mixed(with: white, amount: 0.035) : rgb("F3F4F6", "232A38")
-        let hairlineRGB = isDark ? backgroundRGB.mixed(with: white, amount: 0.065) : rgb("E5E7EB", "2C3445")
-        elevated = elevatedRGB.color
-        text = color("1F2937", "EEF0F3")
-        secondary = color("5B626D", "B0B3BA")
+        let colors = AppTheme.colors(isDark: isDark)
+        background = colors.color(colors.background)
+        sidebarBackground = colors.color(colors.gradient[1])
+        elevated = colors.color(colors.hover)
+        text = colors.color(colors.foreground)
+        secondary = colors.color(colors.secondary)
         tertiary = secondary
-        hairline = hairlineRGB.color
-        accent = color("0052D9", "8CB8FF")
-        accentFill = color("E8EFFF", "313D50")
-        panelHeader = sidebarBackground
-        danger = color("D54941", "F06C63")
-        warning = color("D35A00", "F29A4A")
-        success = color("1A7F52", "56C08D")
-        accentHover = color("366EF4", "A3C6FF")
-        accentActive = color("003CAB", "779CD9")
-        focus = color("0052D9", "8CB8FF")
-        selection = color("C9DAFF", "274A8C")
-        lineStrong = color("7C838D", "717B8C")
-
-        guard let palette = icon.palette else { return }
-        let fill = RGBColor(ghosttyHex: palette.fill)!
-        let ring = RGBColor(ghosttyHex: palette.ring)!
-        let ink = RGBColor(ghosttyHex: palette.ink)!
-        let selectedRGB = isDark ? backgroundRGB.mixed(with: fill, amount: 0.14) : fill.mixed(with: white, amount: 0.55)
-        // 按最不利的选中／悬停背景校正强调色。
-        var tone = isDark ? ring : ink
-        for surface in [backgroundRGB, sidebarRGB, elevatedRGB, hairlineRGB, selectedRGB] {
-            tone = RGBColor.ensureContrast(tone, against: surface,
-                                          toward: isDark ? white : black, minimum: 4.5)
-        }
-        accent = tone.color
-        accentHover = tone.mixed(with: white, amount: 0.2).color
-        accentActive = tone.mixed(with: black, amount: isDark ? 0.15 : 0.2).color
-        accentFill = selectedRGB.color
-        focus = tone.color
-        selection = selectedRGB.color
-        panelHeader = sidebarBackground
+        hairline = colors.color(colors.border)
+        accent = colors.color(colors.accent)
+        accentFill = colors.color(colors.selection)
+        panelHeader = background
+        danger = colors.color(colors.ansi[1])
+        warning = colors.color(colors.ansi[3])
+        success = colors.color(colors.ansi[2])
+        let tone = RGBColor(ghosttyHex: colors.accent)!
+        accentHover = tone.mixed(with: RGBColor(red: 1, green: 1, blue: 1), amount: 0.12).color
+        accentActive = tone.mixed(with: RGBColor(red: 0, green: 0, blue: 0), amount: 0.12).color
+        focus = accent
+        selection = accentFill
+        lineStrong = colors.color(isDark ? "7D8982" : "78877C")
     }
+
 }
 
 struct RGBColor {

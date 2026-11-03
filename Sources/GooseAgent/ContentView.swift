@@ -6,13 +6,9 @@ struct RootView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @ObservedObject private var appearanceDriver = AppearanceDriver.shared
-    @ObservedObject private var themePreview = ThemePreview.shared
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
-    @AppStorage(TerminalAppearance.lightThemeKey) private var lightThemeRaw = TerminalThemeChoice.defaultLightName
-    @AppStorage(TerminalAppearance.darkThemeKey) private var darkThemeRaw = TerminalThemeChoice.defaultDarkName
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
-    @AppStorage(SharedPalette.storageKey) private var sharedPaletteRaw = SharedPalette.defaultPalette.rawValue
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var isMotionReduced
     @StateObject private var dropRelay = CanvasDropRelay()
@@ -31,7 +27,7 @@ struct RootView: View {
 
     /// 本机与远程共用强调色，切换连接不会改变外壳。
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearanceDriver.isDark, icon: SharedPalette.palette(raw: sharedPaletteRaw))
+        WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
     private var sidebarChrome: WindowChrome { chrome }
@@ -113,12 +109,6 @@ struct RootView: View {
             dropRelay.windowBox = window
             GhosttyRuntime.applySelectedThemes()
             appearanceDriver.reapply()
-        }
-        .onChange(of: lightThemeRaw) { _, _ in
-            GhosttyRuntime.applySelectedThemes()
-        }
-        .onChange(of: darkThemeRaw) { _, _ in
-            GhosttyRuntime.applySelectedThemes()
         }
         .background(WindowTitleSync(title: windowTitle))
         .modifier(HostInformationPresentation(model: model, window: window))

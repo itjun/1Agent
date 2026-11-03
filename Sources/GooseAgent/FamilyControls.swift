@@ -137,7 +137,7 @@ final class FamilySliderControl: NSSlider {
     override func resignFirstResponder() -> Bool { let result = super.resignFirstResponder(); needsDisplay = true; return result }
 }
 private final class FamilySliderCell: NSSliderCell {
-    var chrome = WindowChrome(isDark: false, icon: .original)
+    var chrome = WindowChrome(isDark: false)
     override var knobThickness: CGFloat { 16 }
     override func drawBar(inside rect: NSRect, flipped: Bool) {
         let track = NSRect(x: rect.minX, y: rect.midY - 2, width: rect.width, height: 4)

@@ -1,6 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Preset Theme" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Preset Theme"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "预设主题"}}}},
+    "Window and terminal colors follow this preset. Custom Ghostty colors are no longer applied." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Window and terminal colors follow this preset. Custom Ghostty colors are no longer applied."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "窗口与终端使用统一预设，原有 Ghostty 自定义配色不再生效。"}}}},
+    "Choose the app icon. Window and terminal colors stay on the selected preset." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose the app icon. Window and terminal colors stay on the selected preset."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择应用图标，窗口与终端配色由外观预设统一管理。"}}}},
+    "Use %@ for the app icon" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Use %@ for the app icon"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "使用%@作为应用图标"}}}},
+    "Colors are managed by the app preset" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Colors are managed by the app preset"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "配色由应用预设统一管理"}}}},
+    "Found a Ghostty config file. Import its font and terminal settings?" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Found a Ghostty config file. Import its font and terminal settings?"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "发现 Ghostty 配置文件，是否导入字体和终端设置？"}}}},
+    "Aa" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Aa"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "Aa"}}}},
     "After Change" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "After Change"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "修改后"}}}},
     "Before Change" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Before Change"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "修改前"}}}},
     "Unified Diff" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Unified Diff"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "单栏对照"}}}},
