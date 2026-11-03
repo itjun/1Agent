@@ -47,6 +47,7 @@ struct TerminalCanvas: View {
                     let content = frames[tab.id].map { Self.terminalContentFrame($0, isFloating: isShellTransparent, accessoryHeight: findBarInset(tab)) }
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
+                    let isSelected = window.selectedTabID == tab.id && window.section == .terminals
                     let cardHeader = isShellTransparent ? ShellLayout.compactHeaderHeight + findBarInset(tab) : 0
                     SSHTerminalView(
                         sessionID: tab.sessionID,
@@ -58,7 +59,7 @@ struct TerminalCanvas: View {
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
                         isPresented: visible && !window.presentation.fullFilesWorkspace,
-                        isSelected: window.selectedTabID == tab.id && window.section == .terminals,
+                        isSelected: isSelected,
                         contentCornerRadius: isShellTransparent ? ShellLayout.contentRadius : 0,
                         isHeaderIntegrated: isShellTransparent,
                         canFocus: {
@@ -85,12 +86,23 @@ struct TerminalCanvas: View {
                         width: max(drawn.width, 1),
                         height: max(drawn.height, 1)
                     )
+                    .background {
+                        if isShellTransparent && isSelected {
+                            // 只补实背景，不改 Metal 终端整体透明度，也不在切换时重载引擎。
+                            floatingTerminalBackground
+                        }
+                    }
                     .padding(.top, cardHeader)
                     .background(alignment: .top) {
                         if isShellTransparent {
                             floatingTerminalBackground
-                                .opacity(ShellLayout.terminalOpacity)
+                                .opacity(isSelected ? 1 : ShellLayout.terminalOpacity)
                                 .frame(height: cardHeader).allowsHitTesting(false)
+                        }
+                    }
+                    .background {
+                        if isShellTransparent && terminalIsDark && !isSelected {
+                            floatingTerminalForeground.opacity(ShellLayout.inactiveDarkTerminalBackdropOpacity)
                         }
                     }
                     .modifier(FloatingContentSurface())

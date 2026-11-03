@@ -165,7 +165,7 @@ enum FamilyAppearanceTests {
             expect(driver.isShellTransparent == isTransparent, "legacy style cannot disable the material")
             for target in TerminalThemeTarget.allCases {
                 let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
-                expect(rendered.contains(isTransparent ? "background-opacity = 0.96" : "background-opacity = 1"), "preset surface opacity reaches both engines")
+                expect(rendered.contains(isTransparent ? "background-opacity = 0.82" : "background-opacity = 1"), "preset surface opacity reaches both engines")
             }
             check(true, true, "legacy style preserves sessions")
         }

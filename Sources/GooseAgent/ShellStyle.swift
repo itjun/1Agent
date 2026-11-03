@@ -19,7 +19,10 @@ enum ShellLayout {
     static let compactTitlebarHeight: CGFloat = 32
     static let compactHeaderHeight: CGFloat = 32
     static let titlebarActionWidth: CGFloat = 48
-    static let terminalOpacity: Double = 0.96
+    /// 未选中终端的背景透明度；选中终端在渲染层下铺实色，文字始终不透明。
+    static let terminalOpacity: Double = 0.82
+    /// 深色外壳与终端底色接近，用柔和底光保留未选中面板的透明感。
+    static let inactiveDarkTerminalBackdropOpacity: Double = 0.30
     static let fileOpacity: Double = 0.98
     static let lightBackdropOpacity: CGFloat = 0.90
     static let darkBackdropOpacity: CGFloat = 0.88
