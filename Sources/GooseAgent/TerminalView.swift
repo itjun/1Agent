@@ -1484,9 +1484,10 @@ final class TerminalHostView: NSView {
         for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
             let size = terminal.frame.size
             guard size.width > 0, size.height > 0 else { continue }
+            // AppKit 的 backing layer 以原点为锚点；额外补偿中心位移会把画面
+            // 推离边框，缩小时露出空隙、放大时裁掉内容。
             terminal.layer?.setAffineTransform(CGAffineTransform(
-                a: bounds.width / size.width, b: 0, c: 0, d: bounds.height / size.height,
-                tx: (bounds.width - size.width) / 2, ty: (bounds.height - size.height) / 2))
+                scaleX: bounds.width / size.width, y: bounds.height / size.height))
         }
         CATransaction.commit()
     }

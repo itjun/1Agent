@@ -162,14 +162,22 @@ import SwiftUI
             try await Task.sleep(for: .milliseconds(2))
             times.append((CFAbsoluteTimeGetCurrent() - start) * 1000 - 2)
             precondition(terminal.frame.size == initialSize, "divider drag must not rebuild the terminal grid for each pixel")
+            verifyTerminalFillsHost(terminal, host: terminalHost)
         }
         terminalHost.endDividerResize()
         precondition(terminal.frame == terminalHost.bounds, "release must apply the final terminal dimensions")
         precondition(terminal.layer?.affineTransform() == .identity, "release must restore sharp unscaled terminal rendering")
         terminalHost.beginDividerResize()
-        terminalHost.setFrameSize(NSSize(width: 900, height: 650))
-        precondition(terminal.frame.height == 1000, "horizontal dividers also defer terminal grid resizing")
-        precondition(terminal.layer?.affineTransform().d == 0.65, "drag feedback must scale to the visible height")
+        for i in 0..<60 {
+            let height = CGFloat(400 + (i < 30 ? i : 59 - i) * 25)
+            // 上下分屏同时改变位置和高度，布局提交后也必须完整贴合边框。
+            terminalHost.frame = NSRect(x: 30, y: 1200 - height, width: 900, height: height)
+            container.layoutSubtreeIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(for: .milliseconds(2))
+            precondition(terminal.frame.height == 1000, "horizontal dividers also defer terminal grid resizing")
+            verifyTerminalFillsHost(terminal, host: terminalHost)
+        }
         terminalHost.endDividerResize()
         precondition(terminal.frame == terminalHost.bounds && terminal.layer?.affineTransform() == .identity)
         terminalHost.setFrameSize(NSSize(width: 1000, height: 700))
@@ -178,6 +186,16 @@ import SwiftUI
         let p95 = sorted[Int(Double(sorted.count - 1) * 0.95)]
         print(String(format: "Terminal + PNG resize mean=%.2fms p95=%.2fms max=%.2fms", times.reduce(0,+)/Double(times.count),p95,sorted.last!))
         if p95 > 33 { print("FAIL: terminal + image resize exceeds 33ms frame budget"); exit(2) }
+    }
+    @MainActor static func verifyTerminalFillsHost(_ terminal: SSHTerminalNSView, host: TerminalHostView) {
+        let visibleFrame = terminal.layer!.convert(terminal.layer!.bounds, to: host.layer!)
+        guard abs(visibleFrame.minX - host.bounds.minX) < 1,
+              abs(visibleFrame.minY - host.bounds.minY) < 1,
+              abs(visibleFrame.width - host.bounds.width) < 1,
+              abs(visibleFrame.height - host.bounds.height) < 1 else {
+            print("FAIL: terminal content \(visibleFrame) separates from divider border \(host.bounds)")
+            exit(3)
+        }
     }
     @MainActor static func measure(_ host: NSHostingView<WorkspaceFilePreview>, label: String) async throws {
         var times: [Double] = []
