@@ -1531,7 +1531,7 @@ final class TerminalHostView: NSView {
     }
 
     private func syncTerminalSurfaceVisibility() {
-        let isVisible = !isHidden && window?.isMiniaturized != true
+        let isVisible = window != nil && !isHiddenOrHasHiddenAncestor && window?.isMiniaturized != true
         for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
             terminal.setSurfaceVisible(isVisible)
         }
@@ -1590,7 +1590,7 @@ final class TerminalHostView: NSView {
     func attach(_ terminal: SSHTerminalNSView) {
         if terminal.superview === self { return }
         terminal.removeFromSuperview()
-        terminal.setSurfaceVisible(!isHidden && window?.isMiniaturized != true)
+        terminal.setSurfaceVisible(window != nil && !isHiddenOrHasHiddenAncestor && window?.isMiniaturized != true)
         terminal.frame = bounds
         terminal.autoresizingMask = [.width, .height]
         addSubview(terminal)
@@ -1599,6 +1599,7 @@ final class TerminalHostView: NSView {
 
     func detach(_ terminal: SSHTerminalNSView) {
         if terminal.superview === self {
+            terminal.setSurfaceVisible(false)
             terminal.removeFromSuperview()
         }
     }
