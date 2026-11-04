@@ -90,6 +90,33 @@ private struct GitRefreshKey: Hashable {
     var revision: Int
 }
 
+private struct WorkspaceRefreshButton: View {
+    let isLoading: Bool
+    let isFailed: Bool
+    let action: () -> Void
+    @State private var isComplete = false
+
+    var body: some View {
+        Button {
+            guard !isLoading else { return }
+            action()
+        } label: {
+            ZStack {
+                if isLoading { ProgressView().controlSize(.small) }
+                else { Image(systemName: isComplete ? "checkmark" : "arrow.clockwise") }
+            }.frame(width: 28, height: 28).contentShape(Rectangle())
+        }
+        .buttonStyle(FamilyButtonStyle()).help("Refresh").accessibilityLabel("Refresh")
+        .disabled(isLoading)
+        .onChange(of: isLoading) { _, loading in isComplete = !loading && !isFailed }
+        .task(id: isComplete) {
+            guard isComplete else { return }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            isComplete = false
+        }
+    }
+}
+
 struct WorkspaceChangesView: View {
     let location: GitLocation
     @ObservedObject var window: WindowState
@@ -123,8 +150,10 @@ struct WorkspaceChangesView: View {
                     }
                 }
                 Spacer()
-                Button { revision += 1 } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(FamilyButtonStyle()).help("Refresh").disabled(isLoading)
+                WorkspaceRefreshButton(isLoading: isLoading, isFailed: error != nil) {
+                    isLoading = true
+                    revision += 1
+                }.accessibilityIdentifier("workspace.changes.refresh")
             }
             FamilySegments(value: $window.toolGitBranchComparison, options: [
                 (false, String(localized: "Uncommitted")),
@@ -169,7 +198,7 @@ struct WorkspaceChangesView: View {
             }
 
         }
-        .padding(16)
+        .padding(.horizontal, 12).padding(.vertical, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task(id: refreshKey) { await refresh() }
         .onReceive(timer) { _ in if !isLoading && NSApp.isActive { revision += 1 } }
@@ -277,8 +306,10 @@ struct WorkspaceFilesView: View {
             HStack {
                 Text(verbatim: (location.directory as NSString).lastPathComponent).font(Theme.Font.sectionTitle)
                 Spacer()
-                Button { column.open(location.directory); revision += 1 } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(FamilyButtonStyle()).help("Refresh")
+                WorkspaceRefreshButton(isLoading: column.loading, isFailed: column.error != nil) {
+                    column.refresh()
+                    revision += 1
+                }.accessibilityIdentifier("workspace.files.refresh")
             }
             Text(verbatim: location.host == nil ? LocalTerminal.displayPath(location.directory) : location.directory)
                 .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(2).truncationMode(.middle)
@@ -289,7 +320,7 @@ struct WorkspaceFilesView: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(column.shown) { entry in
-                        WorkspaceFileRow(entry: entry, fileSystem: column.fileSystem, showHidden: column.showHidden, depth: 0, selectedPath: column.selection.first) { file in
+                        WorkspaceFileRow(entry: entry, fileSystem: column.fileSystem, showHidden: column.showHidden, depth: 0, selectedPath: column.selection.first, revision: revision) { file in
                             column.selection = [file.path]
                             guard !file.isDirectory, let kind = FilePreviewPolicy.kind(for: file.name) else { return }
                             window.openToolFilePreview(column)
@@ -300,7 +331,7 @@ struct WorkspaceFilesView: View {
                     if column.shown.isEmpty && !column.loading && column.error == nil {
                         Text("No files").foregroundStyle(chrome.secondary).padding(.vertical, 20)
                     }
-                }.id(revision)
+                }
             }
         }.padding(16).onAppear { column.start(at: location.directory) }
     }
@@ -312,6 +343,7 @@ private struct WorkspaceFileRow: View {
     let showHidden: Bool
     let depth: Int
     let selectedPath: String?
+    let revision: Int
     let open: (FileEntry) -> Void
     @State private var isExpanded = false
     @State private var children: [FileEntry] = []
@@ -345,11 +377,11 @@ private struct WorkspaceFileRow: View {
             if isExpanded {
                 if let error { Text(verbatim: error).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger) }
                 ForEach(children.filter { showHidden || !$0.isHidden }) { child in
-                    WorkspaceFileRow(entry: child, fileSystem: fileSystem, showHidden: showHidden, depth: depth + 1, selectedPath: selectedPath, open: open)
+                    WorkspaceFileRow(entry: child, fileSystem: fileSystem, showHidden: showHidden, depth: depth + 1, selectedPath: selectedPath, revision: revision, open: open)
                 }
             }
         }
-        .task(id: isExpanded) {
+        .task(id: isExpanded ? revision : nil) {
             guard isExpanded else { return }
             isLoading = true; error = nil
             do {
