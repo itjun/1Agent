@@ -1716,13 +1716,10 @@ final class AppModel: ObservableObject {
     func showSection(_ section: AppSection, in window: WindowState) {
         window.presentation.filesLayout = .sideBySide
         window.presentation.filesExpanded = false
-        if section == .files {
-            window.presentation.filesVisible = true
+        window.presentation.filesVisible = section == .files
+        if section != .terminals {
             // The independent Files page releases input without destroying terminal surfaces.
             MainWindowManager.shared.window(for: window)?.makeFirstResponder(nil)
-        }
-        if section == .terminals {
-            window.presentation.filesVisible = false
         }
         window.section = section
         if section == .terminals, let id = window.selectedTabID,

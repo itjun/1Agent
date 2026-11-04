@@ -62,6 +62,21 @@ enum CommandLiteralEditorTests {
             require(activeEditor.string == literal + "more", "changing focus and font preserves literal command text")
         }
         window.makeFirstResponder(nil)
+        for isDisabled in [true, false] {
+            window.contentView = NSHostingView(rootView: VStack {
+                CommandLiteralEditor(text: .constant(literal), textColor: .textColor, backgroundColor: .textBackgroundColor, identifier: "disabled.editor")
+                CommandLiteralField(text: .constant(literal), placeholder: "", textColor: .textColor, backgroundColor: .textBackgroundColor, identifier: "disabled.field")
+            }.disabled(isDisabled))
+            window.contentView!.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+            func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+            let views = descendants(window.contentView!)
+            let nativeEditor = views.compactMap { $0 as? CommandLiteralTextView }.first!
+            let nativeField = views.compactMap { $0 as? CommandLiteralTextField }.first!
+            require(nativeEditor.isEditable == !isDisabled && nativeField.isEnabled == !isDisabled,
+                    "saving locks native inputs and failure makes them editable again")
+            require(nativeEditor.string == literal && nativeField.stringValue == literal, "disabling input preserves the command text")
+        }
         window.close()
         print("ok")
     }

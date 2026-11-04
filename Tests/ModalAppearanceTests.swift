@@ -38,6 +38,7 @@ import SwiftUI
         let context = QuickCommandContext(directory: home)
         let item = QuickCommand(alias: "外观检查", command: "printf '%s\\n' '中文文字'", scope: .local)
         try QuickCommandStore.shared.save(item)
+        try await checkCommandPreview(item, model: model)
         let paste = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [item]), context: context)
         let plan = GhosttyConfigImport.makePlan()
         if let language = ProcessInfo.processInfo.environment["ONEAGENT_TEST_LANGUAGE"] {
@@ -48,7 +49,7 @@ import SwiftUI
         }
         let fixtures: [(String, CGFloat, CGFloat, AnyView)] = [
             ("host picker", SheetLayout.search, SheetLayout.sessionBodyHeight, AnyView(HostPicker(model: model, window: state))),
-            ("command editor", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandEditor(item: item, hosts: [], onClose: {}))),
+            ("command editor", SheetLayout.commandEditor, SheetLayout.commandEditorHeight, AnyView(QuickCommandEditor(item: item, hosts: [], onClose: {}))),
             ("command details", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandDetails(item: item, onClose: {}))),
             ("command confirmation", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandConfirmation(confirmation: QuickCommandConfirmationTarget(item: item, context: context), model: model, window: state, onClose: {}))),
             ("command paste", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandPasteView(request: paste, onClose: {}, onSaved: { _ in }))),
@@ -73,8 +74,8 @@ import SwiftUI
                 let card = (dialog.contentView as! FamilyModalBackdrop).card!
                 checkSurface(card, dark: dark, name: name)
                 if name == "command library" {
-                    for (id, title) in [("quickCommands.library.import", String(localized: "Import…")),
-                                        ("quickCommands.library.export", String(localized: "Export…"))] {
+                    for (id, title) in [("quickCommands.library.actions", String(localized: "Actions")),
+                                        ("quickCommands.library.edit", String(localized: "Edit"))] {
                         let button = elements(card).first { value($0, "accessibilityIdentifier") as? String == id }
                         expect(button != nil, "library exposes \(id)")
                         guard let button else { continue }
@@ -83,29 +84,49 @@ import SwiftUI
                         if button.responds(to: selector) {
                             let frame = unsafeBitCast(button.method(for: selector), to: FrameGetter.self)(button, selector)
                             let width = (title as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width
-                            expect(frame.width >= width + 20, "\(id) has room for its complete label")
+                            // 面板菜单是文字加下拉箭头；编辑按钮另含图标和按钮内边距。
+                            let accessoryWidth: CGFloat = id == "quickCommands.library.actions" ? 10 : 20
+                            expect(frame.width >= width + accessoryWidth, "\(id) has room for its complete label")
                         } else { expect(false, "\(id) exposes its frame") }
                     }
                 }
                 // Exercise a real nested sheet entry rather than recreating its content.
                 if name == "command library", dark {
-                    let newButtons = elements(card).filter { object in
-                        ["accessibilityTitle", "accessibilityLabel"].contains { key in
-                            value(object, key) as? String == String(localized: "New Quick Command")
-                        }
+                    var updated = item
+                    updated.alias = "刷新后的名称"
+                    updated.command = "printf refreshed"
+                    try QuickCommandStore.shared.save(updated)
+                    await settle()
+                    let refreshed = elements(card).first { value($0, "accessibilityIdentifier") as? String == "quickCommand." + item.id.uuidString }
+                    let rowText = refreshed.map { row in
+                        ["accessibilityTitle", "accessibilityLabel"].compactMap { value(row, $0) as? String }.joined(separator: " ")
+                    } ?? ""
+                    expect(rowText.contains(updated.alias) && rowText.contains(updated.command), "saved edits refresh the visible command row")
+                    try QuickCommandStore.shared.save(item)
+                    await settle()
+                    let actions = elements(card).first {
+                        value($0, "accessibilityIdentifier") as? String == "quickCommands.library.actions"
                     }
-                    expect(newButtons.isEmpty, "new commands have one entry in the sidebar, not a duplicate in the library")
+                    expect(actions != nil && invoke(actions!, "accessibilityPerformPress"), "library opens its actions menu")
+                    await settle()
+                    let menuLabels = FamilyMenuPresenter.shared.panels.flatMap { elements($0.contentView!) }.compactMap {
+                        value($0, "accessibilityLabel") as? String
+                    }
+                    for title in [String(localized: "New Quick Command"), String(localized: "Import Commands"), String(localized: "Export Commands")] {
+                        expect(menuLabels.contains(title), "library actions include \(title)")
+                    }
+                    FamilyMenuPresenter.shared.dismiss()
                     let button = elements(card).first { object in
-                        value(object, "accessibilityIdentifier") as? String == "quickCommand." + item.id.uuidString
+                        value(object, "accessibilityIdentifier") as? String == "quickCommands.library.edit"
                             && object.responds(to: NSSelectorFromString("accessibilityPerformPress"))
                     }
-                    expect(button != nil, "library exposes its command details action")
+                    expect(button != nil, "library exposes its command edit action")
                     guard let button else { continue }
-                    expect(invoke(button, "accessibilityPerformPress"), "nested details action activates")
+                    expect(invoke(button, "accessibilityPerformPress"), "nested editor action activates")
                     try await until { dialog.childWindows?.contains { $0 is FamilyModalWindow } == true }
                     let nested = dialog.childWindows!.first { $0 is FamilyModalWindow }!
                     await settle()
-                    checkSurface((nested.contentView as! FamilyModalBackdrop).card!, dark: true, name: "library → nested details")
+                    checkSurface((nested.contentView as! FamilyModalBackdrop).card!, dark: true, name: "library → nested editor")
                     nested.cancelOperation(nil)
                     try await until { dialog.childWindows?.isEmpty != false }
                 }
@@ -163,6 +184,93 @@ import SwiftUI
         print("ModalAppearanceTests passed: all dialog surfaces, live appearance changes, workspace confirmation, nested details, native confirmation and transfer toast")
     }
 
+    @MainActor static func checkCommandPreview(_ item: QuickCommand, model: AppModel) async throws {
+        let state = WindowState()
+        let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1100, height: 800), styleMask: [.titled], backing: .buffered, defer: false)
+        let host = NSHostingView(rootView: AnyView(QuickCommandSidebar(model: model, window: state).frame(width: 260)
+            .environment(\.windowChrome, WindowChrome(isDark: true))))
+        owner.contentView = host
+        owner.makeKeyAndOrderFront(nil)
+        defer { owner.orderOut(nil) }
+        await settle()
+        func button(_ id: String) -> NSObject? {
+            elements(host).first { value($0, "accessibilityIdentifier") as? String == id
+                && $0.responds(to: NSSelectorFromString("accessibilityPerformPress")) }
+        }
+        let row = button("quickCommand." + item.id.uuidString)
+        expect(row != nil && invoke(row!, "accessibilityPerformPress"), "single click selects command for sidebar preview")
+        await settle()
+        expect(button("quickCommands.preview.copy") != nil, "sidebar shows a copy action below its command list")
+        expect(!state.isToolPreviewOpen && state.section == .terminals, "selection does not open a separate card or leave the terminal")
+        expect(state.quickCommandConfirmation == nil, "preview never asks to execute")
+        let sidebarText = elements(host).flatMap { object in
+            ["accessibilityValue", "accessibilityLabel"].compactMap { value(object, $0) as? String }
+        }.joined(separator: " ")
+        expect(sidebarText.contains(item.command), "sidebar preview shows complete literal command")
+        expect(invoke(button("quickCommands.new")!, "accessibilityPerformPress"), "sidebar add routes to command management")
+        expect(state.section == .commands && state.commandLibraryDraft != nil, "new command opens the main command page")
+        expect(owner.childWindows?.contains { $0 is FamilyModalWindow } != true, "sidebar add does not open a modal")
+        state.commandLibraryDraft = nil
+        host.rootView = AnyView(QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
+            .environment(\.windowChrome, WindowChrome(isDark: true)))
+        await settle()
+        let edit = button("quickCommands.library.edit")
+        expect(edit != nil && invoke(edit!, "accessibilityPerformPress"), "main command page offers editing")
+        await settle()
+        expect(owner.childWindows?.contains { $0 is FamilyModalWindow } != true, "editing stays in the main page")
+        let fields = elements(host)
+        expect(fields.contains { ($0 as? CommandLiteralTextField)?.stringValue == item.alias }, "main page edits selected name")
+        let editor = fields.compactMap { $0 as? CommandLiteralTextView }.first!
+        expect(editor.string == item.command, "main page edits complete command text")
+        editor.insertText("cancelled draft", replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+        await settle()
+        expect(invoke(button("quickCommand.cancel")!, "accessibilityPerformPress"), "cancel exits page editing")
+        await settle()
+        expect(state.commandLibraryDraft == nil && state.section == .commands, "cancel returns to main command list")
+        expect(QuickCommandStore.shared.commands.first { $0.id == item.id }?.command == item.command, "cancel keeps saved command")
+        expect(invoke(button("quickCommands.library.edit")!, "accessibilityPerformPress"), "page editor can be reopened")
+        await settle()
+        let saveEditor = elements(host).compactMap { $0 as? CommandLiteralTextView }.first!
+        let savedText = "printf 'saved in command workspace\\n'"
+        saveEditor.insertText(savedText, replacementRange: NSRange(location: 0, length: (saveEditor.string as NSString).length))
+        await settle()
+        let save = button("quickCommand.save")!
+        _ = invoke(save, "accessibilityPerformPress")
+        _ = invoke(save, "accessibilityPerformPress")
+        try await until { state.commandLibraryDraft == nil }
+        expect(QuickCommandStore.shared.commands.first { $0.id == item.id }?.command == savedText, "page save persists literal command")
+        expect(QuickCommandStore.shared.commands.filter { $0.id == item.id }.count == 1, "repeated save does not duplicate command")
+        await settle()
+        expect(button("quickCommands.library.edit") != nil && owner.childWindows?.contains { $0 is FamilyModalWindow } != true, "save returns to the main list without a modal")
+        try QuickCommandStore.shared.save(item)
+        state.commandLibraryCollection = .common
+        await settle()
+        expect(invoke(button("quickCommands.library.actions")!, "accessibilityPerformPress"), "public library opens its actions menu")
+        await settle()
+        let newCommand = FamilyMenuPresenter.shared.panels.flatMap { elements($0.contentView!) }.first {
+            value($0, "accessibilityLabel") as? String == String(localized: "New Quick Command")
+                && $0.responds(to: NSSelectorFromString("accessibilityPerformPress"))
+        }
+        expect(newCommand is NSButton, "public library offers a native new-command menu item")
+        (newCommand as? NSButton)?.performClick(nil)
+        await settle()
+        expect(state.commandLibraryDraft?.scope == .all, "public library draft has no host binding")
+        expect(!elements(host).contains { value($0, "accessibilityIdentifier") as? String == "quickCommand.host" }, "public editor does not ask for a host")
+        expect(!elements(host).contains { value($0, "accessibilityIdentifier") as? String == "quickCommand.directory" }, "public editor does not ask for a directory")
+        expect(invoke(button("quickCommand.cancel")!, "accessibilityPerformPress"), "public text draft can be cancelled")
+        await settle()
+        host.rootView = AnyView(QuickCommandLibraryNavigation(model: model, window: state)
+            .environment(\.windowChrome, WindowChrome(isDark: true)))
+        await settle()
+        expect(button("quickCommands.library.collection.common") != nil, "empty public library remains available in main sidebar")
+        expect(invoke(button("quickCommands.library.collection.local")!, "accessibilityPerformPress"), "main sidebar switches command category")
+        expect(state.commandLibraryCollection == .local, "main sidebar and detail share collection selection")
+        model.showSection(.terminals, in: state)
+        expect(state.section == .terminals && !state.presentation.filesVisible, "terminal navigation leaves command page")
+        expect(try JSONDecoder().decode(AppSection.self, from: Data("\"commands\"".utf8)) == .commands, "command page restores from saved session")
+        print("CHECKED: sidebar text preview without separate card; main command page add/edit/save/cancel and navigation")
+    }
+
     @MainActor static func checkContextMenuGesture() {
         let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
         let content = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
@@ -199,7 +307,8 @@ import SwiftUI
         view.layoutSubtreeIfNeeded(); view.displayIfNeeded()
         let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
         view.cacheDisplay(in: view.bounds, to: bitmap)
-        let pixel = bitmap.colorAt(x: 20, y: 20)!
+        // 1x 显示密度时 (20, 20) 会落在标题字形上；顶部中央留白才是背景。
+        let pixel = bitmap.colorAt(x: bitmap.pixelsWide / 2, y: 8)!
         let chrome = WindowChrome(isDark: dark)
         // cacheDisplay is tagged with the display ICC profile; compare in that
         // space instead of interpreting those channels as untagged sRGB.

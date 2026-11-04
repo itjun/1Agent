@@ -653,6 +653,19 @@ enum SSHTerminalRegistry {
         return view.paste(text: text)
     }
 
+    /// 公共指令只走文本粘贴；换行文本沿用已有的粘贴确认。
+    @discardableResult
+    static func pasteLibraryText(_ text: String, into id: String) -> Bool {
+        guard let view = views[id], let identity = view.processHost?.process.identity else { return false }
+        view.window?.makeFirstResponder(view)
+        guard text.contains("\n") || text.contains("\r") else { return view.paste(text: text) }
+        view.confirmTextPaste(text) { [weak view] allow in
+            guard allow, let view, view.processHost?.process.identity == identity else { return }
+            _ = view.paste(text: text)
+        }
+        return true
+    }
+
     /// The terminal's window, for sheets and progress shown over it.
     static func window(for id: String) -> NSWindow? {
         views[id]?.window
@@ -1297,8 +1310,12 @@ final class SSHTerminalNSView: AppTerminalView {
 
     /// Asks before an unsafe paste. The contents only reach the shell after the user allows it.
     func confirmPaste(_ request: TerminalClipboardConfirmationRequest) {
+        confirmTextPaste(request.contents) { request.respond(allow: $0) }
+    }
+
+    func confirmTextPaste(_ text: String, completion: @escaping (Bool) -> Void) {
         guard let window else {
-            request.respond(allow: false)
+            completion(false)
             return
         }
         let alert = FamilyAlert()
@@ -1306,12 +1323,12 @@ final class SSHTerminalNSView: AppTerminalView {
         alert.messageText = String(localized: "Paste text that may run commands?")
         alert.informativeText = String(
             format: String(localized: "The text contains line breaks, so pasting it can run commands right away:\n\n%@"),
-            SSHTerminalNSView.pastePreview(request.contents)
+            SSHTerminalNSView.pastePreview(text)
         )
         alert.addButton(withTitle: String(localized: "Paste"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         alert.beginSheetModal(for: window) { response in
-            request.respond(allow: response == .alertFirstButtonReturn)
+            completion(response == .alertFirstButtonReturn)
         }
     }
 

@@ -23,6 +23,11 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
     @Published var toolPreviewColumn: FileColumn?
     @Published var toolGitPreview: GitPreviewRequest?
+    @Published var commandLibraryDraft: QuickCommand?
+    @Published var commandLibrarySelection: UUID?
+    @Published var commandLibraryCollection: QuickCommandCollection = .all
+    @Published var commandLibraryMessage: String?
+    @Published var commandLibrarySplitRatio: CGFloat = 0.5
     @Published var isToolPreviewEqualSplit = false
     var isToolPreviewOpen: Bool { toolPreviewColumn != nil || toolGitPreview != nil }
     func openToolGitPreview(_ request: GitPreviewRequest) {
@@ -104,6 +109,7 @@ enum FilesDropTarget: Hashable {
 enum AppSection: String, Codable {
     case terminals
     case files
+    case commands
 
     /// A saved session may name an area that no longer exists; it opens on Terminals.
     init(from decoder: Decoder) throws {

@@ -42,7 +42,7 @@ struct WorkspacePresentation: Codable, Equatable {
     var sidebarCollapsed = true
     var toolSidebarOpen = false
     var toolSidebarWidth: Double = WorkspaceChromeLayout.defaultSidebarWidth
-    var commandPreviewExpanded = true
+    var commandPreviewExpanded = false
     var commandPreviewHeight: Double = CommandPreviewLayout.defaultHeight
     var collapsedWorkspaces: Set<UUID> = []
     var collapsedConnectionGroups: Set<SidebarConnectionGroup> = []
@@ -73,7 +73,7 @@ struct WorkspacePresentation: Codable, Equatable {
         toolSidebarOpen = try values.decodeIfPresent(Bool.self, forKey: .toolSidebarOpen) ?? false
         toolSidebarWidth = ToolSidebarLayout.storedWidth(try values.decodeIfPresent(Double.self, forKey: .toolSidebarWidth)
             ?? WorkspaceChromeLayout.defaultSidebarWidth)
-        commandPreviewExpanded = try values.decodeIfPresent(Bool.self, forKey: .commandPreviewExpanded) ?? true
+        commandPreviewExpanded = try values.decodeIfPresent(Bool.self, forKey: .commandPreviewExpanded) ?? false
         commandPreviewHeight = CommandPreviewLayout.storedHeight(
             try values.decodeIfPresent(Double.self, forKey: .commandPreviewHeight) ?? CommandPreviewLayout.defaultHeight)
         collapsedWorkspaces = try values.decodeIfPresent(Set<UUID>.self, forKey: .collapsedWorkspaces) ?? []
@@ -125,6 +125,10 @@ struct WorkspacePresentation: Codable, Equatable {
 }
 
 enum CommandPreviewLayout {
+    /// 短命令按内容收紧，长命令保留滚动，始终给指令列表留出空间。
+    static func compactHeight(available: CGFloat, contentHeight: CGFloat) -> CGFloat {
+        min(max(0, available - minimumListHeight - 17), min(200, max(76, ceil(contentHeight) + 56)))
+    }
     static let defaultHeight: Double = 320
     static let minimumHeight: Double = 160
     static let maximumHeight: Double = 1200

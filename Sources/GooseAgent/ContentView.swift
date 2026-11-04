@@ -62,7 +62,16 @@ struct RootView: View {
                         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
 
                 } detail: {
-                    workspaceWithTools
+                    ZStack {
+                        workspaceWithTools
+                            .opacity(commandsMode ? 0 : 1)
+                            .disabled(commandsMode)
+                            .allowsHitTesting(!commandsMode).accessibilityHidden(commandsMode)
+                        if commandsMode {
+                            QuickCommandLibraryView(model: model, window: window, isWorkspace: true) { model.hideFiles(in: window) }
+                                .accessibilityIdentifier("workspace.commandLibrary")
+                        }
+                    }
                         .padding(.vertical, appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0)
                         .padding(.trailing, appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0)
                         .padding(.leading, appearanceDriver.isShellTransparent && collapsed ? ShellLayout.workspaceInset : 0)
@@ -181,7 +190,7 @@ struct RootView: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             VStack(spacing: 4) {
-                navigationRow("Terminal", symbol: "terminal", active: !filesMode) { model.hideFiles(in: window) }
+                navigationRow("Terminal", symbol: "terminal", active: !filesMode && !commandsMode) { model.hideFiles(in: window) }
                     .accessibilityIdentifier("workspace.terminal")
                     .help(String(localized: "Switch Terminals and Files") + " (" + AppShortcuts.display(for: .openFileBrowser) + ")")
                 navigationRow("Files", symbol: "folder", active: filesMode) {
@@ -190,6 +199,9 @@ struct RootView: View {
                 .background(BoundsAnchor { dropRelay.filesButtonAnchor = $0 })
                 .accessibilityIdentifier("workspace.files")
                 .help(String(localized: "Switch Terminals and Files") + " (" + AppShortcuts.display(for: .openFileBrowser) + ")")
+                navigationRow("Commands", symbol: "command", active: commandsMode) {
+                    model.showSection(.commands, in: window)
+                }.accessibilityIdentifier("workspace.commands")
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 14)
@@ -197,6 +209,8 @@ struct RootView: View {
 
             if filesMode {
                 FilesSidebar(model: model, window: window, workspace: model.fileWorkspace(for: window), dragArea: pinnedLocationDrag)
+            } else if commandsMode {
+                QuickCommandLibraryNavigation(model: model, window: window)
             } else {
                 sidebarList
                     .padding(.top, Theme.Space.s)
@@ -418,6 +432,7 @@ struct RootView: View {
     }
 
     private var filesMode: Bool { window.presentation.fullFilesWorkspace }
+    private var commandsMode: Bool { window.section == .commands }
 
     private var workspaceSurface: some View {
         WorkspaceContentSplit(presentation: window.presentation, onRatioChange: { _ in }) {
@@ -501,8 +516,8 @@ struct RootView: View {
         return ZStack(alignment: .topLeading) {
             (appearanceDriver.isShellTransparent ? Color.clear : chrome.panelHeader)
                 .allowsHitTesting(false)
-            if !appearanceDriver.isShellTransparent && (filesMode || topTabs.isEmpty) {
-                Text(filesMode ? "Files" : "Terminal")
+            if !appearanceDriver.isShellTransparent && (filesMode || commandsMode || topTabs.isEmpty) {
+                Text(commandsMode ? "Commands" : filesMode ? "Files" : "Terminal")
                     .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)
                     .padding(.horizontal, 8)
                     .frame(width: detailWidth, height: height, alignment: .leading)
@@ -537,7 +552,7 @@ struct RootView: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("workspace.sidebarHeader")
-            if !filesMode {
+            if !filesMode && !commandsMode {
                 HoverRevealingRegion { hovering in
                     HStack {
                         Spacer(minLength: 0)
@@ -728,6 +743,9 @@ struct RootView: View {
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
                 .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
             .background(PanelRowAnchor(ids: row.leafIDs, relay: dropRelay))
+            .background(QuickCommandCopyTarget(chrome: sidebarChrome) { id in
+                model.copyLibraryCommand(id, to: tab.isLocal ? .local : .host(tab.alias ?? ""), in: window)
+            })
             .overlay {
                 TabDragHandle(
                     onClick: { command, shift in selectSession(row.focusedTabID, command: command, shift: shift) },

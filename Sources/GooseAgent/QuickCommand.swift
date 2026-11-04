@@ -21,7 +21,50 @@ struct QuickCommandContext: Equatable, Sendable {
     var isLive = false
 }
 
-struct QuickCommand: Codable, Equatable, Identifiable, Sendable {
+/// 管理页按执行主机归类，不从命令正文推断发布目标。
+enum QuickCommandCollection: Hashable, Identifiable {
+    case all, common, local, host(String)
+
+    var id: String {
+        switch self {
+        case .all: "all"
+        case .common: "common"
+        case .local: "local"
+        case .host(let host): "host:" + host
+        }
+    }
+    var title: String {
+        switch self {
+        case .all: String(localized: "All Commands")
+        case .common: String(localized: "Command Library")
+        case .local: String(localized: "This Mac")
+        case .host(let host): host
+        }
+    }
+    var host: String? {
+        if case .host(let host) = self { return host }
+        return nil
+    }
+    static func owner(of item: QuickCommand) -> Self {
+        if item.scope == .all { return .common }
+        return item.host.map(Self.host) ?? .local
+    }
+    func contains(_ item: QuickCommand) -> Bool { self == .all || self == Self.owner(of: item) }
+    static func available(in commands: [QuickCommand]) -> [Self] {
+        let owners = Set(commands.map(Self.owner))
+        let hosts = owners.compactMap(\.host).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        return [.common, .all] + [.local].filter { owners.contains($0) } + hosts.map(Self.host)
+    }
+    func draft(in context: QuickCommandContext) -> QuickCommand {
+        if self == .common { return QuickCommand(scope: .all) }
+        let target = self == .all ? context.host : host
+        let directory = target == context.host ? context.directory : nil
+        return QuickCommand(scope: directory == nil ? (target == nil ? .local : .host) : .directory,
+                            host: target, directory: directory)
+    }
+}
+
+struct QuickCommand: Codable, Hashable, Identifiable, Sendable {
     var id = UUID()
     var alias = ""
     var command = ""
@@ -34,6 +77,12 @@ struct QuickCommand: Codable, Equatable, Identifiable, Sendable {
     var updatedAt = Date()
     /// Imported host/path bindings remain visible in the library until explicitly repaired.
     var needsRepair = false
+
+    func matchesSearch(_ query: String) -> Bool {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty || [alias, command, group, host ?? "", directory ?? "", QuickCommandCollection.owner(of: self).title]
+            .contains { $0.localizedCaseInsensitiveContains(query) }
+    }
 
     func matches(_ context: QuickCommandContext) -> Bool {
         guard !needsRepair else { return false }

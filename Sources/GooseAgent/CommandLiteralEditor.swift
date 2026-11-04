@@ -73,6 +73,7 @@ final class CommandLiteralTextView: NSTextView {
 
 struct CommandLiteralEditor: NSViewRepresentable {
     @Binding var text: String
+    @Environment(\.isEnabled) private var isEnabled
     var textColor: NSColor
     var backgroundColor: NSColor
     var identifier: String
@@ -105,11 +106,14 @@ struct CommandLiteralEditor: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.text = $text
         guard let editor = scroll.documentView as? CommandLiteralTextView else { return }
+        editor.isEditable = isEnabled
         editor.updateFromModel(text)
         editor.textColor = textColor
         editor.insertionPointColor = textColor
         editor.backgroundColor = backgroundColor
+        editor.drawsBackground = backgroundColor.alphaComponent > 0
         scroll.backgroundColor = backgroundColor
+        scroll.drawsBackground = backgroundColor.alphaComponent > 0
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -180,6 +184,7 @@ private final class CommandLiteralFieldCell: NSTextFieldCell {
 
 struct CommandLiteralField: NSViewRepresentable {
     @Binding var text: String
+    @Environment(\.isEnabled) private var isEnabled
     var placeholder: String
     var textColor: NSColor
     var backgroundColor: NSColor
@@ -199,15 +204,18 @@ struct CommandLiteralField: NSViewRepresentable {
 
     func updateNSView(_ field: CommandLiteralTextField, context: Context) {
         context.coordinator.text = $text
+        field.isEnabled = isEnabled
         field.updateFromModel(text)
         field.placeholderString = placeholder
         field.textColor = textColor
         field.backgroundColor = backgroundColor
+        field.drawsBackground = backgroundColor.alphaComponent > 0
         field.font = font
         if let editor = field.currentEditor() as? NSTextView {
             editor.textColor = textColor
             editor.insertionPointColor = textColor
             editor.backgroundColor = backgroundColor
+            editor.drawsBackground = backgroundColor.alphaComponent > 0
         }
     }
 

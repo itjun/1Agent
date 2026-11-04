@@ -25,6 +25,19 @@ final class QuickCommandStore: ObservableObject {
         else { item.order = (next.map(\.order).max() ?? -1) + 1; next.append(item) }
         try replace(next)
     }
+    /// 公共文本生成独立副本，不保留来源 ID，也不校验或连接目标主机。
+    @discardableResult
+    func copyCommand(_ id: UUID, to destination: QuickCommandCollection) throws -> QuickCommand {
+        guard let source = commands.first(where: { $0.id == id }), !source.needsRepair,
+              destination != .all else { throw QuickCommandError.invalidCommand }
+        var copy = QuickCommand(alias: source.alias, command: source.command, group: source.group,
+                                scope: destination == .common ? .all : destination == .local ? .local : .host,
+                                host: destination.host)
+        copy = try copy.validated()
+        try save(copy)
+        return copy
+    }
+
     func remove(_ id: UUID) throws { try replace(commands.filter { $0.id != id }) }
     @discardableResult
     func move(_ id: UUID, relativeTo targetID: UUID, after: Bool) throws -> Bool {

@@ -7,7 +7,7 @@ extension AppModel {
     }
 
     func commandForDrop(_ id: UUID, on tabID: UUID, in window: WindowState) -> QuickCommand? {
-        guard window.quickCommandConfirmation == nil, !window.presentation.fullFilesWorkspace,
+        guard window.quickCommandConfirmation == nil, window.section == .terminals, !window.presentation.fullFilesWorkspace,
               let root = displayRoot(in: window), PaneLayout.contains(tabID, in: root),
               let tab = tabs.first(where: { $0.id == tabID && $0.hasTerminal }),
               let item = QuickCommandStore.shared.commands.first(where: { $0.id == id }),
@@ -21,8 +21,22 @@ extension AppModel {
         guard let item = commandForDrop(id, on: tabID, in: window) else { return false }
         window.section = .terminals
         selectTab(tabID, in: window, focusTerminal: false)
+        if item.scope == .all, let tab = tabs.first(where: { $0.id == tabID }) {
+            return SSHTerminalRegistry.pasteLibraryText(item.command, into: tab.sessionID)
+        }
         confirmQuickCommand(item, in: window)
         return true
+    }
+
+    func copyLibraryCommand(_ id: UUID, to destination: QuickCommandCollection, in window: WindowState) {
+        do {
+            let copy = try QuickCommandStore.shared.copyCommand(id, to: destination)
+            window.commandLibraryMessage = String(format: String(localized: "Copied to %@"), destination.title)
+            if window.section == .commands {
+                window.commandLibraryCollection = QuickCommandCollection.owner(of: copy)
+                window.commandLibrarySelection = copy.id
+            }
+        } catch { window.commandLibraryMessage = error.localizedDescription }
     }
 
     func executeQuickCommand(_ request: QuickCommandRunRequest, in window: WindowState, newTerminal: Bool) async throws {

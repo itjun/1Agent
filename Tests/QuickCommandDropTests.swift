@@ -121,6 +121,30 @@ import ObjectiveC
         precondition(window.quickCommandConfirmation == nil && terminal.processHost == nil, "Sorting must never request terminal execution")
         row.isHidden = true
         precondition(QuickCommandDragHandleView.reorderTarget(at: above, in: nativeWindow, sourceID: last.id, section: last.section) == nil)
+        let common = QuickCommand(alias: "公共文本", command: "printf '%s\\n' 'text only'", scope: .all)
+        try store.save(common)
+        let copyTarget = QuickCommandCopyTargetView(frame: NSRect(x: 550, y: 200, width: 240, height: 44))
+        copyTarget.onCopy = { model.copyLibraryCommand($0, to: .host("offline-host"), in: window) }
+        nativeWindow.contentView?.addSubview(copyTarget)
+        let destination = copyTarget.convert(NSPoint(x: 20, y: 20), to: nil)
+        precondition(QuickCommandCopyTargetView.target(at: destination, in: nativeWindow, commandID: common.id) === copyTarget)
+        precondition(QuickCommandCopyTargetView.target(at: destination, in: nativeWindow, commandID: first.id) == nil)
+        copyTarget.onCopy(common.id)
+        precondition(store.commands.contains { $0.host == "offline-host" && $0.command == common.command && $0.id != common.id })
+        precondition(window.quickCommandConfirmation == nil && terminal.processHost == nil && model.tabs.count == 2)
+        copyTarget.isEnabled = false
+        precondition(QuickCommandCopyTargetView.target(at: destination, in: nativeWindow, commandID: common.id) == nil)
+        copyTarget.isEnabled = true; copyTarget.isHidden = true
+        precondition(QuickCommandCopyTargetView.target(at: destination, in: nativeWindow, commandID: common.id) == nil)
+        copyTarget.isHidden = false
+        window.section = .commands
+        precondition(!terminal.acceptsQuickCommand(common.id), "hidden terminal beneath management cannot receive text")
+        window.section = .terminals
+        precondition(!terminal.dropQuickCommand(common.id), "a view without a running surface cannot paste text")
+        precondition(window.quickCommandConfirmation == nil, "public text never opens command execution or directory checks")
+        try store.remove(common.id)
+        precondition(QuickCommandCopyTargetView.target(at: destination, in: nativeWindow, commandID: common.id) == nil)
+        print("Verified public text copy to offline host, no execution, hidden/disabled targets and deleted source rejection")
         print("Verified split destination, click/drop parity, cancel, stale selection, host/folder scope, hidden panes, deleted IDs and outside drops")
     }
 

@@ -104,7 +104,7 @@ struct WorkspacePresentationTests {
         precondition(minimalSnapshot == fresh, "snapshots missing new fields use safe defaults")
         let previousPreview = try JSONDecoder().decode(WorkspacePresentation.self,
             from: Data(#"{"presentationVersion":5,"toolSidebarOpen":true,"toolSidebarWidth":410}"#.utf8))
-        precondition(previousPreview.commandPreviewExpanded && previousPreview.commandPreviewHeight == 320)
+        precondition(!previousPreview.commandPreviewExpanded && previousPreview.commandPreviewHeight == 320)
         precondition(previousPreview.toolSidebarOpen && previousPreview.toolSidebarWidth == 410,
                      "adding preview preferences must preserve the existing sidebar")
         for (stored, expected) in [(-200.0, 160.0), (496, 496), (9000, 1200)] {
@@ -128,6 +128,9 @@ struct WorkspacePresentationTests {
                 precondition(CommandPreviewLayout.visibleHeight(available: available, expanded: false, preferred: preferred) == 32)
             }
         }
+        precondition(CommandPreviewLayout.compactHeight(available: 600, contentHeight: 16) == 76)
+        precondition(CommandPreviewLayout.compactHeight(available: 600, contentHeight: 900) == 200)
+        precondition(CommandPreviewLayout.compactHeight(available: 220, contentHeight: 900) == 83)
         // Temporary fitting and collapse do not replace the preferred expanded size.
         _ = CommandPreviewLayout.visibleHeight(available: 250, expanded: true, preferred: saved.commandPreviewHeight)
         _ = CommandPreviewLayout.visibleHeight(available: 900, expanded: false, preferred: saved.commandPreviewHeight)

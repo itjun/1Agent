@@ -13,6 +13,8 @@ struct QuickCommandTests {
         try commandTransportTests()
         try transferTests()
         try orderingTests()
+        collectionTests()
+        try publicLibraryTests()
         let local = QuickCommandContext(sessionID: "a#0", directory: "/work/project", isLive: true)
         var item = QuickCommand(alias: "Pull", command: "python project.py git pull", directory: "/work/project")
         assert(item.matches(local))
@@ -263,5 +265,66 @@ extension QuickCommandTests {
         let remainingFiles = try FileManager.default.contentsOfDirectory(atPath: root.path)
         assert(remainingFiles == ["commands.json"])
         print("Quick command transfer: clipboard, rebinding, conflicts, cancellation and atomic storage passed")
+    }
+}
+
+
+extension QuickCommandTests {
+    @MainActor static func publicLibraryTests() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = QuickCommandStore(url: folder.appendingPathComponent("commands.json"))
+        var source = QuickCommand(alias: "磁盘空间", command: "df -h\nprintf '%s\\n' '文本'", scope: .all)
+        try store.save(source)
+        let remote = try store.copyCommand(source.id, to: .host("offline-host"))
+        let local = try store.copyCommand(source.id, to: .local)
+        assert(remote.id != source.id && local.id != source.id && remote.id != local.id)
+        assert(remote.command == source.command && local.command == source.command)
+        assert(remote.scope == .host && remote.host == "offline-host" && remote.directory == nil)
+        assert(local.scope == .local && local.host == nil && local.directory == nil)
+        source.command = "changed library text"
+        try store.save(source)
+        try store.remove(source.id)
+        let reloaded = QuickCommandStore(url: store.url)
+        assert(reloaded.commands.first { $0.id == remote.id }?.command == remote.command)
+        assert(reloaded.commands.first { $0.id == local.id }?.command == local.command)
+        let common = try store.copyCommand(remote.id, to: .common)
+        assert(common.scope == .all && common.host == nil && common.directory == nil)
+        assert(common.command == remote.command)
+        do { _ = try store.copyCommand(source.id, to: .local); fatalError("deleted source copied") } catch {}
+        do { _ = try store.copyCommand(common.id, to: .all); fatalError("all collection is not a destination") } catch {}
+        print("Public library: literal independent copies, offline host, no directory binding, deletion independence and persistence passed")
+    }
+
+    static func collectionTests() {
+        let local = QuickCommand(alias: "构建", command: "build", scope: .local)
+        let folder = QuickCommand(alias: "目录指令", command: "pwd", host: "build", directory: "/srv/project")
+        let deploy = QuickCommand(alias: "发布 production", command: "deploy --host production", scope: .host, host: "build")
+        let common = QuickCommand(alias: "通用", command: "pwd", scope: .all)
+        var repair = QuickCommand(alias: "待修复", command: "pwd", scope: .host, host: "removed")
+        repair.needsRepair = true
+        let commands = [local, folder, deploy, common, repair]
+        let collections = QuickCommandCollection.available(in: commands)
+        assert(collections == [.common, .all, .local, .host("build"), .host("removed")])
+        assert(!collections.contains(.host("production")), "命令中的发布目标不是执行主机")
+        assert(QuickCommandCollection.available(in: []) == [.common, .all])
+        assert(QuickCommandCollection.available(in: [local]) == [.common, .all, .local])
+        assert(QuickCommandCollection.available(in: [folder, deploy]) == [.common, .all, .host("build")])
+        assert(QuickCommandCollection.host("build").contains(folder))
+        assert(!QuickCommandCollection.host("build").contains(common))
+        assert(folder.matchesSearch(" BUILD ") && folder.matchesSearch("/srv/project"))
+        assert(deploy.matchesSearch("production") && !deploy.matchesSearch("other"))
+        assert(repair.matchesSearch("removed"), "失联主机的指令仍可检索修复")
+        let context = QuickCommandContext(host: "build", directory: "/srv/project")
+        let draft = QuickCommandCollection.host("build").draft(in: context)
+        assert(draft.scope == .directory && draft.host == "build" && draft.directory == context.directory)
+        let other = QuickCommandCollection.host("empty").draft(in: context)
+        assert(other.scope == .host && other.host == "empty" && other.directory == nil)
+        let onMac = QuickCommandCollection.local.draft(in: context)
+        assert(onMac.scope == .local && onMac.host == nil && onMac.directory == nil)
+        let shared = QuickCommandCollection.common.draft(in: context)
+        assert(shared.scope == .all && shared.host == nil && shared.directory == nil)
+        assert(QuickCommandCollection.all.draft(in: context).host == context.host)
+        print("Command collections: bound hosts only, folder ownership, missing-host repair, search and draft context passed")
     }
 }

@@ -2,12 +2,13 @@ import AppKit
 import SwiftUI
 
 /// Like the sidebar's pane drags, commands stay inside native event tracking.
-/// Only the saved ID reaches the destination; shell text is never pasted.
+/// 主机指令保持确认执行；公共文本可复制给主机或走终端粘贴保护。
 struct QuickCommandDragHandle: NSViewRepresentable {
     let item: QuickCommand
     let chrome: WindowChrome
     let onClick: () -> Void
     let onDoubleClick: () -> Void
+    let onDragStart: () -> Void
 
     func makeNSView(context: Context) -> QuickCommandDragHandleView { QuickCommandDragHandleView() }
     func updateNSView(_ view: QuickCommandDragHandleView, context: Context) {
@@ -17,6 +18,7 @@ struct QuickCommandDragHandle: NSViewRepresentable {
         view.chrome = chrome
         view.onClick = onClick
         view.onDoubleClick = onDoubleClick
+        view.onDragStart = onDragStart
     }
 }
 
@@ -27,6 +29,7 @@ final class QuickCommandDragHandleView: NSView {
     var chrome = WindowChrome(isDark: false)
     var onClick: () -> Void = {}
     var onDoubleClick: () -> Void = {}
+    var onDragStart: () -> Void = {}
     override var mouseDownCanMoveWindow: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -67,10 +70,12 @@ final class QuickCommandDragHandleView: NSView {
         var dragging = false
         var target: SSHTerminalNSView?
         var reorderTarget: QuickCommandReorderTargetView?
+        var copyTarget: QuickCommandCopyTargetView?
         var preview: NSPanel?
         defer {
             target?.highlightQuickCommand(nil)
             reorderTarget?.insertionAfter = nil
+            copyTarget?.isHighlighted = false
             preview?.close()
             NSCursor.arrow.set()
             window.isMovable = wasMovable
@@ -84,7 +89,9 @@ final class QuickCommandDragHandleView: NSView {
             if event.type == .leftMouseUp {
                 if dragging {
                     // Re-resolve at release; a pane or its command can change mid-drag.
-                    if let row = Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section) {
+                    if let destination = QuickCommandCopyTargetView.target(at: event.locationInWindow, in: window, commandID: id) {
+                        destination.onCopy(id)
+                    } else if let row = Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section) {
                         row.move(id, after: row.isAfter(event.locationInWindow))
                     } else {
                         Self.terminal(at: event.locationInWindow, in: window)?.dropQuickCommand(id)
@@ -99,7 +106,7 @@ final class QuickCommandDragHandleView: NSView {
             }
             if !dragging, hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) >= 6 {
                 dragging = true
-                self.onClick() // Keep the sidebar selection and preview on the dragged command.
+                self.onDragStart() // 拖拽只更新选择，不能在拖动途中打开卡片并改变终端位置。
                 let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: min(self.bounds.width, 260), height: 42),
                                     styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
                 panel.isOpaque = false
@@ -114,17 +121,20 @@ final class QuickCommandDragHandleView: NSView {
                 preview = panel
             }
             guard dragging else { return }
-            let row = Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section)
+            let destination = QuickCommandCopyTargetView.target(at: event.locationInWindow, in: window, commandID: id)
+            if destination !== copyTarget { copyTarget?.isHighlighted = false; copyTarget = destination }
+            copyTarget?.isHighlighted = true
+            let row = destination == nil ? Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section) : nil
             if row !== reorderTarget { reorderTarget?.insertionAfter = nil; reorderTarget = row }
             row?.insertionAfter = row?.isAfter(event.locationInWindow)
-            let candidate = row == nil ? Self.terminal(at: event.locationInWindow, in: window) : nil
+            let candidate = row == nil && destination == nil ? Self.terminal(at: event.locationInWindow, in: window) : nil
             if candidate !== target { target?.highlightQuickCommand(nil); target = candidate }
             let accepted = target?.acceptsQuickCommand(id) == true
             target?.highlightQuickCommand(accepted ? id : nil)
             let screen = window.convertPoint(toScreen: event.locationInWindow)
             preview?.setFrameOrigin(NSPoint(x: screen.x + 12, y: screen.y - 36))
             preview?.orderFrontRegardless()
-            (row != nil ? NSCursor.closedHand : accepted ? NSCursor.dragCopy : NSCursor.operationNotAllowed).set()
+            (row != nil ? NSCursor.closedHand : accepted || destination != nil ? NSCursor.dragCopy : NSCursor.operationNotAllowed).set()
         }
     }
 }
@@ -161,5 +171,43 @@ final class QuickCommandReorderTargetView: NSView {
         guard let insertionAfter else { return }
         accent.setFill()
         NSRect(x: bounds.minX, y: insertionAfter ? bounds.maxY - 2 : bounds.minY, width: bounds.width, height: 2).fill()
+    }
+}
+
+/// 主机行的公共文本接收区只落盘副本，不连接主机或执行命令。
+struct QuickCommandCopyTarget: NSViewRepresentable {
+    let chrome: WindowChrome
+    let onCopy: (UUID) -> Void
+    @Environment(\.isEnabled) private var isEnabled
+    func makeNSView(context: Context) -> QuickCommandCopyTargetView { QuickCommandCopyTargetView() }
+    func updateNSView(_ view: QuickCommandCopyTargetView, context: Context) {
+        view.accent = NSColor(chrome.accent)
+        view.isEnabled = isEnabled
+        view.onCopy = onCopy
+    }
+}
+
+final class QuickCommandCopyTargetView: NSView {
+    var onCopy: (UUID) -> Void = { _ in }
+    var isEnabled = true
+    var accent = NSColor.controlAccentColor
+    var isHighlighted = false { didSet { needsDisplay = true } }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    static func target(at point: NSPoint, in window: NSWindow, commandID: UUID) -> QuickCommandCopyTargetView? {
+        guard let command = QuickCommandStore.shared.commands.first(where: { $0.id == commandID }),
+              command.scope == .all, !command.needsRepair else { return nil }
+        func find(in view: NSView) -> QuickCommandCopyTargetView? {
+            guard !view.isHiddenOrHasHiddenAncestor else { return nil }
+            if let target = view as? QuickCommandCopyTargetView, target.isEnabled,
+               target.bounds.intersection(target.visibleRect).contains(target.convert(point, from: nil)) { return target }
+            for child in view.subviews { if let target = find(in: child) { return target } }
+            return nil
+        }
+        return window.contentView.flatMap { find(in: $0) }
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        guard isHighlighted else { return }
+        accent.withAlphaComponent(0.22).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: Theme.Radius.control, yRadius: Theme.Radius.control).fill()
     }
 }

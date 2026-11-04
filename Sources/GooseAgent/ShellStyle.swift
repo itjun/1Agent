@@ -296,6 +296,7 @@ private final class DesktopWallpaperView: NSView {
 
 /// 共享文件面板与终端的圆角、边界；减少透明度时使用实色回退。
 struct FloatingContentSurface: ViewModifier {
+    var showsShadow = true
     @Environment(\.isShellTransparent) private var isTransparent
     @Environment(\.windowChrome) private var chrome
 
@@ -307,7 +308,7 @@ struct FloatingContentSurface: ViewModifier {
                 shape.strokeBorder(chrome.isDark ? Color.white.opacity(0.07) : Color.black.opacity(0.045), lineWidth: isTransparent ? 0.5 : 0)
                     .allowsHitTesting(false)
             }
-            .shadow(color: isTransparent ? Color(nsColor: .shadowColor).opacity(ShellLayout.shadowOpacity) : .clear,
+            .shadow(color: isTransparent && showsShadow ? Color(nsColor: .shadowColor).opacity(ShellLayout.shadowOpacity) : .clear,
                     radius: ShellLayout.shadowRadius, y: ShellLayout.shadowOffset)
     }
 }
