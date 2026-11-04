@@ -43,6 +43,7 @@ struct FamilyPicker<Value: Hashable>: View {
     @Binding var value: Value
     var options: [(Value, String)]
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.settingsControlTitle) private var settingsControlTitle
     @State private var presented = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -81,7 +82,7 @@ struct FamilyPicker<Value: Hashable>: View {
             .foregroundStyle(chrome.text)
             .padding(.horizontal, 8)
             .frame(height: Theme.Control.height)
-            .background(RoundedRectangle(cornerRadius: 4).fill(chrome.background))
+            .background(RoundedRectangle(cornerRadius: 4).fill(chrome.background.opacity(isShellTransparent ? ShellLayout.controlOpacity : 1)))
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(presented ? chrome.focus : chrome.lineStrong, lineWidth: 1))
             .familyFocusRing(presented)
             .animation(reduceMotion ? nil : .timingCurve(0.38, 0, 0.24, 1, duration: 0.2), value: presented)

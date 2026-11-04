@@ -24,6 +24,8 @@ enum ShellLayout {
     /// 深色外壳与终端底色接近，用柔和底光保留未选中面板的透明感。
     static let inactiveDarkTerminalBackdropOpacity: Double = 0.30
     static let fileOpacity: Double = 0.98
+    /// 输入框与次级按钮保留主题底色，同时透出窗口渐变。
+    static let controlOpacity: Double = 0.45
     static let lightBackdropOpacity: CGFloat = 0.68
     static let darkBackdropOpacity: CGFloat = 0.64
     static let systemLightBackdropOpacity: CGFloat = 0.60

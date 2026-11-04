@@ -28,6 +28,7 @@ private struct FamilyThemedButtonStyle: ButtonStyle {
     var kind: FamilyButtonStyle.Kind
     var showsFocusRing: Bool
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.isEnabled) private var enabled
     @Environment(\.isFocused) private var focused
     @State private var hovered = false
@@ -62,7 +63,7 @@ private struct FamilyThemedButtonStyle: ButtonStyle {
         }
         if enabled && pressed { return chrome.hairline }
         if enabled && hovered { return chrome.hairline }
-        return kind == .secondary ? chrome.background : .clear
+        return kind == .secondary ? chrome.background.opacity(isShellTransparent ? ShellLayout.controlOpacity : 1) : .clear
     }
 }
 
