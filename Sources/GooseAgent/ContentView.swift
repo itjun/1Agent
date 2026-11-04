@@ -488,7 +488,12 @@ struct RootView: View {
                             model.updatePresentation(in: window) { $0.toolSidebarWidth = next }
                         },
                         onDragEnded: { toolSidebarDragStart = nil },
-                        onDoubleClick: {}
+                        onDoubleClick: {
+                            toolSidebarDragStart = nil
+                            model.updatePresentation(in: window) {
+                                $0.toolSidebarWidth = WorkspaceChromeLayout.defaultSidebarWidth
+                            }
+                        }
                     )
                         .frame(width: ShellLayout.workspaceInset, height: geometry.size.height)
                         .offset(x: geometry.size.width - width - ShellLayout.workspaceInset)
