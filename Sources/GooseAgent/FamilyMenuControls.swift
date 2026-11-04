@@ -48,6 +48,23 @@ struct FamilyPicker<Value: Hashable>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        if chrome.isSystem {
+            Picker(selection: $value) {
+                ForEach(options, id: \.0) { option in
+                    Text(verbatim: option.1).tag(option.0)
+                }
+            } label: {
+                Text(verbatim: settingsControlTitle ?? "")
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.large)
+        } else {
+            themedPicker
+        }
+    }
+
+    private var themedPicker: some View {
         FamilyMenu(items: {
             options.map { option in
                 FamilyMenuItem(title: option.1, checked: value == option.0, action: { value = option.0 })

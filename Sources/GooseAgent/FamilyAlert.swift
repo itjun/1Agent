@@ -220,6 +220,17 @@ final class FamilyNativeButton: NSButton {
     }
     override func draw(_ dirtyRect: NSRect) {
         let chrome = WindowChrome(isDark: effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
+        if chrome.isSystem {
+            isBordered = kind != .checkbox
+            bezelStyle = .rounded
+            focusRingType = .default
+            cell?.focusRingType = .default
+            contentTintColor = kind == .danger ? .systemRed : nil
+            super.draw(dirtyRect)
+            return
+        }
+        focusRingType = .none
+        cell?.focusRingType = .none
         let primary = kind == .primary || kind == .danger
         let fill = kind == .danger ? chrome.danger : kind == .primary ? (isHighlighted ? chrome.accentActive : hovered ? chrome.accentHover : chrome.accent) : hovered ? chrome.hairline : chrome.elevated
         let rect = bounds.insetBy(dx: 0.5, dy: 0.5)

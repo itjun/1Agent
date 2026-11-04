@@ -139,6 +139,8 @@ final class AppearanceDriver: ObservableObject {
 
     /// 外观模式同时切换窗口与所有本机／远程终端。
     func reapply() {
+        // 强调色变化不一定伴随浅深色切换，仍需刷新读取系统语义色的窗口。
+        if preset == .system { objectWillChange.send() }
         let selectedPreset = AppTheme.stored()
         if preset != selectedPreset {
             preset = selectedPreset
@@ -179,6 +181,12 @@ private final class SystemThemeWatcher: NSObject {
             self,
             selector: #selector(systemThemeChanged(_:)),
             name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(systemThemeChanged(_:)),
+            name: NSColor.systemColorsDidChangeNotification,
             object: nil
         )
         NotificationCenter.default.addObserver(

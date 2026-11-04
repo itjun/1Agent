@@ -79,7 +79,7 @@ struct AppThemeIdentity: View {
             }
             Text(preset.title)
                 .font(Theme.Font.body.weight(.medium))
-                .foregroundStyle(isSelected ? chrome.accent : chrome.text)
+                .foregroundStyle(isSelected && !chrome.isSystem ? chrome.accent : chrome.text)
         }
     }
 

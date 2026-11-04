@@ -1,10 +1,32 @@
 import SwiftUI
 
 /// Compact family button treatments; native keyboard activation remains unchanged.
-struct FamilyButtonStyle: ButtonStyle {
+struct FamilyButtonStyle: PrimitiveButtonStyle {
     enum Kind { case plain, secondary, primary }
     var kind: Kind = .plain
     var showsFocusRing = true
+    @Environment(\.windowChrome) private var chrome
+
+    @ViewBuilder func makeBody(configuration: Configuration) -> some View {
+        if chrome.isSystem {
+            switch kind {
+            case .plain:
+                Button(configuration).buttonStyle(.plain)
+            case .secondary:
+                Button(configuration).buttonStyle(.bordered).controlSize(.large)
+            case .primary:
+                Button(configuration).buttonStyle(.borderedProminent).controlSize(.large)
+            }
+        } else {
+            Button(configuration)
+                .buttonStyle(FamilyThemedButtonStyle(kind: kind, showsFocusRing: showsFocusRing))
+        }
+    }
+}
+
+private struct FamilyThemedButtonStyle: ButtonStyle {
+    var kind: FamilyButtonStyle.Kind
+    var showsFocusRing: Bool
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isEnabled) private var enabled
     @Environment(\.isFocused) private var focused

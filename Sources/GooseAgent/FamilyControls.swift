@@ -9,7 +9,27 @@ struct FamilyToggleStyle: ToggleStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focused: Bool
 
-    func makeBody(configuration: Configuration) -> some View {
+    @ViewBuilder func makeBody(configuration: Configuration) -> some View {
+        if chrome.isSystem {
+            if checkbox {
+                nativeToggle(configuration).toggleStyle(.checkbox)
+            } else {
+                nativeToggle(configuration).toggleStyle(.switch)
+            }
+        } else {
+            themedToggle(configuration)
+        }
+    }
+
+    @ViewBuilder private func nativeToggle(_ configuration: Configuration) -> some View {
+        if showsLabel {
+            Toggle(configuration)
+        } else {
+            Toggle(configuration).labelsHidden()
+        }
+    }
+
+    private func themedToggle(_ configuration: Configuration) -> some View {
         Button { configuration.isOn.toggle() } label: {
             HStack(spacing: 8) {
                 if checkbox {
@@ -41,10 +61,29 @@ struct FamilyToggleStyle: ToggleStyle {
 struct FamilySegments<Value: Hashable>: View {
     @Binding var value: Value
     var options: [(Value, String)]
+    var isFullWidth = false
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isEnabled) private var enabled
     @FocusState private var focused: Value?
     var body: some View {
+        if chrome.isSystem && isFullWidth {
+            FamilyNativeSegments(value: $value, options: options)
+                .frame(maxWidth: .infinity)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if chrome.isSystem {
+            Picker(selection: $value) {
+                ForEach(options, id: \.0) { item in
+                    Text(verbatim: item.1).tag(item.0)
+                }
+            } label: { EmptyView() }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+        } else {
+            themedSegments
+        }
+    }
+
+    private var themedSegments: some View {
         HStack(spacing: 0) {
             ForEach(options, id: \.0) { item in
                 Button { value = item.0 } label: {
@@ -67,6 +106,40 @@ struct FamilySegments<Value: Hashable>: View {
     }
 }
 
+private struct FamilyNativeSegments<Value: Hashable>: NSViewRepresentable {
+    @Binding var value: Value
+    var options: [(Value, String)]
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl()
+        control.trackingMode = .selectOne
+        control.segmentDistribution = .fillEqually
+        control.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        control.target = context.coordinator
+        control.action = #selector(Coordinator.changed(_:))
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        control.segmentCount = options.count
+        for (index, option) in options.enumerated() { control.setLabel(option.1, forSegment: index) }
+        control.selectedSegment = options.firstIndex { $0.0 == value } ?? -1
+        control.isEnabled = isEnabled
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    final class Coordinator: NSObject {
+        var parent: FamilyNativeSegments
+        init(_ parent: FamilyNativeSegments) { self.parent = parent }
+        @objc func changed(_ control: NSSegmentedControl) {
+            guard parent.options.indices.contains(control.selectedSegment) else { return }
+            parent.value = parent.options[control.selectedSegment].0
+        }
+    }
+}
+
 /// A plain native slider supplies tracking and keyboard/VoiceOver, while its cell draws the
 /// same 4px rail and 16px thumb in every app appearance.
 struct FamilySlider: NSViewRepresentable {
@@ -83,7 +156,7 @@ struct FamilySlider: NSViewRepresentable {
         slider.target = context.coordinator
         slider.action = #selector(Coordinator.changed(_:))
         slider.isContinuous = true
-        slider.focusRingType = .none
+        slider.focusRingType = chrome.isSystem ? .default : .none
         slider.onEditingChanged = { [weak coordinator = context.coordinator] in coordinator?.parent.onEditingChanged($0) }
         return slider
     }
@@ -93,6 +166,7 @@ struct FamilySlider: NSViewRepresentable {
         slider.doubleValue = value
         slider.step = step
         slider.isEnabled = enabled
+        slider.focusRingType = chrome.isSystem ? .default : .none
         (slider.cell as? FamilySliderCell)?.chrome = chrome
         slider.setAccessibilityLabel(settingsControlTitle)
         slider.needsDisplay = true
@@ -138,8 +212,12 @@ final class FamilySliderControl: NSSlider {
 }
 private final class FamilySliderCell: NSSliderCell {
     var chrome = WindowChrome(isDark: false)
-    override var knobThickness: CGFloat { 16 }
+    override var knobThickness: CGFloat { chrome.isSystem ? super.knobThickness : 16 }
     override func drawBar(inside rect: NSRect, flipped: Bool) {
+        if chrome.isSystem {
+            super.drawBar(inside: rect, flipped: flipped)
+            return
+        }
         let track = NSRect(x: rect.minX, y: rect.midY - 2, width: rect.width, height: 4)
         NSColor(chrome.hairline).setFill(); NSBezierPath(roundedRect: track, xRadius: 2, yRadius: 2).fill()
         let fraction = (doubleValue - minValue) / max(0.00001, maxValue - minValue)
@@ -147,6 +225,10 @@ private final class FamilySliderCell: NSSliderCell {
         NSColor(chrome.accent).setFill(); NSBezierPath(roundedRect: filled, xRadius: 2, yRadius: 2).fill()
     }
     override func drawKnob(_ rect: NSRect) {
+        if chrome.isSystem {
+            super.drawKnob(rect)
+            return
+        }
         let knob = NSRect(x: rect.midX - 7, y: rect.midY - 7, width: 14, height: 14)
         if controlView?.window?.firstResponder === controlView {
             NSColor(chrome.focus).setFill(); NSBezierPath(ovalIn: knob.insetBy(dx: -3, dy: -3)).fill()

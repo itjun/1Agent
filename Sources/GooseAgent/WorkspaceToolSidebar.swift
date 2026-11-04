@@ -129,7 +129,7 @@ struct WorkspaceChangesView: View {
             FamilySegments(value: $window.toolGitBranchComparison, options: [
                 (false, String(localized: "Uncommitted")),
                 (true, String(localized: "Branch Comparison"))
-            ])
+            ], isFullWidth: true)
             if window.toolGitBranchComparison, let snapshot, !snapshot.branches.isEmpty {
                 HStack {
                     Text("Compare with").font(Theme.Font.rowMeta)

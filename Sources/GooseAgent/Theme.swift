@@ -455,6 +455,7 @@ enum AppTheme {
 /// 所有窗口共用当前预设，终端读取同一组底色、文字和强调色。
 struct WindowChrome: Equatable {
     let isDark: Bool
+    let isSystem: Bool
     var background: Color
     var sidebarBackground: Color
     var elevated: Color
@@ -507,6 +508,37 @@ struct WindowChrome: Equatable {
 
     init(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) {
         self.isDark = isDark
+        isSystem = preset == .system
+        if isSystem {
+            // 按窗口外观解析系统语义色，跟随用户在 macOS 中选择的强调色。
+            func systemColor(_ color: NSColor) -> Color {
+                var resolved = color
+                NSAppearance(named: isDark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+                    resolved = color.usingColorSpace(.sRGB) ?? color
+                }
+                return Color(nsColor: resolved)
+            }
+            background = systemColor(.textBackgroundColor)
+            sidebarBackground = systemColor(.windowBackgroundColor)
+            elevated = systemColor(.controlBackgroundColor)
+            text = systemColor(.labelColor)
+            secondary = systemColor(.secondaryLabelColor)
+            tertiary = systemColor(.tertiaryLabelColor)
+            hairline = systemColor(.separatorColor)
+            accent = systemColor(.controlAccentColor)
+            // 保留侧栏现有选中布局，使用系统的柔和选中底色。
+            accentFill = systemColor(.unemphasizedSelectedContentBackgroundColor)
+            panelHeader = sidebarBackground
+            danger = systemColor(.systemRed)
+            warning = systemColor(.systemOrange)
+            success = systemColor(.systemGreen)
+            accentHover = accent
+            accentActive = systemColor(.selectedContentBackgroundColor)
+            focus = systemColor(.keyboardFocusIndicatorColor)
+            selection = accentFill
+            lineStrong = systemColor(.gridColor)
+            return
+        }
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         background = colors.color(colors.background)
         sidebarBackground = colors.color(colors.gradient[1])

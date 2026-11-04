@@ -153,7 +153,9 @@ final class ShellBackdropView: NSView {
         wantsLayer = true
         appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
-        let fallback = NSColor(colors.color(colors.gradient[1]))
+        let fallback = preset == .system
+            ? NSColor(WindowChrome(isDark: isDark, preset: preset).sidebarBackground)
+            : NSColor(colors.color(colors.gradient[1]))
         let tintOpacity = preset == .system
             ? (isDark ? ShellLayout.systemDarkBackdropOpacity : ShellLayout.systemLightBackdropOpacity)
             : (isDark ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity)
@@ -164,7 +166,9 @@ final class ShellBackdropView: NSView {
         CATransaction.setDisableActions(true)
         // 实色底板阻止其他窗口内容穿透；只在材质下采样桌面壁纸。
         layer?.backgroundColor = fallback.cgColor
-        gradientLayer.colors = colors.gradient.map { NSColor(colors.color($0)).withAlphaComponent(opacity).cgColor }
+        gradientLayer.colors = colors.gradient.map {
+            (preset == .system ? fallback : NSColor(colors.color($0))).withAlphaComponent(opacity).cgColor
+        }
         glowLayer.colors = [glow.cgColor, glow.withAlphaComponent(0).cgColor]
         glowLayer.isHidden = preset == .system
         gradientLayer.frame = washView.bounds
