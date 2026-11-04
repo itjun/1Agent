@@ -3269,6 +3269,25 @@ diff --git a/src/renderer/Thread.zig b/src/renderer/Thread.zig
 index 19d43f5..79e52c4 100644
 --- a/src/renderer/Thread.zig
 +++ b/src/renderer/Thread.zig
+@@ -313,15 +313,15 @@
+                 // Visibility affects our QoS class
+                 self.setQosClass();
+ 
++                // Publish visibility before the first resumed draw.
++                self.renderer.setVisible(v);
++
+                 // If we became visible then we immediately rebuild cells
+                 // (renderCallback skips updateFrame while invisible) and
+                 // draw. Going through renderCallback also reschedules
+                 // any Kitty graphics animation wakeup that lapsed
+                 // while we were invisible.
+                 if (v) _ = renderCallback(self, undefined, undefined, {});
+-
+-                // Notify the renderer so it can update any state.
+-                self.renderer.setVisible(v);
+ 
+                 // Note that we're explicitly today not stopping any
+                 // cursor timers, draw timers, etc. These things have very
 @@ -364,24 +364,28 @@ fn drainMailbox(self: *Thread) !void {
                      }
                  } else {
@@ -3690,6 +3709,29 @@ index df70aa3..1226c11 100644
          /// Returns true if the display link is running, meaning frames
          /// are paced by display refresh. In that case the render thread
          /// must only draw when the display link wakes it through
+@@ -1218,15 +1543,15 @@
+         ///
+         /// Must be called on the render thread.
+         pub fn setVisible(self: *Self, visible: bool) void {
+-            self.visible = visible;
+-            self.syncDisplayLink(null, null);
+-
+-            // When we're hidden, release our GPU resources.
+-            if (!visible) {
++            // Visibility and GPU lifetime share the draw lock: AppKit can
++            // synchronously draw a hidden layer from the main thread.
++            {
+                 self.draw_mutex.lockUncancelable(global.io());
+                 defer self.draw_mutex.unlock(global.io());
+-                self.releaseGpuResources();
+-            }
++                self.visible = visible;
++                if (!visible) self.releaseGpuResources();
++            }
++            self.syncDisplayLink(null, null);
+         }
+ 
+         /// Release the GPU resources we hold while the surface is not
 @@ -1426,6 +1751,16 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
                      return;
                  }
@@ -3707,6 +3749,17 @@ index df70aa3..1226c11 100644
                  // If scroll-to-bottom on output is enabled, check if the final line
                  // changed by comparing the bottom-right pin. If the node pointer or
                  // y offset changed, new content was added to the screen.
+@@ -1741,6 +2076,10 @@
+             self: *Self,
+             sync: bool,
+         ) !bool {
++            // Layer display callbacks bypass the render thread's visibility
++            // check. Never recreate a hidden surface's released swap chain.
++            if (!self.visible) return false;
++
+             // After the graphics API is complete (so we defer) we want to
+             // update our scrollbar state.
+             defer if (self.scrollbar_dirty) {
 diff --git a/src/renderer/metal/Device.zig b/src/renderer/metal/Device.zig
 index dbd9b94..ce6197f 100644
 --- a/src/renderer/metal/Device.zig
