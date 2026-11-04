@@ -53,6 +53,7 @@ struct FileColumnHeader<Endpoint: View>: View {
                 .onExitCommand {
                     column.filter = ""
                     showingFilter = false
+                    filterFocused = false
                 }
             if !column.filter.isEmpty {
                 Button {
@@ -207,8 +208,6 @@ struct FileColumnView: View {
                 }
                 .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
                     .fill(editingPath || pathHovered ? chrome.elevated : Color.clear))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control)
-                    .stroke(pathFieldFocused ? chrome.accent : Color.clear, lineWidth: 1))
                 .familyFocusRing(pathFieldFocused)
                 .onHover { pathHovered = $0 }
 
@@ -898,8 +897,9 @@ struct FilePointerObserver: NSViewRepresentable {
             stop()
             guard window != nil else { return }
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .leftMouseDown]) { [weak self] event in
+                // SwiftUI 宿主的 visibleRect 可能超出自身范围，列表不能抢走顶部输入框的焦点。
                 guard let self, event.window === self.window, !self.isHiddenOrHasHiddenAncestor,
-                      self.visibleRect.contains(self.convert(event.locationInWindow, from: nil)) else { return event }
+                      self.bounds.intersection(self.visibleRect).contains(self.convert(event.locationInWindow, from: nil)) else { return event }
                 if self.contextClicksOnly && event.type != .rightMouseDown && !event.modifierFlags.contains(.control) {
                     return event
                 }

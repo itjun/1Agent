@@ -106,6 +106,12 @@ private struct FilesWorkspaceRoutingTests {
         let labels = accessibilityLabels(chromeWindow.contentView!)
         try require(labels.contains(String(localized: "Terminal")) && labels.contains(String(localized: "Files")),
                     "The real SwiftUI toolbar must be reachable through the fixture's accessibility tree")
+        if environment["ONEAGENT_TEST_FILE_FILTER_HEADER"] == "1" {
+            try await verifyFileHeaderFilterFocus(model: model, state: state, window: chromeWindow, home: home)
+            chromeWindow.orderOut(nil)
+            chromeWindow.contentView = nil
+            return
+        }
         if environment["ONEAGENT_TEST_COMPACT_HEADER"] == "1" {
             try await verifyCompactHeaderGeometry(model: model, state: state, window: chromeWindow)
             chromeWindow.orderOut(nil)
@@ -998,6 +1004,60 @@ private struct FilesWorkspaceRoutingTests {
 
         window.orderOut(nil)
         window.contentView = nil
+    }
+
+    @MainActor
+    private static func verifyFileHeaderFilterFocus(model: AppModel, state: WindowState, window: NSWindow, home: String) async throws {
+        // 完整 RootView 的原生分栏宿主会扩大 visibleRect，单独挂载文件面板无法复现焦点被抢走。
+        window.contentView = nil
+        model.openLocalTerminal(at: home, placement: .newTab, beside: UUID(), in: state)
+        try await eventually("create filter header terminal fixture") { model.tabs.count == 1 }
+        let tab = model.tabs[0]
+        let terminal = SSHTerminalRegistry.view(for: tab.sessionID) { SSHTerminalNSView(frame: .zero) }!
+        window.contentView = NSHostingView(rootView: RootView(model: model, window: state))
+        try await settle()
+        model.selectFilesLayout(.sideBySide, in: state)
+        try await settle()
+        window.contentView?.layoutSubtreeIfNeeded()
+        for isCollapsed in [false, true] {
+            state.presentation.sidebarCollapsed = isCollapsed
+            model.showSection(.commands, in: state)
+            try await settle()
+            model.selectFilesLayout(.sideBySide, in: state)
+            try await settle()
+            let content = window.contentView!
+            let filters = accessibilityElements(content).filter {
+                accessibilityValue($0, "accessibilityIdentifier") as? String == "files.filter"
+            }
+            try require(filters.count == 1, "The full file page must expose the local filter")
+            let control = filters[0]
+            let selector = NSSelectorFromString("accessibilityFrame")
+            typealias Getter = @convention(c) (AnyObject, Selector) -> NSRect
+            let frame = unsafeBitCast(control.method(for: selector), to: Getter.self)(control, selector)
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            let location = window.convertPoint(fromScreen: NSPoint(x: frame.midX, y: frame.midY))
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: 0)!
+                NSApp.postEvent(event, atStart: false)
+            }
+            try await settle()
+            guard let editor = window.firstResponder as? NSTextView else {
+                throw TestFailure(description: "Clicking the full file page filter must focus its text editor; got \(String(describing: window.firstResponder))")
+            }
+            editor.insertText("local-a", replacementRange: editor.selectedRange())
+            try await settle()
+            let column = model.fileWorkspace(for: state).localColumn
+            try require(column.filter == "local-a" && column.shown.map(\.name) == ["local-a"],
+                        "Typing in the full file page filter must update the visible files")
+            column.filter = ""
+            try await settle()
+            try require(SSHTerminalRegistry.view(for: tab.sessionID, make: { fatalError("Terminal must survive page switches") }) === terminal,
+                        "Showing files must preserve the terminal instance")
+        }
+        print("ok: full RootView file filter retains input focus and filters files with expanded/collapsed sidebar")
     }
 
     @MainActor
