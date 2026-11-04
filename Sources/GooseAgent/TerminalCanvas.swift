@@ -58,7 +58,7 @@ struct TerminalCanvas: View {
                         dark: terminalIsDark,
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
-                        isPresented: visible && !window.presentation.fullFilesWorkspace,
+                        isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace,
                         isSelected: isSelected,
                         contentCornerRadius: isShellTransparent ? ShellLayout.contentRadius : 0,
                         isHeaderIntegrated: isShellTransparent,

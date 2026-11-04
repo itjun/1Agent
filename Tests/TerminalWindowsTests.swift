@@ -85,6 +85,20 @@ import ObjectiveC
         try check(Set(model.sidebarOrder(in: main)) == [firstTab, secondTab], "A group owns both complete rows")
         model.dissolveWorkspace(grouped.id)
         let native = MainWindowManager.shared.window(for: main)!
+        let workspaceView = SSHTerminalRegistry.automationView("\(main.selectedTabID!.uuidString)#0")!
+        let workspacePID = workspaceView.processHost!.process.shellPid
+        // 覆盖当前版本支持的非终端页面，不依赖尚未合入的页面枚举。
+        for section in ["files", "commands"].compactMap({ AppSection(rawValue: $0) }) {
+            main.section = section
+            try await Task.sleep(for: .milliseconds(300))
+            try check((workspaceView.superview as? TerminalHostView)?.isHidden == true,
+                      "Leaving Terminals for \(section.rawValue) must hide the native terminal surface")
+            model.hideFiles(in: main)
+            try await Task.sleep(for: .milliseconds(300))
+            try check((workspaceView.superview as? TerminalHostView)?.isHidden == false &&
+                      workspaceView.processHost!.process.shellPid == workspacePID,
+                      "Returning from \(section.rawValue) must reveal the same terminal process")
+        }
         for iteration in 0..<24 {
             let config = try TerminalCreationConfiguration(record: ["workingDirectory": home])
             let terminal = try await model.createScriptTerminal(configuration: config, in: main)
