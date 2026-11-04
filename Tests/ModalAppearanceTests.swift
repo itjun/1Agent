@@ -34,6 +34,7 @@ import SwiftUI
         method_setImplementation(getter, imp_implementationWithBlock(block))
         defer { method_setImplementation(getter, previous) }
         let model = AppModel(), state = model.mainWindow
+        checkContextMenuGesture()
         let context = QuickCommandContext(directory: home)
         let item = QuickCommand(alias: "外观检查", command: "printf '%s\\n' '中文文字'", scope: .local)
         try QuickCommandStore.shared.save(item)
@@ -160,6 +161,38 @@ import SwiftUI
         TransferToast.shared.finish(transfer, "检查完成")
         if !failures.isEmpty { throw NSError(domain: "ModalAppearanceTests", code: failures.count, userInfo: [NSLocalizedDescriptionKey: failures.joined(separator: "; ")]) }
         print("ModalAppearanceTests passed: all dialog surfaces, live appearance changes, workspace confirmation, nested details, native confirmation and transfer toast")
+    }
+
+    @MainActor static func checkContextMenuGesture() {
+        let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let row = FamilyContextAnchorView(frame: NSRect(x: 200, y: 100, width: 180, height: 40))
+        var menuRequests = 0
+        row.items = { menuRequests += 1; return [FamilyMenuItem(title: "Edit command")] }
+        owner.contentView = content
+        content.addSubview(row)
+        owner.orderFront(nil)
+        defer { FamilyMenuPresenter.shared.dismiss(); owner.orderOut(nil) }
+        let router = FamilyContextMenus.shared
+        func event(_ type: NSEvent.EventType, _ point: NSPoint = NSPoint(x: 220, y: 120), _ flags: NSEvent.ModifierFlags = []) -> NSEvent {
+            NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
+                              windowNumber: owner.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+        }
+        expect(router.handle(event(.rightMouseDown)) == nil && menuRequests == 1, "right down opens the command row menu and stops routing")
+        let menu = FamilyMenuPresenter.shared.panels.first
+        expect(menu != nil, "command context menu is presented")
+        expect(router.handle(event(.rightMouseUp)) == nil, "right up must not reach the terminal and replace the command menu")
+        expect(FamilyMenuPresenter.shared.panels.first === menu, "command menu survives the complete right click")
+        FamilyMenuPresenter.shared.dismiss()
+        expect(router.handle(event(.rightMouseUp)) != nil, "unpaired terminal right up remains available")
+        expect(router.handle(event(.leftMouseDown, NSPoint(x: 220, y: 120), .control)) == nil, "control click opens the row menu")
+        expect(router.handle(event(.leftMouseUp)) == nil, "control release before mouse up must not activate the underlying row")
+        FamilyMenuPresenter.shared.dismiss()
+        expect(router.handle(event(.rightMouseDown, NSPoint(x: 20, y: 20))) != nil, "right click outside command rows keeps normal terminal routing")
+        expect(router.handle(event(.rightMouseUp, NSPoint(x: 20, y: 20))) != nil, "terminal right release is not consumed")
+        expect(router.handle(event(.leftMouseDown)) != nil, "normal row selection and dragging keep their mouse down")
+        expect(router.handle(event(.leftMouseUp)) != nil, "normal row selection keeps its mouse up")
+        print("CHECKED: command context menu owns right/control-click press and release; terminal and normal selection remain available")
     }
 
     @MainActor static func checkSurface(_ view: NSView, dark: Bool, name: String, elevated: Bool = false) {

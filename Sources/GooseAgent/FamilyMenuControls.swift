@@ -111,18 +111,19 @@ extension View {
 }
 
 private struct FamilyContextAnchor: NSViewRepresentable {
+    @Environment(\.isEnabled) private var isEnabled
     var items: () -> [FamilyMenuItem]
     func makeNSView(context: Context) -> FamilyContextAnchorView {
         let view = FamilyContextAnchorView()
-        view.items = items
+        view.items = isEnabled ? items : nil
         return view
     }
-    func updateNSView(_ view: FamilyContextAnchorView, context: Context) { view.items = items }
+    func updateNSView(_ view: FamilyContextAnchorView, context: Context) { view.items = isEnabled ? items : nil }
 }
 
 /// Transparent anchors do not steal selection, drag or scroll gestures. The most specific
 /// visible anchor wins, so a file row takes precedence over the list's blank-area menu.
-private final class FamilyContextAnchorView: NSView {
+final class FamilyContextAnchorView: NSView {
     var items: (() -> [FamilyMenuItem])?
     override var isFlipped: Bool { true }
     // SwiftUI's unclipped native hosts can report a visibleRect larger than this row.
@@ -135,23 +136,37 @@ private final class FamilyContextAnchorView: NSView {
 }
 
 @MainActor
-private final class FamilyContextMenus {
+final class FamilyContextMenus {
     static let shared = FamilyContextMenus()
     private let anchors = NSHashTable<FamilyContextAnchorView>.weakObjects()
     private var monitor: Any?
+    private var consumedMouseUp: NSEvent.EventType?
 
     func register(_ view: FamilyContextAnchorView) {
         anchors.add(view)
         guard monitor == nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .leftMouseDown]) { [weak self] event in
-            guard event.type == .rightMouseDown || event.modifierFlags.contains(.control),
-                  let anchor = self?.anchors.allObjects.filter({ view in
-                      view.items != nil && view.window === event.window && !view.isHiddenOrHasHiddenAncestor &&
-                      view.hitBounds.contains(view.convert(event.locationInWindow, from: nil))
-                  }).min(by: { $0.hitBounds.width * $0.hitBounds.height < $1.hitBounds.width * $1.hitBounds.height }),
-                  let items = anchor.items else { return event }
-            FamilyMenuPresenter.shared.show(items(), with: event, for: anchor)
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .rightMouseUp, .leftMouseDown, .leftMouseUp]) { [weak self] event in
+            guard let self else { return event }
+            return self.handle(event)
+        }
+    }
+
+    func handle(_ event: NSEvent) -> NSEvent? {
+        if event.type == .rightMouseUp || event.type == .leftMouseUp {
+            guard consumedMouseUp == event.type else { return event }
+            consumedMouseUp = nil
+            // 按下由菜单接管后，松开也不能再传给终端或底下的按钮。
             return nil
         }
+        consumedMouseUp = nil
+        guard event.type == .rightMouseDown || (event.type == .leftMouseDown && event.modifierFlags.contains(.control)),
+              let anchor = anchors.allObjects.filter({ view in
+                  view.items != nil && view.window === event.window && !view.isHiddenOrHasHiddenAncestor &&
+                  view.hitBounds.contains(view.convert(event.locationInWindow, from: nil))
+              }).min(by: { $0.hitBounds.width * $0.hitBounds.height < $1.hitBounds.width * $1.hitBounds.height }),
+              let items = anchor.items else { return event }
+        consumedMouseUp = event.type == .rightMouseDown ? .rightMouseUp : .leftMouseUp
+        FamilyMenuPresenter.shared.show(items(), with: event, for: anchor)
+        return nil
     }
 }
