@@ -82,3 +82,44 @@ private struct FamilyFocusRing: ViewModifier {
 extension View {
     func familyFocusRing(_ focused: Bool) -> some View { modifier(FamilyFocusRing(focused: focused)) }
 }
+
+/// 系统主题行状态统一处理，非默认预设完全使用调用处的原有样式。
+private struct DefaultRowSurface: ViewModifier {
+    @Environment(\.windowChrome) private var chrome
+    @Environment(\.controlActiveState) private var activeState
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.isFocused) private var focused
+    @State private var hovered = false
+    var selected: Bool
+    var legacyFill: Color
+    var isKeyboardTarget: Bool
+    var radius: CGFloat
+
+    func body(content: Content) -> some View {
+        // isFocused 会从可聚焦的整个列表继承；未选中的行不能据此绘制焦点框。
+        let showsFocus = selected && isKeyboardTarget && focused && activeState != .inactive
+        content
+            .background {
+                RoundedRectangle(cornerRadius: radius)
+                    .fill(chrome.isSystem
+                          ? (selected ? chrome.rowSelection(active: activeState != .inactive) : hovered ? chrome.hoverFill : .clear)
+                          : legacyFill)
+            }
+            .overlay {
+                if chrome.isSystem {
+                    RoundedRectangle(cornerRadius: radius)
+                        .strokeBorder(showsFocus ? chrome.focus :
+                            selected && contrast == .increased ? chrome.secondary : .clear,
+                            lineWidth: showsFocus ? 2 : 1)
+                        .allowsHitTesting(false)
+                }
+            }
+            .onHover { hovered = $0 }
+    }
+}
+
+extension View {
+    func defaultRowSurface(selected: Bool, legacyFill: Color, radius: CGFloat = Theme.Radius.control, isKeyboardTarget: Bool = true) -> some View {
+        modifier(DefaultRowSurface(selected: selected, legacyFill: legacyFill, isKeyboardTarget: isKeyboardTarget, radius: radius))
+    }
+}

@@ -24,6 +24,19 @@ struct WorkspaceToolSidebar: View {
     }
     var body: some View {
         VStack(spacing: 0) {
+            if chrome.isSystem {
+                Picker("Workspace Tools", selection: $window.toolSidebarTab) {
+                    ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
+                        Text(verbatim: tab.title).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented).labelsHidden().controlSize(.large)
+                .padding(.horizontal, Theme.DefaultLayout.toolInset).frame(height: 42)
+                .onChange(of: window.toolSidebarTab) { _, tab in
+                    if tab == .changes { window.toolGitBranchComparison = false }
+                }
+                .accessibilityIdentifier("workspace.tools")
+            } else {
             HStack(spacing: 0) {
                 ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
                     Button {
@@ -58,6 +71,7 @@ struct WorkspaceToolSidebar: View {
                     .allowsHitTesting(false)
             }
             .padding(.horizontal, 12).frame(height: 42)
+            }
             switch window.toolSidebarTab {
             case .commands: QuickCommandSidebar(model: model, window: window, showsHeader: false)
             case .changes:
@@ -198,7 +212,7 @@ struct WorkspaceChangesView: View {
             }
 
         }
-        .padding(.horizontal, 12).padding(.vertical, 16)
+        .padding(.horizontal, chrome.isSystem ? Theme.DefaultLayout.toolInset : 12).padding(.vertical, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task(id: refreshKey) { await refresh() }
         .onReceive(timer) { _ in if !isLoading && NSApp.isActive { revision += 1 } }
@@ -238,8 +252,7 @@ struct WorkspaceChangesView: View {
             }.padding(.vertical, 5).padding(.horizontal, 6)
                 .padding(.leading, CGFloat(min(depth, 8)) * 12 + 16)
                 .contentShape(Rectangle())
-                .background(selection == change.path ? chrome.accentFill : .clear,
-                            in: RoundedRectangle(cornerRadius: 6))
+                .defaultRowSurface(selected: selection == change.path, legacyFill: selection == change.path ? chrome.accentFill : .clear)
         }.buttonStyle(.plain).help(change.path)
             .accessibilityIdentifier("workspace.gitFile." + change.path)
     }
@@ -369,9 +382,8 @@ private struct WorkspaceFileRow: View {
                     if isLoading { ProgressView().controlSize(.mini) }
                 }.padding(.vertical, 7).padding(.horizontal, 6)
                     .padding(.leading, CGFloat(min(depth, 8)) * 12).contentShape(Rectangle())
-                    .background(selectedPath == entry.path ? chrome.accentFill : .clear,
-                                in: RoundedRectangle(cornerRadius: 6))
-            }.buttonStyle(.plain)
+                    .defaultRowSurface(selected: selectedPath == entry.path, legacyFill: selectedPath == entry.path ? chrome.accentFill : .clear)
+            }.buttonStyle(.plain).help(entry.path)
                 .accessibilityAddTraits(selectedPath == entry.path ? .isSelected : [])
                 .accessibilityIdentifier("workspace.fileRow." + entry.path)
             if isExpanded {

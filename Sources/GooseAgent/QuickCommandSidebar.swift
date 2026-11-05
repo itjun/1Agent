@@ -69,8 +69,9 @@ struct QuickCommandSidebar: View {
                     Text(verbatim: context.host ?? String(localized: "This Mac"))
                         .font(Theme.Font.sectionTitle).lineLimit(1).truncationMode(.middle)
                     Text(verbatim: context.directory.map { context.host == nil ? LocalTerminal.displayPath($0) : $0 } ?? String(localized: "Directory unknown"))
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(2).truncationMode(.middle)
+                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(chrome.isSystem ? 1 : 2).truncationMode(.middle)
                         .textSelection(.enabled)
+                        .help(context.directory ?? String(localized: "Directory unknown"))
                 }
                 Spacer(minLength: 4)
                 Button { editInLibrary(draft()) } label: { Image(systemName: "plus").frame(width: 28, height: 28) }
@@ -109,11 +110,11 @@ struct QuickCommandSidebar: View {
                     }.frame(height: previewTextHeight(selectedCommand.command)).id(selectedCommand.id)
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("quickCommands.preview")
             }
-        }.padding(16)
+        }.padding(chrome.isSystem ? Theme.DefaultLayout.toolInset : 16)
     }
 
     private var commandRows: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView(showsIndicators: chrome.isSystem) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 ForEach(0..<3, id: \.self) { section in
                     let rows = commands.filter { $0.section == section }
@@ -259,8 +260,14 @@ struct CommandListRow: View {
                     .help("Command Actions")
             }
         }
-        .padding(10).background(isSelected ? chrome.accentFill : hovered ? chrome.elevated : Color.clear)
+        .padding(10)
+        .defaultRowSurface(selected: isSelected, legacyFill: isSelected ? chrome.accentFill : hovered ? chrome.elevated : .clear)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.control)
+                .strokeBorder(isSelected && chrome.isDark && !chrome.isSystem ? chrome.accent.opacity(0.75) : .clear, lineWidth: 1)
+                .allowsHitTesting(false)
+        }
         .overlay {
             if allowsDragging {
                 QuickCommandReorderTarget(item: item, chrome: chrome, onMove: onReorder)
@@ -268,17 +275,22 @@ struct CommandListRow: View {
             }
         }
         .onHover { hovered = $0 }
+        .help(item.alias + "\n" + item.command)
     }
 
     private var commandButton: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(alignment: chrome.isSystem && isCompact ? .top : .center, spacing: 10) {
                 if showsSelection {
                     Image(systemName: isSelected ? "checkmark.square.fill" : "square").foregroundStyle(chrome.accent)
                 }
-                Image(systemName: item.needsRepair ? "exclamationmark.triangle" : "terminal").foregroundStyle(item.needsRepair ? chrome.warning : chrome.accent)
+                Image(systemName: item.needsRepair ? "exclamationmark.triangle" : "terminal")
+                    .foregroundStyle(item.needsRepair ? chrome.warning : chrome.isSystem && !isSelected ? chrome.secondary : chrome.accent)
+                    .frame(width: chrome.isSystem ? Theme.DefaultLayout.iconWidth : nil, height: chrome.isSystem ? 18 : nil)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(verbatim: item.alias).font(Theme.Font.row).lineLimit(isCompact ? 2 : 1)
+                    Text(verbatim: item.alias).font(Theme.Font.row).fontWeight(isSelected ? .semibold : .regular)
+                        .foregroundStyle(chrome.text).lineLimit(isCompact ? 2 : 1)
+                        .frame(minHeight: chrome.isSystem && isCompact ? Theme.DefaultLayout.commandTextHeight : nil, alignment: .topLeading)
                     if !isCompact {
                     Text(verbatim: item.command.replacingOccurrences(of: "\n", with: " ↵ "))
                         .font(.system(size: 12, design: .monospaced)).foregroundStyle(chrome.secondary).lineLimit(1)

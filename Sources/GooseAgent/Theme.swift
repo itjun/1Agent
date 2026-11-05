@@ -70,6 +70,14 @@ enum Theme {
         static let overviewOffset: CGFloat = 8
     }
 
+    /// 默认主题主窗口的排版；其他预设保留已有尺寸。
+    enum DefaultLayout {
+        static let toolInset: CGFloat = 16
+        static let commandTextHeight: CGFloat = 36
+        static let iconWidth: CGFloat = 20
+        static let badgeHeight: CGFloat = 22
+    }
+
     enum Control {
         static let height: CGFloat = 32
         static let compactHeight: CGFloat = 28
@@ -475,7 +483,14 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
-    var inactiveIcon: Color { isDark ? RGBColor(ghosttyHex: "878B92")!.color : secondary }
+    var hoverFill: Color { isSystem ? text.opacity(isDark ? 0.07 : 0.045) : hairline }
+
+    func rowSelection(active: Bool) -> Color {
+        guard isSystem else { return accentFill }
+        return active ? text.opacity(isDark ? 0.14 : 0.10) : accentFill
+    }
+
+    var inactiveIcon: Color { isSystem ? secondary : isDark ? RGBColor(ghosttyHex: "878B92")!.color : secondary }
 
     /// 沿用马卡龙色板，并混入当前主题；文字在普通、悬停和选中背景上均可辨认。
     func folderColor(_ icon: ApplicationIcon) -> Color {
@@ -513,7 +528,11 @@ struct WindowChrome: Equatable {
             // 按窗口外观解析系统语义色，跟随用户在 macOS 中选择的强调色。
             func systemColor(_ color: NSColor) -> Color {
                 var resolved = color
-                NSAppearance(named: isDark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+                let increased = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+                let appearance: NSAppearance.Name = increased
+                    ? (isDark ? .accessibilityHighContrastDarkAqua : .accessibilityHighContrastAqua)
+                    : (isDark ? .darkAqua : .aqua)
+                NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
                     resolved = color.usingColorSpace(.sRGB) ?? color
                 }
                 return Color(nsColor: resolved)

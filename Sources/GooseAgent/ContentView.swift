@@ -10,6 +10,7 @@ struct RootView: View {
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(SidebarLayout.widthKey) private var sidebarWidth: Double = SidebarLayout.defaultWidth
     @Environment(\.controlActiveState) private var controlActiveState
+    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var isMotionReduced
     @StateObject private var dropRelay = CanvasDropRelay()
     @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
@@ -339,15 +340,17 @@ struct RootView: View {
                 }
                 Text(verbatim: group.title).font(Theme.Font.sidebarCategory)
                     .foregroundStyle(folderColor)
+                if sidebarChrome.isSystem { Spacer(minLength: 0) }
                 Text(verbatim: String(count)).font(Theme.Font.rowMeta).monospacedDigit()
-                Spacer(minLength: 0)
+                    .foregroundStyle(sidebarChrome.secondary)
+                if !sidebarChrome.isSystem { Spacer(minLength: 0) }
             }
             .padding(.leading, 6).padding(.trailing, 30)
             .frame(height: SidebarLayout.rowHeight).contentShape(Rectangle())
         }
         .buttonStyle(FamilyButtonStyle())
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
-            .fill(isHovered ? sidebarChrome.hairline : Color.clear))
+            .fill(isHovered ? sidebarChrome.hoverFill : Color.clear))
         .accessibilityIdentifier("sidebar.group.\(group.rawValue)")
         .accessibilityLabel(Text(String(format: String(localized: "Toggle %@ Group"), group.title)))
         .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
@@ -747,6 +750,11 @@ struct RootView: View {
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected && !row.isSplit,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
                 .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .strokeBorder(selected && !row.isSplit ? selectionOutline : .clear, lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
             .background(PanelRowAnchor(ids: row.leafIDs, relay: dropRelay))
             .background(QuickCommandCopyTarget(chrome: sidebarChrome) { id in
                 model.copyLibraryCommand(id, to: tab.isLocal ? .local : .host(tab.alias ?? ""), in: window)
@@ -811,6 +819,11 @@ struct RootView: View {
         .frame(height: SidebarLayout.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
             .fill(rowFill(selected: isSelected, hovered: hoveredTabID == tab.id, tabID: tab.id)))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.control)
+                .strokeBorder(isSelected ? selectionOutline : .clear, lineWidth: 1)
+                .allowsHitTesting(false)
+        }
         .background(PanelRowAnchor(ids: [tab.id], relay: dropRelay, isPane: true))
         .overlay {
             TabDragHandle(
@@ -931,7 +944,7 @@ struct RootView: View {
         .padding(.horizontal, Theme.Space.s)
         .frame(height: SidebarLayout.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
-            .fill(isHovered ? sidebarChrome.hairline : Color.clear))
+            .fill(isHovered ? sidebarChrome.hoverFill : Color.clear))
         }
     }
 
@@ -945,16 +958,22 @@ struct RootView: View {
         return sidebarChrome.accent
     }
 
+    private var selectionOutline: Color {
+        if sidebarChrome.isSystem { return contrast == .increased ? sidebarChrome.secondary : .clear }
+        return sidebarChrome.isDark ? sidebarChrome.accent.opacity(0.75) : .clear
+    }
+
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {
         if window.dropHighlight == .sidebarRow(tabID) || window.dropHighlight == .sidebar {
             return sidebarChrome.accent.opacity(0.28)
         }
         if selected {
-            guard controlActiveState != .inactive else { return sidebarChrome.hairline }
+            if sidebarChrome.isSystem { return sidebarChrome.rowSelection(active: controlActiveState != .inactive) }
+            guard sidebarChrome.isDark || controlActiveState != .inactive else { return sidebarChrome.hairline }
             return sidebarChrome.accentFill
         }
         if hovered {
-            return sidebarChrome.hairline
+            return sidebarChrome.hoverFill
         }
         return Color.clear
     }
