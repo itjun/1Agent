@@ -344,8 +344,9 @@ struct TerminalGitBadge: View {
                         Image(systemName: "arrow.triangle.branch")
                         Text(verbatim: branch).lineLimit(1).truncationMode(.middle)
                         if let stats { GitLineStatsLabel(stats: stats).fixedSize() }
-                    }.font(Theme.Font.rowMeta).padding(.horizontal, 7).padding(.vertical, 3)
-                        .background(chrome.accentFill, in: RoundedRectangle(cornerRadius: 5))
+                    }.font(Theme.Font.rowMeta).padding(.horizontal, 7).padding(.vertical, chrome.isSystem ? 0 : 3)
+                        .frame(height: chrome.isSystem ? Theme.DefaultLayout.badgeHeight : nil)
+                        .defaultRowSurface(selected: false, legacyFill: chrome.accentFill, radius: 5)
                 }.buttonStyle(.plain).help(statsError ?? String(localized: "Show Branch Changes"))
                     .accessibilityIdentifier("workspace.branch." + tab.id.uuidString)
             }

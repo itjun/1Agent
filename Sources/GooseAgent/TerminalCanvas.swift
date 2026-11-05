@@ -2,6 +2,28 @@ import AppKit
 import QuartzCore
 import SwiftUI
 
+struct TerminalLocationBadge: View {
+    var tab: TerminalTab
+    @Environment(\.windowChrome) private var chrome
+
+    static let titleInset: CGFloat = 80
+
+    var body: some View {
+        if tab.hasTerminal {
+            Text(tab.isLocal ? "This Mac" : "Remote")
+                .font(Theme.Font.rowMeta)
+                .foregroundStyle(chrome.secondary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, chrome.isSystem ? 0 : 3)
+                .frame(height: chrome.isSystem ? Theme.DefaultLayout.badgeHeight : nil)
+                .background(chrome.isSystem ? chrome.hoverFill : chrome.accentFill, in: RoundedRectangle(cornerRadius: 5))
+                .fixedSize()
+                .allowsHitTesting(false)
+                .accessibilityIdentifier("workspace.location." + tab.id.uuidString)
+        }
+    }
+}
+
 struct TerminalCanvas: View {
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
@@ -280,7 +302,7 @@ struct TerminalCanvas: View {
                 HStack(spacing: 6) {
                     Text(verbatim: numberedPaneTitle(tab))
                         .font(isShellTransparent ? Theme.Font.floatingPaneTitle : Theme.Font.paneTitle.weight(.regular))
-                        .foregroundStyle(isShellTransparent && tab.hasTerminal ? floatingTerminalForeground : chrome.secondary)
+                        .foregroundStyle(isShellTransparent && tab.hasTerminal ? floatingTerminalForeground : chrome.isSystem ? chrome.text : chrome.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .layoutPriority(1)
@@ -288,12 +310,16 @@ struct TerminalCanvas: View {
                     RemoteTitleStatus(tab: tab)
                         .font(Theme.Font.paneTitle)
                     if tab.reconnecting {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Label {
+                            if chrome.isSystem { Text("Reconnecting…").lineLimit(1) }
+                        } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
                             .foregroundStyle(chrome.warning)
                             .accessibilityLabel(Text("Reconnecting…"))
                     } else if tab.showsDisconnected {
-                        Image(systemName: "link.slash")
+                        Label {
+                            if chrome.isSystem { Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")).lineLimit(1) }
+                        } icon: { Image(systemName: "link.slash") }
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
                             .foregroundStyle(chrome.danger)
                             .accessibilityLabel(Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")))
@@ -320,8 +346,14 @@ struct TerminalCanvas: View {
                 .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) }
                 .accessibilityLabel(Text(verbatim: numberedPaneTitle(tab)))
                 .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
+                .padding(.horizontal, tab.hasTerminal
+                    ? max(TerminalLocationBadge.titleInset, frame.width > 420 ? min(220, frame.width * 0.38) + Theme.Space.s : 0) : 0)
                 .padding(.leading, isShellTransparent && frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
                 .padding(.horizontal, isShellTransparent && frame.minY < 1 ? ShellLayout.titlebarActionWidth : 0)
+            }
+            .overlay(alignment: .leading) {
+                TerminalLocationBadge(tab: tab)
+                    .padding(.leading, Theme.Space.s + (isShellTransparent && frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0))
             }
             .overlay(alignment: .trailing) {
                 if tab.hasTerminal && frame.width > 420 {
@@ -350,8 +382,8 @@ struct TerminalCanvas: View {
                 .allowsHitTesting(false)
                 HStack(spacing: 6) {
                     Text(verbatim: numberedPaneTitle(tab))
-                        .font(Theme.Font.paneTitle.weight(.regular))
-                        .foregroundStyle(chrome.secondary)
+                        .font(chrome.isSystem ? Theme.Font.floatingPaneTitle.weight(.medium) : Theme.Font.paneTitle.weight(.regular))
+                        .foregroundStyle(chrome.isSystem ? chrome.text : chrome.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .layoutPriority(1)
@@ -359,12 +391,16 @@ struct TerminalCanvas: View {
                     RemoteTitleStatus(tab: tab)
                         .font(Theme.Font.paneTitle)
                     if tab.reconnecting {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Label {
+                            if chrome.isSystem { Text("Reconnecting…").lineLimit(1) }
+                        } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
                             .foregroundStyle(chrome.warning)
                             .accessibilityLabel(Text("Reconnecting…"))
                     } else if tab.showsDisconnected {
-                        Image(systemName: "link.slash")
+                        Label {
+                            if chrome.isSystem { Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")).lineLimit(1) }
+                        } icon: { Image(systemName: "link.slash") }
                             .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
                             .foregroundStyle(chrome.danger)
                             .accessibilityLabel(Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")))
@@ -384,6 +420,11 @@ struct TerminalCanvas: View {
                 }
                 .padding(.horizontal, Theme.Space.s)
                 .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
+            }
+            .overlay(alignment: .leading) {
+                TerminalLocationBadge(tab: tab)
+                    .padding(.leading, Theme.Space.s)
+                    .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
             }
             .frame(width: frame.width, height: headerHeight)
             .position(x: frame.midX, y: frame.minY + headerHeight / 2)

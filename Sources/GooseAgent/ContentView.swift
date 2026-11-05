@@ -538,9 +538,14 @@ struct RootView: View {
                             ? Theme.PaneStyle.titlebarAccessoryInset : 0
                         let leadingInset: CGFloat = collapsed && frame.minX < 1 ? SidebarLayout.trafficLightInset + 56 : 0
                         paneTitleMenu(tab)
+                            .padding(.horizontal, tab.hasTerminal ? TerminalLocationBadge.titleInset : 0)
                             .padding(.leading, leadingInset)
                             .padding(.trailing, trailingInset)
                             .frame(width: frame.width, height: height)
+                            .overlay(alignment: .leading) {
+                                TerminalLocationBadge(tab: tab)
+                                    .padding(.leading, leadingInset + Theme.Space.s)
+                            }
                             .overlay(alignment: .bottom) {
                                 PaneProgressBar(sessionID: tab.sessionID).allowsHitTesting(false)
                             }
