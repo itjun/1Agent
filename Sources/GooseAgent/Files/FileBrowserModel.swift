@@ -40,7 +40,8 @@ final class FileColumn: ObservableObject, Identifiable {
     @Published private(set) var readingEncoding: TextFile.Encoding?
     private var previewRequest = UUID()
     private var restoredState: FileWorkspace.Saved.Tab?
-    private var anchor: Int?
+    private var anchor: String?
+    @Published private(set) var selectionCursor: String?
     private var loadTask: Task<Void, Never>?
     /// The initial list can fail before `directory` has a successfully loaded value.
     private var attemptedPath: String?
@@ -210,6 +211,7 @@ final class FileColumn: ObservableObject, Identifiable {
                 } else if changed || !keepSelection {
                     selection = []
                     anchor = nil
+                    selectionCursor = nil
                     filter = ""
                     scrollAnchor = nil
                 } else {
@@ -233,55 +235,71 @@ final class FileColumn: ObservableObject, Identifiable {
 
     // MARK: Selection
 
+    /// 光标与多选集合分开保存：多选只有一个键盘位置，排序后按路径重新定位。
+    var focusedSelectionPath: String? {
+        if let selectionCursor, selection.contains(selectionCursor), shown.contains(where: { $0.path == selectionCursor }) {
+            return selectionCursor
+        }
+        return selectedEntries.first?.path
+    }
+
     /// Click, ⌘-click toggles, ⇧-click selects the range from the last plain click.
     func click(_ entry: FileEntry, modifiers: NSEvent.ModifierFlags) {
         let list = shown
         guard let index = list.firstIndex(of: entry) else { return }
-        if modifiers.contains(.shift), let anchor, anchor < list.count {
-            let range = min(anchor, index)...max(anchor, index)
-            selection = Set(list[range].map(\.path))
+        selectionCursor = entry.path
+        if modifiers.contains(.shift), let anchorIndex = list.firstIndex(where: { $0.path == anchor }) {
+            selection = Set(list[min(anchorIndex, index)...max(anchorIndex, index)].map(\.path))
             return
         }
         if modifiers.contains(.command) {
-            if selection.contains(entry.path) {
-                selection.remove(entry.path)
-            } else {
-                selection.insert(entry.path)
-            }
-            anchor = index
-            return
+            if selection.contains(entry.path) { selection.remove(entry.path) }
+            else { selection.insert(entry.path) }
+        } else {
+            selection = [entry.path]
         }
-        selection = [entry.path]
-        anchor = index
+        anchor = entry.path
     }
 
     /// Right-click on a row outside the selection selects just that row.
     func prepareContextMenu(for entry: FileEntry) {
         guard !selection.contains(entry.path) else { return }
         selection = [entry.path]
-        anchor = shown.firstIndex(of: entry)
+        anchor = entry.path
+        selectionCursor = entry.path
     }
 
     func clearSelection() {
         selection = []
         anchor = nil
+        selectionCursor = nil
     }
 
     func selectAll() {
         let list = shown
+        let cursor = focusedSelectionPath ?? list.first?.path
         selection = Set(list.map(\.path))
-        anchor = list.isEmpty ? nil : 0
+        anchor = cursor
+        selectionCursor = cursor
     }
 
-    /// ↑ / ↓. Returns the newly selected row so the list can scroll to it.
+    /// ↑ / ↓；Shift 保留起点，反向移动可以缩短选区。
     @discardableResult
-    func moveSelection(by delta: Int) -> FileEntry? {
+    func moveSelection(by delta: Int, extending: Bool = false) -> FileEntry? {
         let list = shown
         guard !list.isEmpty else { return nil }
-        var index = list.lastIndex { selection.contains($0.path) } ?? (delta > 0 ? -1 : 0)
-        index = min(list.count - 1, max(0, index + delta))
-        selection = [list[index].path]
-        anchor = index
+        let cursor = focusedSelectionPath
+        let current = list.firstIndex { $0.path == cursor }
+        let index = min(list.count - 1, max(0, (current ?? (delta > 0 ? -1 : list.count)) + delta))
+        if extending {
+            let start = list.firstIndex { $0.path == anchor } ?? current ?? index
+            anchor = list[start].path
+            selection = Set(list[min(start, index)...max(start, index)].map(\.path))
+        } else {
+            selection = [list[index].path]
+            anchor = list[index].path
+        }
+        selectionCursor = list[index].path
         return list[index]
     }
 

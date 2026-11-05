@@ -106,6 +106,12 @@ private struct FilesWorkspaceRoutingTests {
         let labels = accessibilityLabels(chromeWindow.contentView!)
         try require(labels.contains(String(localized: "Terminal")) && labels.contains(String(localized: "Files")),
                     "The real SwiftUI toolbar must be reachable through the fixture's accessibility tree")
+        if environment["ONEAGENT_TEST_DEFAULT_SELECTION"] == "1" {
+            try await verifyDefaultSelection(model: model, state: state, window: chromeWindow, home: home)
+            chromeWindow.orderOut(nil)
+            chromeWindow.contentView = nil
+            return
+        }
         if environment["ONEAGENT_TEST_FILE_FILTER_HEADER"] == "1" {
             try await verifyFileHeaderFilterFocus(model: model, state: state, window: chromeWindow, home: home)
             chromeWindow.orderOut(nil)
@@ -502,8 +508,11 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        try require(abs(rootRect.maxY - terminalRect.maxY - Theme.PaneStyle.titlebarHeight) < 1,
-                    "A single terminal starts directly below the shared title band, without a duplicate pane header")
+        let expectedTopInset = AppearanceDriver.shared.isShellTransparent
+            ? ShellLayout.workspaceInset + ShellLayout.paneVerticalInset + ShellLayout.compactHeaderHeight
+            : Theme.PaneStyle.titlebarHeight
+        try require(abs(rootRect.maxY - terminalRect.maxY - expectedTopInset) < 1,
+                    "A single terminal reserves exactly one header plus the shell's outer inset")
         try require(terminals.values.allSatisfy { terminal in
             !terminal.selectionContextMenu().items.contains { $0.title == String(localized: "History") }
         }, "No terminal context menu may expose the removed history feature")
@@ -1007,6 +1016,91 @@ private struct FilesWorkspaceRoutingTests {
     }
 
     @MainActor
+    private static func verifyDefaultSelection(model: AppModel, state: WindowState, window: NSWindow, home: String) async throws {
+        let folder = home + "/theme-selection"
+        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        for name in ["a.txt", "b.txt", "c.txt", "d.txt", "长文件名中文测试.txt"] {
+            try Data(name.utf8).write(to: URL(fileURLWithPath: folder + "/" + name))
+        }
+        let workspace = model.fileWorkspace(for: state)
+        let column = workspace.localColumn
+        column.open(folder)
+        column.start(at: folder)
+        try await eventually("selection fixture loaded") { column.directory == folder && !column.loading }
+        let rows = column.shown
+        for dark in [false, true] {
+            window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            window.contentView = NSHostingView(rootView: FileColumnView(workspace: workspace, column: column)
+                .environment(\.windowChrome, WindowChrome(isDark: dark, preset: .system))
+                .environment(\.colorScheme, dark ? .dark : .light))
+            workspace.focus(column)
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            try await eventually("selection window activated") { NSApp.isActive && window.isKeyWindow }
+            try await settle()
+            func arrow(_ down: Bool, shift: Bool = false) async throws {
+                let char = down ? "\u{f701}" : "\u{f700}"
+                let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: shift ? .shift : [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                    characters: char, charactersIgnoringModifiers: char, isARepeat: false, keyCode: down ? 125 : 126)!
+                NSApp.sendEvent(event)
+                try await settle()
+            }
+            column.click(rows[1], modifiers: [])
+            try await arrow(true, shift: true)
+            try require(column.selection == Set([rows[1].path, rows[2].path]), "Shift+Down extends the selection instead of replacing it")
+            try require(column.focusedSelectionPath == rows[2].path, "Multi-selection retains exactly one keyboard cursor")
+            // Sample the actual row edges: model-only cursor checks cannot catch a missing
+            // cursor argument at the view's shared row-style call site.
+            guard let content = window.contentView,
+                  let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds) else {
+                throw TestFailure(description: "File selection rendering must be capturable")
+            }
+            content.cacheDisplay(in: content.bounds, to: bitmap)
+            var outlined: [String] = []
+            for row in rows {
+                guard let element = accessibilityElements(content).first(where: {
+                    accessibilityValue($0, "accessibilityIdentifier") as? String == "files.row.\(row.path)"
+                }) else { throw TestFailure(description: "Rendered selection row must be accessible") }
+                let selector = NSSelectorFromString("accessibilityFrame")
+                typealias FrameGetter = @convention(c) (AnyObject, Selector) -> CGRect
+                let frame = unsafeBitCast(element.method(for: selector), to: FrameGetter.self)(element, selector)
+                let local = content.convert(window.convertFromScreen(frame), from: nil)
+                let scaleX = CGFloat(bitmap.pixelsWide) / content.bounds.width
+                let scaleY = CGFloat(bitmap.pixelsHigh) / content.bounds.height
+                let y = Int((content.isFlipped ? local.midY : content.bounds.height - local.midY) * scaleY)
+                let edgeX = Int((local.maxX - 1) * scaleX)
+                let innerX = Int((local.maxX - 12) * scaleX)
+                guard let edge = bitmap.colorAt(x: edgeX, y: y)?.usingColorSpace(.deviceRGB),
+                      let inner = bitmap.colorAt(x: innerX, y: y)?.usingColorSpace(.deviceRGB) else {
+                    throw TestFailure(description: "Rendered selection pixels must be readable")
+                }
+                let difference = max(abs(edge.redComponent - inner.redComponent),
+                                     abs(edge.greenComponent - inner.greenComponent),
+                                     abs(edge.blueComponent - inner.blueComponent))
+                if difference > 0.15 { outlined.append(row.path) }
+            }
+            try require(outlined == [rows[2].path], "Only the keyboard cursor row may render a focus outline; got \(outlined)")
+            try await arrow(true, shift: true)
+            try require(column.selection == Set(rows[1...3].map(\.path)), "Repeated Shift+Down keeps the initial anchor")
+            try await arrow(false, shift: true)
+            try require(column.selection == Set(rows[1...2].map(\.path)), "Shift+Up shrinks toward the anchor")
+            try await arrow(false)
+            try require(column.selection == [rows[1].path], "Plain arrow collapses the range at the keyboard cursor")
+            column.click(rows[3], modifiers: .command)
+            try require(column.selection == Set([rows[1].path, rows[3].path]), "Command-click toggles independently")
+            column.prepareContextMenu(for: rows[1])
+            try require(column.selection.count == 2, "Context menu retains a selected range")
+            column.clearSelection()
+            try await arrow(true)
+            try require(column.selection == [rows[0].path], "Arrow from an empty selection starts at first row")
+            column.selectAll()
+            try require(column.focusedSelectionPath == rows[0].path, "Select All must preserve the keyboard position instead of jumping to the last row")
+        }
+        print("ok: default light/dark rendered single focus outline, native Shift-arrow extension, reversal, plain arrows, Command-click and context selection")
+    }
+
+    @MainActor
     private static func verifyFileHeaderFilterFocus(model: AppModel, state: WindowState, window: NSWindow, home: String) async throws {
         // 完整 RootView 的原生分栏宿主会扩大 visibleRect，单独挂载文件面板无法复现焦点被抢走。
         window.contentView = nil
@@ -1100,6 +1194,16 @@ private struct FilesWorkspaceRoutingTests {
         }
         func click(_ screenPoint: NSPoint, simulateFocusLoss: Bool = false) async throws {
             try await activateFileWindow()
+            if simulateFocusLoss {
+                // 完整的失焦/恢复发生在按压之前。隐藏应用打断 mouseDown/mouseUp 会取消点击，
+                // 不能用被取消的手势断言“恢复后的第一次点击”成功。
+                let other = NSWindow(contentRect: NSRect(x: 50, y: 50, width: 200, height: 100),
+                                     styleMask: [.titled], backing: .buffered, defer: false)
+                other.makeKeyAndOrderFront(nil)
+                try await eventually("file window loses key focus") { other.isKeyWindow && !window.isKeyWindow }
+                other.orderOut(nil)
+                try await activateFileWindow()
+            }
             let point = window.convertPoint(fromScreen: screenPoint)
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                 guard let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
@@ -1108,15 +1212,7 @@ private struct FilesWorkspaceRoutingTests {
                     throw TestFailure(description: "Could not create a native file-pane click")
                 }
                 NSApp.sendEvent(event)
-                if simulateFocusLoss && type == .leftMouseDown {
-                    DispatchQueue.main.async { NSApp.hide(nil) }
-                }
                 try await settle()
-                if simulateFocusLoss && type == .leftMouseDown {
-                    try require(NSApp.isHidden && !window.isKeyWindow,
-                                "Simulated focus loss must occur before recovery")
-                }
-                try await activateFileWindow()
             }
         }
         try await eventually("visible local row for pointer probe") { !elements("files.row.\(localEntry.path)").isEmpty }
@@ -1170,7 +1266,7 @@ private struct FilesWorkspaceRoutingTests {
             NSApp.sendEvent(right)
             try await settle()
         }
-        try require(local.selection == multiple, "Right-clicking a selected file must preserve the multi-selection")
+        try require(local.selection == multiple, "Right-clicking a selected file must preserve the multi-selection: expected \(multiple), got \(local.selection), cursor=\(String(describing: local.selectionCursor)), original frame=\(rowFrame), current frame=\(try elements("files.row.\(localEntry.path)").first.map { try frame(of: $0) } as Any)")
         FamilyMenuPresenter.shared.dismiss()
         local.selection = [localEntry.path]
         try await settle()
@@ -1436,7 +1532,14 @@ private struct FilesWorkspaceRoutingTests {
             throw TestFailure(description: "Collapsed chrome and local title must be accessible")
         }
         try require(abs(frame(controls).height - 32) < 1, "Only a 32-point window drag strip remains when collapsed")
-        try require(frame(local).maxY <= rootTop - 32 + 1, "The drag strip cannot cover file headers")
+        if AppearanceDriver.shared.isShellTransparent {
+            // 浮动文件标题与窗口控件共用同一行，通过横向让位避免重叠。
+            let rootLeft = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil)).minX
+            try require(frame(local).minX >= rootLeft + SidebarLayout.trafficLightInset + 56,
+                        "Integrated file titles must start after traffic lights and sidebar actions")
+        } else {
+            try require(frame(local).maxY <= rootTop - 32 + 1, "The opaque drag strip cannot cover file headers")
+        }
         let collapsedFileY = frame(local).midY
         model.toggleSidebar(in: state)
         try await settle()

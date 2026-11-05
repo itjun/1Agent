@@ -396,8 +396,9 @@ struct FileColumnView: View {
 
     private func rows(width: CGFloat) -> some View {
         let shown = column.shown
+        let keyboardPath = workspace.focusedColumn === column ? column.focusedSelectionPath : nil
         return ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
+            ScrollView(showsIndicators: chrome.isSystem) {
                 LazyVStack(spacing: 0) {
                     if !column.loading && column.error == nil && !column.directory.isEmpty && shown.isEmpty {
                         Text(verbatim: emptyText)
@@ -408,7 +409,7 @@ struct FileColumnView: View {
                             .padding(.vertical, Theme.Space.xl)
                     }
                     ForEach(shown) { entry in
-                        row(entry, width: width)
+                        row(entry, width: width, isKeyboardTarget: keyboardPath == entry.path)
                             .id(entry.path)
                     }
                 }
@@ -422,6 +423,9 @@ struct FileColumnView: View {
                     if let anchor { column.scrollAnchor = anchor }
                 }
             ), anchor: .top)
+            .onChange(of: column.selectionCursor) { _, path in
+                if let path { proxy.scrollTo(path) }
+            }
             .onChange(of: column.selection) { _, selection in
                 guard selection.count == 1, let path = selection.first else { return }
                 proxy.scrollTo(path)
@@ -459,7 +463,7 @@ struct FileColumnView: View {
         ))
     }
 
-    private func row(_ entry: FileEntry, width: CGFloat) -> some View {
+    private func row(_ entry: FileEntry, width: CGFloat, isKeyboardTarget: Bool) -> some View {
         let columns = FileBrowserLayout.tableColumns(in: width)
         let selected = column.selection.contains(entry.path)
         let dropping = dropFolder == entry.path
@@ -502,10 +506,9 @@ struct FileColumnView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.row.\(entry.path)")
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .background {
-            Rectangle()
-                .fill(selected || dropping ? chrome.accentFill : (hovered == entry.path ? chrome.elevated : Color.clear))
-        }
+        .defaultRowSurface(selected: selected || dropping,
+                           legacyFill: selected || dropping ? chrome.accentFill : (hovered == entry.path ? chrome.elevated : .clear),
+                           radius: 0, isKeyboardTarget: isKeyboardTarget)
         .overlay {
             if dropping {
                 RoundedRectangle(cornerRadius: Theme.Radius.row)
@@ -611,10 +614,10 @@ struct FileColumnView: View {
         }
         switch press.key {
         case .upArrow:
-            column.moveSelection(by: -1)
+            column.moveSelection(by: -1, extending: press.modifiers.contains(.shift))
             return .handled
         case .downArrow:
-            column.moveSelection(by: 1)
+            column.moveSelection(by: 1, extending: press.modifiers.contains(.shift))
             return .handled
         case .return:
             let selected = column.selectedEntries
