@@ -10,7 +10,7 @@
           "image-name" : "ghost-glyph.png",
           "name" : "ghost-glyph",
           "position" : {
-            "scale" : 1.12,
+            "scale" : 1,
             "translation-in-points" : [
               0,
               0

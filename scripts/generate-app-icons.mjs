@@ -12,8 +12,8 @@ const work = path.join(root, 'build/ApplicationIcons.noindex');
 const original = path.join(source, 'macaron-original-mark.png');
 const isMacaronsOnly = process.argv.includes('--macarons-only');
 const palettes = JSON.parse(fs.readFileSync(path.join(source, 'macaron-palettes.json'), 'utf8'));
-// Flat macaron icons keep the original outlined mark. The installed AppIcon.icon is a
-// separate outline glyph so Dark, Clear, and Tinted stay readable, and this script must not overwrite it.
+// Flat macaron icons keep the original outlined mark. The installed OneAgentIcon.icon is a
+// separate full-color mark so system notifications stay readable; macOS derives adaptive appearances.
 const template = {
   fill: { solid: 'srgb:1.00000,1.00000,1.00000,1.00000' },
   groups: [{

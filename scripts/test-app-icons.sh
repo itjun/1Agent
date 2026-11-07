@@ -9,7 +9,7 @@ mkdir -p "$test_dir/home"
 fixture_app="$test_dir/IconFixture.app"
 mkdir -p "$fixture_app/Contents/MacOS" "$fixture_app/Contents/Resources"
 cp /usr/bin/true "$fixture_app/Contents/MacOS/fixture"
-cp "$app_bundle/Contents/Resources/AppIcon.icns" "$fixture_app/Contents/Resources/AppIcon.icns"
+cp "$app_bundle/Contents/Resources/OneAgentIcon.icns" "$fixture_app/Contents/Resources/AppIcon.icns"
 cat > "$fixture_app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>
 <key>CFBundleIdentifier</key><string>com.itjun.application-icon-fixture</string>
@@ -22,8 +22,14 @@ PLIST
 codesign --force --sign - --timestamp=none "$fixture_app"
 codesign --verify --deep --strict "$fixture_app"
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcrun clang -fobjc-arc -framework AppKit "$repo_dir/Tests/SystemNotificationIconTests.m" -o "$test_dir/system-icon-tests"
+"$test_dir/system-icon-tests" "$app_bundle"
+if [[ "$app_bundle" == "/Applications/1Agent.app" ]]; then
+    # 通知中心按应用标识取图标；此路径可能仍命中与包内资源不同的旧缓存。
+    "$test_dir/system-icon-tests" "$app_bundle" --registered
+fi
 xcrun swiftc -parse-as-library -module-cache-path "$repo_dir/build/AppIconTestsModuleCache.noindex" \
-    "$repo_dir/Sources/GooseAgent/ApplicationIcon.swift" "$repo_dir/Sources/GooseAgent/SystemNotificationIcon.swift" \
+    "$repo_dir/Sources/GooseAgent/ApplicationIcon.swift" \
     "$repo_dir/Tests/ApplicationIconTests.swift" \
     -o "$test_dir/app-icon-tests"
 for phase in test save restore; do

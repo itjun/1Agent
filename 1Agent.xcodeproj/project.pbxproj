@@ -23,7 +23,6 @@
 		180BEB49A9C119AC570A5A8A /* AppThemeIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 085A590371129A1465BFB337 /* AppThemeIdentity.swift */; };
 		18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */; };
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
-		1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8904A001DE23C1175D7692D4 /* AppIcon.icon */; };
 		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
 		1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */; };
 		209C77B6DCCCB3E6D02EB97C /* TerminalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B89FCDD1CE0DA87A9FA6304 /* TerminalPreview.swift */; };
@@ -78,7 +77,6 @@
 		72CF34389AD438388A7057E5 /* GhosttyConfigImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01647B79038286A152A66C27 /* GhosttyConfigImport.swift */; };
 		74B09B24A21C58B67ABB214A /* TerminalPlatformIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */; };
 		74C77B01ECA7B1792330D91B /* AppUpdateSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D82C3644F27E84ABEB8266B /* AppUpdateSettings.swift */; };
-		77027B17A94FD46EEB0FC797 /* SystemNotificationIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9906E5414F71915E67A800 /* SystemNotificationIcon.swift */; };
 		7860366F3F23C4E9EFA09527 /* goose-agent-icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */; };
 		7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */; };
 		7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */; };
@@ -119,6 +117,7 @@
 		C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */; };
 		C47DE107C61A6FF1CC5E4109 /* FileTransferQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */; };
 		CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D91EB1556003521E0650B7 /* AppModel.swift */; };
+		C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */; };
 		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
 		CF4B6D7911791ED91EAC823F /* FileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B9E55BFC942871BBD992B /* FileTransfer.swift */; };
 		D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4085933113D9936B6D98C8FC /* RemoteShell.swift */; };
@@ -239,7 +238,6 @@
 		7DC2AB74FE4D721374A45471 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPanelIcon.swift; sourceTree = "<group>"; };
 		82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEscape.swift; sourceTree = "<group>"; };
-		8904A001DE23C1175D7692D4 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		892504A66F17F43AE42EC04A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8A8680C82540985A8A88BADF /* DropTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropTransfer.swift; sourceTree = "<group>"; };
 		8BC1D5B9C575BDA04C5CBF4C /* FamilyAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyAlert.swift; sourceTree = "<group>"; };
@@ -255,7 +253,6 @@
 		A9B18799BA36F4789180EC87 /* QuickCommandHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistoryView.swift; sourceTree = "<group>"; };
 		AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyFolderPicker.swift; sourceTree = "<group>"; };
 		AC04379ABB1F67A2FA6C90F0 /* FamilyMenuControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenuControls.swift; sourceTree = "<group>"; };
-		AD9906E5414F71915E67A800 /* SystemNotificationIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemNotificationIcon.swift; sourceTree = "<group>"; };
 		AF18AD26B40C268A98044CC5 /* WorkspacePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePresentation.swift; sourceTree = "<group>"; };
 		AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ghostty-source.png"; sourceTree = "<group>"; };
 		B2D39CACC49F126CA35409C0 /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
@@ -268,6 +265,7 @@
 		BEAD42576853180D4E34F59B /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
 		BED0B51E0FCA4FC3770DD30D /* MainWindowFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowFrame.swift; sourceTree = "<group>"; };
 		BF91141EEC0B753F9445733B /* SheetLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLayout.swift; sourceTree = "<group>"; };
+		BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = OneAgentIcon.icon; sourceTree = "<group>"; };
 		C2222F4287412ADA926A0AFC /* TextFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFile.swift; sourceTree = "<group>"; };
 		C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFind.swift; sourceTree = "<group>"; };
 		C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImporter.swift; sourceTree = "<group>"; };
@@ -421,7 +419,6 @@
 			isa = PBXGroup;
 			children = (
 				DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */,
-				8904A001DE23C1175D7692D4 /* AppIcon.icon */,
 				CDE68855BD120DF7421F24EE /* AppLanguage.swift */,
 				2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */,
 				32D91EB1556003521E0650B7 /* AppModel.swift */,
@@ -461,6 +458,7 @@
 				5A7EE823807020FCAC7AB30D /* PaneLayout.swift */,
 				F081A460F13779B2F87B39CA /* QuickCommand.swift */,
 				53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */,
+				BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */,
 				47519C98F67FEF8BFC1D299C /* QuickCommandDialogs.swift */,
 				079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */,
 				4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */,
@@ -485,7 +483,6 @@
 				440DFBB9CC120A82EAE3507C /* SSHConfig.swift */,
 				BEAD42576853180D4E34F59B /* SSHLaunch.swift */,
 				C9913CB31A48D7D7573940C7 /* SystemIntegrationSettingsPage.swift */,
-				AD9906E5414F71915E67A800 /* SystemNotificationIcon.swift */,
 				F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */,
 				D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */,
 				043B43BD36E404CF638EB54F /* TerminalCanvas.swift */,
@@ -592,7 +589,6 @@
 			files = (
 				26E20533C0776413922B5627 /* 1Agent.sdef in Resources */,
 				61ED839C0AFD56A6F49594EC /* 1agent in Resources */,
-				1A357F5F7A077015ABE940B0 /* AppIcon.icon in Resources */,
 				9C827CD4FE4427CB1881372E /* ApplicationIcons in Resources */,
 				5FB944658C83C93BF52FE910 /* Assets.xcassets in Resources */,
 				BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */,
@@ -606,6 +602,7 @@
 				8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
 				E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */,
 				54A69B737E8AA19ABE80CA7C /* TerminalLight.ghostty in Resources */,
+				C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */,
 				0AA03A0BA5D5FC1FBE475473 /* WindowAtmosphere.png in Resources */,
 				454601CCC7894A948CE872FC /* ghostty-source.png in Resources */,
 				4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */,
@@ -638,7 +635,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。\n# 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。\ncp \"${SRCROOT}/Resources/ApplicationIcons/Original.icns\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AppIcon.icns\"\n";
+			shellScript = "# 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。\n# 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。\ncp \"${SRCROOT}/Resources/ApplicationIcons/Original.icns\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/OneAgentIcon.icns\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -727,7 +724,6 @@
 				FF4027301CF818E6FC6374CD /* SidebarActions.swift in Sources */,
 				814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */,
 				683CC41EC0037F47E07D4F7E /* SystemIntegrationSettingsPage.swift in Sources */,
-				77027B17A94FD46EEB0FC797 /* SystemNotificationIcon.swift in Sources */,
 				7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */,
 				23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */,
 				38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */,
@@ -773,7 +769,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "arm64 x86_64";
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = OneAgentIcon;
 				CODE_SIGN_IDENTITY = "Developer ID Application: MOE AI LLC (NCFNX3LJ83)";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -802,7 +798,7 @@
 		4F37A240EDBF89A548E43F5D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = OneAgentIcon;
 				CODE_SIGN_IDENTITY = "Developer ID Application: MOE AI LLC (NCFNX3LJ83)";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;

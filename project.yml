@@ -42,7 +42,7 @@ targets:
       properties:
         CFBundleName: "1Agent"
         CFBundleDisplayName: "1Agent"
-        CFBundleIconName: AppIcon
+        CFBundleIconName: OneAgentIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSApplicationCategoryType: public.app-category.developer-tools
@@ -93,7 +93,7 @@ targets:
         script: |
           # 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。
           # 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。
-          cp "${SRCROOT}/Resources/ApplicationIcons/Original.icns" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AppIcon.icns"
+          cp "${SRCROOT}/Resources/ApplicationIcons/Original.icns" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/OneAgentIcon.icns"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent
@@ -103,8 +103,8 @@ targets:
         SWIFT_VERSION: "5.10"
         SWIFT_OBJC_BRIDGING_HEADER: Sources/GooseAgent/GooseAgent-Bridging-Header.h
         MARKETING_VERSION: "1.1.11"
-        CURRENT_PROJECT_VERSION: "13"
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CURRENT_PROJECT_VERSION: "14"
+        ASSETCATALOG_COMPILER_APPICON_NAME: OneAgentIcon
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_APP_SANDBOX: NO
         COMBINE_HIDPI_IMAGES: YES

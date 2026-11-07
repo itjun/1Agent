@@ -465,7 +465,6 @@ final class AppUpdateController: ObservableObject {
         content.body = body
         content.sound = .default
         content.userInfo = [AppUpdate.notificationKey: "show"]
-        SystemNotificationIcon.apply(to: content, icon: AppTheme.icon)
         let request = UNNotificationRequest(identifier: "oneagent-update", content: content, trigger: nil)
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
