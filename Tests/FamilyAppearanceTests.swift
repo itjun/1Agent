@@ -26,6 +26,7 @@ enum FamilyAppearanceTests {
         defaults.set("legacy-custom-theme", forKey: TerminalAppearance.legacyThemeKey)
         let driver = AppearanceDriver.shared
         driver.reapply()
+        checkDiffReading()
         let lightChrome = WindowChrome.resolve(isDark: false)
         let darkChrome = WindowChrome.resolve(isDark: true)
         var windows: [NSWindow] = []
@@ -281,6 +282,43 @@ enum FamilyAppearanceTests {
         expect(legacyKeys.map { defaults.string(forKey: $0) } == legacyValues, "old Ghostty preferences remain available for rollback")
         expect(defaults.string(forKey: "sidebar.material") == "liquidGlass", "obsolete preferences are retained")
         print("FamilyAppearanceTests passed: preset modes, legacy preference preservation, blocked overrides, import/undo, preset-owned icon, settings navigation, opaque reading backgrounds, two native surfaces and retained buffers")
+    }
+
+    @MainActor static func checkDiffReading() {
+        let container = GitDiffContainer()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 420),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = container
+        let patch = GitDiffDocument("@@ -1,3 +1,3 @@\n ABC abc\n-旧文字\n+新文字😀\n final\n")
+        func codes(_ view: NSView) -> [GitDiffTextView] {
+            (view as? GitDiffTextView).map { [$0] } ?? view.subviews.flatMap(codes)
+        }
+        for isDark in [false, true] {
+            let chrome = WindowChrome.resolve(isDark: isDark)
+            container.update(document: patch, chrome: chrome)
+            container.layoutSubtreeIfNeeded()
+            for code in codes(container) where !code.isHiddenOrHasHiddenAncestor {
+                let range = (code.string as NSString).range(of: "final")
+                code.setSelectedRange(NSRange(location: range.location, length: 0))
+                expect(code.activeLine == 3, "Diff caret selects the actual current row, including aligned rows")
+                expect(code.style.activeLine == PreviewThemeStyle(chrome: chrome).activeLine,
+                       "Diff current row shares the file preview highlight color")
+                expect(code.selectedTextAttributes[.backgroundColor] as? NSColor == PreviewThemeStyle(chrome: chrome).selection,
+                       "Diff text selection uses the file preview selection style in both appearances")
+                let layout = code.layoutManager!
+                layout.ensureLayout(for: code.textContainer!)
+                for start in PreviewTextIndex(code.string).lineStarts.dropLast() {
+                    let glyph = layout.glyphIndexForCharacter(at: start)
+                    let row = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+                    let baseline = layout.location(forGlyphAt: glyph).y
+                    let center = baseline - (GitDiffTextView.codeFont.ascender + GitDiffTextView.codeFont.descender) / 2
+                    expect(abs(center - row.height / 2) < 0.5 && abs(row.height - GitDiffTextView.rowHeight) < 0.1,
+                           "Diff Latin, Chinese, emoji and blank alignment rows have centered text in fixed highlight bands")
+                }
+            }
+        }
+        window.orderOut(nil)
+        print("PASS diff reading: caret row, centered baseline, light/dark selection")
     }
 
     @MainActor static func checkSettingsPages(in window: NSWindow) {

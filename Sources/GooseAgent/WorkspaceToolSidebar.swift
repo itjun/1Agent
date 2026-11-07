@@ -465,7 +465,7 @@ struct NativeGitDiff: NSViewRepresentable {
     var findRequest = 0
     func makeNSView(context: Context) -> GitDiffContainer { GitDiffContainer() }
     func updateNSView(_ view: GitDiffContainer, context: Context) {
-        view.update(document: document, foreground: NSColor(chrome.text), background: NSColor(chrome.background), secondary: NSColor(chrome.secondary))
+        view.update(document: document, chrome: chrome)
         view.requestFind(findRequest)
     }
 }
@@ -510,7 +510,9 @@ final class GitDiffContainer: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
 
-    func update(document: GitDiffDocument, foreground: NSColor, background: NSColor, secondary: NSColor) {
+    func update(document: GitDiffDocument, chrome: WindowChrome) {
+        let foreground = NSColor(chrome.text), background = NSColor(chrome.background), secondary = NSColor(chrome.secondary)
+        for scroll in [unified, before, after] { scroll.code.applyTheme(chrome) }
         guard documentID != document.id || self.foreground != foreground || self.background != background || self.secondary != secondary else { return }
         documentID = document.id; self.foreground = foreground; self.background = background; self.secondary = secondary
         isPatch = document.isPatch
@@ -568,9 +570,9 @@ private final class GitDiffTextScroll: NSScrollView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     func load(_ rows: [(GitDiffDocument.Line?, Int)], foreground: NSColor, background: NSColor, secondary: NSColor) {
-        let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        let font = GitDiffTextView.codeFont
         let paragraph = NSMutableParagraphStyle()
-        paragraph.minimumLineHeight = 22; paragraph.maximumLineHeight = 22
+        paragraph.minimumLineHeight = GitDiffTextView.rowHeight; paragraph.maximumLineHeight = GitDiffTextView.rowHeight
         paragraph.lineBreakMode = .byClipping
         let result = NSMutableAttributedString()
         var widest: CGFloat = 0
@@ -589,8 +591,9 @@ private final class GitDiffTextScroll: NSScrollView {
         code.backgroundColor = background
         backgroundColor = background
         code.textStorage?.setAttributedString(result)
+        code.refreshCurrentLine()
         contentWidth = widest + 16
-        contentHeight = CGFloat(rows.count + 1) * 22
+        contentHeight = CGFloat(rows.count + 1) * GitDiffTextView.rowHeight
         resizeDocument()
         code.needsDisplay = true
     }
@@ -604,13 +607,51 @@ private final class GitDiffTextScroll: NSScrollView {
     }
 }
 
-private final class GitDiffTextView: NSTextView {
+final class GitDiffTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDelegate {
+    static let rowHeight: CGFloat = 22
+    static let codeFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    private(set) var style = PreviewThemeStyle(chrome: WindowChrome(isDark: false))
+    private(set) var activeLine = 0
+    private var index = PreviewTextIndex("")
+
+    init() {
+        let storage = NSTextStorage()
+        let layout = NSLayoutManager()
+        let container = NSTextContainer(size: NSSize(width: 10_000_000, height: 10_000_000))
+        storage.addLayoutManager(layout)
+        layout.addTextContainer(container)
+        super.init(frame: .zero, textContainer: container)
+        delegate = self
+        layout.delegate = self
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    func applyTheme(_ chrome: WindowChrome) {
+        style = PreviewThemeStyle(chrome: chrome)
+        selectedTextAttributes = [.backgroundColor: style.selection, .foregroundColor: style.foreground]
+        insertionPointColor = style.bright
+        needsDisplay = true
+    }
+    func refreshCurrentLine() {
+        index = PreviewTextIndex(string)
+        activeLine = index.line(at: selectedRange().location)
+        needsDisplay = true
+    }
+    func textViewDidChangeSelection(_ notification: Notification) {
+        activeLine = index.line(at: selectedRange().location)
+        needsDisplay = true
+    }
+    func layoutManager(_ layoutManager: NSLayoutManager, shouldSetLineFragmentRect lineFragmentRect: UnsafeMutablePointer<NSRect>,
+                       lineFragmentUsedRect: UnsafeMutablePointer<NSRect>, baselineOffset: UnsafeMutablePointer<CGFloat>,
+                       in textContainer: NSTextContainer, forGlyphRange glyphRange: NSRange) -> Bool {
+        baselineOffset.pointee = (lineFragmentRect.pointee.height + Self.codeFont.ascender + Self.codeFont.descender) / 2
+        return true
+    }
+    override var shouldDrawInsertionPoint: Bool { window?.firstResponder === self && window?.isKeyWindow == true }
     var kinds: [GitDiffDocument.Kind?] = []
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
-        let first = max(0, Int(floor(rect.minY / 22)))
-        let end = min(kinds.count, Int(ceil(rect.maxY / 22)))
-        guard first < end else { return }
+        let first = min(kinds.count, max(0, Int(floor(rect.minY / Self.rowHeight))))
+        let end = min(kinds.count, Int(ceil(rect.maxY / Self.rowHeight)))
         for index in first..<end {
             let color: NSColor
             switch kinds[index] {
@@ -620,7 +661,10 @@ private final class GitDiffTextView: NSTextView {
             default: continue
             }
             color.setFill()
-            NSRect(x: 0, y: CGFloat(index) * 22, width: bounds.width, height: 22).fill()
+            NSRect(x: 0, y: CGFloat(index) * Self.rowHeight, width: bounds.width, height: Self.rowHeight).fill()
         }
+        let current = NSRect(x: visibleRect.minX, y: CGFloat(activeLine) * Self.rowHeight,
+                             width: visibleRect.width, height: Self.rowHeight)
+        if current.intersects(rect) { style.activeLine.setFill(); current.fill() }
     }
 }
