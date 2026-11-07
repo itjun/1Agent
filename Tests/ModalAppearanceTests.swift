@@ -65,8 +65,8 @@ import SwiftUI
         defer { FamilyMenuPresenter.shared.dismiss(); owner.close() }
         for (name, width, height, view) in fixtures {
             owner.contentView = NSHostingView(rootView: AuditHost(content: view, width: width, height: height))
-            try await until { owner.childWindows?.contains { $0 is FamilyModalWindow } == true }
-            let dialog = owner.childWindows!.first { $0 is FamilyModalWindow }!
+            try await until { owner.attachedSheet != nil }
+            let dialog = owner.attachedSheet!
             for dark in [false, true, false] {
                 defaults.set(dark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
                 AppearanceDriver.shared.reapply()
@@ -107,11 +107,11 @@ import SwiftUI
                     let actions = elements(card).first {
                         value($0, "accessibilityIdentifier") as? String == "quickCommands.library.actions"
                     }
+                    let probe = NativeMenuProbe()
+                    defer { probe.stop() }
                     expect(actions != nil && invoke(actions!, "accessibilityPerformPress"), "library opens its actions menu")
                     await settle()
-                    let menuLabels = FamilyMenuPresenter.shared.panels.flatMap { elements($0.contentView!) }.compactMap {
-                        value($0, "accessibilityLabel") as? String
-                    }
+                    let menuLabels = probe.menu?.items.map(\.title) ?? []
                     for title in [String(localized: "New Quick Command"), String(localized: "Import Commands"), String(localized: "Export Commands")] {
                         expect(menuLabels.contains(title), "library actions include \(title)")
                     }
@@ -123,8 +123,8 @@ import SwiftUI
                     expect(button != nil, "library exposes its command edit action")
                     guard let button else { continue }
                     expect(invoke(button, "accessibilityPerformPress"), "nested editor action activates")
-                    try await until { dialog.childWindows?.contains { $0 is FamilyModalWindow } == true }
-                    let nested = dialog.childWindows!.first { $0 is FamilyModalWindow }!
+                    try await until { dialog.attachedSheet != nil }
+                    let nested = dialog.attachedSheet!
                     await settle()
                     checkSurface((nested.contentView as! FamilyModalBackdrop).card!, dark: true, name: "library → nested editor")
                     nested.cancelOperation(nil)
@@ -142,8 +142,8 @@ import SwiftUI
         AppearanceDriver.shared.reapply()
         await settle()
         state.quickCommandConfirmation = QuickCommandConfirmationTarget(item: item, context: context)
-        try await until { owner.childWindows?.contains { $0 is FamilyModalWindow } == true }
-        let rootDialog = owner.childWindows!.first { $0 is FamilyModalWindow }!
+        try await until { owner.attachedSheet != nil }
+        let rootDialog = owner.attachedSheet!
         for dark in [true, false] {
             defaults.set(dark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             AppearanceDriver.shared.reapply()
@@ -166,7 +166,7 @@ import SwiftUI
             defaults.set(dark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             AppearanceDriver.shared.reapply()
             await settle()
-            checkSurface(alert.presentation!.backdrop.card!, dark: dark, name: "native confirmation")
+            expect(alert.window.sheetParent === owner, "confirmation stays a native sheet across appearance changes")
         }
         alert.cancel()
 
@@ -198,9 +198,9 @@ import SwiftUI
                 && $0.responds(to: NSSelectorFromString("accessibilityPerformPress")) }
         }
         let row = button("quickCommand." + item.id.uuidString)
-        expect(row != nil && invoke(row!, "accessibilityPerformPress"), "single click selects command for sidebar preview")
+        expect(row != nil && invoke(row!, "accessibilityPerformPress"), "single click opens command preview popover")
         await settle()
-        expect(button("quickCommands.preview.copy") != nil, "sidebar shows a copy action below its command list")
+        expect(button("quickCommands.preview.copy") != nil, "command preview popover offers copying")
         expect(!state.isToolPreviewOpen && state.section == .terminals, "selection does not open a separate card or leave the terminal")
         expect(state.quickCommandConfirmation == nil, "preview never asks to execute")
         let sidebarText = elements(host).flatMap { object in
@@ -209,7 +209,7 @@ import SwiftUI
         expect(sidebarText.contains(item.command), "sidebar preview shows complete literal command")
         expect(invoke(button("quickCommands.new")!, "accessibilityPerformPress"), "sidebar add routes to command management")
         expect(state.section == .commands && state.commandLibraryDraft != nil, "new command opens the main command page")
-        expect(owner.childWindows?.contains { $0 is FamilyModalWindow } != true, "sidebar add does not open a modal")
+        expect(owner.attachedSheet == nil, "sidebar add does not open a modal")
         state.commandLibraryDraft = nil
         host.rootView = AnyView(QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
             .environment(\.windowChrome, WindowChrome(isDark: true)))
@@ -217,7 +217,7 @@ import SwiftUI
         let edit = button("quickCommands.library.edit")
         expect(edit != nil && invoke(edit!, "accessibilityPerformPress"), "main command page offers editing")
         await settle()
-        expect(owner.childWindows?.contains { $0 is FamilyModalWindow } != true, "editing stays in the main page")
+        expect(owner.attachedSheet == nil, "editing stays in the main page")
         let fields = elements(host)
         expect(fields.contains { ($0 as? CommandLiteralTextField)?.stringValue == item.alias }, "main page edits selected name")
         let editor = fields.compactMap { $0 as? CommandLiteralTextView }.first!
@@ -241,18 +241,17 @@ import SwiftUI
         expect(QuickCommandStore.shared.commands.first { $0.id == item.id }?.command == savedText, "page save persists literal command")
         expect(QuickCommandStore.shared.commands.filter { $0.id == item.id }.count == 1, "repeated save does not duplicate command")
         await settle()
-        expect(button("quickCommands.library.edit") != nil && owner.childWindows?.contains { $0 is FamilyModalWindow } != true, "save returns to the main list without a modal")
+        expect(button("quickCommands.library.edit") != nil && owner.attachedSheet == nil, "save returns to the main list without a modal")
         try QuickCommandStore.shared.save(item)
         state.commandLibraryCollection = .common
         await settle()
+        let newProbe = NativeMenuProbe()
+        defer { newProbe.stop() }
         expect(invoke(button("quickCommands.library.actions")!, "accessibilityPerformPress"), "public library opens its actions menu")
         await settle()
-        let newCommand = FamilyMenuPresenter.shared.panels.flatMap { elements($0.contentView!) }.first {
-            value($0, "accessibilityLabel") as? String == String(localized: "New Quick Command")
-                && $0.responds(to: NSSelectorFromString("accessibilityPerformPress"))
-        }
-        expect(newCommand is NSButton, "public library offers a native new-command menu item")
-        (newCommand as? NSButton)?.performClick(nil)
+        let newCommand = newProbe.menu?.items.firstIndex { $0.title == String(localized: "New Quick Command") }
+        expect(newCommand != nil, "public library offers a native new-command menu item")
+        if let newCommand { newProbe.menu?.performActionForItem(at: newCommand) }
         await settle()
         expect(state.commandLibraryDraft?.scope == .all, "public library draft has no host binding")
         expect(!elements(host).contains { value($0, "accessibilityIdentifier") as? String == "quickCommand.host" }, "public editor does not ask for a host")
@@ -286,13 +285,17 @@ import SwiftUI
             NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
                               windowNumber: owner.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
         }
+        let probe = NativeMenuProbe()
+        defer { probe.stop() }
         expect(router.handle(event(.rightMouseDown)) == nil && menuRequests == 1, "right down opens the command row menu and stops routing")
-        let menu = FamilyMenuPresenter.shared.panels.first
+        let menu = probe.menu
         expect(menu != nil, "command context menu is presented")
         expect(router.handle(event(.rightMouseUp)) == nil, "right up must not reach the terminal and replace the command menu")
-        expect(FamilyMenuPresenter.shared.panels.first === menu, "command menu survives the complete right click")
+        expect(menu?.items.first?.title == "Edit command", "native menu retains the row command through tracking")
         FamilyMenuPresenter.shared.dismiss()
         expect(router.handle(event(.rightMouseUp)) != nil, "unpaired terminal right up remains available")
+        let controlProbe = NativeMenuProbe()
+        defer { controlProbe.stop() }
         expect(router.handle(event(.leftMouseDown, NSPoint(x: 220, y: 120), .control)) == nil, "control click opens the row menu")
         expect(router.handle(event(.leftMouseUp)) == nil, "control release before mouse up must not activate the underlying row")
         FamilyMenuPresenter.shared.dismiss()
@@ -321,7 +324,11 @@ import SwiftUI
             else if let editor = object as? CommandLiteralTextView { color = editor.textColor }
             else if let field = object as? FamilyNativeTextField { color = field.textColor }
             else { continue }
-            guard let actual = color?.usingColorSpace(.sRGB) else { expect(false, "\(name): missing native text color"); continue }
+            var resolved: NSColor?
+            (object as? NSView)?.effectiveAppearance.performAsCurrentDrawingAppearance {
+                resolved = color?.usingColorSpace(.sRGB)
+            }
+            guard let actual = resolved else { expect(false, "\(name): missing native text color"); continue }
             expect(abs(actual.redComponent - expectedText.redComponent) < 0.01 && abs(actual.greenComponent - expectedText.greenComponent) < 0.01 && abs(actual.blueComponent - expectedText.blueComponent) < 0.01, "\(name): native input text follows appearance, dark=\(dark)")
         }
     }
@@ -361,4 +368,24 @@ private struct AuditHost: View {
             .environment(\.windowChrome, WindowChrome(isDark: appearance.isDark))
             .preferredColorScheme(appearance.interfaceColorScheme)
     }
+}
+
+/// NSMenu tracks synchronously; observe and close it from its tracking run loop.
+@MainActor
+private final class NativeMenuProbe {
+    var menu: NSMenu?
+    private var timer: Timer?
+    init() {
+        timer = Timer(timeInterval: 0.02, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self, let menu = FamilyMenuPresenter.shared.activeMenu else { return }
+                self.menu = menu
+                menu.cancelTracking()
+                timer.invalidate()
+            }
+        }
+        RunLoop.main.add(timer!, forMode: .common)
+        RunLoop.main.add(timer!, forMode: .eventTracking)
+    }
+    func stop() { timer?.invalidate() }
 }

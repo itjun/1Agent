@@ -130,11 +130,12 @@ final class CommandLiteralTextField: NSTextField {
     override init(frame: NSRect) {
         super.init(frame: frame)
         cell = CommandLiteralFieldCell(textCell: "")
-        isBezeled = false
+        isBezeled = true
+        bezelStyle = .roundedBezel
         isEditable = true
         isSelectable = true
         drawsBackground = true
-        focusRingType = .none
+        focusRingType = .default
         font = .monospacedSystemFont(ofSize: 14, weight: .regular)
         usesSingleLineMode = true
     }
@@ -162,24 +163,7 @@ private final class CommandLiteralFieldCell: NSTextFieldCell {
         return literalEditor
     }
 
-    override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        let height = min(rect.height, ceil(font.map { $0.ascender - $0.descender + $0.leading } ?? 20))
-        return NSRect(x: rect.minX + 8, y: rect.midY - height / 2, width: max(0, rect.width - 16), height: height)
-    }
 
-    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
-                         delegate: Any?, start selStart: Int, length selLength: Int) {
-        // NSTextField's editor otherwise fills the entire 32pt control and starts
-        // its first line at the top, ignoring the cell's drawing inset.
-        super.select(withFrame: drawingRect(forBounds: rect), in: controlView, editor: textObj,
-                     delegate: delegate, start: selStart, length: selLength)
-    }
-
-    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
-                       delegate: Any?, event: NSEvent?) {
-        super.edit(withFrame: drawingRect(forBounds: rect), in: controlView, editor: textObj,
-                   delegate: delegate, event: event)
-    }
 }
 
 struct CommandLiteralField: NSViewRepresentable {
@@ -220,8 +204,7 @@ struct CommandLiteralField: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: CommandLiteralTextField, context: Context) -> CGSize? {
-        guard fillsProposedHeight, let width = proposal.width, let height = proposal.height else { return nil }
-        return CGSize(width: width, height: height)
+        CGSize(width: proposal.width ?? nsView.intrinsicContentSize.width, height: nsView.intrinsicContentSize.height)
     }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
@@ -229,6 +212,37 @@ struct CommandLiteralField: NSViewRepresentable {
         init(text: Binding<String>) { self.text = text }
         func controlTextDidChange(_ notification: Notification) {
             guard let field = notification.object as? NSTextField,
+                  (field.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
+            text.wrappedValue = field.stringValue
+        }
+    }
+}
+
+/// 系统搜索框，查询变化立即同步到列表。
+struct NativeSearchField: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+    var identifier: String
+    @Environment(\.isEnabled) private var isEnabled
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+    func makeNSView(context: Context) -> NSSearchField {
+        let field = NSSearchField()
+        field.sendsSearchStringImmediately = true
+        field.delegate = context.coordinator
+        field.setAccessibilityIdentifier(identifier)
+        return field
+    }
+    func updateNSView(_ field: NSSearchField, context: Context) {
+        context.coordinator.text = $text
+        if field.stringValue != text { field.stringValue = text }
+        field.placeholderString = placeholder
+        field.isEnabled = isEnabled
+    }
+    final class Coordinator: NSObject, NSSearchFieldDelegate {
+        var text: Binding<String>
+        init(text: Binding<String>) { self.text = text }
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSSearchField,
                   (field.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
             text.wrappedValue = field.stringValue
         }

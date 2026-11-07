@@ -6,12 +6,11 @@ protocol FamilyModalFocusRestoring {
     var canRestoreModalFocus: Bool { get }
 }
 
-/// App-owned modal chrome. No AppKit sheet animation, material, title bar or window shadow.
-/// The full-window child panel keeps pointer input and keyboard focus inside the dialog.
+/// 原生 AppKit sheet 保留系统窗口外观和焦点恢复。
 @MainActor
 final class FamilyModalPresentation: NSObject {
     static let didCloseNotification = Notification.Name("FamilyModalPresentation.didClose")
-    let window = FamilyModalWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+    let window = FamilyModalWindow(contentRect: .zero, styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
     let backdrop = FamilyModalBackdrop()
     private weak var owner: NSWindow?
     private weak var previousResponder: NSResponder?
@@ -25,9 +24,11 @@ final class FamilyModalPresentation: NSObject {
         self.owner = owner
         previousResponder = owner?.firstResponder
         window.isReleasedWhenClosed = false
-        window.hasShadow = false
-        window.backgroundColor = .clear
-        window.isOpaque = false
+        window.hasShadow = true
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = .windowBackgroundColor
+        window.isOpaque = true
         window.isMovable = false
         window.animationBehavior = .none
         window.appearance = owner?.effectiveAppearance ?? NSApp.effectiveAppearance
@@ -53,8 +54,8 @@ final class FamilyModalPresentation: NSObject {
 
     func show(initialFirstResponder: NSView? = nil) {
         Self.retained[ObjectIdentifier(self)] = self
-        if let owner { owner.addChildWindow(window, ordered: .above) }
-        window.makeKeyAndOrderFront(nil)
+        if let owner { owner.beginSheet(window) }
+        else { window.makeKeyAndOrderFront(nil) }
         backdrop.layoutSubtreeIfNeeded()
         if let initialFirstResponder { window.makeFirstResponder(initialFirstResponder) }
         else { window.selectNextKeyView(nil) }
@@ -69,7 +70,7 @@ final class FamilyModalPresentation: NSObject {
         completion = nil
         window.onCancel = nil
         backdrop.onCancel = nil
-        owner?.removeChildWindow(window)
+        if let owner, window.sheetParent === owner { owner.endSheet(window) }
         window.orderOut(nil)
         if let owner, owner.isVisible {
             owner.makeKeyAndOrderFront(nil)
@@ -83,11 +84,11 @@ final class FamilyModalPresentation: NSObject {
     }
 
     private func updateFrame() {
-        let frame = owner?.frame ?? NSRect(x: 0, y: 0, width: backdrop.cardSize.width + 64, height: backdrop.cardSize.height + 64)
-        window.setFrame(frame, display: true)
+        window.setContentSize(backdrop.cardSize)
         if owner == nil { window.center() }
         backdrop.needsLayout = true
     }
+
 }
 
 final class FamilyModalWindow: NSPanel {
@@ -117,33 +118,16 @@ final class FamilyModalBackdrop: NSView {
         scroll.autohidesScrollers = true
         scroll.verticalScrollElasticity = .none
         scroll.wantsLayer = true
-        scroll.layer?.cornerRadius = Theme.Radius.card
         scroll.layer?.masksToBounds = true
         scroll.documentView = content
         addSubview(scroll)
     }
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.6).setFill()
-        bounds.fill()
-    }
     override func layout() {
         super.layout()
-        let size = NSSize(width: min(cardSize.width, max(0, bounds.width - 32)), height: min(cardSize.height, max(0, bounds.height - 64)))
-        // Center on whole points, then align to this display's backing pixels.
-        // Half-point origins soften the entire hosted text layer on standard
-        // displays and when the Retina surface is sampled at logical resolution.
-        let centered = NSRect(x: ((bounds.width - size.width) / 2).rounded(),
-                              y: ((bounds.height - size.height) / 2).rounded(),
-                              width: size.width, height: size.height)
-        scroll.frame = backingAlignedRect(centered, options: .alignAllEdgesNearest)
-        card?.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: cardSize.height))
+        scroll.frame = bounds
+        card?.frame = NSRect(origin: .zero, size: NSSize(width: bounds.width, height: cardSize.height))
     }
-    override func mouseDown(with event: NSEvent) {
-        // SwiftUI can pass unhandled clicks through the responder chain. A click
-        // within the card (for example on disabled button padding) is not a cancel.
-        guard !scroll.frame.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onCancel?()
-    }
+
 }
 
 /// SwiftUI sheet content shares the same centered modal host as confirmations.
@@ -171,9 +155,7 @@ private struct FamilySheetAnchor<Sheet: View>: NSViewRepresentable {
             .font(Theme.Font.body).tint(chrome.accent)
             .buttonStyle(FamilyButtonStyle(kind: .secondary))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(chrome.background)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(chrome.hairline, lineWidth: 1)))
+            .background(Color(nsColor: .windowBackgroundColor)))
         // Updating the binding or making a key window inside a SwiftUI update is reentrant.
         DispatchQueue.main.async { [weak view, weak coordinator] in
             guard let coordinator else { return }

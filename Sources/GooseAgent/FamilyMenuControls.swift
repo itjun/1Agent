@@ -12,8 +12,8 @@ struct FamilyMenu<Label: View>: View {
     var body: some View {
         Button {
             if let view = anchor.view {
+                onPresentationChange(true)
                 FamilyMenuPresenter.shared.show(items(), below: view, selection: selection, onDismiss: { onPresentationChange(false) })
-                onPresentationChange(!FamilyMenuPresenter.shared.panels.isEmpty)
             }
         } label: { label() }
         .buttonStyle(FamilyButtonStyle())

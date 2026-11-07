@@ -145,7 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Everything acts on the key window.
     private func handleShortcut(_ event: NSEvent) -> NSEvent? {
         // A transient menu owns navigation and its commands before app-wide shortcuts.
-        if !FamilyMenuPresenter.shared.panels.isEmpty, FamilyMenuPresenter.shared.handleKey(event) { return nil }
+        if FamilyMenuPresenter.shared.activeMenu != nil { return event }
         if let modal = NSApp.keyWindow as? FamilyModalWindow {
             if let chord = KeyChord.from(event: event) {
                 if chord == AppShortcuts.chord(for: .closeTab) { modal.cancelOperation(nil); return nil }

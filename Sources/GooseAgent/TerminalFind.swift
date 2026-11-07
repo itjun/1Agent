@@ -193,9 +193,9 @@ struct TerminalFindBar: View {
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: Theme.Radius.row)
-                            .strokeBorder(state.failed ? chrome.danger : state.fieldFocused ? chrome.accent : chrome.hairline, lineWidth: 1)
+                            .strokeBorder(state.failed ? chrome.danger : state.fieldFocused ? chrome.focus : chrome.hairline,
+                                          lineWidth: state.fieldFocused ? 2 : 1)
                     }
-                    .familyFocusRing(state.fieldFocused)
                 // Ghostty's `navigate_search:next` starts at the bottom match and walks up into older
                 // output, so ↑ is Find Next and ↓ is Find Previous, as in Ghostty's own find bar.
                 button(

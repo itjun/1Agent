@@ -189,7 +189,7 @@ enum TerminalFocusTests {
             // The close notification must work even if no didBecomeKey notification
             // follows dismissal; a visible FamilyModal still blocks owner focus.
             fixture.window.makeKeyAndOrderFront(nil)
-            try await eventually("The modal owner must already be key") { fixture.window.isKeyWindow }
+            try require(modal.window.sheetParent === fixture.window, "The native sheet remains attached when its owner is activated")
             host.requestFocus()
         }
         await settle()

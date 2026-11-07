@@ -18,7 +18,7 @@ enum TerminalPaneActionsTests {
             defaults.removePersistentDomain(forName: suite)
         }
         _ = NSApplication.shared
-        NSApp.setActivationPolicy(.prohibited)
+        NSApp.setActivationPolicy(.accessory)
 
         let model = AppModel()
         let window = WindowState()
@@ -82,6 +82,7 @@ enum TerminalPaneActionsTests {
         root.addSubview(editor)
         owner.contentView = root
         owner.orderFrontRegardless()
+        owner.makeKey()
         owner.makeFirstResponder(editor)
         var recoveries = 0
         var menuBuilds = 0
@@ -123,8 +124,10 @@ enum TerminalPaneActionsTests {
                 RunLoop.main.run(until: Date().addingTimeInterval(0.1))
                 for x: CGFloat in [35, 320, 590] {
                     let before = menuBuilds
+                    let probe = NativeMenuProbe()
+                    defer { probe.stop() }
                     send(.rightMouseDown, at: NSPoint(x: x, y: 176))
-                    expect(menuBuilds == before + 1 && !FamilyMenuPresenter.shared.panels.isEmpty,
+                    expect(menuBuilds == before + 1 && probe.menu != nil,
                            "right-click works on banner text, blank space and recovery button in either appearance")
                     expect(commands.first { $0.title == AppShortcutID.closeTab.title }?.enabled == true,
                            "disconnected and reconnecting banners keep the original Close Terminal action")
@@ -133,6 +136,8 @@ enum TerminalPaneActionsTests {
                     FamilyMenuPresenter.shared.dismiss()
                 }
                 let before = menuBuilds
+                let controlProbe = NativeMenuProbe()
+                defer { controlProbe.stop() }
                 send(.leftMouseDown, at: NSPoint(x: 590, y: 176), flags: .control)
                 expect(menuBuilds == before + 1 && recoveries == 0, "Control-click opens the menu without reconnecting")
                 FamilyMenuPresenter.shared.dismiss()
@@ -187,17 +192,8 @@ enum TerminalPaneActionsTests {
         expect(menu.allSatisfy { !$0.enabled }, "status lines are information, not actions")
         expect(!menu.contains { $0.title == String(localized: "Switch Tab") }, "the title card does not switch tabs")
         expect(TerminalPaneActions.titleItems(model: model, window: window).isEmpty, "a title click without a pane shows nothing")
-        if let path = ProcessInfo.processInfo.environment["ONEAGENT_REMOTE_MENU_SNAPSHOT"] {
-            let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
-                                 styleMask: [.titled], backing: .buffered, defer: false)
-            FamilyMenuPresenter.shared.show(menu, at: NSPoint(x: 600, y: 700), owner: owner)
-            if let view = FamilyMenuPresenter.shared.panels.first?.contentView,
-               let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-                view.cacheDisplay(in: view.bounds, to: bitmap)
-                try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
-            }
-            FamilyMenuPresenter.shared.dismiss()
-        }
+        let nativeMenu = FamilyMenuPresenter.menu(menu)
+        expect(nativeMenu.items.allSatisfy { !$0.isEnabled }, "native title information stays non-actionable")
 
         status.report(.commandFinished(exitCode: 0), sessionID: tab.sessionID)
         expect(status.runningCommand(of: tab) == nil, "a finished command gives the title back to the directory")
@@ -387,8 +383,8 @@ enum TerminalPaneActionsTests {
         expect(TerminalPaneActions.externalDirectory(of: remote) == nil, "remote directories are never mistaken for local editor paths")
         expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 0, width: 500, height: 300)) == 0,
                "top-row panes use the window title band without a duplicate header")
-        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 305, width: 500, height: 300)) == Theme.PaneStyle.headerHeight,
-               "lower split panes retain their own title and drag handle")
+        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 305, width: 500, height: 300)) == 0,
+               "lower split panes also use the single global information toolbar")
         let panes = (0..<4).map { _ in UUID() }
         let grid = PaneNode.split(SplitNode(id: UUID(), axis: .horizontal, ratio: 0.5,
             leading: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
@@ -400,11 +396,11 @@ enum TerminalPaneActionsTests {
         for id in panes {
             let card = cards[id]!
             let body = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true)
-            expect(TerminalCanvas.headerHeight(for: frames[id]!, isFloating: true) == 32,
-                   "every floating pane, including the top row, reserves an internal title")
+            expect(TerminalCanvas.headerHeight(for: frames[id]!, isFloating: true) == 0,
+                   "no terminal pane reserves a repeated title")
             expect(body.minX == card.minX && body.maxX == card.maxX && body.maxY == card.maxY,
                    "title and terminal share one outer card, with no second content inset")
-            expect(body.minY == card.minY + 32, "output starts directly below its own title")
+            expect(body.minY == card.minY, "output fills the pane from its top edge")
             let searching = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true,
                                                                 accessoryHeight: Theme.PaneStyle.findBarHeight)
             expect(searching.minY == body.minY + Theme.PaneStyle.findBarHeight && searching.maxY == card.maxY,
@@ -418,27 +414,11 @@ enum TerminalPaneActionsTests {
                cards[panes[3]]!.maxX == 1000 && cards[panes[3]]!.maxY == 700,
                "interior pane gaps do not add a second outer inset")
         let zoomed = TerminalCanvas.paneFrames(grid, zoomed: panes[0], in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
-        expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!, isFloating: true) == 32,
-               "a single or zoomed terminal retains its internal title")
-        let owner = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
-                             styleMask: [.titled], backing: .buffered, defer: false)
-        let anchor = NSView(frame: NSRect(x: 390, y: 540, width: 120, height: 32))
-        owner.contentView?.addSubview(anchor)
-        let presenter = FamilyMenuPresenter.shared
-        presenter.show([FamilyMenuItem(title: "fixture-host", enabled: false)], centeredBelow: anchor)
-        expect(presenter.panels.count == 1, "the title card opens under its anchor")
-        let panel = presenter.panels[0]
-        let anchorScreen = owner.convertToScreen(anchor.convert(anchor.bounds, to: nil))
-        expect(abs(panel.frame.midX - anchorScreen.midX) < 1, "the title card is centered under the title")
-        expect(abs(panel.frame.maxY - (anchorScreen.minY - 4)) < 1, "the title card sits just below the title")
-        if let path = ProcessInfo.processInfo.environment["ONEAGENT_MENU_SNAPSHOT"],
-           let view = panel.contentView,
-           let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-            view.cacheDisplay(in: view.bounds, to: bitmap)
-            try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
-        }
-        presenter.dismiss()
-        owner.orderOut(nil)
+        expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!, isFloating: true) == 0,
+               "single and zoomed terminals use the same headerless content")
+        let menu = FamilyMenuPresenter.menu([FamilyMenuItem(title: "fixture-host", enabled: false)])
+        expect(menu.items.first?.title == "fixture-host" && menu.items.first?.isEnabled == false,
+               "the global title information uses a native informational menu")
     }
 
     @MainActor private static func item(_ key: String.LocalizationValue, in items: [FamilyMenuItem]) -> FamilyMenuItem? {
@@ -449,4 +429,24 @@ enum TerminalPaneActionsTests {
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
         precondition(condition(), message)
     }
+}
+
+/// NSMenu tracks synchronously; observe and close it from its tracking run loop.
+@MainActor
+private final class NativeMenuProbe {
+    var menu: NSMenu?
+    private var timer: Timer?
+    init() {
+        timer = Timer(timeInterval: 0.02, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self, let menu = FamilyMenuPresenter.shared.activeMenu else { return }
+                self.menu = menu
+                menu.cancelTracking()
+                timer.invalidate()
+            }
+        }
+        RunLoop.main.add(timer!, forMode: .common)
+        RunLoop.main.add(timer!, forMode: .eventTracking)
+    }
+    func stop() { timer?.invalidate() }
 }

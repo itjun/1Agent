@@ -60,18 +60,19 @@ enum HostInformationTests {
                 NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                     windowNumber: owner.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
             }
+            let probe = NativeMenuProbe()
+            defer { probe.stop() }
             terminal.rightMouseDown(with: pointer(.rightMouseDown))
             terminal.rightMouseUp(with: pointer(.rightMouseUp))
             let presenter = FamilyMenuPresenter.shared
-            precondition(presenter.panels.count == 1 && presenter.panels[0].isVisible, "right-button release must present a visible native menu")
-            let entries = elements(presenter.panels[0].contentView!)
-            let actions = entries.compactMap { $0 as? NSButton }.filter { $0.title == String(localized: "Host Information") }
+            guard let menu = probe.menu else { fatalError("right-button release must open a native menu") }
+            let actions = menu.items.enumerated().filter { $0.element.title == String(localized: "Host Information") }
             precondition(actions.count == 1, "the real menu must contain exactly one Host Information action")
-            actions[0].performClick(nil)
-            try await until("host information dialog") { owner.childWindows?.contains { $0.identifier?.rawValue == "family.dialog" && $0.isVisible } == true }
+            menu.performActionForItem(at: actions[0].offset)
+            try await until("host information dialog") { owner.attachedSheet?.identifier?.rawValue == "family.dialog" }
             precondition(state.hostInformationTabID == tab.id, "the dialog must retain the right-clicked pane")
-            precondition(presenter.panels.isEmpty, "choosing Host Information must dismiss the menu")
-            let dialog = owner.childWindows!.first { $0.identifier?.rawValue == "family.dialog" }!
+            precondition(presenter.activeMenu == nil, "choosing Host Information must dismiss native menu tracking")
+            let dialog = owner.attachedSheet!
             await settle()
             dialog.contentView?.layoutSubtreeIfNeeded()
             try await until("dialog accessibility content") {
@@ -95,8 +96,8 @@ enum HostInformationTests {
         precondition(state.selectedTabID == local.id && !state.presentation.toolSidebarOpen, "opening information must not switch panes or require the sidebar")
         let close = elements(dialog.contentView!).first { value($0, "accessibilityIdentifier") as? String == "hostInformation.close" }!
         precondition(invoke(close, "accessibilityPerformPress"), "the actual SwiftUI Close button must activate")
-        try await until("Close button dismissal") { state.hostInformationTabID == nil && owner.childWindows?.isEmpty != false }
-        precondition(!dialog.isVisible && owner.firstResponder === terminal, "closing must remove the scrim and restore terminal focus")
+        try await until("Close button dismissal") { state.hostInformationTabID == nil && owner.attachedSheet == nil && owner.firstResponder === terminal }
+        precondition(!dialog.isVisible && owner.firstResponder === terminal, "closing must remove the native sheet and restore terminal focus")
         print("PASS: right-click → Host Information → remote fields → Close; captured target and focus preserved")
 
         let localDialog = try await open(local)
@@ -110,7 +111,7 @@ enum HostInformationTests {
         let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
             windowNumber: localDialog.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
         localDialog.keyDown(with: escape)
-        try await until("Escape dismissal") { state.hostInformationTabID == nil && owner.childWindows?.isEmpty != false }
+        try await until("Escape dismissal") { state.hostInformationTabID == nil && owner.attachedSheet == nil && owner.firstResponder === terminal }
         precondition(!localDialog.isVisible && owner.firstResponder === terminal, "Escape must remove the dialog and restore terminal focus")
         precondition(terminal.processHost == nil && model.tabs.count == 2, "verification must not launch processes or change sessions")
         print("PASS: reopen → local host information → Escape; no leftover overlay or terminal process")
@@ -141,4 +142,24 @@ enum HostInformationTests {
         }
         return walk(object)
     }
+}
+
+/// NSMenu tracks synchronously; observe and close it from its tracking run loop.
+@MainActor
+private final class NativeMenuProbe {
+    var menu: NSMenu?
+    private var timer: Timer?
+    init() {
+        timer = Timer(timeInterval: 0.02, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self, let menu = FamilyMenuPresenter.shared.activeMenu else { return }
+                self.menu = menu
+                menu.cancelTracking()
+                timer.invalidate()
+            }
+        }
+        RunLoop.main.add(timer!, forMode: .common)
+        RunLoop.main.add(timer!, forMode: .eventTracking)
+    }
+    func stop() { timer?.invalidate() }
 }
