@@ -39,6 +39,9 @@ enum SidebarActions {
                 items += sessionItems
             }
         }
+        if !multiple {
+            items.append(FamilyMenuItem(title: String(localized: "Rename…"), action: onRename))
+        }
         if !items.isEmpty && (multiple || row.isSplit) { items.append(.separator) }
         if ids.count > 1 {
             items.append(FamilyMenuItem(title: multiple ? String(localized: "Merge Panels") : String(localized: "Arrange Panel"),

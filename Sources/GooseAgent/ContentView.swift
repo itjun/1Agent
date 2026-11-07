@@ -326,12 +326,12 @@ struct RootView: View {
                     .font(.system(size: 16)).frame(width: 20).foregroundStyle(folderColor)
                 Text(verbatim: group.title).font(Theme.Font.sidebarCategory)
                     .foregroundStyle(folderColor)
-                if sidebarChrome.isSystem { Spacer(minLength: 0) }
+                Spacer(minLength: 0)
                 Text(verbatim: String(count)).font(Theme.Font.rowMeta).monospacedDigit()
                     .foregroundStyle(sidebarChrome.secondary)
-                if !sidebarChrome.isSystem { Spacer(minLength: 0) }
+                    .padding(.horizontal, 5)
             }
-            .padding(.leading, 6).padding(.trailing, 30)
+            .padding(.leading, 6).padding(.trailing, 5)
             .frame(height: SidebarLayout.rowHeight).contentShape(Rectangle())
         }
         .buttonStyle(FamilyButtonStyle())
@@ -340,21 +340,6 @@ struct RootView: View {
         .accessibilityIdentifier("sidebar.group.\(group.rawValue)")
         .accessibilityLabel(Text(String(format: String(localized: "Toggle %@ Group"), group.title)))
         .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
-        .overlay(alignment: .trailing) {
-            if group == .remote {
-                Button {
-                    model.openHostPicker(in: window)
-                } label: {
-                    Image(systemName: "plus").font(.system(size: 12, weight: .medium))
-                        .frame(width: 20, height: 26).contentShape(Rectangle())
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .padding(.trailing, 5)
-                .accessibilityIdentifier("sidebar.group.\(group.rawValue).add")
-                .accessibilityLabel(Text("Open Host…"))
-                .help(shortcutHelp(.openHost))
-            }
-        }
         .foregroundStyle(sidebarChrome.secondary)
         }
         .padding(.horizontal, SidebarLayout.rowInset)
@@ -591,21 +576,20 @@ struct RootView: View {
                             .foregroundStyle(sidebarChrome.secondary)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
-                if row.isSplit {
-                    Text(verbatim: String(row.leafIDs.count)).font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(folderColor)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(folderColor.opacity(sidebarChrome.isDark ? 0.12 : 0.08)))
-                }
                 SidebarBellMark(sessionID: tab.sessionID)
                 if tab.reconnecting || tab.showsDisconnected {
                     Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
                         .font(.system(size: 12))
                         .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
                 }
+                if row.isSplit {
+                    Text(verbatim: String(row.leafIDs.count)).font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(folderColor)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                }
             }
             .foregroundStyle(sidebarChrome.text)
-            .padding(.leading, 11).padding(.trailing, 30).frame(height: SidebarLayout.rowHeight)
+            .padding(.leading, 11).padding(.trailing, 5).frame(height: SidebarLayout.rowHeight)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected && !row.isSplit,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
                 .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
@@ -631,14 +615,6 @@ struct RootView: View {
                     },
                     dragEnabled: renamingPanelID == nil
                 ).accessibilityHidden(true).allowsHitTesting(renamingPanelID != row.panelID)
-            }
-            .overlay(alignment: .trailing) {
-                Button { renamePanel(row) } label: { Image(systemName: "pencil").frame(width: 20, height: 26) }
-                    .buttonStyle(FamilyButtonStyle()).foregroundStyle(selected ? sidebarChrome.accent : sidebarChrome.secondary)
-                    .help("Rename").accessibilityLabel(Text("Rename"))
-                    .padding(.trailing, 5)
-                    .opacity(selected || hoveredTabID == row.panelID ? 1 : 0)
-                    .allowsHitTesting(selected || hoveredTabID == row.panelID)
             }
             .help(labeledSubtitle).accessibilityElement(children: .contain)
             .accessibilityLabel(Text(verbatim: panelDisplayTitle(row)))
@@ -775,6 +751,7 @@ struct RootView: View {
                     Text(workspaceTitle(workspace)).lineLimit(1).foregroundStyle(folderColor)
                     Spacer(minLength: 0)
                     Text(verbatim: String(workspace.panels.count))
+                        .padding(.trailing, 2)
                         .font(Theme.Font.rowMeta)
                         .foregroundStyle(sidebarChrome.secondary)
                 }
@@ -785,19 +762,14 @@ struct RootView: View {
                         onBegan: { dropRelay.blockDragBegan(.workspace(workspace.id)) },
                         onMoved: { dropRelay.blockDragMoved(windowPoint: $0) },
                         onEnded: { dropRelay.blockDragEnded(windowPoint: $0) },
-                        onSecondaryClick: {}
+                        onSecondaryClick: {
+                            SidebarActions.show(workspaceContextItems(workspace), in: window)
+                        }
                     )
                     .accessibilityHidden(true)
                 }
             }
-            FamilyMenu(items: { workspaceContextItems(workspace) }) {
-                Image(systemName: "folder.badge.gearshape").frame(width: 20, height: SidebarLayout.rowHeight)
-                    .foregroundStyle(folderColor)
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .accessibilityLabel(Text(String(format: String(localized: "Actions for %@"), workspaceTitle(workspace))))
+
         }
         .foregroundStyle(sidebarChrome.text)
         .padding(.horizontal, Theme.Space.s)
