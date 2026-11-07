@@ -241,6 +241,14 @@ enum AppTheme {
         return neutral.mixed(with: accent, amount: preset == .system ? 0 : (isDark ? 0.08 : 0.04))
     }
 
+    /// 导航只与阅读底色保持轻微色差，避免大面积渐变干扰终端和文件阅读。
+    static func navigationBackground(isDark: Bool,
+                                     preset: AppThemePreset = AppTheme.stored()) -> RGBColor {
+        let colors = AppTheme.colors(isDark: isDark, preset: preset)
+        return RGBColor(ghosttyHex: colors.background)!
+            .mixed(with: RGBColor(ghosttyHex: colors.gradient[1])!, amount: 0.2)
+    }
+
     // 系统预设只给窗口材质使用黑白中性色；终端 ANSI 保留语义色，便于辨认输出。
     private static let systemLight = Colors(
         gradient: ["F5F5F5", "F5F5F5", "F5F5F5"], glow: "FFFFFF",

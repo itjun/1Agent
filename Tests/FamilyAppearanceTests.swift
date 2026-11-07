@@ -186,16 +186,17 @@ enum FamilyAppearanceTests {
             expect(driver.isShellTransparent == isTransparent, "legacy style cannot disable the material")
             for target in TerminalThemeTarget.allCases {
                 let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
-                expect(rendered.contains(isTransparent ? "background-opacity = 0.82" : "background-opacity = 1"), "preset surface opacity reaches both engines")
+                // Metal 透明仅用于露出应用自己的实色底板，不代表窗口透出桌面。
+                let opacityLines = rendered.split(separator: "\n").filter { $0.hasPrefix("background-opacity =") }
+                expect(opacityLines == ["background-opacity = 0"],
+                       "both engines expose the app-owned reading background without duplicate opacity overrides")
             }
             check(true, true, "legacy style preserves sessions")
         }
         let backdrop = ShellBackdropView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
         expect(backdrop.isOpaque, "wallpaper backing must block other windows instead of sampling them")
-        let wallpaperMaterial = backdrop.subviews.compactMap { $0 as? NSVisualEffectView }.first
-        expect(wallpaperMaterial?.blendingMode == .withinWindow,
-               "material must blur the wallpaper supplied inside the window")
-        expect(wallpaperMaterial?.state == .active, "wallpaper tint remains visible when the window loses focus")
+        expect(!backdrop.subviews.contains { $0 is NSVisualEffectView },
+               "reading background does not sample desktop or other windows")
         let shellWindow = NSWindow(contentRect: backdrop.bounds, styleMask: [], backing: .buffered, defer: false)
         shellWindow.contentView = backdrop
         for preset in AppThemePreset.allCases {
@@ -204,20 +205,27 @@ enum FamilyAppearanceTests {
                 backdrop.isDark = isDark
                 for isTransparent in [true, false, true] {
                     backdrop.isTransparent = isTransparent
-                    backdrop.applyStyle()
-                    expect(shellWindow.isOpaque == !isTransparent, "shell switch updates native window compositing")
-                    expect(shellWindow.backgroundColor.alphaComponent == (isTransparent ? 0 : 1), "native window backing does not block transparency")
-                    expect(wallpaperMaterial?.isHidden == !isTransparent, "reduce transparency hides the wallpaper material")
-                    expect(backdrop.subviews.first?.isHidden == !isTransparent,
-                           "every preset exposes desktop wallpaper only when transparency is enabled")
-                    let layers = backdrop.subviews.last!.layer!.sublayers!
-                    let colors = (layers[0] as! CAGradientLayer).colors as! [CGColor]
-                    expect(colors.allSatisfy { isTransparent ? $0.alpha < 0.75 : $0.alpha == 1 },
-                           "every preset leaves the wallpaper visible with an opaque accessibility fallback")
-                    if preset == .system {
-                        expect(layers[1].isHidden, "system material has no colored glow")
-                        expect(Set(colors.map { NSColor(cgColor: $0)!.usingColorSpace(.sRGB)!.redComponent }).count == 1,
-                               "system material uses a uniform neutral wash")
+                    for usesTerminalBackground in [false, true] {
+                        backdrop.usesTerminalBackground = usesTerminalBackground
+                        backdrop.applyStyle()
+                        expect(backdrop.isOpaque && shellWindow.isOpaque,
+                               "secondary-control transparency cannot make the reading window transparent")
+                        guard let backing = backdrop.layer?.backgroundColor,
+                              let gradient = backdrop.subviews.first?.layer?.sublayers?.first as? CAGradientLayer,
+                              let colors = gradient.colors as? [CGColor] else {
+                            expect(false, "theme backing and gradient exist"); return
+                        }
+                        let expected = NSColor(AppTheme.colors(isDark: isDark, preset: preset).color(
+                            AppTheme.colors(isDark: isDark, preset: preset).background)).usingColorSpace(.sRGB)!
+                        let actual = NSColor(cgColor: backing)!.usingColorSpace(.sRGB)!
+                        expect(backing.alpha == 1 && colors.allSatisfy { $0.alpha == 1 },
+                               "every preset keeps an opaque background in both accessibility modes")
+                        expect(abs(actual.redComponent - expected.redComponent) < 0.001
+                               && abs(actual.greenComponent - expected.greenComponent) < 0.001
+                               && abs(actual.blueComponent - expected.blueComponent) < 0.001,
+                               "reading backing matches the terminal theme in light and dark appearances")
+                        expect(gradient.isHidden == usesTerminalBackground,
+                               "terminal and inspector reading surfaces stay solid instead of showing a gradient")
                     }
                 }
             }
@@ -272,7 +280,7 @@ enum FamilyAppearanceTests {
         check(true, true, "undo preserves preset colors and sessions")
         expect(legacyKeys.map { defaults.string(forKey: $0) } == legacyValues, "old Ghostty preferences remain available for rollback")
         expect(defaults.string(forKey: "sidebar.material") == "liquidGlass", "obsolete preferences are retained")
-        print("FamilyAppearanceTests passed: preset modes, legacy preference preservation, blocked overrides, import/undo, preset-owned icon, settings navigation, transparency fallback, two native surfaces and retained buffers")
+        print("FamilyAppearanceTests passed: preset modes, legacy preference preservation, blocked overrides, import/undo, preset-owned icon, settings navigation, opaque reading backgrounds, two native surfaces and retained buffers")
     }
 
     @MainActor static func checkSettingsPages(in window: NSWindow) {

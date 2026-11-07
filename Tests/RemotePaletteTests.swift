@@ -24,6 +24,11 @@ enum RemotePaletteTests {
                 let focused = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: true, preset: preset)
                 let inactive = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: false, preset: preset)
                 let label = "\(preset.rawValue) \(isDark ? "dark" : "light")"
+                let navigation = AppTheme.navigationBackground(isDark: isDark, preset: preset)
+                try check(foreground.contrastRatio(with: navigation) >= 4.5,
+                          "\(label): navigation text stays readable on the subtle background")
+                try check(secondary.contrastRatio(with: navigation) >= 4.5,
+                          "\(label): navigation paths stay readable on the subtle background")
                 try check(focused.contrastRatio(with: base) == 1, "\(label): focused pane keeps theme background")
                 try check(inactive.contrastRatio(with: focused) >= 1.12, "\(label): pane backgrounds distinguish focus")
                 try check(foreground.contrastRatio(with: inactive) >= 4.5, "\(label): inactive output remains readable")

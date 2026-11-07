@@ -54,10 +54,8 @@ struct RootView: View {
                     sidebar
                         .padding(.top, Theme.Space.s)
                         .background {
-                            if !chrome.isSystem {
-                                ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, isDark: appearanceDriver.isDark)
-                                    .ignoresSafeArea().accessibilityHidden(true)
-                            }
+                            AppTheme.navigationBackground(isDark: appearanceDriver.isDark).color
+                                .ignoresSafeArea().accessibilityHidden(true)
                         }
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
@@ -436,10 +434,9 @@ struct RootView: View {
                 }) {
                     WorkspaceToolSidebar(model: model, window: window)
                         .background {
-                            if !chrome.isSystem {
-                                ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, isDark: appearanceDriver.isDark)
-                                    .ignoresSafeArea().accessibilityHidden(true)
-                            }
+                            ShellBackdrop(isTransparent: false, isDark: appearanceDriver.isDark,
+                                          usesTerminalBackground: true)
+                                .ignoresSafeArea().accessibilityHidden(true)
                         }
                         .environment(\.windowChrome, chrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
