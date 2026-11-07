@@ -4,6 +4,13 @@ import SwiftUI
 // 右栏只切换内容，不改变终端分屏树。
 enum WorkspaceToolTab: String, CaseIterable {
     case commands, changes, files
+    var symbol: String {
+        switch self {
+        case .commands: "terminal"
+        case .changes: "arrow.triangle.branch"
+        case .files: "folder"
+        }
+    }
     var title: String {
         switch self {
         case .commands: String(localized: "Commands")
@@ -17,61 +24,12 @@ struct WorkspaceToolSidebar: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @Environment(\.windowChrome) private var chrome
-    @State private var hoveredTab: WorkspaceToolTab?
     private var location: GitLocation? {
         let context = model.quickCommandContext(in: window)
         return context.directory.map { GitLocation(host: context.host, directory: $0) }
     }
     var body: some View {
         VStack(spacing: 0) {
-            if chrome.isSystem {
-                Picker("Workspace Tools", selection: $window.toolSidebarTab) {
-                    ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
-                        Text(verbatim: tab.title).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented).labelsHidden().controlSize(.large)
-                .padding(.horizontal, Theme.DefaultLayout.toolInset).frame(height: 42)
-                .onChange(of: window.toolSidebarTab) { _, tab in
-                    if tab == .changes { window.toolGitBranchComparison = false }
-                }
-                .accessibilityIdentifier("workspace.tools")
-            } else {
-            HStack(spacing: 0) {
-                ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
-                    Button {
-                        if tab == .changes { window.toolGitBranchComparison = false }
-                        window.toolSidebarTab = tab
-                    } label: {
-                        Text(verbatim: tab.title).font(Theme.Font.row)
-                            .frame(maxWidth: .infinity).frame(height: 30)
-                            .background(window.toolSidebarTab == tab ? chrome.accentFill :
-                                            hoveredTab == tab ? chrome.hairline : .clear)
-                            .overlay(alignment: .trailing) {
-                                if tab != .files {
-                                    Rectangle().fill(chrome.hairline).frame(width: 1, height: 16)
-                                        .allowsHitTesting(false)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .onHover { isHovered in
-                            if isHovered { hoveredTab = tab }
-                            else if hoveredTab == tab { hoveredTab = nil }
-                        }
-                        .accessibilityAddTraits(window.toolSidebarTab == tab ? .isSelected : [])
-                        .accessibilityIdentifier("workspace.tools." + tab.rawValue)
-                }
-            }
-            .background(chrome.elevated)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.control)
-                    .strokeBorder(chrome.hairline, lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
-            .padding(.horizontal, 12).frame(height: 42)
-            }
             switch window.toolSidebarTab {
             case .commands: QuickCommandSidebar(model: model, window: window, showsHeader: false)
             case .changes:
@@ -456,11 +414,11 @@ private struct WorkspaceGitPreview: View {
                     Text(isSideBySide ? "Side-by-side Diff" : "Unified Diff")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                     Button(action: onClose) { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).help("Close Preview")
+                        .buttonStyle(PreviewCardButtonStyle()).help("Close Preview")
                         .accessibilityLabel(Text("Close Preview"))
                         .accessibilityIdentifier("workspace.gitPreview.close")
                 }.padding(.horizontal, 12).frame(height: 36)
-                    .background(chrome.panelHeader)
+                    .background(Color.clear)
                 if isLoading { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
                 else if let error {
                     ScrollView(showsIndicators: false) { Text(verbatim: error).foregroundStyle(chrome.danger).padding(12).textSelection(.enabled) }
@@ -476,7 +434,7 @@ private struct WorkspaceGitPreview: View {
                     }
                     NativeGitDiff(document: document, chrome: chrome)
                 }
-            }.foregroundStyle(chrome.text).background(chrome.background)
+            }.foregroundStyle(chrome.text).background(Color.clear)
         }
         .task(id: request) {
             isLoading = loadedRequest?.location != request.location || loadedRequest?.change != request.change || loadedRequest?.base != request.base
@@ -576,6 +534,8 @@ private final class GitDiffTextScroll: NSScrollView {
         automaticallyAdjustsContentInsets = false
         hasVerticalScroller = false; hasHorizontalScroller = false; autohidesScrollers = true
         borderType = .noBorder
+        drawsBackground = false
+        code.drawsBackground = false
         code.isEditable = false; code.isSelectable = true; code.isRichText = false
         code.isHorizontallyResizable = true; code.isVerticallyResizable = true
         code.textContainer?.widthTracksTextView = false

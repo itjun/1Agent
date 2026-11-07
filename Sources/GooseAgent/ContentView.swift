@@ -12,6 +12,7 @@ struct RootView: View {
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var isMotionReduced
+    @StateObject private var toolbarVisibility = WorkspaceToolbarVisibility()
     @StateObject private var dropRelay = CanvasDropRelay()
     @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
     @State private var renamingPanelID: UUID?
@@ -39,13 +40,10 @@ struct RootView: View {
         GeometryReader { geometry in
             let collapsed = sidebarIsCollapsed(totalWidth: geometry.size.width)
             let shownSidebarWidth = sidebarDisplayWidth(totalWidth: geometry.size.width)
-            // 透明模式把按钮叠在内容上，悬停只改变按钮显示，不占一整行。
             VStack(spacing: 0) {
-                if !appearanceDriver.isShellTransparent {
-                    workspaceTitlebar(collapsed: collapsed, sidebarWidth: shownSidebarWidth, size: geometry.size)
-                }
                 NativeSidebarSplit(
-                    collapsed: collapsed, isDividerHidden: appearanceDriver.isShellTransparent, width: shownSidebarWidth,
+                    collapsed: collapsed, isDividerHidden: false,
+                    toolbarIdentifier: "workspace.navigationSplit", width: shownSidebarWidth,
                     minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
                     defaultWidth: SidebarLayout.defaultWidth,
                     onWidthChange: {
@@ -54,55 +52,42 @@ struct RootView: View {
                     }
                 ) {
                     sidebar
-                        .padding(.top, appearanceDriver.isShellTransparent ? ShellLayout.compactTitlebarHeight : 0)
+                        .padding(.top, Theme.Space.s)
+                        .background {
+                            if !chrome.isSystem {
+                                ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, isDark: appearanceDriver.isDark)
+                                    .ignoresSafeArea().accessibilityHidden(true)
+                            }
+                        }
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
                         .tint(chrome.accent).font(Theme.Font.body)
-                        .ignoresSafeArea(edges: .top)
                         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
 
                 } detail: {
-                    ZStack {
-                        workspaceWithTools
-                            .opacity(commandsMode ? 0 : 1)
-                            .disabled(commandsMode)
-                            .allowsHitTesting(!commandsMode).accessibilityHidden(commandsMode)
-                        if commandsMode {
-                            QuickCommandLibraryView(model: model, window: window, isWorkspace: true) { model.hideFiles(in: window) }
-                                .accessibilityIdentifier("workspace.commandLibrary")
-                        }
-                    }
-                        .padding(.vertical, appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0)
-                        .padding(.trailing, appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0)
-                        .padding(.leading, appearanceDriver.isShellTransparent && collapsed ? ShellLayout.workspaceInset : 0)
+                    workspaceWithTools
+                        .ignoresSafeArea(edges: .top)
                         .scrollIndicators(.never)
-                        .environment(\.workspaceTitlebarLeadingInset, appearanceDriver.isShellTransparent && collapsed
-                            ? SidebarLayout.trafficLightInset + SidebarLayout.iconButtonSize * 2 : 0)
                         .environment(\.windowChrome, chrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
                         .tint(chrome.accent).font(Theme.Font.body)
-                        .ignoresSafeArea(edges: .top)
                         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
 
-                }
-            }
-            .overlay(alignment: .top) {
-                if appearanceDriver.isShellTransparent {
-                    workspaceTitlebar(collapsed: collapsed, sidebarWidth: shownSidebarWidth, size: geometry.size)
                 }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
+        .ignoresSafeArea(edges: .top)
         .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
         .background {
             ShellBackdrop(
                 isTransparent: appearanceDriver.isShellTransparent,
-                isDark: appearanceDriver.isDark
+                isDark: appearanceDriver.isDark,
+                usesTerminalBackground: true
             )
             .accessibilityHidden(true)
         }
-        .ignoresSafeArea(edges: .top)
         .onChange(of: appearanceRaw) { _, _ in
             appearanceDriver.reapply()
         }
@@ -120,7 +105,12 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
             appearanceDriver.reapply()
         }
-        .background(WindowTitleSync(title: windowTitle))
+        .background(WorkspaceToolbar(model: model, state: window, visibility: toolbarVisibility))
+        .overlay(alignment: .top) {
+            ToolbarBoundarySeparator(onHover: toolbarVisibility.setHovered)
+                .padding(.leading, sidebarIsCollapsed(totalWidth: availableWidth) ? 0 : sidebarDisplayWidth(totalWidth: availableWidth) + 1)
+                .frame(height: 8).offset(y: -4)
+        }
         .modifier(HostInformationPresentation(model: model, window: window))
         .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let confirmation = window.quickCommandConfirmation {
@@ -250,6 +240,7 @@ struct RootView: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: symbol).font(.system(size: 16)).frame(width: 20)
+                    .foregroundStyle(active ? Color.accentColor : Color.secondary)
                 Text(title).font(.system(size: 14, weight: active ? .semibold : .regular))
                 Spacer()
             }
@@ -274,7 +265,7 @@ struct RootView: View {
                         let groupRows = rows.filter { model.connectionGroup(for: $0.block) == group }
                         if !groupRows.isEmpty || group == .remote {
                             VStack(spacing: 3) {
-                                connectionGroupHeader(group, count: groupRows.count)
+                                connectionGroupHeader(group, count: groupRows.reduce(0) { $0 + $1.leafIDs.count })
                                 if !window.presentation.collapsedConnectionGroups.contains(group) {
                                     ForEach(blocks.filter { block in groupRows.contains { $0.block == block } }, id: \.self) { block in
                                         sidebarBlock(block, rows: groupRows.filter { $0.block == block })
@@ -331,13 +322,8 @@ struct RootView: View {
             }
         } label: {
             HStack(spacing: 6) {
-                if group == .mixed {
-                    Image(systemName: group.symbol).font(.system(size: 16)).frame(width: 16)
-                        .foregroundStyle(folderColor)
-                } else {
-                    SidebarFolderIcon(color: folderColor, isExpanded: !collapsed)
-                        .font(.system(size: 16)).frame(width: 16)
-                }
+                Image(systemName: group == .local ? "laptopcomputer" : group == .remote ? "cloud" : group.symbol)
+                    .font(.system(size: 16)).frame(width: 20).foregroundStyle(folderColor)
                 Text(verbatim: group.title).font(Theme.Font.sidebarCategory)
                     .foregroundStyle(folderColor)
                 if sidebarChrome.isSystem { Spacer(minLength: 0) }
@@ -443,29 +429,67 @@ struct RootView: View {
         } files: {
             FilesDockView(model: model, window: window, relay: dropRelay)
         }
-        .background(appearanceDriver.isShellTransparent ? Color.clear : chrome.background)
+        .background(Color.clear)
     }
 
     // 右栏宽度包含两侧留白；扣除与左侧原生分隔线相同的 1pt，让可见占位对称。
     private var toolSidebarSurroundingWidth: CGFloat {
-        ShellLayout.workspaceInset + (appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0) - 1
+        0
     }
 
     private var workspaceWithTools: some View {
         GeometryReader { geometry in
             let width = ToolSidebarLayout.visibleWidth(detailWidth: geometry.size.width,
-                open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth,
-                surroundingWidth: toolSidebarSurroundingWidth)
-            let contentWidth = max(0, geometry.size.width - (width > 0 ? width + ShellLayout.workspaceInset : 0))
-            let previewWidth = WorkspacePreviewLayout.visibleWidth(available: contentWidth,
-                isOpen: width > 0 && window.isToolPreviewOpen, preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
-            let terminalWidth = max(0, contentWidth - (previewWidth > 0 ? previewWidth + ShellLayout.workspaceInset : 0))
+                open: window.presentation.toolSidebarOpen && !commandsMode, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+            NativeSidebarSplit(collapsed: width == 0, isTrailing: true,
+                toolbarIdentifier: "workspace.inspectorSplit",
+                width: width > 0 ? width : CGFloat(window.presentation.toolSidebarWidth),
+                minimumWidth: ToolSidebarLayout.minimumWidth, maximumWidth: 480,
+                defaultWidth: WorkspaceChromeLayout.defaultSidebarWidth,
+                onWidthChange: { value in
+                    model.updatePresentation(in: window) { $0.toolSidebarWidth = Double(value) }
+                }) {
+                    WorkspaceToolSidebar(model: model, window: window)
+                        .background {
+                            if !chrome.isSystem {
+                                ShellBackdrop(isTransparent: appearanceDriver.isShellTransparent, isDark: appearanceDriver.isDark)
+                                    .ignoresSafeArea().accessibilityHidden(true)
+                            }
+                        }
+                        .environment(\.windowChrome, chrome)
+                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
+                } detail: {
+                    ZStack {
+                        workspaceWithPreview(isInspectorOpen: width > 0)
+                            .opacity(commandsMode ? 0 : 1)
+                            .disabled(commandsMode)
+                            .allowsHitTesting(!commandsMode).accessibilityHidden(commandsMode)
+                        if commandsMode {
+                            QuickCommandLibraryView(model: model, window: window, isWorkspace: true) { model.hideFiles(in: window) }
+                                .accessibilityIdentifier("workspace.commandLibrary")
+                        }
+                    }
+                        .environment(\.windowChrome, chrome)
+                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
+                }
+                .ignoresSafeArea(edges: .top)
+        }
+        .ignoresSafeArea(edges: .top)
+    }
+
+    private func workspaceWithPreview(isInspectorOpen: Bool) -> some View {
+        GeometryReader { geometry in
+            let previewWidth = WorkspacePreviewLayout.visibleWidth(available: geometry.size.width,
+                isOpen: isInspectorOpen && window.isToolPreviewOpen, preferred: window.toolPreviewWidth,
+                isEqualSplit: window.isToolPreviewEqualSplit)
+            let terminalWidth = max(0, geometry.size.width - (previewWidth > 0 ? previewWidth + ShellLayout.workspaceInset : 0))
             ZStack(alignment: .topLeading) {
                 workspaceSurface.frame(width: terminalWidth)
                 if previewWidth > 0 {
                     WorkspaceFilePreview(model: model, window: window)
                         .frame(width: previewWidth, height: geometry.size.height)
                         .offset(x: terminalWidth + ShellLayout.workspaceInset)
+                    Divider().offset(x: terminalWidth)
                     PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
                         if previewDragStart == nil { previewDragStart = Double(previewWidth) }
                         window.isToolPreviewEqualSplit = false
@@ -473,187 +497,17 @@ struct RootView: View {
                     }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
                         window.isToolPreviewEqualSplit = true
                     })
-                    .frame(width: ShellLayout.workspaceInset, height: geometry.size.height)
-                    .offset(x: terminalWidth)
+                    .frame(width: 6, height: geometry.size.height)
+                    .offset(x: terminalWidth - 2.5)
                     .accessibilityLabel(Text("Resize File Preview"))
                 }
-                if width > 0 {
-                    WorkspaceToolSidebar(model: model, window: window)
-                        .frame(width: width, height: geometry.size.height)
-                        .offset(x: geometry.size.width - width)
-                    PaneDividerHandle(
-                        vertical: true,
-                        onHover: { _ in },
-                        onDragChanged: { delta in
-                            if toolSidebarDragStart == nil { toolSidebarDragStart = Double(width) }
-                            let next = ToolSidebarLayout.storedWidth((toolSidebarDragStart ?? Double(width)) - delta
-                                + toolSidebarSurroundingWidth)
-                            model.updatePresentation(in: window) { $0.toolSidebarWidth = next }
-                        },
-                        onDragEnded: { toolSidebarDragStart = nil },
-                        onDoubleClick: {
-                            toolSidebarDragStart = nil
-                            model.updatePresentation(in: window) {
-                                $0.toolSidebarWidth = WorkspaceChromeLayout.defaultSidebarWidth
-                            }
-                        }
-                    )
-                        .frame(width: ShellLayout.workspaceInset, height: geometry.size.height)
-                        .offset(x: geometry.size.width - width - ShellLayout.workspaceInset)
-                        .accessibilityLabel(Text("Resize Tool Sidebar"))
-                }
             }
         }
-    }
-
-    private func workspaceTitlebar(collapsed: Bool, sidebarWidth: CGFloat, size: CGSize) -> some View {
-        let height = appearanceDriver.isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight
-        let inset = collapsed ? 0 : sidebarWidth + 1
-        let outerInset = appearanceDriver.isShellTransparent ? ShellLayout.workspaceInset : 0
-        let toolWidth = ToolSidebarLayout.visibleWidth(detailWidth: size.width - inset - outerInset * (collapsed ? 2 : 1),
-            open: window.presentation.toolSidebarOpen, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth,
-            surroundingWidth: toolSidebarSurroundingWidth)
-        let contentWidth = max(1, size.width - inset - (toolWidth > 0 ? toolWidth + ShellLayout.workspaceInset : 0))
-        let previewWidth = WorkspacePreviewLayout.visibleWidth(available: contentWidth,
-            isOpen: toolWidth > 0 && window.isToolPreviewOpen, preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
-        let detailWidth = max(1, contentWidth - (previewWidth > 0 ? previewWidth + ShellLayout.workspaceInset : 0))
-        let terminalHeight = size.height - height
-        let frames = TerminalCanvas.paneFrames(model.displayRoot(in: window), zoomed: model.zoomedPane(in: window),
-            in: CGRect(x: 0, y: 0, width: detailWidth, height: terminalHeight))
-        let topTabs = model.tabs.filter { frames[$0.id].map { $0.minY < 1 } == true }
-        return ZStack(alignment: .topLeading) {
-            (appearanceDriver.isShellTransparent ? Color.clear : chrome.panelHeader)
-                .allowsHitTesting(false)
-            if !appearanceDriver.isShellTransparent && (filesMode || commandsMode || topTabs.isEmpty) {
-                Text(commandsMode ? "Commands" : filesMode ? "Files" : "Terminal")
-                    .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)
-                    .padding(.horizontal, 8)
-                    .frame(width: detailWidth, height: height, alignment: .leading)
-                    .accessibilityIdentifier("workspace.titleMenu")
-                    .offset(x: inset)
-            } else if !appearanceDriver.isShellTransparent {
-                ForEach(topTabs) { tab in
-                    if let frame = frames[tab.id] {
-                        let trailingInset: CGFloat = toolWidth == 0 && frame.maxX >= detailWidth - 1
-                            ? Theme.PaneStyle.titlebarAccessoryInset : 0
-                        let leadingInset: CGFloat = collapsed && frame.minX < 1 ? SidebarLayout.trafficLightInset + 56 : 0
-                        paneTitleMenu(tab)
-                            .padding(.horizontal, tab.hasTerminal ? TerminalLocationBadge.titleInset : 0)
-                            .padding(.leading, leadingInset)
-                            .padding(.trailing, trailingInset)
-                            .frame(width: frame.width, height: height)
-                            .overlay(alignment: .leading) {
-                                TerminalLocationBadge(tab: tab)
-                                    .padding(.leading, leadingInset + Theme.Space.s)
-                            }
-                            .overlay(alignment: .bottom) {
-                                PaneProgressBar(sessionID: tab.sessionID).allowsHitTesting(false)
-                            }
-                            .offset(x: inset + frame.minX)
-                    }
-                }
-            }
-            HoverRevealingRegion { hovering in
-                HStack(spacing: 0) {
-                    WindowDragArea().frame(maxWidth: .infinity, maxHeight: .infinity)
-                    sidebarHeaderActions(collapsed: collapsed, visible: hovering)
-                }
-                .padding(.leading, SidebarLayout.trafficLightInset)
-                .padding(.trailing, collapsed ? 0 : 8)
-                .frame(width: collapsed ? SidebarLayout.trafficLightInset + 56 : sidebarWidth,
-                       height: height)
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("workspace.sidebarHeader")
-            if !filesMode && !commandsMode {
-                HoverRevealingRegion { hovering in
-                    HStack {
-                        Spacer(minLength: 0)
-                        Button { model.toggleToolSidebar(in: window) } label: {
-                            Image(systemName: "sidebar.right").frame(width: 28, height: 28)
-                        }
-                        .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
-                        .help(shortcutHelp(.toggleToolSidebar))
-                        .accessibilityLabel(Text(toolWidth > 0 ? "Hide Tool Sidebar" : "Show Tool Sidebar"))
-                        .accessibilityIdentifier("workspace.toggleToolSidebar")
-                        .opacity(hovering ? 1 : 0)
-                        .allowsHitTesting(hovering)
-                        .accessibilityHidden(!hovering)
-                    }
-                    .padding(.trailing, 8)
-                    .frame(width: ShellLayout.titlebarActionWidth, height: height)
-                }
-                .offset(x: size.width - ShellLayout.titlebarActionWidth)
-            }
-        }
-        .frame(height: height)
-        .background {
-            if !appearanceDriver.isShellTransparent { WindowDragArea() }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("workspace.titlebar")
-    }
-
-    private func paneTitleMenu(_ tab: TerminalTab) -> some View {
-        let isSelected = tab.hasTerminal && window.selectedTabID == tab.id && window.section == .terminals
-            && !window.presentation.fullFilesWorkspace
-        return HStack(spacing: 8) {
-            Text(verbatim: numberedSessionTitle(tab))
-                .foregroundStyle(chrome.secondary)
-                .lineLimit(1).truncationMode(.middle)
-                .layoutPriority(1)
-            RemoteTitleStatus(tab: tab)
-        }
-            .font(Theme.Font.paneTitle.weight(.regular))
-            .fixedSize(horizontal: true, vertical: false)
-            .frame(maxWidth: 520, maxHeight: .infinity)
-            .allowsHitTesting(false)
-            .overlay {
-                // Use the same native event tracking as lower split headers: it owns
-                // the press before AppKit can turn a titlebar drag into a window drag.
-                TabDragHandle(
-                    onClick: { _, _ in },
-                    onActivate: { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id, anchor: $0) },
-                    onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
-                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    freezesWindow: true
-                )
-            }
-            .help("Click the title for session details. Drag it to move the pane.")
-            .accessibilityElement(children: .ignore)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
-            .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) }
-            .accessibilityLabel(Text(verbatim: numberedSessionTitle(tab)))
-            .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
     }
 
     private func shortcutHelp(_ id: AppShortcutID) -> String {
         let key = AppShortcuts.display(for: id)
         return key.isEmpty ? id.title : id.title + " (" + key + ")"
-    }
-
-    private func sidebarHeaderActions(collapsed: Bool, visible: Bool) -> some View {
-        HStack(spacing: 0) {
-            Button { model.openLocalTerminal(in: window) } label: {
-                Image(systemName: "plus").frame(width: 28, height: 28)
-            }
-            .help(shortcutHelp(.newLocalTerminal))
-            .accessibilityLabel(Text("New Local Terminal"))
-            .accessibilityIdentifier("workspace.newLocalTerminal")
-            Button { model.toggleSidebar(in: window) } label: {
-                Image(systemName: "sidebar.left").frame(width: 28, height: 28)
-            }
-            .help(shortcutHelp(.toggleSidebar))
-            .accessibilityLabel(Text(collapsed ? "Show Session Sidebar" : "Hide Session Sidebar"))
-            .accessibilityIdentifier(collapsed ? "workspace.revealSidebar" : "workspace.hideSidebar")
-        }
-        .opacity(visible ? 1 : 0)
-        .allowsHitTesting(visible)
-        .accessibilityHidden(!visible)
-        .font(Theme.Font.body).buttonStyle(FamilyButtonStyle())
-        .foregroundStyle(sidebarChrome.secondary)
     }
 
     private func selectSession(_ id: UUID, command: Bool, shift: Bool) {
@@ -1258,15 +1112,6 @@ enum FileBrowserLayout {
     /// Includes the gaps on both sides, so the entire inter-folder area edits the path.
     static let pathSeparatorWidth: CGFloat = 20
     static let folderColor = Color(red: 0x4C / 255, green: 0x8D / 255, blue: 0xFF / 255)
-    /// A full-height overlay follows the source pane's physical side, including moved tabs.
-    static let previewMinimumWidth: CGFloat = 360
-    static let previewWidthShare: CGFloat = 0.5
-    static let previewScrimOpacity: Double = 0.28
-    static func previewFrame(in bounds: CGRect, source: CGRect) -> CGRect {
-        let width = min(bounds.width, max(previewMinimumWidth, bounds.width * previewWidthShare))
-        let x = source.midX <= bounds.midX ? bounds.minX : bounds.maxX - width
-        return CGRect(x: x, y: bounds.minY, width: width, height: bounds.height)
-    }
     static let previewByteLimit = 512 * 1024
     /// Progress toast at the bottom center of the window.
     static let toastWidth: CGFloat = 360

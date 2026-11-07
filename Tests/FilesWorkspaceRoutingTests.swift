@@ -169,6 +169,11 @@ private struct FilesWorkspaceRoutingTests {
                     "Ordinary page switches must retain filter, sort and visibility")
         try require(initialLocal.scrollAnchor == savedScrollAnchor, "Remounting the file page must retain its scroll anchor")
         try await verifySidePreviews(model: model, state: state, window: chromeWindow, home: home)
+        if environment["ONEAGENT_TEST_FILE_PREVIEWS"] == "1" {
+            chromeWindow.orderOut(nil)
+            chromeWindow.contentView = nil
+            return
+        }
         try await verifyPinnedFolderDrag(window: chromeWindow, workspace: initialFiles)
         model.hideFiles(in: state)
         try await settle()
@@ -471,17 +476,17 @@ private struct FilesWorkspaceRoutingTests {
         model.closeTab(created.id)
         model.selectFilesLayout(.sideBySide, in: state)
         native.requestClose()
-        try await eventually("file tab close confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
+        try await eventually("file tab close confirmation") { window.attachedSheet != nil }
         try require(files.allTabs.contains(where: { $0 === column }), "Requesting close must leave the tab open")
-        let cancelledSheet = window.childWindows!.first { $0 is FamilyModalWindow }!
+        let cancelledSheet = window.attachedSheet!
         cancelledSheet.cancelOperation(nil)
-        try await eventually("dismiss cancelled close") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) != true }
+        try await eventually("dismiss cancelled close") { window.attachedSheet == nil }
         try require(files.allTabs.contains(where: { $0 === column }), "Cancel must retain the tab and its directory")
         native.requestClose()
-        try await eventually("confirm file tab close again") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
-        let dialog = window.childWindows!.first { $0 is FamilyModalWindow }!
+        try await eventually("confirm file tab close again") { window.attachedSheet != nil }
+        let dialog = window.attachedSheet!
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-        let confirm = descendants(dialog.contentView!).compactMap { $0 as? FamilyNativeButton }.first { $0.tag == 0 }!
+        let confirm = descendants(dialog.contentView!).compactMap { $0 as? NSButton }.first { $0.keyEquivalent == "\r" }!
         confirm.performClick(nil)
         try await eventually("close confirmed file tab") { !files.allTabs.contains(where: { $0 === column }) }
         try require(!files.allTabs.contains(where: { $0 === column }) && files.remoteTabs.count == 2,
@@ -508,11 +513,9 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        let expectedTopInset = AppearanceDriver.shared.isShellTransparent
-            ? ShellLayout.workspaceInset + ShellLayout.paneVerticalInset + ShellLayout.compactHeaderHeight
-            : Theme.PaneStyle.titlebarHeight
+        let expectedTopInset: CGFloat = 0
         try require(abs(rootRect.maxY - terminalRect.maxY - expectedTopInset) < 1,
-                    "A single terminal reserves exactly one header plus the shell's outer inset")
+                    "A single terminal fills content below the native window toolbar without a pane header")
         try require(terminals.values.allSatisfy { terminal in
             !terminal.selectionContextMenu().items.contains { $0.title == String(localized: "History") }
         }, "No terminal context menu may expose the removed history feature")
@@ -607,7 +610,7 @@ private struct FilesWorkspaceRoutingTests {
         try require(model.hosts.map(\.alias) == ["fixture-a", "fixture-b"], "Picker fixture must use only isolated SSH config")
         let sessions = model.tabs.map(\.sessionID)
         func pressHost(_ alias: String) throws {
-            guard let sheet = window.childWindows?.first(where: { $0 is FamilyModalWindow }), let content = sheet.contentView else {
+            guard let sheet = window.attachedSheet, let content = sheet.contentView else {
                 throw TestFailure(description: "Host picker must use the shared family modal")
             }
             let elements = accessibilityElements(content)
@@ -1226,6 +1229,8 @@ private struct FilesWorkspaceRoutingTests {
         local.selection = []
         try await settle()
         let contextPoint = window.convertPoint(fromScreen: NSPoint(x: rowFrame.midX, y: rowFrame.midY))
+        let rowMenuProbe = NativeMenuProbe()
+        defer { rowMenuProbe.stop() }
         for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
             let event = NSEvent.mouseEvent(with: type, location: contextPoint, modifierFlags: [],
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
@@ -1234,31 +1239,33 @@ private struct FilesWorkspaceRoutingTests {
             try await settle()
         }
         try require(local.selection == [localEntry.path], "Right-click must select the pointed row: expected \(localEntry.path), got \(local.selection)")
-        try require(!FamilyMenuPresenter.shared.panels.isEmpty, "Right-click must open the family popup")
-        let rowMenuLabels = accessibilityLabels(FamilyMenuPresenter.shared.panels[0].contentView!)
+        try require(rowMenuProbe.menu != nil, "Right-click must open the native menu")
+        let rowMenuLabels = rowMenuProbe.menu!.items.map(\.title)
         try require(rowMenuLabels.contains(String(localized: "Rename")) && !rowMenuLabels.contains(String(localized: "New Folder")),
                     "File context menu owns entry actions and excludes directory actions")
         FamilyMenuPresenter.shared.dismiss()
         let toolbar = try elements("files.actions").map(frame).sorted { $0.minX < $1.minX }
         try require(toolbar.count == 2, "Both file panes expose directory actions")
+        let directoryMenuProbe = NativeMenuProbe()
+        defer { directoryMenuProbe.stop() }
         try await click(NSPoint(x: toolbar[0].midX, y: toolbar[0].midY))
-        try require(!FamilyMenuPresenter.shared.panels.isEmpty, "The directory actions menu must open")
-        let directoryLabels = accessibilityLabels(FamilyMenuPresenter.shared.panels[0].contentView!)
+        try require(directoryMenuProbe.menu != nil, "The directory actions menu must open")
+        let directoryLabels = directoryMenuProbe.menu!.items.map(\.title)
         try require(directoryLabels.contains(String(localized: "New Folder")) && !directoryLabels.contains(String(localized: "Rename")),
                     "Toolbar menu owns directory actions without duplicating file actions")
-        for code: UInt16 in [119, 36] {
-            let key = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
-                characters: code == 36 ? "\r" : "\u{f72b}", charactersIgnoringModifiers: code == 36 ? "\r" : "\u{f72b}",
-                isARepeat: false, keyCode: code)!
-            NSApp.sendEvent(key)
-            try await settle()
+        let directoryMenu = directoryMenuProbe.menu!
+        guard let selectAll = directoryMenu.items.firstIndex(where: { $0.title == String(localized: "Select All") }) else {
+            throw TestFailure(description: "Directory menu must offer Select All")
         }
-        try require(local.selection == Set(local.shown.map(\.path)) && FamilyMenuPresenter.shared.panels.isEmpty,
-                    "End and Enter in the directory menu must select all files and dismiss the popup")
+        directoryMenu.performActionForItem(at: selectAll)
+        try await settle()
+        try require(local.selection == Set(local.shown.map(\.path)) && FamilyMenuPresenter.shared.activeMenu == nil,
+                    "Native directory menu action selects all files and tracking ends")
         local.selection = Set(local.shown.prefix(2).map(\.path))
         let multiple = local.selection
         try await settle()
+        let multiMenuProbe = NativeMenuProbe()
+        defer { multiMenuProbe.stop() }
         for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
             let right = NSEvent.mouseEvent(with: type, location: contextPoint, modifierFlags: [],
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
@@ -1478,7 +1485,7 @@ private struct FilesWorkspaceRoutingTests {
                     let value = accessibilityValue(element, name)
                     return (value as? String) ?? (value as? NSAttributedString)?.string
                 }
-                return id == "files.path" || id == "files.home" || id == "files.row.\(file)" || id == "files.actions" || titles.contains(String(localized: "Filter"))
+                return id == "files.filter" || id == "files.path" || id == "files.home" || id == "files.row.\(file)" || id == "files.actions" || titles.contains(String(localized: "Filter"))
             }
             try require(protected.count >= 5, "Home, path, file row, actions and filter must remain accessible at \(width)-point width")
             let contentFrame = window.convertToScreen(NSRect(origin: .zero, size: window.contentView!.bounds.size))
@@ -1527,24 +1534,40 @@ private struct FilesWorkspaceRoutingTests {
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
         try verifyShortcutOnlyActions()
+        func hoverView(_ view: NSView) -> ToolbarBoundarySeparatorView? {
+            (view as? ToolbarBoundarySeparatorView) ?? view.subviews.compactMap(hoverView).first
+        }
+        guard let toolbarHover = hoverView(window.contentView!) else {
+            throw TestFailure(description: "Toolbar hover surface must remain attached")
+        }
+        func movePointer(to point: NSPoint, isSeparatorVisible: Bool) async throws {
+            let event = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
+            NSApp.postEvent(event, atStart: false)
+            try await settle()
+            try require(toolbarHover.separator.isHidden != isSeparatorVisible,
+                        "Toolbar separator visibility must follow the whole title band at \(point)")
+        }
+        let toolbarY = (window.contentLayoutRect.maxY + window.frame.height) / 2
+        for x in [CGFloat(12), window.frame.width / 2, window.frame.width - 12] {
+            try await movePointer(to: NSPoint(x: x, y: toolbarY), isSeparatorVisible: true)
+            try await movePointer(to: NSPoint(x: x, y: window.contentLayoutRect.maxY - 12),
+                                  isSeparatorVisible: false)
+        }
+        toolbarHover.mouseExited(with: NSEvent())
+        try require(window.toolbar?.items.contains { $0.itemIdentifier.rawValue == "workspace.add" } == false,
+                    "New actions remain available through shortcuts without a toolbar plus button")
         let rootTop = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil)).maxY
-        guard let controls = element("workspace.titlebar"), let local = element("files.localLocation") else {
-            throw TestFailure(description: "Collapsed chrome and local title must be accessible")
+        guard window.toolbar != nil, let local = element("files.localLocation") else {
+            throw TestFailure(description: "Native toolbar and local title must be accessible")
         }
-        try require(abs(frame(controls).height - 32) < 1, "Only a 32-point window drag strip remains when collapsed")
-        if AppearanceDriver.shared.isShellTransparent {
-            // 浮动文件标题与窗口控件共用同一行，通过横向让位避免重叠。
-            let rootLeft = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil)).minX
-            try require(frame(local).minX >= rootLeft + SidebarLayout.trafficLightInset + 56,
-                        "Integrated file titles must start after traffic lights and sidebar actions")
-        } else {
-            try require(frame(local).maxY <= rootTop - 32 + 1, "The opaque drag strip cannot cover file headers")
-        }
+        try require(frame(local).maxY <= rootTop + 1, "Native toolbar stays above the file content")
         let collapsedFileY = frame(local).midY
         model.toggleSidebar(in: state)
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
-        try require(element("workspace.titlebar") != nil && !state.presentation.sidebarCollapsed,
+        try require(window.toolbar != nil && !state.presentation.sidebarCollapsed,
                     "Restoring the sidebar retains the same title band even in a narrow window")
         guard let native = split(window.contentView!), let title = element("files.localLocation") else {
             throw TestFailure(description: "Restored native sidebar and file header are required")
@@ -1555,10 +1578,8 @@ private struct FilesWorkspaceRoutingTests {
                     "Narrow recovery must preserve the saved sidebar width")
         try require(abs(frame(title).midY - collapsedFileY) < 1,
                     "Expanding the sidebar must not shift file headers vertically")
-        try require(abs(frame(element("workspace.titlebar")!).height - 32) < 1,
-                    "Expanded and collapsed states use the same title band height")
-        try require(FileBrowserLayout.tabStripHeight == 40 && Theme.PaneStyle.headerHeight == 28,
-                    "Files match the 1Panel header while split terminals retain their height")
+        try require(window.toolbar?.isVisible == true, "Expanded and collapsed states retain the native toolbar")
+        try require(TerminalCanvas.headerHeight(for: .zero) == 0, "Terminals have no repeated pane title")
         window.setContentSize(NSSize(width: 1440, height: 900))
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
@@ -1588,6 +1609,29 @@ private struct FilesWorkspaceRoutingTests {
             model.toggleSidebar(in: state)
             try require(!state.presentation.sidebarCollapsed, "Shortcut actions must restore the sidebar repeatedly")
         }
+        let tracked = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
+        try require(tracked.count == 1, "Only navigation keeps a separate titlebar region; inspector shares the toolbar")
+        let trackedSplits = tracked.map(\.splitView)
+        let savedInspectorOpen = state.presentation.toolSidebarOpen
+        state.presentation.toolSidebarOpen = true
+        // 原生命令页曾把右分栏重新挂载，触发 AppKit 的侧栏注册异常。
+        // 重复切换真实页面，验证跟踪对象、窗口归属与通顶几何始终稳定。
+        for section: AppSection in [.terminals, .commands, .files, .terminals, .commands, .files] {
+            model.showSection(section, in: state)
+            try await settle()
+            window.contentView?.layoutSubtreeIfNeeded()
+            let current = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
+            try require(current.count == 1, "Section changes retain the navigation separator and unified inspector toolbar")
+            for (index, item) in current.enumerated() {
+                try require(item.splitView === trackedSplits[index] && item.splitView.window === window,
+                            "Page changes must not detach or replace a tracked sidebar split")
+                let bounds = item.splitView.convert(item.splitView.bounds, to: nil)
+                try require(abs(bounds.maxY - window.contentView!.bounds.height) < 2,
+                            "The navigation sidebar split must extend through the titlebar")
+            }
+        }
+        state.presentation.toolSidebarOpen = savedInspectorOpen
+        print("ok: full-height navigation and unified inspector toolbar survive terminal/command/file switching")
         print("ok: stable title band preserves content Y, geometry and actions across repeated collapse and restore")
     }
 
@@ -1637,14 +1681,14 @@ private struct FilesWorkspaceRoutingTests {
              String(format: String(localized: "Download %d items?"), 1), "fixture-a:/fixture/remote.txt", home + "/local-a")
         ] {
             workspace.receive([item], from: source, on: target, into: destination, window: window)
-            try await eventually("upload or download confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
-            let dialog = window.childWindows!.first { $0 is FamilyModalWindow }!
+            try await eventually("upload or download confirmation") { window.attachedSheet != nil }
+            let dialog = window.attachedSheet!
             let text = descendants(dialog.contentView!).compactMap { ($0 as? NSTextField)?.stringValue }.joined(separator: "\n")
             try require(text.contains(title) && text.contains(sourceText) && text.contains(targetText),
                         "Confirmation identifies the direction, source and destination")
             try require(FileTransferQueue.shared.jobs.isEmpty, "Transfer must not start while confirmation is open")
             dialog.cancelOperation(nil)
-            try await eventually("cancel upload or download") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) != true }
+            try await eventually("cancel upload or download") { window.attachedSheet == nil }
             try await settleDrawer()
             try require(FileTransferQueue.shared.jobs.isEmpty && !FileManager.default.fileExists(atPath: home + "/local-a/remote.txt"),
                         "Cancelling an upload or download must not enqueue or write a file")
@@ -1656,21 +1700,21 @@ private struct FilesWorkspaceRoutingTests {
             if !jobs.isEmpty { sawQueuedTransfer = true }
         }
         workspace.receive([item], from: LocalFileSystem(), on: local, into: destination, window: window)
-        try await eventually("drag confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
-        guard let cancelledDialog = window.childWindows?.first(where: { $0 is FamilyModalWindow }) else {
+        try await eventually("drag confirmation") { window.attachedSheet != nil }
+        guard let cancelledDialog = window.attachedSheet else {
             throw TestFailure(description: "A file drop must show a confirmation")
         }
         try require(!sawQueuedTransfer && !FileManager.default.fileExists(atPath: destination + "/drawer-fixture.py"),
                     "A drop does not start before confirmation")
         cancelledDialog.cancelOperation(nil)
-        try await eventually("cancel drag confirmation") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) != true }
+        try await eventually("cancel drag confirmation") { window.attachedSheet == nil }
         try await settleDrawer()
         try require(!sawQueuedTransfer && !FileManager.default.fileExists(atPath: destination + "/drawer-fixture.py"),
                     "Cancelling a drop does not start a transfer")
         workspace.receive([item], from: LocalFileSystem(), on: local, into: destination, window: window)
-        try await eventually("confirm drag again") { window.childWindows?.contains(where: { $0 is FamilyModalWindow }) == true }
-        let dialog = window.childWindows!.first { $0 is FamilyModalWindow }!
-        guard let confirm = descendants(dialog.contentView!).compactMap({ $0 as? FamilyNativeButton }).first(where: { $0.tag == 0 }) else {
+        try await eventually("confirm drag again") { window.attachedSheet != nil }
+        let dialog = window.attachedSheet!
+        guard let confirm = descendants(dialog.contentView!).compactMap({ $0 as? NSButton }).first(where: { $0.keyEquivalent == "\r" }) else {
             throw TestFailure(description: "Drop confirmation must have an action button")
         }
         confirm.performClick(nil)
@@ -1698,41 +1742,57 @@ private struct FilesWorkspaceRoutingTests {
         try require(code.occurrenceRanges.count == 2 && code.activeLine == 2, "Actual drawer highlights the caret symbol and active line")
         code.setSelectedRange(NSRange(location: (localSource as NSString).range(of: "(42)").location, length: 0))
         try require(code.matchedBrackets.count == 2, "Actual drawer highlights bracket pairs")
-        guard let left = element("files.preview.left") else { throw TestFailure(description: "Left file opens left drawer") }
+        guard let left = element("files.preview.\(local.id)") else { throw TestFailure(description: "Local file opens its own preview card") }
         let leftFrame = frame(left)
-        try require(abs(leftFrame.minX - pageFrame.minX) < 2 && abs(leftFrame.height - pageFrame.height) < 2,
-                    "Left preview is a full-height overlay at the file page's left edge")
-        try require(abs(leftFrame.width - pageFrame.width / 2) < 2, "Wide preview uses half the file page")
+        try require(abs(leftFrame.maxX - pageFrame.midX) < ShellLayout.workspaceInset * 2
+                    && abs(leftFrame.height - (pageFrame.height - ShellLayout.paneVerticalInset * 2)) < 2,
+                    "Local preview sits on the right of its browser, next to the workspace center")
+        try require(element("files.localLocation") != nil && element("files.remoteLocation") != nil,
+                    "Both file browsers remain accessible while preview is open")
         try require(local.directory == directory && local.selection == selection && workspace.layout == layout,
                     "Opening preview preserves browsing state and pane layout")
         try require(accessibilityBool(element("files.preview.close")!, "accessibilityPerformPress"), "Close button dismisses the drawer")
         try await settleDrawer()
-        try require(element("files.preview.left") == nil && workspace.selectedPreviewColumn == nil, "Closing leaves no stale drawer")
+        try require(element("files.preview.\(local.id)") == nil && local.preview == nil, "Closing leaves no stale card")
 
         let remoteEntry = FileEntry(name: "remote.txt", path: "/fixture/remote.txt", isDirectory: false, size: 20, mode: "-rw-r--r--", modified: nil)
         workspace.focus(remote)
         remote.preview = .init(entry: remoteEntry, decoded: .init(text: "remote-drawer-marker\n", encoding: .utf8, lineEnding: .lf), truncated: false, error: nil)
         try await settleDrawer()
-        guard let right = element("files.preview.right") else { throw TestFailure(description: "Right file opens right drawer") }
-        try require(abs(frame(right).maxX - pageFrame.maxX) < 2 && abs(frame(right).height - pageFrame.height) < 2,
-                    "Right preview overlays the full height at the right edge")
+        guard let right = element("files.preview.\(remote.id)") else { throw TestFailure(description: "Remote file opens its own preview card") }
+        try require(abs(frame(right).minX - pageFrame.midX) < ShellLayout.workspaceInset * 2,
+                    "Remote preview sits on the left of its browser, next to the workspace center")
+        workspace.open(entry, in: local, window: window)
+        try await eventually("open local preview beside remote preview") { local.preview?.decoded?.text == localSource }
+        try await settleDrawer()
+        try require(remote.preview != nil && local.preview != nil
+                    && element("files.preview.\(local.id)") != nil && element("files.preview.\(remote.id)") != nil,
+                    "Local and remote previews stay open together")
+        let localCard = frame(element("files.preview.\(local.id)")!)
+        let remoteCard = frame(element("files.preview.\(remote.id)")!)
+        try require(localCard.maxX <= remoteCard.minX && abs(localCard.midY - remoteCard.midY) < 2,
+                    "The two preview cards meet in the middle without overlap and align vertically")
         guard let text = textViews(window.contentView!).first(where: { $0.string.contains("remote-drawer-marker") }) else {
             throw TestFailure(description: "Drawer must render a native text view")
         }
         text.cancelOperation(nil)
         try await settleDrawer()
-        try require(workspace.selectedPreviewColumn == nil && element("files.preview.right") == nil, "Escape closes the native text preview")
+        try require(remote.preview == nil && element("files.preview.\(remote.id)") == nil && local.preview != nil,
+                    "Escape closes only the remote preview, preserving the local preview")
+        try require(accessibilityBool(element("files.preview.close")!, "accessibilityPerformPress"), "Close the remaining local preview")
+        try await settleDrawer()
+        try require(local.preview == nil && local.directory == directory && local.selection == selection && workspace.layout == layout,
+                    "Closing both previews preserves directories, selection and split layout")
         try require(abs(frame(element("workspace.files.content")!).height - pageFrame.height) < 2,
                     "Closing preview restores the exact full-height file page")
         for width in [CGFloat(300), 620, 1200] {
-            let bounds = CGRect(x: 0, y: 0, width: width, height: 600)
-            let rightPane = CGRect(x: width / 2, y: 0, width: width / 2, height: 600)
-            let drawer = FileBrowserLayout.previewFrame(in: bounds, source: rightPane)
-            try require(drawer.width <= width && drawer.maxX == bounds.maxX && drawer.height == bounds.height,
-                        "Side preview fits narrow and wide workspaces")
+            let previewWidth = WorkspacePreviewLayout.visibleWidth(available: width, isOpen: true,
+                preferred: WorkspacePreviewLayout.defaultWidth)
+            try require(previewWidth > 0 && previewWidth + ShellLayout.workspaceInset < width,
+                        "Inline preview leaves the file browsers visible in narrow and wide workspaces")
         }
         workspace.close(remote)
-        print("ok: no transfer history panel; actual left/right native drawers overlay full height, close/Escape preserve directories, selection and split layout")
+        print("ok: local preview opens right, remote preview opens left; both align in the center and close independently while preserving browsing state")
     }
 
     @MainActor
@@ -1909,4 +1969,24 @@ private struct FilesWorkspaceRoutingTests {
     private static func require(_ value: @autoclosure () -> Bool, _ message: String) throws {
         if !value() { throw TestFailure(description: message) }
     }
+}
+
+/// NSMenu tracks synchronously; observe and close it from its tracking run loop.
+@MainActor
+private final class NativeMenuProbe {
+    var menu: NSMenu?
+    private var timer: Timer?
+    init() {
+        timer = Timer(timeInterval: 0.02, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self, let menu = FamilyMenuPresenter.shared.activeMenu else { return }
+                self.menu = menu
+                menu.cancelTracking()
+                timer.invalidate()
+            }
+        }
+        RunLoop.main.add(timer!, forMode: .common)
+        RunLoop.main.add(timer!, forMode: .eventTracking)
+    }
+    func stop() { timer?.invalidate() }
 }

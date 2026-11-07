@@ -47,6 +47,7 @@
 		454601CCC7894A948CE872FC /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */; };
 		469C2A9F9A8D0FFAC417BED2 /* shell-integration in Resources */ = {isa = PBXBuildFile; fileRef = 11B7BE5E018ED46FA154243C /* shell-integration */; };
 		4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */ = {isa = PBXBuildFile; fileRef = 02ED72874148F6B85ACA03C5 /* ghostty-source.svg */; };
+		4E105FD41F525E15F914931E /* WorkspaceToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D25D19C1CD0E73B6149796B8 /* WorkspaceToolbar.swift */; };
 		51FA7F27493E8F39148F39A6 /* QuickCommandSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */; };
 		5239E4B061DE3741F2558E6C /* AdvancedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */; };
 		5311EB3EE4A6DAAE61DFDB36 /* FamilyAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC1D5B9C575BDA04C5CBF4C /* FamilyAlert.swift */; };
@@ -115,9 +116,9 @@
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
 		C0D5997471F66D63679D1F6A /* AppUpdateInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */; };
 		C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */; };
+		C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */; };
 		C47DE107C61A6FF1CC5E4109 /* FileTransferQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */; };
 		CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D91EB1556003521E0650B7 /* AppModel.swift */; };
-		C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */; };
 		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
 		CF4B6D7911791ED91EAC823F /* FileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B9E55BFC942871BBD992B /* FileTransfer.swift */; };
 		D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4085933113D9936B6D98C8FC /* RemoteShell.swift */; };
@@ -262,10 +263,10 @@
 		BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransferQueue.swift; sourceTree = "<group>"; };
 		BD4E62BE663582C439B996D1 /* FileIconCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = FileIconCatalog.json; sourceTree = "<group>"; };
 		BDD19F7BC748240DBEB43285 /* TerminalCommandLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommandLine.swift; sourceTree = "<group>"; };
+		BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = OneAgentIcon.icon; sourceTree = "<group>"; };
 		BEAD42576853180D4E34F59B /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
 		BED0B51E0FCA4FC3770DD30D /* MainWindowFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowFrame.swift; sourceTree = "<group>"; };
 		BF91141EEC0B753F9445733B /* SheetLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLayout.swift; sourceTree = "<group>"; };
-		BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = OneAgentIcon.icon; sourceTree = "<group>"; };
 		C2222F4287412ADA926A0AFC /* TextFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFile.swift; sourceTree = "<group>"; };
 		C2BD6DBD59A0EE875DD7E5F3 /* TerminalFind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFind.swift; sourceTree = "<group>"; };
 		C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImporter.swift; sourceTree = "<group>"; };
@@ -276,6 +277,7 @@
 		CDE68855BD120DF7421F24EE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-NOTICE.txt"; sourceTree = "<group>"; };
 		D04B9E55BFC942871BBD992B /* FileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransfer.swift; sourceTree = "<group>"; };
+		D25D19C1CD0E73B6149796B8 /* WorkspaceToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceToolbar.swift; sourceTree = "<group>"; };
 		D303E19F85127FB7B052F2ED /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
 		D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAutomation.swift; sourceTree = "<group>"; };
 		D78EF3DC9557BC5009929F59 /* ThemePreviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePreviewCard.swift; sourceTree = "<group>"; };
@@ -454,11 +456,11 @@
 				4593F1AFD8A1C705239302B9 /* LocalCommandBridge.swift */,
 				BED0B51E0FCA4FC3770DD30D /* MainWindowFrame.swift */,
 				ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */,
+				BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */,
 				E513AE207C91AAB81A8D5279 /* PaneContent.swift */,
 				5A7EE823807020FCAC7AB30D /* PaneLayout.swift */,
 				F081A460F13779B2F87B39CA /* QuickCommand.swift */,
 				53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */,
-				BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */,
 				47519C98F67FEF8BFC1D299C /* QuickCommandDialogs.swift */,
 				079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */,
 				4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */,
@@ -513,6 +515,7 @@
 				6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */,
 				4D2FBA844EBB4E5D753255BB /* WorkspaceGit.swift */,
 				AF18AD26B40C268A98044CC5 /* WorkspacePresentation.swift */,
+				D25D19C1CD0E73B6149796B8 /* WorkspaceToolbar.swift */,
 				245BCA49FE2CE7BD3EAD7671 /* WorkspaceToolSidebar.swift */,
 				0F46666817381E6ED3679D5C /* Files */,
 			);
@@ -596,13 +599,13 @@
 				1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */,
 				8F03ADD0081CD35647AFFFB3 /* FileIcons.xcassets in Resources */,
 				5E9BC7364B06F681F71BADDB /* Localizable.xcstrings in Resources */,
+				C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */,
 				15EE643104E39D97BAEDC26A /* PreviewSyntax.LICENSE.txt in Resources */,
 				A904414E0A56E36983D165D3 /* PreviewSyntax.js in Resources */,
 				7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */,
 				8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
 				E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */,
 				54A69B737E8AA19ABE80CA7C /* TerminalLight.ghostty in Resources */,
-				C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */,
 				0AA03A0BA5D5FC1FBE475473 /* WindowAtmosphere.png in Resources */,
 				454601CCC7894A948CE872FC /* ghostty-source.png in Resources */,
 				4B47681413AC874CE63BBB0B /* ghostty-source.svg in Resources */,
@@ -759,6 +762,7 @@
 				24E81C4DF5F6CC9264A76503 /* WorkspaceGit.swift in Sources */,
 				B43674A84F457C2C13E9716A /* WorkspacePresentation.swift in Sources */,
 				06E5D99B544A3663E0CDDA82 /* WorkspaceToolSidebar.swift in Sources */,
+				4E105FD41F525E15F914931E /* WorkspaceToolbar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -773,7 +777,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application: MOE AI LLC (NCFNX3LJ83)";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = NCFNX3LJ83;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -802,7 +806,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application: MOE AI LLC (NCFNX3LJ83)";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = NCFNX3LJ83;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;

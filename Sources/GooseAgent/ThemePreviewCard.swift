@@ -36,13 +36,9 @@ struct ThemePreviewCard: View {
             .background(colors.color(colors.background), in: RoundedRectangle(cornerRadius: Theme.Radius.row))
             .padding(isCompact ? Theme.Space.xs + 2 : Theme.Space.m)
             .background {
-                LinearGradient(stops: zip(colors.gradientColors, ShellLayout.backdropLocations).map {
+                LinearGradient(stops: zip(ShellLayout.backdropColors(isDark: isDark, preset: preset), ShellLayout.backdropLocations).map {
                     Gradient.Stop(color: $0.0, location: $0.1)
                 }, startPoint: .top, endPoint: .bottom)
-                    .overlay {
-                        LinearGradient(colors: [colors.color(colors.glow).opacity(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity), .clear],
-                                       startPoint: .top, endPoint: UnitPoint(x: 0.5, y: ShellLayout.glowEndY))
-                    }
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
         }

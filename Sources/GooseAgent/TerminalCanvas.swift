@@ -41,11 +41,8 @@ struct TerminalCanvas: View {
     /// does not resize the PTY to 1×1 (which reflows scrollback and jumps the cursor).
     @State private var lastContentFrame: [UUID: CGRect] = [:]
 
-    /// 透明模式每张卡片都包含标题；经典模式首排标题仍放在窗口顶栏。
-    static func headerHeight(for frame: CGRect, isFloating: Bool = false) -> CGFloat {
-        if isFloating { return ShellLayout.compactHeaderHeight }
-        return frame.minY < 1 ? 0 : Theme.PaneStyle.headerHeight
-    }
+    /// 终端信息统一放到窗口工具栏，各分屏只预留搜索和连接状态区域。
+    static func headerHeight(for frame: CGRect, isFloating: Bool = false) -> CGFloat { 0 }
 
     var body: some View {
         GeometryReader { geo in
@@ -56,6 +53,7 @@ struct TerminalCanvas: View {
             let frames = Self.paneFrames(root, zoomed: zoomed, in: layout, isFloating: isShellTransparent)
             let dividers = Self.paneDividers(root, zoomed: zoomed, in: layout)
             let isSplit = frames.count > 1
+            let paneHeaderHeight = isSplit ? ShellLayout.compactHeaderHeight : 0
             let fallbackContent = Self.contentFrame(layout, headerHeight: 0)
             // Only this window's terminals get a view here. A terminal shown in another window
             // keeps its process; the registry hands the same view over when it moves.
@@ -64,13 +62,13 @@ struct TerminalCanvas: View {
             let liveIDs = Set(ownTabs.map(\.id))
             let _ = dropRelay.sync(frames: frames, model: model, window: window)
             ZStack(alignment: .topLeading) {
-                (isShellTransparent ? Color.clear : chrome.background)
+                Color.clear
                 ForEach(ownTabs) { tab in
-                    let content = frames[tab.id].map { Self.terminalContentFrame($0, isFloating: isShellTransparent, accessoryHeight: findBarInset(tab)) }
+                    let content = frames[tab.id].map { Self.terminalContentFrame($0, isFloating: isShellTransparent, accessoryHeight: paneHeaderHeight + findBarInset(tab)) }
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
                     let isSelected = window.selectedTabID == tab.id && window.section == .terminals
-                    let cardHeader = isShellTransparent ? ShellLayout.compactHeaderHeight + findBarInset(tab) : 0
+                    let cardHeader = paneHeaderHeight + findBarInset(tab)
                     SSHTerminalView(
                         sessionID: tab.sessionID,
                         alias: tab.alias ?? "",
@@ -82,8 +80,8 @@ struct TerminalCanvas: View {
                         restoration: tab.restoration,
                         isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace,
                         isSelected: isSelected,
-                        contentCornerRadius: isShellTransparent ? ShellLayout.contentRadius : 0,
-                        isHeaderIntegrated: isShellTransparent,
+                        contentCornerRadius: 0,
+                        isHeaderIntegrated: false,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
                                 !window.presentation.fullFilesWorkspace
@@ -108,24 +106,9 @@ struct TerminalCanvas: View {
                         width: max(drawn.width, 1),
                         height: max(drawn.height, 1)
                     )
-                    .background {
-                        if isShellTransparent && isSelected {
-                            // 只补实背景，不改 Metal 终端整体透明度，也不在切换时重载引擎。
-                            floatingTerminalBackground
-                        }
-                    }
                     .padding(.top, cardHeader)
-                    .background(alignment: .top) {
-                        if isShellTransparent {
-                            floatingTerminalBackground
-                                .opacity(isSelected ? 1 : ShellLayout.terminalOpacity)
-                                .frame(height: cardHeader).allowsHitTesting(false)
-                        }
-                    }
                     .background {
-                        if isShellTransparent && terminalIsDark && !isSelected {
-                            floatingTerminalForeground.opacity(ShellLayout.inactiveDarkTerminalBackdropOpacity)
-                        }
+                        AppTheme.terminalPaneBackground(isDark: terminalIsDark, isFocused: isSelected).color
                     }
                     .modifier(FloatingContentSurface())
                     .environment(\.windowChrome, chrome)
@@ -150,7 +133,7 @@ struct TerminalCanvas: View {
                 ForEach(model.tabs.filter { !$0.content.isTerminal && frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
                         let content = Self.terminalContentFrame(frame, isFloating: isShellTransparent)
-                        let cardHeader = isShellTransparent ? ShellLayout.compactHeaderHeight : 0
+                        let cardHeader: CGFloat = 0
                         PaneContentView(model: model, window: window, tab: tab)
                             .frame(width: content.width, height: content.height)
                             .padding(.top, cardHeader)
@@ -172,7 +155,7 @@ struct TerminalCanvas: View {
                 ForEach(model.tabs.filter { frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
                         paneChrome(tab, frame: ShellLayout.contentFrame(frame, isFloating: isShellTransparent),
-                                   headerHeight: Self.headerHeight(for: frame, isFloating: isShellTransparent),
+                                   headerHeight: tab.hasTerminal ? paneHeaderHeight : 0,
                                    isSplit: isSplit, isZoomed: zoomed == tab.id)
                     }
                 }
@@ -192,28 +175,15 @@ struct TerminalCanvas: View {
         dark
     }
 
-    private var floatingTerminalBackground: Color {
-        let theme = AppTheme.terminalDefinition(isDark: terminalIsDark)
-        return RGBColor(ghosttyHex: theme.background)?.color ?? chrome.background
-    }
-
-    private var floatingTerminalForeground: Color {
-        let theme = AppTheme.terminalDefinition(isDark: terminalIsDark)
-        return RGBColor(ghosttyHex: theme.foreground)?.color ?? chrome.text
-    }
-
     private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {
         let vertical = divider.axis == .vertical
         let active = hoveredDividerID == divider.id || ratioDrag?.id == divider.id
-        var lineWidth = Theme.PaneStyle.dividerLineWidth
-        if active {
-            lineWidth = Theme.PaneStyle.dividerActiveLineWidth
-        }
+        let lineWidth = Theme.PaneStyle.dividerLineWidth
         return Color.clear
             .frame(width: divider.frame.width, height: divider.frame.height)
             .overlay {
                 Rectangle()
-                    .fill(active ? chrome.accent : (isShellTransparent ? Color.clear : chrome.hairline))
+                    .fill(Color(nsColor: .separatorColor))
                     .frame(
                         width: vertical ? lineWidth : divider.frame.width,
                         height: vertical ? divider.frame.height : lineWidth
@@ -285,150 +255,11 @@ struct TerminalCanvas: View {
 
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
-        let chrome = self.chrome
-        let isSelected = tab.hasTerminal && window.selectedTabID == tab.id && window.section == .terminals
-            && !window.presentation.fullFilesWorkspace
-        if (isSplit || isShellTransparent) && headerHeight > 0 {
-            ZStack {
-                chrome.panelHeader.opacity(isShellTransparent ? 0 : 1)
-                    .allowsHitTesting(false)
-                WindowDragArea(onClick: { model.selectOnly(tab.id, in: window) })
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    PaneProgressBar(sessionID: tab.sessionID)
-                }
-                .allowsHitTesting(false)
-                // Only the title merges panes; the blank rest of the bar moves the window.
-                HStack(spacing: 6) {
-                    Text(verbatim: numberedPaneTitle(tab))
-                        .font(isShellTransparent ? Theme.Font.floatingPaneTitle : Theme.Font.paneTitle.weight(.regular))
-                        .foregroundStyle(isShellTransparent && tab.hasTerminal ? floatingTerminalForeground : chrome.isSystem ? chrome.text : chrome.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .layoutPriority(1)
-                    DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
-                    RemoteTitleStatus(tab: tab)
-                        .font(Theme.Font.paneTitle)
-                    if tab.reconnecting {
-                        Label {
-                            if chrome.isSystem { Text("Reconnecting…").lineLimit(1) }
-                        } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
-                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
-                            .foregroundStyle(chrome.warning)
-                            .accessibilityLabel(Text("Reconnecting…"))
-                    } else if tab.showsDisconnected {
-                        Label {
-                            if chrome.isSystem { Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")).lineLimit(1) }
-                        } icon: { Image(systemName: "link.slash") }
-                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
-                            .foregroundStyle(chrome.danger)
-                            .accessibilityLabel(Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")))
-                    }
-                }
-                .allowsHitTesting(false)
-                .frame(maxHeight: .infinity)
-                .overlay {
-                    TabDragHandle(
-                        onClick: { _, _ in model.selectOnly(tab.id, in: window) },
-                        onActivate: { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id, anchor: $0) },
-                        onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
-                        onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                        onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                        prepareContextMenu: nil,
-                        freezesWindow: true
-                    )
-                    .help(String(localized: "Click the title for session details. Drag it to move the pane."))
-                }
-                .padding(.horizontal, Theme.Space.s)
-                .accessibilityElement(children: .ignore)
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityAction { TerminalPaneActions.showTitleContext(model: model, window: window, tabID: tab.id) }
-                .accessibilityLabel(Text(verbatim: numberedPaneTitle(tab)))
-                .accessibilityIdentifier("workspace.titleMenu." + tab.id.uuidString)
-                .padding(.horizontal, tab.hasTerminal
-                    ? max(TerminalLocationBadge.titleInset, frame.width > 420 ? min(220, frame.width * 0.38) + Theme.Space.s : 0) : 0)
-                .padding(.leading, isShellTransparent && frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
-                .padding(.horizontal, isShellTransparent && frame.minY < 1 ? ShellLayout.titlebarActionWidth : 0)
-            }
-            .overlay(alignment: .leading) {
-                TerminalLocationBadge(tab: tab)
-                    .padding(.leading, Theme.Space.s + (isShellTransparent && frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0))
-            }
-            .overlay(alignment: .trailing) {
-                if tab.hasTerminal && frame.width > 420 {
-                    TerminalGitBadge(tab: tab, model: model, window: window)
-                        .frame(maxWidth: min(220, frame.width * 0.38), alignment: .trailing)
-                        .padding(.trailing, isZoomed ? 36 : Theme.Space.s)
-                }
-            }
-            .overlay(alignment: .trailing) {
-                if isShellTransparent && isZoomed { zoomMark.padding(.trailing, Theme.Space.s) }
-            }
-            .frame(width: frame.width, height: headerHeight)
-            .position(x: frame.midX, y: frame.minY + headerHeight / 2)
-            .zIndex(4)
-        } else if headerHeight > 0 {
-            // A lone pane has no title bar: a strip in the terminal's own color, where the
-            // system title bar would be, shows the title centered and moves the window.
-            ZStack(alignment: .trailing) {
-                chrome.panelHeader.opacity(isShellTransparent ? 0 : 1)
-                    .allowsHitTesting(false)
-                WindowDragArea()
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    PaneProgressBar(sessionID: tab.sessionID)
-                }
-                .allowsHitTesting(false)
-                HStack(spacing: 6) {
-                    Text(verbatim: numberedPaneTitle(tab))
-                        .font(chrome.isSystem ? Theme.Font.floatingPaneTitle.weight(.medium) : Theme.Font.paneTitle.weight(.regular))
-                        .foregroundStyle(chrome.isSystem ? chrome.text : chrome.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .layoutPriority(1)
-                    DuplicateHostDot(mark: model.duplicateHostMark(for: tab.id))
-                    RemoteTitleStatus(tab: tab)
-                        .font(Theme.Font.paneTitle)
-                    if tab.reconnecting {
-                        Label {
-                            if chrome.isSystem { Text("Reconnecting…").lineLimit(1) }
-                        } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
-                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
-                            .foregroundStyle(chrome.warning)
-                            .accessibilityLabel(Text("Reconnecting…"))
-                    } else if tab.showsDisconnected {
-                        Label {
-                            if chrome.isSystem { Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")).lineLimit(1) }
-                        } icon: { Image(systemName: "link.slash") }
-                            .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .medium))
-                            .foregroundStyle(chrome.danger)
-                            .accessibilityLabel(Text(tab.isLocal ? String(localized: "Terminal Exited") : String(localized: "Connection closed")))
-                    }
-                }
-                .allowsHitTesting(false)
-                // The title moves the window like the rest of the strip; right-click copies host info.
-                .background(WindowDragArea(onSecondaryClick: { copySessionInfo(tab, model: model) }))
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, Theme.PaneStyle.stripTitleInset)
-                .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
-                HStack(spacing: 0) {
-
-                    if isZoomed {
-                        zoomMark
-                    }
-                }
-                .padding(.horizontal, Theme.Space.s)
-                .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
-            }
-            .overlay(alignment: .leading) {
-                TerminalLocationBadge(tab: tab)
-                    .padding(.leading, Theme.Space.s)
-                    .offset(y: Theme.PaneStyle.trafficLightCenterY - headerHeight / 2)
-            }
-            .frame(width: frame.width, height: headerHeight)
-            .position(x: frame.midX, y: frame.minY + headerHeight / 2)
-            .zIndex(4)
+        if tab.hasTerminal && headerHeight > 0 {
+            terminalHeader(tab)
+                .frame(width: frame.width, height: headerHeight)
+                .position(x: frame.midX, y: frame.minY + headerHeight / 2)
+                .zIndex(4)
         }
         let showsBanner = showsConnectionBanner(tab)
         if showsBanner {
@@ -447,24 +278,30 @@ struct TerminalCanvas: View {
         }
     }
 
-    /// Shown at the right end of the zoomed pane's strip. A click shows every pane again.
-    private var zoomMark: some View {
-        let help = String(
-            format: String(localized: "Zoomed. Click to show all panes (%@)"),
-            AppShortcuts.display(for: .toggleSplitZoom)
-        )
-        return Button {
-            model.toggleSplitZoom(in: window)
-        } label: {
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: Theme.PaneStyle.statusIconSize, weight: .semibold))
-                .foregroundStyle(chrome.accent)
-                .frame(width: Theme.PaneStyle.headerButtonSize, height: Theme.PaneStyle.headerButtonSize)
-                .contentShape(Rectangle())
+    private func terminalHeader(_ tab: TerminalTab) -> some View {
+        let isSelected = window.selectedTabID == tab.id && window.section == .terminals
+        return HStack(spacing: Theme.Space.s) {
+            Image(systemName: tab.isLocal ? "terminal" : "network")
+                .foregroundStyle(isSelected ? chrome.accent : chrome.secondary)
+            Text(verbatim: numberedPaneTitle(tab))
+                .font(Theme.Font.paneTitle)
+                .lineLimit(1).truncationMode(.middle)
+            if let path = TerminalPaneActions.workingDirectory(of: tab) {
+                Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
+                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                    .lineLimit(1).truncationMode(.middle).help(path)
+            }
+            Spacer(minLength: 4)
+            Button { model.closeTab(tab.id) } label: { Image(systemName: "xmark") }
+                .buttonStyle(.plain).help("Close")
+                .accessibilityLabel(Text("Close"))
         }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(Text(help))
+        .foregroundStyle(chrome.text)
+        .padding(.horizontal, Theme.Space.m)
+        .frame(maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture { model.notePaneFocused(tab.id, in: window) }
+        .familyContextMenu { TerminalPaneActions.items(tab: tab, model: model, window: window) }
     }
 
     private func showsConnectionBanner(_ tab: TerminalTab) -> Bool {

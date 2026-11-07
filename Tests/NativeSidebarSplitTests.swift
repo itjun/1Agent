@@ -171,7 +171,7 @@ struct NativeSidebarSplitTests {
             precondition(controller.splitViewItems[1] === originalDetailItem)
             precondition(field.window === window, "detail view must remain attached")
             precondition(window.firstResponder === responder, "input focus must survive content and width updates")
-            precondition(controller.splitViewItems[0].behavior == .default)
+            precondition(controller.splitViewItems[0].behavior == .sidebar)
         }
         for _ in 0..<3 {
             controller.configure(width: 310, minimum: 200, maximum: 420,

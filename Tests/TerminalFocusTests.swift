@@ -56,6 +56,7 @@ enum TerminalFocusTests {
         try await modalDismissal(ownerAlreadyKey: true)
         try await modalDoesNotRestoreStalePane()
         try await staleSelection()
+        try await hidingSelectedSplitPreservesDestination()
         try await hiddenAndFilesCancellation()
         try await rapidPresentationKeepsFocusAndGeometry()
         try await successfulFocusIsConsumed()
@@ -242,6 +243,52 @@ enum TerminalFocusTests {
         await settle()
         try require(firstFocusCount == 0 && fixture.window.firstResponder === second,
                     "A stale or explicitly unselected pane must never steal focus from B")
+    }
+
+    @MainActor
+    private static func hidingSelectedSplitPreservesDestination() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        try await eventually("The split-switch fixture must become key") { fixture.window.isKeyWindow }
+        let firstHost = TerminalHostView(frame: .zero)
+        let secondHost = TerminalHostView(frame: .zero)
+        let remoteHost = TerminalHostView(frame: .zero)
+        let first = try makeTerminal()
+        let second = try makeTerminal()
+        let remote = try makeTerminal()
+        var selection = "first"
+        first.onFocus = { selection = "first" }
+        second.onFocus = { selection = "second" }
+        remote.onFocus = { selection = "remote" }
+        firstHost.canFocus = { selection == "first" }
+        secondHost.canFocus = { selection == "second" }
+        remoteHost.canFocus = { selection == "remote" }
+        firstHost.attach(first)
+        secondHost.attach(second)
+        remoteHost.attach(remote)
+        fixture.mount(firstHost, frame: NSRect(x: 0, y: 290, width: 820, height: 230))
+        fixture.mount(secondHost, frame: NSRect(x: 0, y: 60, width: 820, height: 230))
+        fixture.mount(remoteHost)
+        remoteHost.setPresented(false)
+        // 隐藏当前输入终端时，AppKit 会沿 key-view 链尝试聚焦旧分屏。
+        first.nextKeyView = second
+        firstHost.setFocusTarget(true)
+        firstHost.requestFocus()
+        try await eventually("The first split must own focus before switching") {
+            fixture.window.firstResponder === first
+        }
+        selection = "remote"
+        firstHost.setPresented(false)
+        try require(selection == "remote",
+                    "Hiding the selected split must not let AppKit overwrite the sidebar destination")
+        firstHost.setFocusTarget(false)
+        secondHost.setPresented(false)
+        remoteHost.setPresented(true)
+        remoteHost.setFocusTarget(true)
+        remoteHost.requestFocus()
+        try await eventually("A single sidebar selection must focus the destination terminal") {
+            fixture.window.firstResponder === remote && selection == "remote"
+        }
     }
 
     @MainActor

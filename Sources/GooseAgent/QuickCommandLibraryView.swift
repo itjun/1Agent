@@ -23,11 +23,9 @@ struct QuickCommandLibraryView: View {
         get { window.commandLibraryDraft }
         nonmutating set { window.commandLibraryDraft = newValue }
     }
-    @State private var importing: QuickCommandLibrary?
     @State private var error: String?
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
-    @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
 
     private var collections: [QuickCommandCollection] { QuickCommandCollection.available(in: store.commands) }
     private var commands: [QuickCommand] {
@@ -69,9 +67,7 @@ struct QuickCommandLibraryView: View {
                 QuickCommandEditor(item: editing, hosts: model.hosts, onSaved: didSave) { self.editing = nil }.id(editing.id)
             }
         }
-        .familySheet(isPresented: optionalBinding($importing), width: SheetLayout.commandLibrary, height: SheetLayout.commandLibraryHeight) {
-            if let importing { QuickCommandImportView(library: importing, hosts: model.hosts) { self.importing = nil } }
-        }
+
     }
 
     private func didSave(_ saved: QuickCommand) {
@@ -95,7 +91,7 @@ struct QuickCommandLibraryView: View {
             }.id(editing.id).frame(maxWidth: SheetLayout.commandEditor).frame(maxWidth: .infinity)
                 .padding(Theme.Space.xl)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .background(isShellTransparent ? Color.clear : chrome.background)
+                .background(Color.clear)
                 .modifier(FloatingContentSurface(showsShadow: false))
         } else {
             VStack(alignment: .leading, spacing: ShellLayout.workspaceInset) {
@@ -104,15 +100,14 @@ struct QuickCommandLibraryView: View {
                     let minimumWidth = min(SheetLayout.commandLibraryPaneMinWidth, availableWidth / 2)
                     let listWidth = min(availableWidth - minimumWidth,
                         max(minimumWidth, availableWidth * window.commandLibrarySplitRatio))
-                    let isDividerActive = isDividerHovered || splitDragStart != nil
                     HStack(spacing: 0) {
                         commandList.frame(width: listWidth)
                         Color.clear
                             .frame(width: ShellLayout.workspaceInset)
                             .overlay {
                                 Rectangle()
-                                    .fill(isDividerActive ? chrome.accent : (isShellTransparent ? Color.clear : chrome.hairline))
-                                    .frame(width: isDividerActive ? Theme.PaneStyle.dividerActiveLineWidth : Theme.PaneStyle.dividerLineWidth)
+                                    .fill(Color(nsColor: .separatorColor))
+                                    .frame(width: Theme.PaneStyle.dividerLineWidth)
                                     .allowsHitTesting(false)
                             }
                             .overlay {
@@ -125,6 +120,7 @@ struct QuickCommandLibraryView: View {
                                 }, onDragEnded: { splitDragStart = nil }, onDoubleClick: {
                                     window.commandLibrarySplitRatio = 0.5
                                 })
+                                .frame(width: 8)
                                 .accessibilityLabel(Text("Resize Command Columns"))
                                 .help("Drag to resize. Double-click to split equally.")
                             }
@@ -140,29 +136,12 @@ struct QuickCommandLibraryView: View {
         }
     }
 
-    private var libraryActions: [FamilyMenuItem] {
-        [FamilyMenuItem(title: String(localized: "New Quick Command"), enabled: store.loadError == nil,
-                        action: { editing = collection.draft(in: model.quickCommandContext(in: window)) }),
-         .separator,
-         FamilyMenuItem(title: String(localized: "Import Commands"), action: importLibrary),
-         FamilyMenuItem(title: String(localized: "Export Commands"), enabled: store.loadError == nil, action: exportLibrary)]
-    }
-
     private var commandList: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
-            HStack(spacing: Theme.Space.s) {
-                Image(systemName: collection == .common ? "books.vertical" : collection == .local ? "desktopcomputer" : collection.host == nil ? "square.stack" : "terminal")
-                Text(verbatim: collection.title).font(Theme.Font.sectionTitle).lineLimit(1)
-                Spacer(minLength: 0)
-                FamilyMenu("Actions", items: { libraryActions })
-                    .font(Theme.Font.body).foregroundStyle(chrome.text)
-                    .padding(.horizontal, Theme.Space.s)
-                    .fixedSize()
-                    .accessibilityLabel(Text("Actions"))
-                    .accessibilityIdentifier("quickCommands.library.actions")
+            if !isWorkspace {
+                QuickCommandLibraryHeader(model: model, window: window)
+                    .frame(height: ShellLayout.compactHeaderHeight)
             }
-            .padding(.leading, isWorkspace ? titlebarLeadingInset : 0)
-            .frame(height: ShellLayout.compactHeaderHeight)
             CommandTextField(text: $query, placeholder: String(localized: "Search names, commands, hosts or folders"),
                              identifier: "quickCommands.library.search", symbol: "magnifyingglass")
                 .frame(height: Theme.Control.height)
@@ -251,11 +230,7 @@ struct QuickCommandLibraryView: View {
         .modifier(FloatingContentSurface())
     }
 
-    private var commandPaneBackground: Color {
-        let theme = AppTheme.terminalDefinition(isDark: chrome.isDark)
-        let background = RGBColor(ghosttyHex: theme.background)?.color ?? chrome.background
-        return background.opacity(isShellTransparent ? ShellLayout.terminalOpacity : 1)
-    }
+    private var commandPaneBackground: Color { isWorkspace ? .clear : chrome.background }
 
     private func libraryRow(_ item: QuickCommand) -> some View {
         HStack(spacing: 0) {
@@ -290,7 +265,7 @@ struct QuickCommandLibraryView: View {
                 }
             FamilyMenu(items: { rowActions(item) }) { Image(systemName: "ellipsis").frame(width: 28, height: 28) }
                 .help("Command Actions")
-        }.padding(.horizontal, 10).padding(.vertical, Theme.Space.m).background(selectedID == item.id ? chrome.accentFill : Color.clear)
+        }.padding(.horizontal, 10).padding(.vertical, Theme.Space.m).background(selectedID == item.id ? chrome.rowSelection(active: true) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
             .familyContextMenu { rowActions(item) }
     }
@@ -322,6 +297,44 @@ struct QuickCommandLibraryView: View {
         do { try store.move(item.id, relativeTo: peers[index + delta].id, after: delta > 0) }
         catch { self.error = error.localizedDescription }
     }
+
+}
+
+
+/// 分类标记和操作共用窗口通栏；管理弹窗仍可复用同一组控件。
+struct QuickCommandLibraryHeader: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var window: WindowState
+    @ObservedObject private var store = QuickCommandStore.shared
+    @Environment(\.windowChrome) private var chrome
+    @State private var importing: QuickCommandLibrary?
+    private var collection: QuickCommandCollection { window.commandLibraryCollection }
+
+    var body: some View {
+        HStack(spacing: Theme.Space.s) {
+            Image(systemName: collection == .common ? "books.vertical" : collection == .local ? "laptopcomputer" : collection.host == nil ? "square.stack" : "terminal")
+            Text(verbatim: collection.title).font(.headline).lineLimit(1)
+            Spacer(minLength: 0)
+            FamilyMenu("Actions", items: { libraryActions })
+                .font(Theme.Font.body).foregroundStyle(chrome.text)
+                .padding(.horizontal, Theme.Space.s)
+                .fixedSize()
+                .accessibilityLabel(Text("Actions"))
+                .accessibilityIdentifier("quickCommands.library.actions")
+        }
+        .familySheet(isPresented: optionalBinding($importing), width: SheetLayout.commandLibrary, height: SheetLayout.commandLibraryHeight) {
+            if let importing { QuickCommandImportView(library: importing, hosts: model.hosts) { self.importing = nil } }
+        }
+    }
+
+    private var libraryActions: [FamilyMenuItem] {
+        [FamilyMenuItem(title: String(localized: "New Quick Command"), enabled: store.loadError == nil,
+                        action: { window.commandLibraryDraft = collection.draft(in: model.quickCommandContext(in: window)) }),
+         .separator,
+         FamilyMenuItem(title: String(localized: "Import Commands"), action: importLibrary),
+         FamilyMenuItem(title: String(localized: "Export Commands"), enabled: store.loadError == nil, action: exportLibrary)]
+    }
+
     private func importLibrary() {
         let owner = NSApp.keyWindow
         defer { owner?.makeKeyAndOrderFront(nil) }
@@ -331,7 +344,7 @@ struct QuickCommandLibraryView: View {
         do {
             guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max) <= 32 * 1024 * 1024 else { throw QuickCommandError.invalidBackup }
             importing = try QuickCommandLibrary.decode(Data(contentsOf: url))
-        } catch { self.error = error.localizedDescription }
+        } catch { window.commandLibraryMessage = error.localizedDescription }
     }
     private func exportLibrary() {
         let owner = NSApp.keyWindow
@@ -343,7 +356,7 @@ struct QuickCommandLibraryView: View {
             let referencedHosts = Set(store.commands.compactMap(\.host))
             let hints = Dictionary(uniqueKeysWithValues: model.hosts.filter { referencedHosts.contains($0.alias) }.map { ($0.alias, $0.subtitle) })
             try QuickCommandLibrary(commands: store.commands, hostHints: hints).encoded().write(to: url, options: .atomic)
-        } catch { self.error = error.localizedDescription }
+        } catch { window.commandLibraryMessage = error.localizedDescription }
     }
 }
 
@@ -374,13 +387,13 @@ struct QuickCommandLibraryNavigation: View {
             window.commandLibraryCollection = value
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: value == .common ? "books.vertical" : value == .local ? "desktopcomputer" : value.host == nil ? "square.stack" : "terminal")
+                Image(systemName: value == .common ? "books.vertical" : value == .local ? "laptopcomputer" : value.host == nil ? "square.stack" : "terminal")
                 Text(verbatim: value.title).lineLimit(2)
                 Spacer(minLength: 0)
                 Text(verbatim: String(store.commands.filter { value.contains($0) }.count)).foregroundStyle(chrome.secondary)
             }.font(Theme.Font.row).padding(10).frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-                .background(window.commandLibraryCollection == value ? chrome.accentFill : Color.clear)
+                .background(window.commandLibraryCollection == value ? chrome.rowSelection(active: true) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
         }.buttonStyle(.plain).accessibilityAddTraits(window.commandLibraryCollection == value ? .isSelected : [])
             .accessibilityIdentifier("quickCommands.library.collection." + value.id)

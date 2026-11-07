@@ -31,6 +31,7 @@ final class FileColumn: ObservableObject, Identifiable {
     @Published private(set) var backStack: [String] = [] { didSet { onStateChange?() } }
     @Published private(set) var forwardStack: [String] = [] { didSet { onStateChange?() } }
     @Published var selection: Set<String> = [] { didSet { onStateChange?() } }
+    @Published var isFilterFocused = false
     @Published var filter = "" { didSet { reconcileScrollAnchor(); onStateChange?() } }
     @Published var showHidden = false { didSet { reconcileScrollAnchor(); onStateChange?() } }
     @Published var sortKey: SortKey = .kind { didSet { onStateChange?() } }
@@ -484,16 +485,6 @@ final class FileWorkspace: ObservableObject {
     var remoteTabs: [FileColumn] { allTabs.filter(\.isRemote) }
     var localLocations: [FileColumn] { groups[localGroupID]?.tabs ?? [] }
     var activeHost: String? { remoteColumn?.fileSystem.host }
-    var selectedPreviewColumn: FileColumn? {
-        if let focusedColumn, focusedColumn.preview != nil { return focusedColumn }
-        return openColumns.first { $0.preview != nil }
-    }
-
-    /// The workspace presents one modal preview at a time, including restored previews.
-    func dismissPreview() {
-        for column in allTabs where column.preview != nil { column.preview = nil }
-    }
-
     func browseRemote(host: String, at path: String? = nil) { openRemote(host: host, at: path) }
     func browseLocal(at path: String) { showLocal(path) }
 
@@ -830,9 +821,6 @@ final class FileWorkspace: ObservableObject {
     func open(_ entry: FileEntry, in column: FileColumn, window: NSWindow?) {
         focus(column)
         guard entry.isDirectory || FilePreviewPolicy.kind(for: entry.name) != nil else { return }
-        if !entry.isDirectory {
-            for other in allTabs where other !== column && other.preview != nil { other.preview = nil }
-        }
         if entry.isDirectory {
             column.open(entry.path)
         } else if FilePreviewPolicy.kind(for: entry.name) == .text {

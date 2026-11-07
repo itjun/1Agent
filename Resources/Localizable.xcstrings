@@ -2,6 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "Workspace Tools" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Workspace Tools"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "工作区工具"}}}},
+    "Split" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Split"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "分屏"}}}},
     "Resize Command Columns" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Resize Command Columns"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "调整命令分栏宽度"}}}},
     "Drag to resize. Double-click to split equally." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag to resize. Double-click to split equally."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "拖动调整宽度，双击恢复左右等宽。"}}}},
     "Import Commands" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Import Commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "导入命令"}}}},

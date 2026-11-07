@@ -3,7 +3,7 @@ import QuartzCore
 import SwiftUI
 
 enum ShellStyle {
-    // 窗口统一使用原生材质，旧的外壳选项不再影响显示。
+    // 系统透明度偏好仅影响次级控件；主工作区始终使用不透明的主题底板。
     // 系统“减少透明度”仍提供实色回退。
     static var isTransparent: Bool {
         !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
@@ -11,19 +11,15 @@ enum ShellStyle {
 }
 
 enum ShellLayout {
-    static let contentRadius: CGFloat = 14
-    /// 工作区外缘与相邻悬浮面板共用同一间距。
-    static let workspaceInset: CGFloat = Theme.Space.s
+    static let contentRadius: CGFloat = 0
+    /// 工作区只为分隔线预留间距。
+    static let workspaceInset: CGFloat = 1
     static let paneInset: CGFloat = 0
     static let paneVerticalInset: CGFloat = 0
     static let compactTitlebarHeight: CGFloat = 32
     static let compactHeaderHeight: CGFloat = 32
     static let titlebarActionWidth: CGFloat = 48
-    /// 未选中终端的背景透明度；选中终端在渲染层下铺实色，文字始终不透明。
-    static let terminalOpacity: Double = 0.82
-    /// 深色外壳与终端底色接近，用柔和底光保留未选中面板的透明感。
-    static let inactiveDarkTerminalBackdropOpacity: Double = 0.30
-    static let fileOpacity: Double = 0.98
+    static let fileOpacity: Double = 0
     /// 输入框与次级按钮保留主题底色，同时透出窗口渐变。
     static let controlOpacity: Double = 0.45
     static let lightBackdropOpacity: CGFloat = 0.68
@@ -39,21 +35,16 @@ enum ShellLayout {
     static let shadowOffset: CGFloat = 2
     static let shadowOpacity: Double = 0.14
 
-    static func paneFrames(of node: PaneNode, in bounds: CGRect, isFloating: Bool) -> [UUID: CGRect] {
-        let frames = PaneLayout.frames(of: node, in: bounds)
-        guard isFloating else { return frames }
-        // 原生分隔占 1 pt，两侧各退半步，保留拖动中心和原有分屏比例。
-        let inset = max(0, (ShellLayout.workspaceInset - 1) / 2)
-        return frames.mapValues { frame in
-            let horizontal = min(inset, max(0, (frame.width - 1) / 2))
-            let vertical = min(inset, max(0, (frame.height - 1) / 2))
-            let left = frame.minX > bounds.minX + 0.5 ? horizontal : 0
-            let right = frame.maxX < bounds.maxX - 0.5 ? horizontal : 0
-            let top = frame.minY > bounds.minY + 0.5 ? vertical : 0
-            let bottom = frame.maxY < bounds.maxY - 0.5 ? vertical : 0
-            return CGRect(x: frame.minX + left, y: frame.minY + top,
-                          width: frame.width - left - right, height: frame.height - top - bottom)
+    static func backdropColors(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) -> [Color] {
+        let colors = AppTheme.colors(isDark: isDark, preset: preset)
+        let base = RGBColor(ghosttyHex: colors.background)!
+        return colors.gradient.map {
+            RGBColor(ghosttyHex: $0)!.mixed(with: base, amount: isDark ? 0.25 : 0.45).color
         }
+    }
+
+    static func paneFrames(of node: PaneNode, in bounds: CGRect, isFloating: Bool) -> [UUID: CGRect] {
+        PaneLayout.frames(of: node, in: bounds)
     }
 
     static func contentFrame(_ frame: CGRect, isFloating: Bool) -> CGRect {
@@ -85,10 +76,11 @@ extension EnvironmentValues {
     }
 }
 
-/// 只给背景加材质，不对整窗或文字设置 alpha。
+/// 整窗共用主题渐变，不对窗口内容或文字设置 alpha。
 struct ShellBackdrop: NSViewRepresentable {
     var isTransparent: Bool
     var isDark: Bool
+    var usesTerminalBackground = false
     var preset: AppThemePreset = AppTheme.stored()
 
     func makeNSView(context: Context) -> ShellBackdropView {
@@ -98,6 +90,7 @@ struct ShellBackdrop: NSViewRepresentable {
     func updateNSView(_ view: ShellBackdropView, context: Context) {
         view.isTransparent = isTransparent
         view.isDark = isDark
+        view.usesTerminalBackground = usesTerminalBackground
         view.preset = preset
         view.applyStyle()
     }
@@ -106,33 +99,23 @@ struct ShellBackdrop: NSViewRepresentable {
 final class ShellBackdropView: NSView {
     var isTransparent = false
     var isDark = false
+    var usesTerminalBackground = false
     var preset = AppTheme.stored()
-    private let wallpaperView = DesktopWallpaperView()
-    private let materialView = NSVisualEffectView()
     private let washView = NSView()
     private let gradientLayer = CAGradientLayer()
-    private let glowLayer = CAGradientLayer()
     override var isOpaque: Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // 先铺壁纸，再在窗内模糊；不采样窗口后面的其他应用。
-        materialView.material = .sidebar
-        materialView.blendingMode = .withinWindow
-        materialView.state = .active
+        clipsToBounds = true
         washView.wantsLayer = true
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 1)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.locations = ShellLayout.backdropLocations.map { NSNumber(value: Double($0)) }
-        glowLayer.startPoint = CGPoint(x: 0.5, y: 1)
-        glowLayer.endPoint = CGPoint(x: 0.5, y: 1 - ShellLayout.glowEndY)
         washView.layer?.addSublayer(gradientLayer)
-        washView.layer?.addSublayer(glowLayer)
-        for view in [wallpaperView, materialView, washView] {
-            view.frame = bounds
-            view.autoresizingMask = [.width, .height]
-            addSubview(view)
-        }
+        washView.frame = bounds
+        washView.autoresizingMask = [.width, .height]
+        addSubview(washView)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -147,7 +130,6 @@ final class ShellBackdropView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         gradientLayer.frame = washView.bounds
-        glowLayer.frame = washView.bounds
         CATransaction.commit()
     }
 
@@ -155,33 +137,15 @@ final class ShellBackdropView: NSView {
         wantsLayer = true
         appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
-        let fallback = preset == .system
-            ? NSColor(WindowChrome(isDark: isDark, preset: preset).sidebarBackground)
-            : NSColor(colors.color(colors.gradient[1]))
-        let tintOpacity = preset == .system
-            ? (isDark ? ShellLayout.systemDarkBackdropOpacity : ShellLayout.systemLightBackdropOpacity)
-            : (isDark ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity)
-        let opacity = isTransparent ? tintOpacity : 1
-        let glow = NSColor(colors.color(colors.glow))
-            .withAlphaComponent(isDark ? ShellLayout.darkGlowOpacity : ShellLayout.lightGlowOpacity)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        // 实色底板阻止其他窗口内容穿透；只在材质下采样桌面壁纸。
-        layer?.backgroundColor = fallback.cgColor
-        gradientLayer.colors = colors.gradient.map {
-            (preset == .system ? fallback : NSColor(colors.color($0))).withAlphaComponent(opacity).cgColor
-        }
-        glowLayer.colors = [glow.cgColor, glow.withAlphaComponent(0).cgColor]
-        glowLayer.isHidden = preset == .system
+        // 整窗只绘制一张不透明渐变；面板的透明度仅用于露出这张底板。
+        // 不采样壁纸，主题配色不会随窗口位置或其他应用变化。
+        layer?.backgroundColor = NSColor(colors.color(colors.background)).cgColor
+        gradientLayer.isHidden = usesTerminalBackground
+        gradientLayer.colors = ShellLayout.backdropColors(isDark: isDark, preset: preset).map { NSColor($0).cgColor }
         gradientLayer.frame = washView.bounds
-        glowLayer.frame = washView.bounds
         CATransaction.commit()
-        let wasHidden = wallpaperView.isHidden
-        wallpaperView.isHidden = !isTransparent
-        materialView.isHidden = !isTransparent
-        if wasHidden && isTransparent { wallpaperView.refresh() }
-        window?.isOpaque = !isTransparent
-        window?.backgroundColor = isTransparent ? .clear : fallback
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -222,6 +186,7 @@ private final class DesktopWallpaperView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        clipsToBounds = true
         let notifications = NotificationCenter.default
         for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
             notifications.addObserver(self, selector: #selector(windowGeometryChanged(_:)), name: name, object: nil)
@@ -294,21 +259,13 @@ private final class DesktopWallpaperView: NSView {
     }
 }
 
-/// 共享文件面板与终端的圆角、边界；减少透明度时使用实色回退。
+/// 工作区连续铺满；边界由分栏容器负责，不再叠加卡片外框。
 struct FloatingContentSurface: ViewModifier {
     var showsShadow = true
     @Environment(\.isShellTransparent) private var isTransparent
     @Environment(\.windowChrome) private var chrome
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: isTransparent ? ShellLayout.contentRadius : 0, style: .continuous)
-        content
-            .clipShape(shape)
-            .overlay {
-                shape.strokeBorder(chrome.isDark ? Color.white.opacity(0.07) : Color.black.opacity(0.045), lineWidth: isTransparent ? 0.5 : 0)
-                    .allowsHitTesting(false)
-            }
-            .shadow(color: isTransparent && showsShadow ? Color(nsColor: .shadowColor).opacity(ShellLayout.shadowOpacity) : .clear,
-                    radius: ShellLayout.shadowRadius, y: ShellLayout.shadowOffset)
+        content.clipped()
     }
 }

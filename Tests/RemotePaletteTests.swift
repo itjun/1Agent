@@ -15,6 +15,24 @@ enum RemotePaletteTests {
     }
 
     static func run() throws {
+        for preset in AppThemePreset.allCases {
+            for isDark in [false, true] {
+                let colors = AppTheme.colors(isDark: isDark, preset: preset)
+                let base = RGBColor(ghosttyHex: colors.background)!
+                let foreground = RGBColor(ghosttyHex: colors.foreground)!
+                let secondary = RGBColor(ghosttyHex: colors.secondary)!
+                let focused = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: true, preset: preset)
+                let inactive = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: false, preset: preset)
+                let label = "\(preset.rawValue) \(isDark ? "dark" : "light")"
+                try check(focused.contrastRatio(with: base) == 1, "\(label): focused pane keeps theme background")
+                try check(inactive.contrastRatio(with: focused) >= 1.12, "\(label): pane backgrounds distinguish focus")
+                try check(foreground.contrastRatio(with: inactive) >= 4.5, "\(label): inactive output remains readable")
+                try check(secondary.contrastRatio(with: inactive) >= 3, "\(label): secondary output remains readable")
+                try check(isDark ? inactive.relativeLuminance > focused.relativeLuminance
+                                 : inactive.relativeLuminance < focused.relativeLuminance,
+                          "\(label): focus retains normal brightness")
+            }
+        }
         for isDark in [false, true] {
             let colors = AppTheme.colors(isDark: isDark, preset: .system)
             for hex in colors.gradient + [colors.background, colors.foreground, colors.secondary, colors.accent, colors.selection] {

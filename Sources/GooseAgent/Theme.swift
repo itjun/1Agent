@@ -73,7 +73,7 @@ enum Theme {
     /// 默认主题主窗口的排版；其他预设保留已有尺寸。
     enum DefaultLayout {
         static let toolInset: CGFloat = 16
-        static let commandTextHeight: CGFloat = 36
+        static let commandTextHeight: CGFloat = 18
         static let iconWidth: CGFloat = 20
         static let badgeHeight: CGFloat = 22
     }
@@ -227,6 +227,18 @@ enum AppTheme {
 
         func color(_ hex: String) -> Color { RGBColor(ghosttyHex: hex)!.color }
         var gradientColors: [Color] { gradient.map { color($0) } }
+    }
+
+    /// 聚焦保持主题原底色；未聚焦只调整底板，终端文字和 ANSI 色不参与淡化。
+    static func terminalPaneBackground(isDark: Bool, isFocused: Bool,
+                                       preset: AppThemePreset = AppTheme.stored()) -> RGBColor {
+        let colors = AppTheme.colors(isDark: isDark, preset: preset)
+        let base = RGBColor(ghosttyHex: colors.background)!
+        guard !isFocused else { return base }
+        let foreground = RGBColor(ghosttyHex: colors.foreground)!
+        let accent = RGBColor(ghosttyHex: colors.accent)!
+        let neutral = base.mixed(with: foreground, amount: isDark && preset == .system ? 0.14 : 0.08)
+        return neutral.mixed(with: accent, amount: preset == .system ? 0 : (isDark ? 0.08 : 0.04))
     }
 
     // 系统预设只给窗口材质使用黑白中性色；终端 ANSI 保留语义色，便于辨认输出。
@@ -518,7 +530,7 @@ struct WindowChrome: Equatable {
     }
 
     static func resolve(isDark: Bool) -> WindowChrome {
-        WindowChrome(isDark: isDark)
+        WindowChrome(isDark: isDark, preset: AppTheme.stored())
     }
 
     init(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) {

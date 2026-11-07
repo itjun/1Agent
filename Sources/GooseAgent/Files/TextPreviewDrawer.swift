@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// A read-only preview in a full-height drawer beside its source file column.
+/// 文件页悬浮卡片与终端右侧卡片共用的只读预览。
 struct TextPreviewDrawer: View {
     @ObservedObject var column: FileColumn
     var onClose: (() -> Void)? = nil
@@ -25,7 +25,7 @@ struct TextPreviewDrawer: View {
                 if !isWorkspaceCard && !preview.isQuickLook && !showingFormat { formatBar(preview.decoded, preview: preview) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(showingFormat ? chrome.panelHeader : chrome.background)
+            .background(Color.clear)
             .onExitCommand(perform: close)
             .onChange(of: preview.entry.path) { _, _ in
                 convertError = nil
@@ -55,17 +55,19 @@ struct TextPreviewDrawer: View {
             if !preview.isQuickLook {
                 Button { findRequest += 1 } label: { Image(systemName: "magnifyingglass") }
                     .help("Find in Preview")
+                    .accessibilityLabel(Text("Find in Preview"))
+                    .accessibilityIdentifier("files.preview.find")
             }
             Button(action: close) { Image(systemName: "xmark") }
                 .help("Close Preview").accessibilityLabel(Text("Close Preview"))
                 .accessibilityIdentifier("files.preview.close")
                 .keyboardShortcut(isWorkspaceCard ? nil : KeyboardShortcut.cancelAction)
         }
-        .buttonStyle(FamilyButtonStyle())
+        .buttonStyle(PreviewCardButtonStyle())
         .foregroundStyle(chrome.text)
         .padding(.horizontal, Theme.Space.m)
         .frame(height: FileBrowserLayout.toolbarHeight)
-        .background(chrome.panelHeader)
+        .background(Color.clear)
     }
 
     @ViewBuilder private func content(_ preview: FileColumn.Preview) -> some View {
@@ -133,7 +135,7 @@ struct TextPreviewDrawer: View {
             }
         }
         .padding(.horizontal, Theme.Space.m).padding(.vertical, Theme.Space.s)
-        .background(chrome.panelHeader)
+        .background(Color.clear)
     }
 
     private func formatSheet(_ preview: FileColumn.Preview) -> some View {
@@ -168,7 +170,7 @@ struct TextPreviewDrawer: View {
         }
         .padding(Theme.Space.m)
         .frame(maxWidth: .infinity)
-        .background(chrome.panelHeader)
+        .background(Color.clear)
     }
 
     private func save() {

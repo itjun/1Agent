@@ -213,7 +213,8 @@ enum GhosttyRuntime {
     ) -> TerminalConfiguration {
         let entries = (settings.configEntries() + snippet).filter { !TerminalSettings.presetColorKeys.contains($0.key) }
         return TerminalConfiguration { builder in
-            builder.withBackgroundOpacity(ShellStyle.isTransparent ? ShellLayout.terminalOpacity : 1)
+            // 不透明底板由 TerminalCanvas 绘制，Metal 只保留文字与 ANSI 单元格。
+            builder.withBackgroundOpacity(0)
             for entry in entries {
                 builder.withCustom(entry.key, entry.value)
             }
@@ -1507,7 +1508,15 @@ final class TerminalHostView: NSView {
         if selected && !isFocusTarget { focusPending = true }
         isFocusTarget = selected
         if !selected { focusPending = false }
+        applyTerminalEmphasis()
         scheduleFocus()
+    }
+
+    private func applyTerminalEmphasis() {
+        // 聚焦只改变底板；包括复用的原生视图在内，文字始终保持完全不透明。
+        for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
+            terminal.alphaValue = 1
+        }
     }
 
     func requestFocus() {
@@ -1588,6 +1597,12 @@ final class TerminalHostView: NSView {
         if !presented || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             layer?.removeAnimation(forKey: "terminalReveal")
         }
+        if !presented, let window, let responder = window.firstResponder as? NSView,
+           responder === self || responder.isDescendant(of: self) {
+            // 隐藏前先释放焦点，避免 AppKit 自动选中旧分屏中的下一个终端，
+            // 其 onFocus 回调会覆盖侧栏刚选中的目标会话。
+            window.makeFirstResponder(nil)
+        }
         isHidden = !presented
         syncTerminalSurfaceVisibility()
         setAccessibilityHidden(!presented)
@@ -1612,6 +1627,7 @@ final class TerminalHostView: NSView {
         terminal.frame = bounds
         terminal.autoresizingMask = [.width, .height]
         addSubview(terminal)
+        applyTerminalEmphasis()
         scheduleFocus()
     }
 

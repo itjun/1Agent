@@ -15,6 +15,7 @@ struct FileColumnHeader<Endpoint: View>: View {
     @ObservedObject var workspace: FileWorkspace
     @ObservedObject var column: FileColumn
     var width: CGFloat
+    var isWindowToolbar = false
     var onFilterFocusChange: (Bool) -> Void = { _ in }
     @ViewBuilder var endpoint: () -> Endpoint
     @Environment(\.windowChrome) private var chrome
@@ -27,7 +28,7 @@ struct FileColumnHeader<Endpoint: View>: View {
         let availableTitleWidth = width - titlebarLeadingInset
         VStack(spacing: 0) {
             titleBar(width: availableTitleWidth)
-            if availableTitleWidth < FileBrowserLayout.compactHeaderThreshold && (showingFilter || !column.filter.isEmpty) {
+            if !isWindowToolbar && availableTitleWidth < FileBrowserLayout.compactHeaderThreshold && (showingFilter || !column.filter.isEmpty) {
                 filterField
                     .padding(.horizontal, Theme.Space.m)
                     .padding(.bottom, Theme.Space.xs)
@@ -37,41 +38,25 @@ struct FileColumnHeader<Endpoint: View>: View {
             showingFilter = false
             filterFocused = false
         }
-        .onChange(of: filterFocused) { _, focused in onFilterFocusChange(focused) }
+        .onChange(of: filterFocused) { _, focused in
+            column.isFilterFocused = focused
+            onFilterFocusChange(focused)
+        }
+        .onDisappear { column.isFilterFocused = false }
     }
 
     private var filterField: some View {
-        HStack(spacing: Theme.Space.xs) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 12)).foregroundStyle(chrome.secondary)
-            TextField(String(localized: "Filter"), text: $column.filter)
-                .textFieldStyle(.plain).font(Theme.Font.body)
-                .focused($filterFocused)
-                .background(FilePointerObserver { onFilterFocusChange(true) })
-                .accessibilityLabel(Text("Filter"))
-                .accessibilityIdentifier("files.filter")
-                .onExitCommand {
-                    column.filter = ""
-                    showingFilter = false
-                    filterFocused = false
-                }
-            if !column.filter.isEmpty {
-                Button {
-                    column.filter = ""
-                    showingFilter = false
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(chrome.secondary)
-                }
-                .buttonStyle(FamilyButtonStyle())
-                .help(String(localized: "Clear Filter"))
-                .accessibilityLabel(Text("Clear Filter"))
+        TextField(String(localized: "Filter"), text: $column.filter)
+            .textFieldStyle(.roundedBorder)
+            .focused($filterFocused)
+            .background(FilePointerObserver { onFilterFocusChange(true) })
+            .accessibilityLabel(Text("Filter"))
+            .accessibilityIdentifier("files.filter")
+            .onExitCommand {
+                column.filter = ""
+                showingFilter = false
+                filterFocused = false
             }
-        }
-        .padding(.horizontal, Theme.Space.s)
-        .frame(height: Theme.Control.height)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(filterFocused ? chrome.background : chrome.elevated))
-        .familyFocusRing(filterFocused)
     }
 
     // MARK: Navigation and actions
@@ -86,6 +71,9 @@ struct FileColumnHeader<Endpoint: View>: View {
                 toolbarButton("line.3.horizontal.decrease", help: String(localized: "Filter"), enabled: true) {
                     showingFilter.toggle(); filterFocused = showingFilter
                 }
+                .popover(isPresented: Binding(get: { isWindowToolbar && showingFilter }, set: { showingFilter = $0 })) {
+                    filterField.frame(width: 220).padding(Theme.Space.m)
+                }
             }
             FamilyMenu("Actions") {
                 FileColumnActions(workspace: workspace, column: column).directoryItems
@@ -98,10 +86,10 @@ struct FileColumnHeader<Endpoint: View>: View {
             .accessibilityLabel(Text("Actions"))
             .accessibilityIdentifier("files.actions")
         }
-        .padding(.horizontal, Theme.Space.m)
+        .padding(.horizontal, isWindowToolbar ? Theme.Space.xs : Theme.Space.m)
         .padding(.leading, titlebarLeadingInset)
-        .frame(height: FileBrowserLayout.tabStripHeight)
-        .background(isShellTransparent ? Color.clear : chrome.background)
+        .frame(height: isWindowToolbar ? 28 : FileBrowserLayout.tabStripHeight)
+        .background(Color.clear)
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -179,7 +167,7 @@ struct FileColumnView: View {
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
-        .onChange(of: workspace.selectedPreviewColumn?.id) { previous, current in
+        .onChange(of: column.preview?.entry.path) { previous, current in
             if current != nil {
                 focused = false
             } else if previous != nil, workspace.focusedColumn === column {
@@ -214,7 +202,7 @@ struct FileColumnView: View {
         }
         .padding(.horizontal, width < 250 ? Theme.Space.xs : Theme.Space.m)
         .frame(height: FileBrowserLayout.navigationHeight)
-        .background(chrome.elevated)
+        .background(Color.clear)
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -375,7 +363,7 @@ struct FileColumnView: View {
         }
         .padding(.horizontal, Theme.Space.m)
         .frame(height: FileBrowserLayout.headerHeight)
-        .background(chrome.elevated)
+        .background(Color.clear)
         .overlay(alignment: .bottom) {
             Rectangle().fill(chrome.hairline).frame(height: 0.5)
         }
@@ -444,7 +432,7 @@ struct FileColumnView: View {
         .onChange(of: workspace.focusedColumn?.id) { _, id in
             if id != column.id {
                 focused = false
-            } else if !editingPath && !filterFocused {
+            } else if !editingPath && !filterFocused && !column.isFilterFocused {
                 focused = true
             }
         }

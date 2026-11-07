@@ -80,6 +80,8 @@ private final class WorkspaceDockDividerView: NSView {
 struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresentable {
     var collapsed: Bool = false
     var isDividerHidden: Bool = false
+    var isTrailing: Bool = false
+    var toolbarIdentifier: String?
     var width: CGFloat
     var minimumWidth: CGFloat
     var maximumWidth: CGFloat
@@ -89,7 +91,7 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     @ViewBuilder var detail: () -> Detail
 
     func makeNSViewController(context: Context) -> NativeSidebarSplitController<Sidebar, Detail> {
-        let controller = NativeSidebarSplitController(sidebar: sidebar(), detail: detail())
+        let controller = NativeSidebarSplitController(sidebar: sidebar(), detail: detail(), isTrailing: isTrailing)
         configure(controller)
         return controller
     }
@@ -101,6 +103,7 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     }
 
     private func configure(_ controller: NativeSidebarSplitController<Sidebar, Detail>) {
+        controller.splitView.identifier = toolbarIdentifier.map { NSUserInterfaceItemIdentifier($0) }
         controller.configure(width: width, minimum: minimumWidth,
                              maximum: maximumWidth, defaultWidth: defaultWidth, collapsed: collapsed,
                              isDividerHidden: isDividerHidden,
@@ -111,6 +114,8 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
 final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitViewController {
     let sidebarHost: NSHostingController<Sidebar>
     let detailHost: NSHostingController<Detail>
+    private let isTrailing: Bool
+    private var sidebarItem: NSSplitViewItem { splitViewItems[isTrailing ? 1 : 0] }
     private var configured = false
     private var applying = false
     private var collapsed = false
@@ -120,7 +125,8 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
     private var widthChanged: (CGFloat) -> Void = { _ in }
     private var defaultWidth: CGFloat = 0
 
-    init(sidebar: Sidebar, detail: Detail) {
+    init(sidebar: Sidebar, detail: Detail, isTrailing: Bool = false) {
+        self.isTrailing = isTrailing
         sidebarHost = NSHostingController(rootView: sidebar)
         detailHost = NSHostingController(rootView: detail)
         super.init(nibName: nil, bundle: nil)
@@ -130,15 +136,23 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         let nativeSplit = SidebarSplitView()
         nativeSplit.isVertical = true
         nativeSplit.dividerStyle = .thin
+        nativeSplit.drawsDividerBelowTitlebar = isTrailing
         nativeSplit.onResetWidth = { [weak self] in self?.restoreDefaultWidth() }
         splitView = nativeSplit
-        addSplitViewItem(NSSplitViewItem(viewController: sidebarHost))
+        // 左侧导航采用原生侧栏语义，由 AppKit 将材质延伸到红绿灯所在的标题栏。
+        // 右侧仍是工作区工具面板，不套用左侧导航的独立材质。
+        let sidebarItem = isTrailing ? NSSplitViewItem(viewController: sidebarHost)
+            : NSSplitViewItem(sidebarWithViewController: sidebarHost)
+        if !isTrailing { addSplitViewItem(sidebarItem) }
         let content = NSSplitViewItem(viewController: detailHost)
+        sidebarItem.titlebarSeparatorStyle = .none
+        content.titlebarSeparatorStyle = .none
         content.holdingPriority = .defaultLow
         // Keep terminal glyphs and mouse coordinates outside the sidebar. Only the opaque
         // background extends beneath the floating pane; no live terminal mirroring is needed.
         if #available(macOS 26.0, *) { content.automaticallyAdjustsSafeAreaInsets = false }
         addSplitViewItem(content)
+        if isTrailing { addSplitViewItem(sidebarItem) }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -171,14 +185,15 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         let changedCollapse = self.collapsed != collapsed
         self.collapsed = collapsed
         if initialConfiguration {
-            let item = splitViewItems[0]
+            let item = sidebarItem
             item.canCollapse = true
             item.canCollapseFromWindowResize = false
-            item.allowsFullHeightLayout = true
+            // 左侧自标题栏贯穿到底部；右侧工具面板从通栏下方开始。
+            item.allowsFullHeightLayout = !isTrailing
             item.holdingPriority = NSLayoutConstraint.Priority(260)
             configured = true
         }
-        let item = splitViewItems[0]
+        let item = sidebarItem
         item.minimumThickness = minimum
         item.maximumThickness = maximum
         item.isCollapsed = collapsed
@@ -208,7 +223,7 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         pendingWidth = nil
         let wasApplying = applying
         applying = true
-        splitView.setPosition(width, ofDividerAt: 0)
+        splitView.setPosition(isTrailing ? splitView.bounds.width - width - splitView.dividerThickness : width, ofDividerAt: 0)
         applying = wasApplying
     }
 
@@ -228,12 +243,13 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
     }
 
     func restoreDefaultWidth() {
-        splitView.setPosition(defaultWidth, ofDividerAt: 0)
+        splitView.setPosition(isTrailing ? splitView.bounds.width - defaultWidth - splitView.dividerThickness : defaultWidth, ofDividerAt: 0)
     }
 }
 
 private final class SidebarSplitView: NSSplitView {
     var onResetWidth: () -> Void = {}
+    var drawsDividerBelowTitlebar = false
     var isDividerHidden = false {
         didSet {
             if isDividerHidden != oldValue { needsDisplay = true }
@@ -245,7 +261,9 @@ private final class SidebarSplitView: NSSplitView {
     override func drawDivider(in rect: NSRect) {
         // 透明外壳始终不画边界，保留原生拖动、光标及双击调宽的命中区域。
         guard !isDividerHidden else { return }
-        super.drawDivider(in: rect)
+        let visibleRect = drawsDividerBelowTitlebar && window != nil
+            ? rect.intersection(convert(window!.contentLayoutRect, from: nil)) : rect
+        if !visibleRect.isEmpty { super.drawDivider(in: visibleRect) }
     }
 
     override func mouseDown(with event: NSEvent) {

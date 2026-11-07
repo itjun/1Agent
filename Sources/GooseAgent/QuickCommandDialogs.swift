@@ -53,7 +53,7 @@ struct QuickCommandEditor: View {
                     Divider()
                     HStack(spacing: Theme.Space.s) { Spacer(); editorActions }.padding(12)
                 }.foregroundStyle(chrome.text)
-                    .background(isShellTransparent ? Color.clear : chrome.background)
+                    .background(Color.clear)
             } else {
                 CommandDialog(title: isNew ? "New Quick Command" : "Edit Quick Command", close: close) {
                     editorFields

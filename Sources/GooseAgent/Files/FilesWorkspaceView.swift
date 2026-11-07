@@ -18,7 +18,6 @@ struct FilesDockView: View {
     var relay: CanvasDropRelay
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(model: AppModel, window: WindowState, relay: CanvasDropRelay) {
         self.model = model
@@ -29,48 +28,16 @@ struct FilesDockView: View {
 
     var body: some View {
         FilePairGrid(workspace: workspace, model: model, window: window, relay: relay, tabDrag: workspace.tabDrag)
-            .padding(.horizontal, isShellTransparent ? 0 : Theme.Space.s)
-            .padding(.vertical, isShellTransparent ? ShellLayout.paneVerticalInset : Theme.Space.s)
-            .background(isShellTransparent ? Color.clear : chrome.background)
-            .allowsHitTesting(workspace.selectedPreviewColumn == nil)
-            .accessibilityHidden(workspace.selectedPreviewColumn != nil)
-            .overlay(alignment: .bottom) { TransferStatusBar(window: window).allowsHitTesting(false) }
-            .overlay { previewOverlay }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: workspace.selectedPreviewColumn?.id)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("workspace.files.content")
-            .simultaneousGesture(TapGesture().onEnded { model.focusFiles(in: window) })
-            .onDisappear { relay.filesSideAnchors.removeAll() }
+        .padding(.horizontal, 0)
+        .padding(.vertical, 0)
+        .background(Color.clear)
+        .overlay(alignment: .bottom) { TransferStatusBar(window: window).allowsHitTesting(false) }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("workspace.files.content")
+        .simultaneousGesture(TapGesture().onEnded { model.focusFiles(in: window) })
+        .onDisappear { relay.filesSideAnchors.removeAll() }
     }
 
-    @ViewBuilder private var previewOverlay: some View {
-        if let column = workspace.selectedPreviewColumn {
-            GeometryReader { geometry in
-                let bounds = CGRect(origin: .zero, size: geometry.size)
-                let frames = ShellLayout.paneFrames(of: workspace.layout, in: bounds, isFloating: isShellTransparent)
-                let source = workspace.groupID(of: column).flatMap { frames[$0] } ?? bounds
-                let frame = FileBrowserLayout.previewFrame(in: bounds, source: source)
-                let leading = frame.minX == bounds.minX
-                ZStack(alignment: .topLeading) {
-                    Color.black.opacity(FileBrowserLayout.previewScrimOpacity)
-                        .contentShape(Rectangle())
-                        .onTapGesture { workspace.dismissPreview() }
-                        .accessibilityHidden(true)
-                    TextPreviewDrawer(column: column, onClose: { workspace.dismissPreview() })
-                        .id(column.id)
-                        .frame(width: frame.width, height: frame.height)
-                        .overlay(alignment: leading ? .trailing : .leading) {
-                            Rectangle().fill(chrome.hairline).frame(width: 1)
-                        }
-                        .accessibilityElement(children: .contain)
-                        .accessibilityIdentifier(leading ? "files.preview.left" : "files.preview.right")
-                        .offset(x: frame.minX)
-                        .transition(.move(edge: leading ? .leading : .trailing).combined(with: .opacity))
-                }
-            }
-            .clipped()
-        }
-    }
 }
 
 private struct FilePairGrid: View {
@@ -87,13 +54,13 @@ private struct FilePairGrid: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let panelInset = isShellTransparent ? ShellLayout.paneInset : Theme.Space.xs
+            let panelInset: CGFloat = 0
             let rect = CGRect(origin: .zero, size: geometry.size)
             let frames = ShellLayout.paneFrames(of: workspace.layout, in: rect, isFloating: isShellTransparent)
             ZStack(alignment: .topLeading) {
                 ForEach(workspace.groupIDs, id: \.self) { id in
                     if let frame = frames[id] {
-                        FileEndpointPanel(workspace: workspace, groupID: id, model: model, window: window, relay: relay, tabDrag: tabDrag, width: max(0, frame.width - panelInset * 2))
+                        FileEndpointWithPreview(workspace: workspace, groupID: id, model: model, window: window, relay: relay, tabDrag: tabDrag, width: max(0, frame.width - panelInset * 2), showsHeader: !window.presentation.fullFilesWorkspace || frame.minY > 1)
                             .environment(\.workspaceTitlebarLeadingInset, frame.minX < 1 && frame.minY < 1 ? titlebarLeadingInset : 0)
                             .padding(.horizontal, panelInset)
                             .frame(width: frame.width, height: frame.height, alignment: .topLeading)
@@ -121,12 +88,12 @@ private struct FilePairGrid: View {
     private func dividerControl(_ divider: PaneDivider) -> some View {
         let vertical = divider.axis == .vertical
         let active = hoveredDividerID == divider.id || ratioDrag?.id == divider.id
-        let lineWidth = active ? Theme.PaneStyle.dividerActiveLineWidth : Theme.PaneStyle.dividerLineWidth
+        let lineWidth = Theme.PaneStyle.dividerLineWidth
         return Color.clear
             .frame(width: divider.frame.width, height: divider.frame.height)
             .overlay {
                 Rectangle()
-                    .fill(active ? chrome.accent : Color.clear)
+                    .fill(Color(nsColor: .separatorColor))
                     .frame(width: vertical ? lineWidth : divider.frame.width,
                            height: vertical ? divider.frame.height : lineWidth)
                     .allowsHitTesting(false)
@@ -157,6 +124,66 @@ private struct FilePairGrid: View {
     }
 }
 
+/// 每个文件面板独立预览：本机向右展开，远程向左展开，卡片靠近中间。
+private struct FileEndpointWithPreview: View {
+    @ObservedObject var workspace: FileWorkspace
+    var groupID: UUID
+    @ObservedObject var model: AppModel
+    @ObservedObject var window: WindowState
+    var relay: CanvasDropRelay
+    @ObservedObject var tabDrag: FileTabDragTracker
+    var width: CGFloat
+    var showsHeader = true
+    @State private var previewWidth = WorkspacePreviewLayout.defaultWidth
+    @State private var previewDragStart: Double?
+    @State private var isPreviewEqualSplit = false
+
+    private var column: FileColumn? { workspace.groups[groupID]?.active }
+
+    var body: some View {
+        let isPreviewOpen = column?.preview != nil
+        let isPreviewLeading = column?.isRemote == true
+        let cardWidth = WorkspacePreviewLayout.visibleWidth(available: width,
+            isOpen: isPreviewOpen, preferred: previewWidth, isEqualSplit: isPreviewEqualSplit)
+        let gap = cardWidth > 0 ? ShellLayout.workspaceInset : 0
+        let listWidth = max(0, width - cardWidth - gap)
+        ZStack(alignment: .leading) {
+            FileEndpointPanel(workspace: workspace, groupID: groupID, model: model, window: window,
+                              relay: relay, tabDrag: tabDrag, width: listWidth, showsHeader: showsHeader)
+                .frame(width: listWidth)
+                .offset(x: isPreviewLeading ? cardWidth + gap : 0)
+            if let column, isPreviewOpen, cardWidth > 0 {
+                TextPreviewDrawer(column: column, onClose: { column.preview = nil }, isWorkspaceCard: true)
+                    .id(column.id)
+                    .frame(width: cardWidth)
+                    .modifier(FloatingContentSurface())
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("files.preview.\(column.id)")
+                    .offset(x: isPreviewLeading ? 0 : listWidth + gap)
+                    .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
+                PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
+                    if previewDragStart == nil { previewDragStart = Double(cardWidth) }
+                    isPreviewEqualSplit = false
+                    let growth = isPreviewLeading ? delta : -delta
+                    previewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(cardWidth)) + growth)
+                }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
+                    isPreviewEqualSplit = true
+                })
+                .frame(width: 6)
+                .background(alignment: .center) { Divider() }
+                .offset(x: (isPreviewLeading ? cardWidth : listWidth) - 2.5)
+                .accessibilityLabel(Text("Resize File Preview"))
+            }
+        }
+        .frame(width: width, alignment: .leading)
+        .onChange(of: isPreviewOpen) { _, _ in
+            previewWidth = WorkspacePreviewLayout.defaultWidth
+            previewDragStart = nil
+            isPreviewEqualSplit = false
+        }
+    }
+}
+
 private struct FileEndpointPanel: View {
     @ObservedObject var workspace: FileWorkspace
     var groupID: UUID
@@ -165,9 +192,9 @@ private struct FileEndpointPanel: View {
     var relay: CanvasDropRelay
     @ObservedObject var tabDrag: FileTabDragTracker
     var width: CGFloat
+    var showsHeader = true
     @Environment(\.windowChrome) private var parentChrome
     @Environment(\.isShellTransparent) private var isShellTransparent
-    @State private var filterFocused = false
 
     private var column: FileColumn? { workspace.groups[groupID]?.active }
     private var local: Bool { groupID == workspace.localGroupID }
@@ -179,11 +206,13 @@ private struct FileEndpointPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             if let column {
-                FileColumnHeader(workspace: workspace, column: column, width: width, onFilterFocusChange: { filterFocused = $0 }) { endpointHeader }
-                    .background(chrome.elevated)
-                FileColumnView(workspace: workspace, column: column, filterFocused: filterFocused).id(column.id)
+                if showsHeader {
+                    FileColumnHeader(workspace: workspace, column: column, width: width) {
+                        FileEndpointTitle(workspace: workspace, column: column)
+                    }
+                }
+                FileColumnView(workspace: workspace, column: column).id(column.id)
             } else {
-                endpointHeader.padding(.horizontal, Theme.Space.m)
                 VStack(spacing: Theme.Space.m) {
                     Image(systemName: SidebarConnectionGroup.remote.symbol).font(Theme.Font.emptySymbol).foregroundStyle(chrome.tertiary)
                     Text("Choose a server").font(Theme.Font.emptyTitle)
@@ -192,7 +221,7 @@ private struct FileEndpointPanel: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background.opacity(isShellTransparent ? ShellLayout.fileOpacity : 1))
+        .background(Color.clear)
         .modifier(FloatingContentSurface())
         .background(BoundsAnchor {
             relay.filesSideAnchors[.group(groupID)] = AnchorBox($0)
@@ -217,54 +246,63 @@ private struct FileEndpointPanel: View {
         .environment(\.windowChrome, chrome)
     }
 
-    private var endpointHeader: some View {
-        HStack(spacing: Theme.Space.s) {
-            if local {
-                Image(systemName: "desktopcomputer")
-                    .font(.system(size: 14))
-                    .foregroundStyle(chrome.text)
-                Text(verbatim: column?.title ?? String(localized: "This Mac"))
-                    .font(Theme.Font.body.weight(.semibold)).lineLimit(1)
-                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .familyContextMenu {
-                        guard let column else { return [] }
-                        return [FamilyMenuItem(title: String(localized: "Open in Terminal"), enabled: !column.directory.isEmpty, action: {
-                            workspace.openTerminal([], in: column)
-                        })]
-                    }
-                    .accessibilityIdentifier("files.localLocation")
-            } else {
-                remoteLocation
-            }
-        }
-        .frame(height: FileBrowserLayout.tabStripHeight)
-    }
+}
 
-    /// Only the pane's current server. Its tabs are listed vertically in the sidebar.
-    private var remoteLocation: some View {
-        HStack(spacing: Theme.Space.s) {
-            Image(systemName: "server.rack")
-                .font(.system(size: 13))
-                .foregroundStyle(chrome.text)
-            if let host = column?.fileSystem.host {
-                Text(verbatim: host)
-                    .font(Theme.Font.body.weight(.semibold)).lineLimit(1)
-                    .foregroundStyle(chrome.text)
-            } else {
-                Text("Choose a server")
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.secondary)
+/// 文件标题与操作进入窗口原生通栏，横向位置跟随下面的面板分隔。
+struct FilesWorkspaceToolbar: View {
+    @ObservedObject var workspace: FileWorkspace
+    var contentWidth: CGFloat
+    var contentLeadingInset: CGFloat
+
+    var body: some View {
+        GeometryReader { geometry in
+            let frames = ShellLayout.paneFrames(of: workspace.layout,
+                in: CGRect(x: 0, y: 0, width: max(contentWidth, geometry.size.width), height: 100), isFloating: false)
+            ZStack(alignment: .leading) {
+                ForEach(workspace.groupIDs, id: \.self) { id in
+                    if let frame = frames[id], frame.minY < 1 {
+                        let start = max(0, frame.minX - contentLeadingInset)
+                        let end = min(geometry.size.width, frame.maxX - contentLeadingInset)
+                        let width = max(0, end - start)
+                        Group {
+                            if let column = workspace.groups[id]?.active {
+                                FileColumnHeader(workspace: workspace, column: column, width: width, isWindowToolbar: true) {
+                                    FileEndpointTitle(workspace: workspace, column: column)
+                                }
+                            } else {
+                                Label("Choose a server", systemImage: "cloud")
+                                    .labelStyle(.titleAndIcon)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .frame(width: width, height: geometry.size.height)
+                        .offset(x: start)
+                    }
+                }
             }
         }
+    }
+}
+
+private struct FileEndpointTitle: View {
+    @ObservedObject var workspace: FileWorkspace
+    @ObservedObject var column: FileColumn
+
+    var body: some View {
+        Label {
+            Text(verbatim: column.title).font(.headline).lineLimit(1)
+        } icon: {
+            Image(systemName: column.isRemote ? "cloud" : "laptopcomputer")
+        }
+        .labelStyle(.titleAndIcon)
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .familyContextMenu {
-            guard let column else { return [] }
-            return [FamilyMenuItem(title: String(localized: "Open in Terminal"), enabled: !column.directory.isEmpty, action: {
+            [FamilyMenuItem(title: String(localized: "Open in Terminal"), enabled: !column.directory.isEmpty, action: {
                 workspace.openTerminal([], in: column)
             })]
         }
-        .accessibilityIdentifier("files.remoteLocation")
+        .accessibilityIdentifier(column.isRemote ? "files.remoteLocation" : "files.localLocation")
     }
 }

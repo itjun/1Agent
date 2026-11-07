@@ -8,7 +8,6 @@ struct QuickCommandSidebar: View {
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
     var showsHeader = true
-    @State private var search = ""
     @State private var batchSelecting = false
     @State private var selectedIDs: Set<UUID> = []
     @State private var pasteRequest: QuickCommandPasteRequest?
@@ -17,10 +16,11 @@ struct QuickCommandSidebar: View {
     @State private var error: String?
     @State private var collapsedSections: Set<Int> = []
     @State private var selectedCommandID: UUID?
+    @State private var previewCommandID: UUID?
 
     private var context: QuickCommandContext { model.quickCommandContext(in: window) }
     private var commands: [QuickCommand] {
-        store.commands.filter { $0.scope != .all && $0.matches(context) && $0.matchesSearch(search) }
+        store.commands.filter { $0.scope != .all && $0.matches(context) }
             .sorted(by: QuickCommand.displayOrder)
     }
     private var selectedCommand: QuickCommand? { commands.first { $0.id == selectedCommandID } }
@@ -39,15 +39,16 @@ struct QuickCommandSidebar: View {
         .accessibilityIdentifier("workspace.toolSidebar")
         .onChange(of: commands.map(\.id)) { _, ids in
             if let selectedCommandID, !ids.contains(selectedCommandID) { self.selectedCommandID = nil }
+            if let previewCommandID, !ids.contains(previewCommandID) { self.previewCommandID = nil }
         }
-        .onChange(of: context.host) { _, _ in cancelSelection(); status = nil }
-        .onChange(of: context.directory) { _, _ in cancelSelection() }
+        .onChange(of: context.host) { _, _ in cancelSelection(); status = nil; previewCommandID = nil }
+        .onChange(of: context.directory) { _, _ in cancelSelection(); previewCommandID = nil }
         .onChange(of: store.commands.map(\.id)) { _, ids in selectedIDs.formIntersection(ids) }
         .familySheet(isPresented: optionalBinding($pasteRequest), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let pasteRequest {
                 QuickCommandPasteView(request: pasteRequest, onClose: { self.pasteRequest = nil }, onSaved: { additions in
                     self.pasteRequest = nil
-                    search = ""; cancelSelection()
+                    cancelSelection()
                     if let first = additions.first {
                         collapsedSections.remove(first.section)
                         selectedCommandID = first.id
@@ -69,7 +70,7 @@ struct QuickCommandSidebar: View {
                     Text(verbatim: context.host ?? String(localized: "This Mac"))
                         .font(Theme.Font.sectionTitle).lineLimit(1).truncationMode(.middle)
                     Text(verbatim: context.directory.map { context.host == nil ? LocalTerminal.displayPath($0) : $0 } ?? String(localized: "Directory unknown"))
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(chrome.isSystem ? 1 : 2).truncationMode(.middle)
+                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(2).truncationMode(.middle)
                         .textSelection(.enabled)
                         .help(context.directory ?? String(localized: "Directory unknown"))
                 }
@@ -88,29 +89,11 @@ struct QuickCommandSidebar: View {
                     Image(systemName: "ellipsis").frame(width: 28, height: 28)
                 }.help("Command Actions").accessibilityIdentifier("quickCommands.actions")
             }
-            CommandTextField(text: $search, placeholder: String(localized: "Search Commands"), identifier: "quickCommands.search", symbol: "magnifyingglass")
-                .frame(height: 32)
             if batchSelecting { batchControls }
             if let status { Text(verbatim: status).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
             if let message = error ?? store.loadError { Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger) }
             commandRows
-            if let selectedCommand {
-                Divider()
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Command Preview").font(Theme.Font.sidebarSection).foregroundStyle(chrome.secondary)
-                        Spacer()
-                        Button { CommandClipboard.copy(selectedCommand.command) } label: { Image(systemName: "doc.on.doc") }
-                            .buttonStyle(FamilyButtonStyle()).help("Copy Preview Text")
-                            .accessibilityLabel(Text("Copy Preview Text")).accessibilityIdentifier("quickCommands.preview.copy")
-                    }
-                    ScrollView {
-                        Text(verbatim: selectedCommand.command).font(.system(size: 13, design: .monospaced))
-                            .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                    }.frame(height: previewTextHeight(selectedCommand.command)).id(selectedCommand.id)
-                }.accessibilityElement(children: .contain).accessibilityIdentifier("quickCommands.preview")
-            }
-        }.padding(chrome.isSystem ? Theme.DefaultLayout.toolInset : 16)
+        }.padding(Theme.DefaultLayout.toolInset)
     }
 
     private var commandRows: some View {
@@ -138,17 +121,26 @@ struct QuickCommandSidebar: View {
                                         selectedCommandID = item.id
                                         if batchSelecting {
                                             if !selectedIDs.insert(item.id).inserted { selectedIDs.remove(item.id) }
+                                        } else {
+                                            previewCommandID = item.id
                                         }
                                     }, allowsDragging: !batchSelecting,
                                                    isSelected: batchSelecting ? selectedIDs.contains(item.id) : selectedCommandID == item.id,
                                                    onDoubleClick: {
                                         guard !batchSelecting else { return }
                                         selectedCommandID = item.id
+                                        previewCommandID = nil
                                         model.confirmQuickCommand(item, in: window)
-                                    }, onDragStart: { selectedCommandID = item.id }, showsSelection: batchSelecting, isCompact: true, onReorder: { source, target, after in
+                                    }, onDragStart: { selectedCommandID = item.id; previewCommandID = nil }, showsSelection: batchSelecting, isCompact: true, onReorder: { source, target, after in
                                         do { try store.move(source, relativeTo: target, after: after); error = nil }
                                         catch { self.error = error.localizedDescription }
                                     })
+                                    .popover(isPresented: Binding(
+                                        get: { previewCommandID == item.id },
+                                        set: { if !$0 && previewCommandID == item.id { previewCommandID = nil } }
+                                    ), arrowEdge: .leading) {
+                                        commandPreview(item)
+                                    }
                                     .familyContextMenu { commandActions(item) }
                                 }
                             }
@@ -160,7 +152,7 @@ struct QuickCommandSidebar: View {
                 }
                 if commands.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(search.isEmpty ? "No Commands" : "No Results").font(Theme.Font.sectionTitle)
+                        Text("No Commands").font(Theme.Font.sectionTitle)
                     }.padding(.vertical, 12)
                 }
             }
@@ -208,11 +200,31 @@ struct QuickCommandSidebar: View {
          FamilyMenuItem(title: String(localized: "Save Command Copy"), action: { var copy = item; copy.id = UUID(); editInLibrary(copy) })]
     }
     private func editInLibrary(_ item: QuickCommand) {
+        previewCommandID = nil
         window.commandLibraryDraft = item
         model.showSection(.commands, in: window)
     }
+    private func commandPreview(_ item: QuickCommand) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Command Preview").font(Theme.Font.sidebarSection).foregroundStyle(chrome.secondary)
+                Spacer()
+                Button { CommandClipboard.copy(item.command) } label: { Image(systemName: "doc.on.doc") }
+                    .buttonStyle(FamilyButtonStyle()).help("Copy Preview Text")
+                    .accessibilityLabel(Text("Copy Preview Text")).accessibilityIdentifier("quickCommands.preview.copy")
+            }
+            ScrollView {
+                Text(verbatim: item.command).font(.system(size: 13, design: .monospaced))
+                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            }.frame(height: previewTextHeight(item.command))
+        }
+        .padding(16)
+        .frame(width: SheetLayout.commandSidebarPreviewWidth)
+        .foregroundStyle(chrome.text).background(chrome.background)
+        .accessibilityElement(children: .contain).accessibilityIdentifier("quickCommands.preview")
+    }
     private func previewTextHeight(_ text: String) -> CGFloat {
-        let bounds = (text as NSString).boundingRect(with: NSSize(width: 200, height: CGFloat.greatestFiniteMagnitude),
+        let bounds = (text as NSString).boundingRect(with: NSSize(width: SheetLayout.commandSidebarPreviewWidth - 32, height: CGFloat.greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: [.font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)])
         return min(SheetLayout.commandSidebarPreviewHeight, max(44, bounds.height + 12))
@@ -280,17 +292,17 @@ struct CommandListRow: View {
 
     private var commandButton: some View {
         Button(action: action) {
-            HStack(alignment: chrome.isSystem && isCompact ? .top : .center, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 if showsSelection {
                     Image(systemName: isSelected ? "checkmark.square.fill" : "square").foregroundStyle(chrome.accent)
                 }
                 Image(systemName: item.needsRepair ? "exclamationmark.triangle" : "terminal")
                     .foregroundStyle(item.needsRepair ? chrome.warning : chrome.isSystem && !isSelected ? chrome.secondary : chrome.accent)
-                    .frame(width: chrome.isSystem ? Theme.DefaultLayout.iconWidth : nil, height: chrome.isSystem ? 18 : nil)
+                    .frame(width: isCompact ? Theme.DefaultLayout.iconWidth : nil, height: isCompact ? 18 : nil)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(verbatim: item.alias).font(Theme.Font.row).fontWeight(isSelected ? .semibold : .regular)
                         .foregroundStyle(chrome.text).lineLimit(isCompact ? 2 : 1)
-                        .frame(minHeight: chrome.isSystem && isCompact ? Theme.DefaultLayout.commandTextHeight : nil, alignment: .topLeading)
+                        .frame(minHeight: isCompact ? Theme.DefaultLayout.commandTextHeight : nil, alignment: .topLeading)
                     if !isCompact {
                     Text(verbatim: item.command.replacingOccurrences(of: "\n", with: " ↵ "))
                         .font(.system(size: 12, design: .monospaced)).foregroundStyle(chrome.secondary).lineLimit(1)
@@ -324,16 +336,15 @@ struct CommandTextField: View {
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
     var body: some View {
-        HStack(spacing: 0) {
-            if let symbol { Image(systemName: symbol).foregroundStyle(chrome.secondary).padding(.leading, 10) }
-            CommandLiteralField(text: $text, placeholder: placeholder, textColor: NSColor(chrome.text),
-                          backgroundColor: .clear, identifier: identifier,
-                          font: .systemFont(ofSize: 13), fillsProposedHeight: true)
+        if symbol == "magnifyingglass" {
+            NativeSearchField(text: $text, placeholder: placeholder, identifier: identifier)
+        } else {
+            CommandLiteralField(text: $text, placeholder: placeholder, textColor: .labelColor,
+                backgroundColor: .textBackgroundColor, identifier: identifier,
+                font: .systemFont(ofSize: NSFont.systemFontSize), fillsProposedHeight: true)
         }
-            .background(chrome.elevated.opacity(isShellTransparent ? ShellLayout.controlOpacity : 1))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline))
     }
+
 }
 
 struct CommandDialog<Content: View, Actions: View>: View {
