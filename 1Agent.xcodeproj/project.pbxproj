@@ -114,6 +114,7 @@
 		BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = BD4E62BE663582C439B996D1 /* FileIconCatalog.json */; };
 		BDE0F6784FE455B5144022E1 /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 0A4845DDBF4FBE86870CF14E /* GhosttyTheme */; };
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
+		C01D9ED719DD9AE851193F49 /* WorkspaceExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EBD6A0E24A363C1F73F4352 /* WorkspaceExternalOpen.swift */; };
 		C0D5997471F66D63679D1F6A /* AppUpdateInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */; };
 		C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */; };
 		C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */; };
@@ -210,6 +211,7 @@
 		4D05831F5707DB53D3786F6D /* FileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystem.swift; sourceTree = "<group>"; };
 		4D2FBA844EBB4E5D753255BB /* WorkspaceGit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceGit.swift; sourceTree = "<group>"; };
 		4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenu.swift; sourceTree = "<group>"; };
+		4EBD6A0E24A363C1F73F4352 /* WorkspaceExternalOpen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceExternalOpen.swift; sourceTree = "<group>"; };
 		4EC91D27043AA07DDFB6BFE5 /* libghostty-spm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "libghostty-spm"; path = "Vendor/libghostty-spm"; sourceTree = SOURCE_ROOT; };
 		5093EE3F486041297EE0F59E /* ExternalOpen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalOpen.swift; sourceTree = "<group>"; };
 		53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandActions.swift; sourceTree = "<group>"; };
@@ -513,6 +515,7 @@
 				2254C1C7DBE4FE6A5CC025DC /* WindowTitleSync.swift */,
 				6D6EEC2E8F3559B717E5EA4E /* WorkspaceActions.swift */,
 				6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */,
+				4EBD6A0E24A363C1F73F4352 /* WorkspaceExternalOpen.swift */,
 				4D2FBA844EBB4E5D753255BB /* WorkspaceGit.swift */,
 				AF18AD26B40C268A98044CC5 /* WorkspacePresentation.swift */,
 				D25D19C1CD0E73B6149796B8 /* WorkspaceToolbar.swift */,
@@ -759,6 +762,7 @@
 				E70D2E0CB2751BB0742B5AF9 /* WindowTitleSync.swift in Sources */,
 				8A12C3CBE87FB71D0A3D5355 /* WorkspaceActions.swift in Sources */,
 				CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */,
+				C01D9ED719DD9AE851193F49 /* WorkspaceExternalOpen.swift in Sources */,
 				24E81C4DF5F6CC9264A76503 /* WorkspaceGit.swift in Sources */,
 				B43674A84F457C2C13E9716A /* WorkspacePresentation.swift in Sources */,
 				06E5D99B544A3663E0CDDA82 /* WorkspaceToolSidebar.swift in Sources */,

@@ -1,8 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Workspace Tools" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Workspace Tools"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "工作区工具"}}}},
+    "Open in Finder" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open in Finder"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "在访达中打开"}}}},
+    "Choose Application…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose Application…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择其他应用…"}}}},
+    "Desktop apps require a local folder." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Desktop apps require a local folder."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "桌面应用仅支持本机目录"}}}},
+    "Open Repository in Browser" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open Repository in Browser"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "在浏览器中打开仓库"}}}},
+    "Unable to open repository URL." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Unable to open repository URL."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法打开仓库网页。"}}}},
     "Split" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Split"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "分屏"}}}},
+    "Workspace Tools" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Workspace Tools"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "工作区工具"}}}},
     "Resize Command Columns" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Resize Command Columns"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "调整命令分栏宽度"}}}},
     "Drag to resize. Double-click to split equally." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag to resize. Double-click to split equally."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "拖动调整宽度，双击恢复左右等宽。"}}}},
     "Import Commands" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Import Commands"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "导入命令"}}}},

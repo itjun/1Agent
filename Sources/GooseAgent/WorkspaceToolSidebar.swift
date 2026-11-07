@@ -263,6 +263,8 @@ struct WorkspaceFilesView: View {
     @StateObject private var column: FileColumn
     @Environment(\.windowChrome) private var chrome
     @State private var revision = 0
+    @State private var repositoryRoot: String?
+    @State private var repositoryURL: URL?
     init(location: GitLocation, window: WindowState) {
         self.location = location
         self.window = window
@@ -277,6 +279,18 @@ struct WorkspaceFilesView: View {
             HStack {
                 Text(verbatim: (location.directory as NSString).lastPathComponent).font(Theme.Font.sectionTitle)
                 Spacer()
+                FamilyMenu(items: {
+                    WorkspaceExternalOpen.items(location: location, repositoryRoot: repositoryRoot, repositoryURL: repositoryURL)
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.up.right.square")
+                        Image(systemName: "chevron.down").font(.system(size: 8, weight: .medium))
+                    }
+                    .frame(width: 34, height: 28).contentShape(Rectangle())
+                }
+                .help("Open In…")
+                .accessibilityLabel("Open In…")
+                .accessibilityIdentifier("workspace.files.openExternal")
                 WorkspaceRefreshButton(isLoading: column.loading, isFailed: column.error != nil) {
                     column.refresh()
                     revision += 1
@@ -305,6 +319,19 @@ struct WorkspaceFilesView: View {
                 }
             }
         }.padding(16).onAppear { column.start(at: location.directory) }
+        .task(id: revision) {
+            repositoryRoot = nil
+            repositoryURL = nil
+            do {
+                let root = try await WorkspaceGit.checked(["rev-parse", "--show-toplevel"], at: location)
+                    .trimmingCharacters(in: .newlines)
+                try Task.checkCancellation()
+                repositoryRoot = root
+                let remote = try await WorkspaceGit.checked(["config", "--get", "remote.origin.url"], at: location)
+                try Task.checkCancellation()
+                repositoryURL = WorkspaceExternalOpen.repositoryWebURL(remote)
+            } catch { /* 普通目录或没有 origin 时，仍可使用编辑器和访达。 */ }
+        }
     }
 }
 
