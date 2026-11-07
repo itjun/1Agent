@@ -25,6 +25,7 @@ struct RootView: View {
     @State private var availableWidth: CGFloat = 0
     @State private var toolSidebarDragStart: Double?
     @State private var previewDragStart: Double?
+    @State private var isPreviewDividerHovered = false
     @FocusState private var workspaceNameFocused: Bool
 
     /// 本机与远程共用强调色，切换连接不会改变外壳。
@@ -92,12 +93,34 @@ struct RootView: View {
                     y: window.workspaceToolbarHeight,
                     width: window.isToolReadingExpanded ? readingWidth : previewWidth,
                     height: max(0, geometry.size.height - window.workspaceToolbarHeight))
-                if previewWidth > 0 {
-                    WorkspaceFilePreview(model: model, window: window)
-                        .frame(width: frame.width, height: frame.height)
-                        .background(AppTheme.terminalPaneBackground(isDark: appearanceDriver.isDark, isFocused: true).color)
-                        .offset(x: frame.minX, y: frame.minY)
+                ZStack(alignment: .topLeading) {
+                    if previewWidth > 0 {
+                        WorkspaceFilePreview(model: model, window: window)
+                            .frame(width: frame.width, height: frame.height)
+                            .background(AppTheme.terminalPaneBackground(isDark: appearanceDriver.isDark, isFocused: true).color)
+                            .offset(x: frame.minX, y: frame.minY)
+                        if !window.isToolReadingExpanded {
+                            // 分割线和拖动热区放在预览上方，避免预览盖住边界右半侧。
+                            Rectangle()
+                                .fill(isPreviewDividerHovered || previewDragStart != nil ? chrome.secondary : chrome.hairline)
+                                .frame(width: Theme.PaneStyle.dividerLineWidth, height: geometry.size.height)
+                                .offset(x: frame.minX - Theme.PaneStyle.dividerLineWidth)
+                                .allowsHitTesting(false)
+                            PaneDividerHandle(vertical: true, onHover: { isPreviewDividerHovered = $0 }, onDragChanged: { delta in
+                                if previewDragStart == nil { previewDragStart = Double(previewWidth) }
+                                window.isToolPreviewEqualSplit = false
+                                window.toolPreviewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(previewWidth)) - delta)
+                            }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
+                                window.isToolPreviewEqualSplit = true
+                            })
+                            .frame(width: 10, height: frame.height)
+                            .offset(x: frame.minX - 5.5, y: frame.minY)
+                            .accessibilityLabel(Text("Resize File Preview"))
+                            .onDisappear { isPreviewDividerHovered = false }
+                        }
+                    }
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
                 Color.clear.frame(width: 0, height: 0)
                     .onGeometryChange(for: CGRect.self) { _ in previewWidth > 0 ? frame : .zero } action: {
                         window.toolPreviewFrame = $0
@@ -498,19 +521,6 @@ struct RootView: View {
                 workspaceSurface.frame(width: terminalWidth)
                     .allowsHitTesting(!window.isToolReadingExpanded)
                     .accessibilityHidden(window.isToolReadingExpanded)
-                if previewWidth > 0 {
-                    Divider().offset(x: terminalWidth)
-                    PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
-                        if previewDragStart == nil { previewDragStart = Double(previewWidth) }
-                        window.isToolPreviewEqualSplit = false
-                        window.toolPreviewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(previewWidth)) - delta)
-                    }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
-                        window.isToolPreviewEqualSplit = true
-                    })
-                    .frame(width: 6, height: geometry.size.height)
-                    .offset(x: terminalWidth - 2.5)
-                    .accessibilityLabel(Text("Resize File Preview"))
-                }
             }
         }
     }

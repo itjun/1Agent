@@ -172,6 +172,36 @@ enum TerminalRestorationTests {
         let normalFrame = state.toolPreviewFrame
         let rightWidth = state.presentation.toolSidebarWidth
         expect(normalFrame.minX > 260 && normalFrame.width == 390, "Normal preview retains navigation and terminal")
+        func previewDivider() -> PaneDividerView? {
+            func handles(_ view: NSView) -> [PaneDividerView] {
+                (view as? PaneDividerView).map { [$0] } ?? view.subviews.flatMap(handles)
+            }
+            return handles(window.contentView!).first {
+                abs($0.convert($0.bounds, to: nil).midX - (state.toolPreviewFrame.minX - 0.5)) < 1
+            }
+        }
+        func checkPreviewDividerHitArea() {
+            guard let divider = previewDivider() else {
+                expect(false, "Preview boundary must have a native resize handle")
+                return
+            }
+            let content = window.contentView!
+            let frame = divider.convert(divider.bounds, to: nil)
+            for delta: CGFloat in [-4, 0, 4] {
+                let point = content.superview!.convert(NSPoint(x: frame.midX + delta, y: frame.midY), from: nil)
+                expect(content.hitTest(point) === divider,
+                       "Both sides of the visible divider must receive resize hits, including the preview side")
+            }
+        }
+        checkPreviewDividerHitArea()
+        previewDivider()!.onDragChanged(-60)
+        previewDivider()!.onDragEnded()
+        try await Task.sleep(for: .milliseconds(250))
+        expect(state.toolPreviewFrame.width == normalFrame.width + 60,
+               "Dragging the visible preview boundary resizes the preview")
+        checkPreviewDividerHitArea()
+        state.toolPreviewWidth = normalFrame.width
+        try await Task.sleep(for: .milliseconds(250))
         func hasToolbarControls() -> Bool {
             guard let toolbar = window.toolbar else { return false }
             let items = toolbar.visibleItems ?? []
@@ -187,6 +217,7 @@ enum TerminalRestorationTests {
             try await Task.sleep(for: .milliseconds(250))
             expect(state.toolPreviewFrame.minX == 0 && state.toolPreviewFrame.maxX == normalFrame.maxX,
                    "Expanded reading covers navigation and terminal, retaining the right list")
+            expect(previewDivider() == nil, "Expanded reading has no terminal resize handle")
             expect(hasToolbarControls(), "Expanded preview actions must remain visible")
             let tools = window.toolbar!.items.first { $0.itemIdentifier.rawValue == "workspace.tools" }!.view!
             let titleX = tools.convert(.zero, to: nil).x
@@ -217,6 +248,7 @@ enum TerminalRestorationTests {
             try await Task.sleep(for: .milliseconds(250))
             expect(state.toolPreviewFrame == normalFrame && state.presentation.toolSidebarWidth == rightWidth,
                    "Collapse restores the exact preview and sidebar geometry")
+            checkPreviewDividerHitArea()
             expect(!terminal.isHiddenOrHasHiddenAncestor, "Collapse reveals the retained terminal")
         }
         state.isToolPreviewExpanded = true
