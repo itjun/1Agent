@@ -317,6 +317,7 @@ private struct WorkspaceToolbarTools: View {
                         .frame(width: Self.height, height: Self.height)
                         .contentShape(Rectangle())
                 }
+                .modifier(WorkspaceInspectorGlass())
                 .focused($isControlFocused)
                 .help(AppShortcutID.toggleToolSidebar.title + " (" + AppShortcuts.display(for: .toggleToolSidebar) + ")")
                 .accessibilityLabel(AppShortcutID.toggleToolSidebar.title)
@@ -366,6 +367,17 @@ private struct WorkspaceToolbarTools: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Workspace Tools"))
         .accessibilityIdentifier("workspace.tools")
+    }
+}
+
+/// 与原生侧栏按钮一致，给右侧开关独立的圆形玻璃背景。
+private struct WorkspaceInspectorGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: Circle())
+        } else {
+            content.background(.regularMaterial, in: Circle())
+        }
     }
 }
 
