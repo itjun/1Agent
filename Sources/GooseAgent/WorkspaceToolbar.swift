@@ -336,7 +336,6 @@ private struct WorkspaceToolbarTools: View {
                     ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
                         let isSelected = state.toolSidebarTab == tab
                         Button {
-                            if tab == .changes { state.toolGitBranchComparison = false }
                             state.toolSidebarTab = tab
                         } label: {
                             Text(verbatim: tab.title)

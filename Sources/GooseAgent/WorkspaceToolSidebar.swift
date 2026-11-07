@@ -104,6 +104,14 @@ struct WorkspaceChangesView: View {
     @State private var isLoading = true
     @State private var revision = 0
     private let timer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
+    init(location: GitLocation, window: WindowState) {
+        self.location = location
+        self.window = window
+        // 标签切换会重建列表；选中项和比较基准来自仍在阅读的 DIFF。
+        _selection = State(initialValue: window.toolGitPreview?.change.path)
+        _base = State(initialValue: window.toolGitPreview?.base ?? "")
+    }
+
     private var selectedChange: GitChange? { changes.first { $0.path == selection } }
     private var comparisonBase: String? {
         window.toolGitBranchComparison ? (base.isEmpty ? snapshot?.defaultBase : base) : nil

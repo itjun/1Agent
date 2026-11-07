@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 @testable import GooseAgent
 
 @main
@@ -11,7 +12,109 @@ struct WorkspaceGitTests {
         let result = try await WorkspaceGit.run(args, at: GitLocation(directory: directory))
         try check(result.status == 0, String(decoding: result.stderr, as: UTF8.self))
     }
-    static func main() async throws {
+    @MainActor static func previewSurvivesListSwitch(location: GitLocation, snapshot: GitSnapshot, change: GitChange) async throws {
+        _ = NSApplication.shared
+        let state = WindowState()
+        state.presentation.toolSidebarOpen = true
+        let host = NSHostingView(rootView: AnyView(EmptyView()))
+        let native = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 600),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        native.contentView = host
+        native.orderFront(nil)
+        defer { native.orderOut(nil); native.contentView = nil }
+        for comparison in [false, true] {
+            state.toolGitBranchComparison = comparison
+            state.openToolGitPreview(GitPreviewRequest(location: GitLocation(directory: snapshot.root), snapshot: snapshot, change: change,
+                base: comparison ? "main" : nil, revision: 99))
+            state.isToolPreviewExpanded = true
+            for cycle in 0..<3 {
+                // 与右侧标签一致：离开改动列表会销毁视图，再返回时重新创建。
+                host.rootView = AnyView(Text("files fixture"))
+                try await Task.sleep(for: .milliseconds(80))
+                state.toolGitPreview?.revision = 99
+                host.rootView = AnyView(WorkspaceChangesView(location: location, window: state))
+                host.layoutSubtreeIfNeeded()
+                native.displayIfNeeded()
+                for _ in 0..<100 {
+                    try await Task.sleep(for: .milliseconds(30))
+                    if state.toolGitPreview?.revision != 99 { break }
+                }
+                try check(state.toolGitPreview?.change.path == change.path,
+                          "Returning from Files must retain the selected diff after list refresh (cycle \(cycle))")
+                try check(state.toolGitPreview?.revision == 0, "The remounted list must finish refreshing")
+                try check(state.isToolReadingExpanded, "List switching must retain expanded reading")
+                try check(state.toolGitPreview?.base == (comparison ? "main" : nil), "List switching retains comparison base")
+            }
+            state.closeToolPreview()
+            host.rootView = AnyView(EmptyView())
+            try await Task.sleep(for: .milliseconds(80))
+            host.rootView = AnyView(WorkspaceChangesView(location: location, window: state))
+                host.layoutSubtreeIfNeeded()
+                native.displayIfNeeded()
+            try await Task.sleep(for: .milliseconds(500))
+            try check(!state.isToolPreviewOpen, "An explicitly closed diff must not reopen on list remount")
+        }
+        print("PASS diff list switching: selected file, expanded reading, comparison base, explicit close")
+    }
+
+    @MainActor static func filePreviewSurvivesListSwitch(location: GitLocation, filename: String) async throws {
+        let state = WindowState()
+        state.presentation.toolSidebarOpen = true
+        let column = FileColumn(fileSystem: LocalFileSystem())
+        let entry = try await column.fileSystem.list(location.directory).first { $0.name == filename }!
+        column.showPreview(entry)
+        for _ in 0..<100 {
+            if column.preview?.decoded != nil { break }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        try check(column.preview?.decoded != nil, "File preview fixture must finish reading")
+        let originalPreview = column.preview
+        state.openToolFilePreview(column)
+        state.isToolPreviewExpanded = true
+        let host = NSHostingView(rootView: AnyView(WorkspaceFilesView(location: location, window: state)))
+        let native = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 600),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        native.contentView = host
+        native.orderFront(nil)
+        defer { native.orderOut(nil); native.contentView = nil }
+        for comparison in [false, true] {
+            state.toolGitBranchComparison = comparison
+            for cycle in 0..<3 {
+                for tab in [WorkspaceToolTab.changes, .files] {
+                    state.toolSidebarTab = tab
+                    // 与右侧标签一样销毁旧列表，并触发新列表的加载和刷新。
+                    host.rootView = tab == .changes
+                        ? AnyView(WorkspaceChangesView(location: location, window: state))
+                        : AnyView(WorkspaceFilesView(location: location, window: state))
+                    host.layoutSubtreeIfNeeded()
+                    native.displayIfNeeded()
+                    try await Task.sleep(for: .milliseconds(500))
+                    try check(state.toolPreviewColumn === column && column.preview == originalPreview,
+                              "File/Changes switching retains the original file and contents (cycle \(cycle), \(tab))")
+                    try check(state.toolGitPreview == nil, "List refresh must not replace file reading with a diff")
+                    try check(state.isToolReadingExpanded, "File reading stays expanded across list switches")
+                }
+            }
+        }
+        state.closeToolPreview()
+        host.rootView = AnyView(WorkspaceChangesView(location: location, window: state))
+        try await Task.sleep(for: .milliseconds(500))
+        host.rootView = AnyView(WorkspaceFilesView(location: location, window: state))
+        try await Task.sleep(for: .milliseconds(500))
+        try check(!state.isToolPreviewOpen && !state.isToolReadingExpanded,
+                  "An explicitly closed file must not reopen on list remount")
+        print("PASS file list switching: original file and contents, expanded reading, explicit close")
+    }
+
+    @MainActor static func main() {
+        _ = NSApplication.shared
+        Task { @MainActor in
+            do { try await run(); exit(0) }
+            catch { fputs("WorkspaceGitTests failed: \(error)\n", stderr); exit(1) }
+        }
+        NSApp.run()
+    }
+    static func run() async throws {
         let treeChanges = [
             GitChange(path: "README.md", status: "M", lineStats: GitLineStats(additions: 1, deletions: 1)),
             GitChange(path: "src/a.swift", status: "D", lineStats: GitLineStats(deletions: 3)),
@@ -137,6 +240,8 @@ struct WorkspaceGitTests {
         let changes = try await WorkspaceGit.changes(at: location, base: nil)
         try check(changes.contains { $0.path == tricky && $0.status == "??" }, "literal newline/quote filename")
         let tracked = changes.first { $0.path == "a file.txt" }!
+        try await previewSurvivesListSwitch(location: location, snapshot: snapshot, change: tracked)
+        try await filePreviewSurvivesListSwitch(location: location, filename: "a file.txt")
         let diff = try await WorkspaceGit.diff(tracked, snapshot: snapshot, at: location, base: nil)
         try check(diff.contains("+staged") && diff.contains("+unstaged"), "combined staged and unstaged")
         let untracked = try await WorkspaceGit.diff(changes.first { $0.path == tricky }!, snapshot: snapshot, at: location, base: nil)
