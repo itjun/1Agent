@@ -171,9 +171,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return isWorkspaceShortcut ? nil : event
         }
-        if TerminalSwitcher.shared.handlesEvents(in: event.window) {
-            return TerminalSwitcher.shared.handle(event) ? nil : event
-        }
         let window = model.keyWindow
         if event.keyCode == 53, let window, window.draggingTabID != nil || window.draggingBlock != nil {
             model.endDrag(in: window)
@@ -200,10 +197,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if chord == AppShortcuts.chord(for: .openHost) {
                 model.openHostPicker(in: window, purpose: window.presentation.filesVisible ? .files : .terminal)
-                return nil
-            }
-            if chord == AppShortcuts.chord(for: .commandPalette) {
-                TerminalSwitcher.shared.open(model: model, window: window, chord: chord, searching: true)
                 return nil
             }
             if chord == AppShortcuts.chord(for: .reconnect), window.section == .terminals,
@@ -311,18 +304,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Nil when the chord is not a sidebar-switching shortcut. False lets the key through.
     private func switchTerminal(_ chord: KeyChord, in window: WindowState?) -> Bool? {
         let terminalShortcuts = AppShortcutID.allCases.filter { $0.group == .sidebar }
-        let switcherChord = AppShortcuts.chord(for: .terminalSwitcher)
-        var reverseSwitcherChord = switcherChord
-        reverseSwitcherChord.modifierRaw = KeyChord.pack(switcherChord.modifiers.union(.shift))
-        let matched = terminalShortcuts.first(where: { AppShortcuts.chord(for: $0) == chord })
-            ?? (chord == reverseSwitcherChord ? .terminalSwitcher : nil)
-        guard let id = matched else { return nil }
+        guard let id = terminalShortcuts.first(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
         guard let window else { return false }
         if window.hostPickerPresented {
             return false
-        }
-        if id == .terminalSwitcher {
-            return TerminalSwitcher.shared.open(model: model, window: window, chord: chord)
         }
         if id == .previousTerminal {
             return model.selectAdjacentTerminal(forward: false, in: window)
@@ -635,14 +620,6 @@ struct GooseAgentApp: App {
                     .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
             }
             CommandGroup(after: .sidebar) {
-                Button("Open Items Overview") {
-                    guard !(NSApp.keyWindow is FamilyModalWindow), NSApp.keyWindow?.identifier != SettingsWindowController.windowID else { return }
-                    guard let window = appDelegate.model.keyWindow else { return }
-                    DispatchQueue.main.async {
-                        TerminalSwitcher.shared.open(model: appDelegate.model, window: window,
-                            chord: AppShortcuts.chord(for: .terminalSwitcher), searching: true)
-                    }
-                }
                 Button("Toggle Full Screen") {
                     guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
                     AppDelegate.toggleFullScreenOfKeyWindow()

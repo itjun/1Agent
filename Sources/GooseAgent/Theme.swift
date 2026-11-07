@@ -64,10 +64,6 @@ enum Theme {
     enum Motion {
         static let selectionDuration: TimeInterval = 0.14
         static let terminalDuration: TimeInterval = 0.16
-        static let overviewInDuration: TimeInterval = 0.22
-        static let overviewOutDuration: TimeInterval = 0.16
-        static let overviewInitialScale: CGFloat = 0.97
-        static let overviewOffset: CGFloat = 8
     }
 
     /// 默认主题主窗口的排版；其他预设保留已有尺寸。

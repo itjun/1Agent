@@ -1134,32 +1134,6 @@ enum FileBrowserLayout {
     static let joinZoneInset: CGFloat = 0.3
 }
 
-/// 已打开内容切换器共用尺寸；宽窗口并排预览，窄窗口上下排列。
-enum SwitcherLayout {
-    static let windowInset: CGFloat = 24
-    static let maskOpacity: CGFloat = 0.22
-    static let windowCornerRadius: CGFloat = 16
-    static let panelPadding: CGFloat = 20
-    static let panelCornerRadius: CGFloat = 14
-    static let maxWidth: CGFloat = 1600
-    static let contentHeight: CGFloat = 760
-    static let headerHeight: CGFloat = 24
-    static let searchHeight: CGFloat = 36
-    static let scopeHeight: CGFloat = 30
-    static let footerHeight: CGFloat = 32
-    static let spacing: CGFloat = 12
-    static let detailGap: CGFloat = 16
-    static let listWidth: CGFloat = 340
-    static let listShare: CGFloat = 0.34
-    static let sideBySideWidth: CGFloat = 660
-    static let rowHeight: CGFloat = 60
-    static let previewCornerRadius: CGFloat = 8
-    static let previewFontSize: CGFloat = 12
-    static var chromeHeight: CGFloat {
-        2 * panelPadding + headerHeight + searchHeight + scopeHeight + footerHeight + 4 * spacing
-    }
-}
-
 /// A small colored dot before a host title that is open more than once. The color is per alias,
 /// so two panes of the same host share a dot and differ from another duplicated host.
 struct DuplicateHostDot: View {

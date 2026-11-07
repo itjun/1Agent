@@ -243,7 +243,7 @@ import SwiftUI
         reset()
         try await Task.sleep(for: .milliseconds(150))
         native.contentView?.layoutSubtreeIfNeeded()
-        // Ctrl+Tab 文件预览与直接切页都会走这条路径；返回后新注册的锚点不能被清空。
+        // 直接切页会走这条路径；返回后新注册的锚点不能被清空。
         model.showSection(.files, in: window)
         try await Task.sleep(for: .milliseconds(200))
         model.showSection(.terminals, in: window)
