@@ -85,6 +85,16 @@ final class FamilyMenuPresenter {
         activeMenu = nil
     }
 
+    /// macOS 27 起 AppKit 会隐藏菜单图标；preferredImageVisibility 声明只在最新 SDK 里。
+    /// 运行时探测 setter，编译期不引用符号，旧 Xcode 也能编译。
+    private static func forceMenuImageVisible(_ item: NSMenuItem) {
+        let selector = NSSelectorFromString("setPreferredImageVisibility:")
+        guard item.responds(to: selector) else { return }
+        let setter = unsafeBitCast(item.method(for: selector),
+                                   to: (@convention(c) (NSObject, Selector, Int) -> Void).self)
+        setter(item, selector, 1) // NSMenuItemImageVisibilityVisible
+    }
+
     func dismiss() {
         activeMenu?.cancelTracking()
         activeMenu = nil
@@ -97,9 +107,7 @@ final class FamilyMenuPresenter {
             if command.isSeparator { menu.addItem(.separator()); continue }
             let item = NSMenuItem(title: command.title, action: nil, keyEquivalent: command.key)
             item.image = command.image
-            if #available(macOS 27.0, *), command.image != nil {
-                item.preferredImageVisibility = .visible
-            }
+            if command.image != nil { Self.forceMenuImageVisible(item) }
             item.keyEquivalentModifierMask = command.modifiers
             item.isEnabled = command.enabled
             item.state = command.checked ? .on : .off
