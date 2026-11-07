@@ -10,15 +10,18 @@ work="$root/build/libghostty"
 source_dir="$work/source"
 framework="$root/Vendor/libghostty-spm/BinaryTarget/GhosttyKit.xcframework"
 
-if ! command -v zig >/dev/null || [[ "$(zig version)" != "0.17.0" ]]; then
-    echo "error: Ghostty v1.4.0 requires Zig 0.17.0" >&2
+zig_version="$(zig version 2>/dev/null || true)"
+# Match Ghostty's src/build/zig.zig: the major/minor must match, while
+# newer patch releases are compatible. Keep development builds excluded.
+if [[ ! "$zig_version" =~ ^0\.17\.[0-9]+$ ]]; then
+    echo "error: Ghostty v1.4.0 requires a stable Zig 0.17.x release (found: ${zig_version:-not installed})" >&2
     exit 1
 fi
 
 patch_sha="$(shasum -a 256 "$patch" | awk '{print $1}')"
 source_stamp="$revision $archive_sha $patch_sha"
 script_sha="$(shasum -a 256 "$0" | awk '{print $1}')"
-build_stamp="$(printf '%s\n%s\n%s\n%s\n' "$source_stamp" "$script_sha" "$(zig version)" "$(xcodebuild -version)" | shasum -a 256 | awk '{print $1}')"
+build_stamp="$(printf '%s\n%s\n%s\n%s\n' "$source_stamp" "$script_sha" "$zig_version" "$(xcodebuild -version)" | shasum -a 256 | awk '{print $1}')"
 if [[ -d "$framework" && -f "$work/framework-stamp" && "$(cat "$work/framework-stamp")" == "$build_stamp" ]]; then
     echo "→ libghostty v1.4.0 is already built"
     exit 0
