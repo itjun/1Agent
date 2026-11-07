@@ -1,6 +1,47 @@
 import AppKit
 import SwiftUI
 
+/// 编辑菜单的查找跟随阅读焦点，避免展开阅读时把搜索送到被覆盖的终端。
+@MainActor
+enum PreviewFind {
+    static var current: NSTextView? { NSApp.keyWindow.flatMap { target(in: $0) } }
+
+    static func target(in window: NSWindow) -> NSTextView? {
+        guard window.attachedSheet == nil else { return nil }
+        func preview(_ view: NSView) -> NSTextView? {
+            guard !view.isHiddenOrHasHiddenAncestor else { return nil }
+            if let code = view as? PreviewTextView { return code }
+            if let code = view as? GitDiffTextView { return code }
+            return nil
+        }
+        var ancestor = window.firstResponder as? NSView
+        if let ancestor, let code = preview(ancestor) { return code }
+        while let view = ancestor {
+            if let scroll = view as? NSScrollView, let document = scroll.documentView,
+               let code = preview(document) { return code }
+            ancestor = view.superview
+        }
+        guard !(window.firstResponder is SSHTerminalNSView),
+              let state = MainWindowManager.shared.state(for: window), state.isToolPreviewOpen,
+              state.presentation.toolSidebarOpen, state.section == .terminals,
+              !state.presentation.fullFilesWorkspace, let content = window.contentView else { return nil }
+        func find(_ view: NSView) -> NSTextView? {
+            if let code = preview(view) { return code }
+            return view.subviews.reversed().compactMap { find($0) }.first
+        }
+        return find(content)
+    }
+
+    @discardableResult static func perform(_ action: NSTextFinder.Action) -> Bool {
+        guard let code = current else { return false }
+        if action == .showFindInterface { code.window?.makeFirstResponder(code) }
+        let item = NSMenuItem()
+        item.tag = action.rawValue
+        code.performFindPanelAction(item)
+        return true
+    }
+}
+
 /// The terminal that has the keyboard in the key window, if any. The Terminal menu acts on it.
 @MainActor
 final class FocusedTerminal: ObservableObject {
@@ -67,7 +108,7 @@ final class FocusedTerminal: ObservableObject {
         if available != isAvailable {
             isAvailable = available
         }
-        let findable = available || TerminalFind.editingField != nil
+        let findable = available || TerminalFind.editingField != nil || PreviewFind.current != nil
         if findable != canFind {
             canFind = findable
         }
@@ -117,17 +158,17 @@ struct TerminalCommands: Commands {
             Divider()
             Menu("Find") {
                 TerminalCommands.findItem(.find, enabled: focus.canFind) {
-                    TerminalFind.shared.showFindBar()
+                    if !PreviewFind.perform(.showFindInterface) { TerminalFind.shared.showFindBar() }
                 }
                 TerminalCommands.findItem(.findNext, enabled: focus.canFind) {
-                    TerminalFind.shared.navigate(forward: true)
+                    if !PreviewFind.perform(.nextMatch) { TerminalFind.shared.navigate(forward: true) }
                 }
                 TerminalCommands.findItem(.findPrevious, enabled: focus.canFind) {
-                    TerminalFind.shared.navigate(forward: false)
+                    if !PreviewFind.perform(.previousMatch) { TerminalFind.shared.navigate(forward: false) }
                 }
                 Divider()
                 TerminalCommands.findItem(.useSelectionForFind, enabled: focus.canFind) {
-                    TerminalFind.shared.useSelectionForFind()
+                    if !PreviewFind.perform(.setSearchString) { TerminalFind.shared.useSelectionForFind() }
                 }
             }
         }

@@ -646,6 +646,16 @@ final class GitDiffTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
         baselineOffset.pointee = (lineFragmentRect.pointee.height + Self.codeFont.ascender + Self.codeFont.descender) / 2
         return true
     }
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        FocusedTerminal.shared.refreshSoon()
+        return result
+    }
+    override func resignFirstResponder() -> Bool {
+        let result = super.resignFirstResponder()
+        FocusedTerminal.shared.refreshSoon()
+        return result
+    }
     override var shouldDrawInsertionPoint: Bool { window?.firstResponder === self && window?.isKeyWindow == true }
     var kinds: [GitDiffDocument.Kind?] = []
     override func drawBackground(in rect: NSRect) {

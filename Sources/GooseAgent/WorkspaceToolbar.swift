@@ -140,6 +140,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 }
             }
             updateInformation()
+            FocusedTerminal.shared.refreshSoon()
         }
 
         private func updateInformation() {

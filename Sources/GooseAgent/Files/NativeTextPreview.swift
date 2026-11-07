@@ -214,6 +214,17 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        FocusedTerminal.shared.refreshSoon()
+        return result
+    }
+    override func resignFirstResponder() -> Bool {
+        let result = super.resignFirstResponder()
+        FocusedTerminal.shared.refreshSoon()
+        return result
+    }
+
     func layoutManager(_ layoutManager: NSLayoutManager, shouldSetLineFragmentRect lineFragmentRect: UnsafeMutablePointer<NSRect>,
                        lineFragmentUsedRect: UnsafeMutablePointer<NSRect>, baselineOffset: UnsafeMutablePointer<CGFloat>,
                        in textContainer: NSTextContainer, forGlyphRange glyphRange: NSRange) -> Bool {

@@ -315,10 +315,12 @@ enum FamilyAppearanceTests {
                     expect(abs(center - row.height / 2) < 0.5 && abs(row.height - GitDiffTextView.rowHeight) < 0.1,
                            "Diff Latin, Chinese, emoji and blank alignment rows have centered text in fixed highlight bands")
                 }
+                window.makeFirstResponder(code)
+                expect(PreviewFind.target(in: window) === code, "Search follows the focused side of the diff")
             }
         }
         window.orderOut(nil)
-        print("PASS diff reading: caret row, centered baseline, light/dark selection")
+        print("PASS diff reading: caret row, centered baseline, light/dark selection, focused-side search routing")
     }
 
     @MainActor static func checkSettingsPages(in window: NSWindow) {
