@@ -28,8 +28,7 @@ final class QuickCommandStore: ObservableObject {
     /// 公共文本生成独立副本，不保留来源 ID，也不校验或连接目标主机。
     @discardableResult
     func copyCommand(_ id: UUID, to destination: QuickCommandCollection) throws -> QuickCommand {
-        guard let source = commands.first(where: { $0.id == id }), !source.needsRepair,
-              destination != .all else { throw QuickCommandError.invalidCommand }
+        guard let source = commands.first(where: { $0.id == id }), !source.needsRepair else { throw QuickCommandError.invalidCommand }
         var copy = QuickCommand(alias: source.alias, command: source.command, group: source.group,
                                 scope: destination == .common ? .all : destination == .local ? .local : .host,
                                 host: destination.host)

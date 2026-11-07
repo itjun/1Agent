@@ -25,7 +25,7 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var toolGitPreview: GitPreviewRequest?
     @Published var commandLibraryDraft: QuickCommand?
     @Published var commandLibrarySelection: UUID?
-    @Published var commandLibraryCollection: QuickCommandCollection = .all
+    @Published var commandLibraryCollection: QuickCommandCollection = .common
     @Published var commandLibraryMessage: String?
     @Published var commandLibrarySplitRatio: CGFloat = 0.5
     @Published var isToolPreviewExpanded = false

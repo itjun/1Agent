@@ -292,7 +292,6 @@ extension QuickCommandTests {
         assert(common.scope == .all && common.host == nil && common.directory == nil)
         assert(common.command == remote.command)
         do { _ = try store.copyCommand(source.id, to: .local); fatalError("deleted source copied") } catch {}
-        do { _ = try store.copyCommand(common.id, to: .all); fatalError("all collection is not a destination") } catch {}
         print("Public library: literal independent copies, offline host, no directory binding, deletion independence and persistence passed")
     }
 
@@ -305,11 +304,11 @@ extension QuickCommandTests {
         repair.needsRepair = true
         let commands = [local, folder, deploy, common, repair]
         let collections = QuickCommandCollection.available(in: commands)
-        assert(collections == [.common, .all, .local, .host("build"), .host("removed")])
+        assert(collections == [.common, .local, .host("build"), .host("removed")])
         assert(!collections.contains(.host("production")), "命令中的发布目标不是执行主机")
-        assert(QuickCommandCollection.available(in: []) == [.common, .all])
-        assert(QuickCommandCollection.available(in: [local]) == [.common, .all, .local])
-        assert(QuickCommandCollection.available(in: [folder, deploy]) == [.common, .all, .host("build")])
+        assert(QuickCommandCollection.available(in: []) == [.common])
+        assert(QuickCommandCollection.available(in: [local]) == [.common, .local])
+        assert(QuickCommandCollection.available(in: [folder, deploy]) == [.common, .host("build")])
         assert(QuickCommandCollection.host("build").contains(folder))
         assert(!QuickCommandCollection.host("build").contains(common))
         assert(folder.matchesSearch(" BUILD ") && folder.matchesSearch("/srv/project"))
@@ -324,7 +323,6 @@ extension QuickCommandTests {
         assert(onMac.scope == .local && onMac.host == nil && onMac.directory == nil)
         let shared = QuickCommandCollection.common.draft(in: context)
         assert(shared.scope == .all && shared.host == nil && shared.directory == nil)
-        assert(QuickCommandCollection.all.draft(in: context).host == context.host)
         print("Command collections: bound hosts only, folder ownership, missing-host repair, search and draft context passed")
     }
 }

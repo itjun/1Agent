@@ -32,9 +32,6 @@ struct QuickCommandLibraryView: View {
         store.commands.filter { collection.contains($0) && $0.matchesSearch(query) }.sorted(by: QuickCommand.displayOrder)
     }
     private var selected: QuickCommand? { commands.first { $0.id == selectedID } }
-    private var sections: [QuickCommandCollection] {
-        collection == .all ? collections.filter { $0 != .all } : [collection]
-    }
 
     var body: some View {
         Group {
@@ -50,7 +47,7 @@ struct QuickCommandLibraryView: View {
         }
         .onAppear {
             if let editing { collection = QuickCommandCollection.owner(of: editing) }
-            if !collections.contains(collection) { collection = .all }
+            if !collections.contains(collection) { collection = .common }
             if !commands.contains(where: { $0.id == selectedID }) { selectedID = commands.first?.id }
         }
         .onChange(of: collection) { _, _ in
@@ -60,7 +57,7 @@ struct QuickCommandLibraryView: View {
             if !ids.contains(where: { $0 == selectedID }) { selectedID = ids.first }
         }
         .onChange(of: collections) { _, values in
-            if !values.contains(collection) { collection = .all }
+            if !values.contains(collection) { collection = .common }
         }
         .familySheet(isPresented: Binding(get: { !isWorkspace && editing != nil }, set: { if !$0 && !isWorkspace { editing = nil } }), width: SheetLayout.commandEditor, height: SheetLayout.commandEditorHeight) {
             if let editing {
@@ -153,24 +150,12 @@ struct QuickCommandLibraryView: View {
             }
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: Theme.Space.xs) {
-                    ForEach(sections) { section in
-                        let rows = commands.filter { section.contains($0) }
-                        if !rows.isEmpty {
-                            if collection == .all {
-                                Text(verbatim: section.title).font(Theme.Font.sectionTitle)
-                                    .padding(.horizontal, 10).padding(.top, Theme.Space.s)
-                            }
-                            // 编辑后刷新行里的名称、正文和菜单快照，不复用旧内容。
-                            ForEach(rows) { item in libraryRow(item).id(item) }
-                        }
-                    }
+                    // 编辑后刷新行里的名称、正文和菜单快照，不复用旧内容。
+                    ForEach(commands) { item in libraryRow(item).id(item) }
                     if commands.isEmpty {
                         Text(query.isEmpty && collection == .common ? "No Library Commands" : store.commands.isEmpty ? "Your command library is empty." : "No matching commands")
                             .foregroundStyle(chrome.secondary).padding(.vertical, Theme.Space.l)
-                        if collection != .all && !query.isEmpty {
-                            Button("Search All Commands") { collection = .all }
-                                .buttonStyle(FamilyButtonStyle())
-                        }
+
                     }
                 }
             }.frame(maxHeight: .infinity)
@@ -312,7 +297,7 @@ struct QuickCommandLibraryHeader: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
-            Image(systemName: collection == .common ? "books.vertical" : collection == .local ? "laptopcomputer" : collection.host == nil ? "square.stack" : "terminal")
+            Image(systemName: collection == .common ? "books.vertical" : collection == .local ? "laptopcomputer" : "terminal")
             Text(verbatim: collection.title).font(.headline).lineLimit(1)
             Spacer(minLength: 0)
             FamilyMenu("Actions", items: { libraryActions })
@@ -387,7 +372,7 @@ struct QuickCommandLibraryNavigation: View {
             window.commandLibraryCollection = value
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: value == .common ? "books.vertical" : value == .local ? "laptopcomputer" : value.host == nil ? "square.stack" : "terminal")
+                Image(systemName: value == .common ? "books.vertical" : value == .local ? "laptopcomputer" : "terminal")
                 Text(verbatim: value.title).lineLimit(2)
                 Spacer(minLength: 0)
                 Text(verbatim: String(store.commands.filter { value.contains($0) }.count)).foregroundStyle(chrome.secondary)
@@ -398,7 +383,7 @@ struct QuickCommandLibraryNavigation: View {
         }.buttonStyle(.plain).accessibilityAddTraits(window.commandLibraryCollection == value ? .isSelected : [])
             .accessibilityIdentifier("quickCommands.library.collection." + value.id)
             .background {
-                if value != .all && value != .common {
+                if value != .common {
                     QuickCommandCopyTarget(chrome: chrome) { model.copyLibraryCommand($0, to: value, in: window) }
                 }
             }

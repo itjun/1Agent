@@ -23,11 +23,10 @@ struct QuickCommandContext: Equatable, Sendable {
 
 /// 管理页按执行主机归类，不从命令正文推断发布目标。
 enum QuickCommandCollection: Hashable, Identifiable {
-    case all, common, local, host(String)
+    case common, local, host(String)
 
     var id: String {
         switch self {
-        case .all: "all"
         case .common: "common"
         case .local: "local"
         case .host(let host): "host:" + host
@@ -35,7 +34,6 @@ enum QuickCommandCollection: Hashable, Identifiable {
     }
     var title: String {
         switch self {
-        case .all: String(localized: "All Commands")
         case .common: String(localized: "Command Library")
         case .local: String(localized: "This Mac")
         case .host(let host): host
@@ -49,15 +47,15 @@ enum QuickCommandCollection: Hashable, Identifiable {
         if item.scope == .all { return .common }
         return item.host.map(Self.host) ?? .local
     }
-    func contains(_ item: QuickCommand) -> Bool { self == .all || self == Self.owner(of: item) }
+    func contains(_ item: QuickCommand) -> Bool { self == Self.owner(of: item) }
     static func available(in commands: [QuickCommand]) -> [Self] {
         let owners = Set(commands.map(Self.owner))
         let hosts = owners.compactMap(\.host).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        return [.common, .all] + [.local].filter { owners.contains($0) } + hosts.map(Self.host)
+        return [.common] + [.local].filter { owners.contains($0) } + hosts.map(Self.host)
     }
     func draft(in context: QuickCommandContext) -> QuickCommand {
         if self == .common { return QuickCommand(scope: .all) }
-        let target = self == .all ? context.host : host
+        let target = host
         let directory = target == context.host ? context.directory : nil
         return QuickCommand(scope: directory == nil ? (target == nil ? .local : .host) : .directory,
                             host: target, directory: directory)
