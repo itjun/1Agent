@@ -57,6 +57,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
         private var toolbar: NSToolbar?
         private var toolsItem: NSToolbarItem?
         private var toolsWidth: NSLayoutConstraint?
+        private var toolsView: NSHostingView<WorkspaceToolbarTools>?
         private var informationItem: NSToolbarItem?
         private var informationView: NSHostingView<AnyView>?
         private var informationWidth: NSLayoutConstraint?
@@ -161,7 +162,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 .frame(width: isPageToolbar ? width : nil, height: 28))
         }
 
-        @objc private func windowDidResize(_ notification: Notification) { updateInformation() }
+        @objc private func windowDidResize(_ notification: Notification) { update() }
 
         func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
             [sidebar, navigationSeparator, information, .flexibleSpace, tools]
@@ -177,7 +178,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 return NSTrackingSeparatorToolbarItem(identifier: id, splitView: splitView, dividerIndex: 0)
             }
             if id == tools {
-                let control = NSHostingView(rootView: WorkspaceToolbarTools(model: model, state: state, visibility: visibility))
+                let control = NSHostingView(rootView: WorkspaceToolbarTools(model: model, state: state, visibility: visibility, tabsWidth: toolTabsWidth))
                 control.sizingOptions = []
                 let width = control.widthAnchor.constraint(equalToConstant: toolGroupWidth)
                 width.isActive = true
@@ -189,6 +190,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 item.visibilityPriority = .high
                 if #available(macOS 26.0, *) { item.isBordered = false }
                 toolsItem = item
+                toolsView = control
                 toolsWidth = width
                 return item
             }
@@ -233,20 +235,28 @@ struct WorkspaceToolbar: NSViewRepresentable {
             }
         }
 
-        private var toolGroupWidth: CGFloat {
-            let minimumWidth: CGFloat = 236
-            guard let content = window?.contentView,
-                  let split = findSplitView(in: content, identifier: "workspace.inspectorSplit"),
-                  let inspectorView = split.arrangedSubviews.last, !split.isSubviewCollapsed(inspectorView) else {
-                return max(minimumWidth, CGFloat(state.presentation.toolSidebarWidth) - 2 * Theme.Space.s)
+        private var toolTabsWidth: CGFloat {
+            let sidebarWidth: CGFloat
+            if let content = window?.contentView,
+               let split = findSplitView(in: content, identifier: "workspace.inspectorSplit"),
+               let inspector = split.arrangedSubviews.last, !split.isSubviewCollapsed(inspector) {
+                sidebarWidth = inspector.frame.width
+            } else {
+                sidebarWidth = CGFloat(state.presentation.toolSidebarWidth)
             }
-            return max(minimumWidth, inspectorView.frame.width - 2 * Theme.Space.s)
+            return max(WorkspaceToolbarTools.height * 3, sidebarWidth - 2 * Theme.Space.s)
+        }
+
+        private var toolGroupWidth: CGFloat {
+            guard state.presentation.toolSidebarOpen else { return WorkspaceToolbarTools.height }
+            return toolTabsWidth + WorkspaceToolbarTools.height + 2 * Theme.Space.s
         }
 
         private func updateToolWidth() {
             guard let toolsWidth else { return }
             let width = toolGroupWidth
             if abs(toolsWidth.constant - width) > 0.5 { toolsWidth.constant = width }
+            toolsView?.rootView = WorkspaceToolbarTools(model: model, state: state, visibility: visibility, tabsWidth: toolTabsWidth)
             toolsItem?.minSize = NSSize(width: width, height: WorkspaceToolbarTools.height)
             toolsItem?.maxSize = NSSize(width: width, height: WorkspaceToolbarTools.height)
         }
@@ -255,78 +265,77 @@ struct WorkspaceToolbar: NSViewRepresentable {
     }
 }
 
-/// 工具入口保留布局占位，按需淡入；不再使用醒目的玻璃底座。
+/// 开关属于终端，三个文字选项在右侧栏内等宽排列。
 private struct WorkspaceToolbarTools: View {
     static let height: CGFloat = 36
-    static let buttonDiameter: CGFloat = 28
     @ObservedObject var model: AppModel
     @ObservedObject var state: WindowState
     @ObservedObject var visibility: WorkspaceToolbarVisibility
+    var tabsWidth: CGFloat
     @ObservedObject private var appearance = AppearanceDriver.shared
+    @FocusState private var isControlFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var isMotionReduced
-    @FocusState private var focusedControl: String?
+    @State private var hoveredTab: WorkspaceToolTab?
 
-    private var isVisible: Bool {
-        visibility.isRevealed || state.presentation.toolSidebarOpen || focusedControl != nil
-            || NSWorkspace.shared.isVoiceOverEnabled
+    private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearance.isDark) }
+    private var isToggleVisible: Bool {
+        visibility.isRevealed || isControlFocused || NSWorkspace.shared.isVoiceOverEnabled
     }
 
     var body: some View {
-        controls
-            .background(Color.primary.opacity(appearance.isDark ? 0.035 : 0.025), in: Capsule())
-            .opacity(isVisible ? 1 : 0)
-            .allowsHitTesting(isVisible)
-            .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isVisible)
-            .preferredColorScheme(appearance.interfaceColorScheme)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(String(localized: "Workspace Tools"))
-            .accessibilityIdentifier("workspace.tools")
-    }
-
-    private var controls: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 2 * Theme.Space.s) {
             Button {
                 model.toggleToolSidebar(in: state)
             } label: {
                 Image(systemName: "sidebar.right")
                     .font(.system(size: 14, weight: .medium))
-                    .frame(width: Self.buttonDiameter, height: Self.buttonDiameter)
-                    .contentShape(Circle())
-                    .frame(maxWidth: .infinity)
+                    .frame(width: Self.height, height: Self.height)
+                    .contentShape(Rectangle())
             }
+            .focused($isControlFocused)
             .help(AppShortcutID.toggleToolSidebar.title + " (" + AppShortcuts.display(for: .toggleToolSidebar) + ")")
             .accessibilityLabel(AppShortcutID.toggleToolSidebar.title)
             .accessibilityIdentifier("workspace.inspector")
-            .focused($focusedControl, equals: "inspector")
-            ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
-                let isSelected = state.presentation.toolSidebarOpen && state.toolSidebarTab == tab
-                Button {
-                    if isSelected {
-                        model.toggleToolSidebar(in: state)
-                    } else {
-                        if tab == .changes { state.toolGitBranchComparison = false }
-                        state.toolSidebarTab = tab
-                        if !state.presentation.toolSidebarOpen { model.toggleToolSidebar(in: state) }
+            .opacity(isToggleVisible ? 1 : 0)
+            .allowsHitTesting(isToggleVisible)
+            .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
+
+            if state.presentation.toolSidebarOpen {
+                HStack(spacing: 0) {
+                    ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
+                        let isSelected = state.toolSidebarTab == tab
+                        Button {
+                            if tab == .changes { state.toolGitBranchComparison = false }
+                            state.toolSidebarTab = tab
+                        } label: {
+                            Text(verbatim: tab.title)
+                                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                                .foregroundStyle(isSelected ? chrome.text : chrome.secondary)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: Self.height - 8)
+                                .background(isSelected ? chrome.accentFill : hoveredTab == tab ? chrome.hoverFill : .clear,
+                                            in: RoundedRectangle(cornerRadius: 6))
+                                .padding(.horizontal, 2)
+                                .frame(height: Self.height)
+                                .contentShape(Rectangle())
+                        }
+                        .onHover { hoveredTab = $0 ? tab : nil }
+                        .help(tab.title)
+                        .accessibilityLabel(tab.title)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                        .accessibilityIdentifier("workspace.tools.\(tab.rawValue)")
                     }
-                } label: {
-                    Image(systemName: tab.symbol)
-                        .font(.system(size: 14, weight: .medium))
-                        .frame(width: Self.buttonDiameter, height: Self.buttonDiameter)
-                        .foregroundStyle(isSelected ? Color.white : Color.primary)
-                        .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
-                        .contentShape(Circle())
-                        .frame(maxWidth: .infinity)
                 }
-                .help(tab.title)
-                .accessibilityLabel(tab.title)
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityIdentifier("workspace.tools.\(tab.rawValue)")
-                .focused($focusedControl, equals: tab.rawValue)
+                .frame(width: tabsWidth)
             }
         }
         .buttonStyle(.plain)
-        .padding(4)
         .frame(height: Self.height)
+        .preferredColorScheme(appearance.interfaceColorScheme)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "Workspace Tools"))
+        .accessibilityIdentifier("workspace.tools")
     }
 }
 
