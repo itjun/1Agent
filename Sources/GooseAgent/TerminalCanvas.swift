@@ -78,13 +78,14 @@ struct TerminalCanvas: View {
                         dark: terminalIsDark,
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
-                        isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace,
+                        isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace
+                            && !window.isToolReadingExpanded,
                         isSelected: isSelected,
                         contentCornerRadius: 0,
                         isHeaderIntegrated: false,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
-                                !window.presentation.fullFilesWorkspace
+                                !window.presentation.fullFilesWorkspace && !window.isToolReadingExpanded
                         },
                         takeInitialInput: { model.takeInitialInput(for: tab.id) },
                         takeRemoteStartupCommand: { model.takeRemoteStartupCommand(for: tab.id) },

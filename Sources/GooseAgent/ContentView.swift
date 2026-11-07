@@ -43,7 +43,8 @@ struct RootView: View {
             VStack(spacing: 0) {
                 NativeSidebarSplit(
                     collapsed: collapsed, isDividerHidden: false,
-                    toolbarIdentifier: "workspace.navigationSplit", width: shownSidebarWidth,
+                    toolbarIdentifier: "workspace.navigationSplit",
+                    extendsSidebarIntoTitlebar: !window.isToolReadingExpanded, width: shownSidebarWidth,
                     minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
                     defaultWidth: SidebarLayout.defaultWidth,
                     onWidthChange: {
@@ -52,6 +53,8 @@ struct RootView: View {
                     }
                 ) {
                     sidebar
+                        .allowsHitTesting(!window.isToolReadingExpanded)
+                        .accessibilityHidden(window.isToolReadingExpanded)
                         .padding(.top, Theme.Space.s)
                         .background {
                             AppTheme.navigationBackground(isDark: appearanceDriver.isDark).color
@@ -73,6 +76,32 @@ struct RootView: View {
                         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
 
                 }
+            }
+            .overlay(alignment: .topLeading) {
+                let leftWidth = collapsed ? 0 : shownSidebarWidth + 1
+                let detailWidth = max(0, geometry.size.width - leftWidth)
+                let rightWidth = ToolSidebarLayout.visibleWidth(detailWidth: detailWidth,
+                    open: window.presentation.toolSidebarOpen && !commandsMode,
+                    filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
+                let previewWidth = WorkspacePreviewLayout.visibleWidth(
+                    available: max(0, detailWidth - rightWidth - 1),
+                    isOpen: rightWidth > 0 && window.isToolPreviewOpen,
+                    preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
+                let readingWidth = max(0, geometry.size.width - rightWidth - 1)
+                let frame = CGRect(x: window.isToolReadingExpanded ? 0 : readingWidth - previewWidth,
+                    y: window.workspaceToolbarHeight,
+                    width: window.isToolReadingExpanded ? readingWidth : previewWidth,
+                    height: max(0, geometry.size.height - window.workspaceToolbarHeight))
+                if previewWidth > 0 {
+                    WorkspaceFilePreview(model: model, window: window)
+                        .frame(width: frame.width, height: frame.height)
+                        .background(AppTheme.terminalPaneBackground(isDark: appearanceDriver.isDark, isFocused: true).color)
+                        .offset(x: frame.minX, y: frame.minY)
+                }
+                Color.clear.frame(width: 0, height: 0)
+                    .onGeometryChange(for: CGRect.self) { _ in previewWidth > 0 ? frame : .zero } action: {
+                        window.toolPreviewFrame = $0
+                    }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
@@ -106,7 +135,7 @@ struct RootView: View {
         .background(WorkspaceToolbar(model: model, state: window, visibility: toolbarVisibility))
         .overlay(alignment: .top) {
             ToolbarBoundarySeparator(onHover: toolbarVisibility.setHovered)
-                .padding(.leading, sidebarIsCollapsed(totalWidth: availableWidth) ? 0 : sidebarDisplayWidth(totalWidth: availableWidth) + 1)
+                .padding(.leading, window.isToolReadingExpanded || sidebarIsCollapsed(totalWidth: availableWidth) ? 0 : sidebarDisplayWidth(totalWidth: availableWidth) + 1)
                 .frame(height: 8).offset(y: -4)
         }
         .modifier(HostInformationPresentation(model: model, window: window))
@@ -467,10 +496,9 @@ struct RootView: View {
             let terminalWidth = max(0, geometry.size.width - (previewWidth > 0 ? previewWidth + ShellLayout.workspaceInset : 0))
             ZStack(alignment: .topLeading) {
                 workspaceSurface.frame(width: terminalWidth)
+                    .allowsHitTesting(!window.isToolReadingExpanded)
+                    .accessibilityHidden(window.isToolReadingExpanded)
                 if previewWidth > 0 {
-                    WorkspaceFilePreview(model: model, window: window)
-                        .frame(width: previewWidth, height: geometry.size.height)
-                        .offset(x: terminalWidth + ShellLayout.workspaceInset)
                     Divider().offset(x: terminalWidth)
                     PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
                         if previewDragStart == nil { previewDragStart = Double(previewWidth) }

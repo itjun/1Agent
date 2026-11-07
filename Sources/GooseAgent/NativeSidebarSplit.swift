@@ -82,6 +82,7 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     var isDividerHidden: Bool = false
     var isTrailing: Bool = false
     var toolbarIdentifier: String?
+    var extendsSidebarIntoTitlebar = true
     var width: CGFloat
     var minimumWidth: CGFloat
     var maximumWidth: CGFloat
@@ -106,7 +107,7 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
         controller.splitView.identifier = toolbarIdentifier.map { NSUserInterfaceItemIdentifier($0) }
         controller.configure(width: width, minimum: minimumWidth,
                              maximum: maximumWidth, defaultWidth: defaultWidth, collapsed: collapsed,
-                             isDividerHidden: isDividerHidden,
+                             isDividerHidden: isDividerHidden, extendsSidebarIntoTitlebar: extendsSidebarIntoTitlebar,
                              onWidthChange: onWidthChange)
     }
 }
@@ -174,6 +175,7 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
 
     func configure(width: CGFloat, minimum: CGFloat, maximum: CGFloat,
                    defaultWidth: CGFloat, collapsed: Bool = false, isDividerHidden: Bool = false,
+                   extendsSidebarIntoTitlebar: Bool = true,
                    onWidthChange: @escaping (CGFloat) -> Void) {
         applying = true
         defer { applying = false }
@@ -189,11 +191,12 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
             item.canCollapse = true
             item.canCollapseFromWindowResize = false
             // 左侧自标题栏贯穿到底部；右侧工具面板从通栏下方开始。
-            item.allowsFullHeightLayout = !isTrailing
             item.holdingPriority = NSLayoutConstraint.Priority(260)
             configured = true
         }
         let item = sidebarItem
+        // 阅读覆盖导航时释放其标题栏占位，内容与终端仍保留在原分栏中。
+        item.allowsFullHeightLayout = !isTrailing && extendsSidebarIntoTitlebar
         item.minimumThickness = minimum
         item.maximumThickness = maximum
         item.isCollapsed = collapsed

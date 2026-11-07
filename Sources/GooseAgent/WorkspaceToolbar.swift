@@ -105,12 +105,28 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 : state.presentation.fullFilesWorkspace ? String(localized: "Files")
                 : tab.map { model.sessionTitle($0) } ?? String(localized: "1Agent")
             isPageToolbar = !isTerminal
+            if let window {
+                let height = max(0, window.frame.height - window.contentLayoutRect.maxY)
+                if abs(state.workspaceToolbarHeight - height) > 0.5 {
+                    DispatchQueue.main.async { [weak self] in self?.state.workspaceToolbarHeight = height }
+                }
+            }
             if let toolbar {
+                let leadingItems = [sidebar, navigationSeparator, information]
+                for (position, id) in leadingItems.enumerated() {
+                    if state.isToolReadingExpanded {
+                        if let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == id }) {
+                            toolbar.removeItem(at: index)
+                        }
+                    } else if !toolbar.items.contains(where: { $0.itemIdentifier == id }) {
+                        toolbar.insertItem(withItemIdentifier: id, at: min(position, toolbar.items.count))
+                    }
+                }
                 for id in [NSToolbarItem.Identifier.flexibleSpace] {
-                    if isPageToolbar, let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == id }) {
+                    if isPageToolbar || state.isToolReadingExpanded, let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == id }) {
                         toolbar.removeItem(at: index)
-                    } else if !isPageToolbar && !toolbar.items.contains(where: { $0.itemIdentifier == id }) {
-                        toolbar.insertItem(withItemIdentifier: id, at: toolbar.items.count)
+                    } else if !isPageToolbar && !state.isToolReadingExpanded && !toolbar.items.contains(where: { $0.itemIdentifier == id }) {
+                        toolbar.insertItem(withItemIdentifier: id, at: toolbar.items.firstIndex(where: { $0.itemIdentifier == tools }) ?? toolbar.items.count)
                     }
                 }
                 let index = toolbar.items.firstIndex { $0.itemIdentifier == tools }
@@ -181,6 +197,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 let control = NSHostingView(rootView: WorkspaceToolbarTools(model: model, state: state, visibility: visibility, tabsWidth: toolTabsWidth))
                 control.sizingOptions = []
                 let width = control.widthAnchor.constraint(equalToConstant: toolGroupWidth)
+                width.priority = .defaultLow
                 width.isActive = true
                 control.heightAnchor.constraint(equalToConstant: WorkspaceToolbarTools.height).isActive = true
                 let item = NSToolbarItem(itemIdentifier: id)
@@ -249,7 +266,13 @@ struct WorkspaceToolbar: NSViewRepresentable {
 
         private var toolGroupWidth: CGFloat {
             guard state.presentation.toolSidebarOpen else { return WorkspaceToolbarTools.height }
-            return toolTabsWidth + WorkspaceToolbarTools.height + 2 * Theme.Space.s
+            let tabsWidth = toolTabsWidth
+            if state.isToolReadingExpanded {
+                return window?.frame.width ?? state.toolPreviewFrame.width + tabsWidth
+            }
+            let previewWidth = state.toolPreviewFrame.width
+            return tabsWidth + WorkspaceToolbarTools.height + 2 * Theme.Space.s
+                + (previewWidth > 0 ? previewWidth + 2 * Theme.Space.s : 0)
         }
 
         private func updateToolWidth() {
@@ -257,7 +280,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
             let width = toolGroupWidth
             if abs(toolsWidth.constant - width) > 0.5 { toolsWidth.constant = width }
             toolsView?.rootView = WorkspaceToolbarTools(model: model, state: state, visibility: visibility, tabsWidth: toolTabsWidth)
-            toolsItem?.minSize = NSSize(width: width, height: WorkspaceToolbarTools.height)
+            toolsItem?.minSize = NSSize(width: state.isToolReadingExpanded ? toolTabsWidth + 220 : width, height: WorkspaceToolbarTools.height)
             toolsItem?.maxSize = NSSize(width: width, height: WorkspaceToolbarTools.height)
         }
 
@@ -284,22 +307,29 @@ private struct WorkspaceToolbarTools: View {
 
     var body: some View {
         HStack(spacing: 2 * Theme.Space.s) {
-            Button {
-                model.toggleToolSidebar(in: state)
-            } label: {
-                Image(systemName: "sidebar.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: Self.height, height: Self.height)
-                    .contentShape(Rectangle())
-            }
-            .focused($isControlFocused)
-            .help(AppShortcutID.toggleToolSidebar.title + " (" + AppShortcuts.display(for: .toggleToolSidebar) + ")")
-            .accessibilityLabel(AppShortcutID.toggleToolSidebar.title)
-            .accessibilityIdentifier("workspace.inspector")
-            .opacity(isToggleVisible ? 1 : 0)
-            .allowsHitTesting(isToggleVisible)
-            .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
+            if !state.isToolReadingExpanded {
+                Button {
+                    model.toggleToolSidebar(in: state)
+                } label: {
+                    Image(systemName: "sidebar.right")
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: Self.height, height: Self.height)
+                        .contentShape(Rectangle())
+                }
+                .focused($isControlFocused)
+                .help(AppShortcutID.toggleToolSidebar.title + " (" + AppShortcuts.display(for: .toggleToolSidebar) + ")")
+                .accessibilityLabel(AppShortcutID.toggleToolSidebar.title)
+                .accessibilityIdentifier("workspace.inspector")
+                .opacity(isToggleVisible ? 1 : 0)
+                .allowsHitTesting(isToggleVisible)
+                .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
 
+            }
+            if state.toolPreviewFrame.width > 0 {
+                WorkspacePreviewToolbar(model: model, state: state)
+                    .frame(width: state.isToolReadingExpanded ? nil : state.toolPreviewFrame.width)
+                    .frame(maxWidth: state.isToolReadingExpanded ? .infinity : nil)
+            }
             if state.presentation.toolSidebarOpen {
                 HStack(spacing: 0) {
                     ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
@@ -336,6 +366,63 @@ private struct WorkspaceToolbarTools: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Workspace Tools"))
         .accessibilityIdentifier("workspace.tools")
+    }
+}
+
+/// 文件和改动预览共用通栏标题及阅读操作。
+private struct WorkspacePreviewToolbar: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var state: WindowState
+    var body: some View {
+        HStack(spacing: 8) {
+            if let request = state.toolGitPreview {
+                FileTypeIcon(name: (request.change.path as NSString).lastPathComponent)
+                Text(verbatim: (request.change.path as NSString).lastPathComponent)
+                    .lineLimit(1).truncationMode(.middle).help(request.change.path)
+                if let stats = request.change.lineStats { GitLineStatsLabel(stats: stats).fixedSize() }
+            } else if let column = state.toolPreviewColumn {
+                WorkspacePreviewFileTitle(column: column)
+            }
+            Spacer(minLength: 4)
+            Button {
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                state.isToolPreviewExpanded.toggle()
+            } label: {
+                Image(systemName: state.isToolReadingExpanded
+                    ? "arrow.down.left.and.arrow.up.right" : "arrow.up.right.and.arrow.down.left")
+                    .frame(width: 28, height: 32).contentShape(Rectangle())
+            }
+            .help(state.isToolReadingExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
+            .accessibilityLabel(state.isToolReadingExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
+            .accessibilityIdentifier("workspace.preview.expand")
+            Button { state.toolPreviewFindRequest += 1 } label: {
+                Image(systemName: "magnifyingglass").frame(width: 28, height: 32).contentShape(Rectangle())
+            }
+            .help(String(localized: "Find in Preview") + " (" + AppShortcuts.display(for: .find) + ")").accessibilityLabel(Text("Find in Preview"))
+            .accessibilityIdentifier("workspace.preview.find")
+            Button {
+                state.closeToolPreview()
+                if let tab = model.selectedTab(in: state) { SSHTerminalRegistry.focus(tab.sessionID) }
+            } label: {
+                Image(systemName: "xmark").frame(width: 28, height: 32).contentShape(Rectangle())
+            }
+            .help("Close Preview").accessibilityLabel(Text("Close Preview"))
+            .accessibilityIdentifier("workspace.preview.close")
+        }
+        .font(Theme.Font.paneTitle)
+        .padding(.horizontal, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("workspace.preview.toolbar")
+    }
+}
+
+private struct WorkspacePreviewFileTitle: View {
+    @ObservedObject var column: FileColumn
+    var body: some View {
+        if let preview = column.preview {
+            FileTypeIcon(name: preview.entry.name)
+            Text(verbatim: preview.entry.name).lineLimit(1).truncationMode(.middle).help(preview.entry.path)
+        }
     }
 }
 

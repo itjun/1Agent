@@ -397,28 +397,24 @@ struct WorkspaceFilePreview: View {
     @ObservedObject var window: WindowState
     var body: some View {
         if let request = window.toolGitPreview {
-            WorkspaceGitPreview(request: request, onClose: close)
-                .modifier(FloatingContentSurface())
+            WorkspaceGitPreview(request: request, findRequest: window.toolPreviewFindRequest)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("workspace.gitPreview")
         } else if let column = window.toolPreviewColumn {
-            TextPreviewDrawer(column: column, onClose: close, isWorkspaceCard: true)
-                .modifier(FloatingContentSurface())
+            TextPreviewDrawer(column: column, onClose: close, isWorkspaceCard: true, showsHeader: false, externalFindRequest: window.toolPreviewFindRequest)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("workspace.filePreview")
         }
     }
     private func close() {
-        window.toolPreviewColumn?.preview = nil
-        window.toolPreviewColumn = nil
-        window.toolGitPreview = nil
+        window.closeToolPreview()
         if let tab = model.selectedTab(in: window) { SSHTerminalRegistry.focus(tab.sessionID) }
     }
 }
 
 private struct WorkspaceGitPreview: View {
     let request: GitPreviewRequest
-    let onClose: () -> Void
+    var findRequest: Int
     @State private var document = GitDiffDocument("")
     @State private var loadedRequest: GitPreviewRequest?
     @State private var loadedText: String?
@@ -429,23 +425,6 @@ private struct WorkspaceGitPreview: View {
         GeometryReader { geometry in
             let isSideBySide = document.isPatch && GitDiffDocument.isSideBySide(width: geometry.size.width)
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    FileTypeIcon(name: (request.change.path as NSString).lastPathComponent)
-                    Text(verbatim: (request.change.path as NSString).lastPathComponent)
-                        .font(Theme.Font.paneTitle).lineLimit(1).truncationMode(.middle)
-                        .help(request.change.path)
-                    if let stats = request.change.lineStats {
-                        GitLineStatsLabel(stats: stats).font(Theme.Font.rowMeta).fixedSize()
-                    }
-                    Spacer(minLength: 4)
-                    Text(isSideBySide ? "Side-by-side Diff" : "Unified Diff")
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                    Button(action: onClose) { Image(systemName: "xmark") }
-                        .buttonStyle(PreviewCardButtonStyle()).help("Close Preview")
-                        .accessibilityLabel(Text("Close Preview"))
-                        .accessibilityIdentifier("workspace.gitPreview.close")
-                }.padding(.horizontal, 12).frame(height: 36)
-                    .background(Color.clear)
                 if isLoading { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
                 else if let error {
                     ScrollView(showsIndicators: false) { Text(verbatim: error).foregroundStyle(chrome.danger).padding(12).textSelection(.enabled) }
@@ -459,7 +438,7 @@ private struct WorkspaceGitPreview: View {
                         }.font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                             .padding(.horizontal, 12).frame(height: 28)
                     }
-                    NativeGitDiff(document: document, chrome: chrome)
+                    NativeGitDiff(document: document, chrome: chrome, findRequest: findRequest)
                 }
             }.foregroundStyle(chrome.text).background(Color.clear)
         }
@@ -483,9 +462,11 @@ private struct WorkspaceGitPreview: View {
 struct NativeGitDiff: NSViewRepresentable {
     let document: GitDiffDocument
     let chrome: WindowChrome
+    var findRequest = 0
     func makeNSView(context: Context) -> GitDiffContainer { GitDiffContainer() }
     func updateNSView(_ view: GitDiffContainer, context: Context) {
         view.update(document: document, foreground: NSColor(chrome.text), background: NSColor(chrome.background), secondary: NSColor(chrome.secondary))
+        view.requestFind(findRequest)
     }
 }
 
@@ -498,6 +479,17 @@ final class GitDiffContainer: NSView {
     private var background: NSColor?
     private var secondary: NSColor?
     private var isPatch = false
+    private var lastFindRequest = 0
+    func requestFind(_ request: Int) {
+        guard request != lastFindRequest else { return }
+        lastFindRequest = request
+        let code = (window?.firstResponder as? GitDiffTextView).flatMap { $0.isDescendant(of: self) ? $0 : nil }
+            ?? (unified.isHidden ? after.code : unified.code)
+        window?.makeFirstResponder(code)
+        let item = NSMenuItem()
+        item.tag = NSTextFinder.Action.showFindInterface.rawValue
+        code.performFindPanelAction(item)
+    }
     private var isSynchronizing = false
     private var observers: [NSObjectProtocol] = []
     override var isFlipped: Bool { true }
@@ -564,6 +556,8 @@ private final class GitDiffTextScroll: NSScrollView {
         drawsBackground = false
         code.drawsBackground = false
         code.isEditable = false; code.isSelectable = true; code.isRichText = false
+        code.usesFindBar = true
+        code.isIncrementalSearchingEnabled = true
         code.isHorizontallyResizable = true; code.isVerticallyResizable = true
         code.textContainer?.widthTracksTextView = false
         code.textContainer?.containerSize = NSSize(width: 10_000_000, height: 10_000_000)

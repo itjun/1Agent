@@ -28,20 +28,38 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var commandLibraryCollection: QuickCommandCollection = .all
     @Published var commandLibraryMessage: String?
     @Published var commandLibrarySplitRatio: CGFloat = 0.5
+    @Published var isToolPreviewExpanded = false
+    @Published var toolPreviewFrame: CGRect = .zero
+    @Published var workspaceToolbarHeight: CGFloat = 52
+    @Published var toolPreviewFindRequest = 0
+    var isToolReadingExpanded: Bool {
+        isToolPreviewExpanded && isToolPreviewOpen && presentation.toolSidebarOpen
+            && section == .terminals && !presentation.fullFilesWorkspace
+    }
+    func closeToolPreview() {
+        isToolPreviewExpanded = false
+        toolPreviewFindRequest = 0
+        toolPreviewColumn?.preview = nil
+        toolPreviewColumn = nil
+        toolGitPreview = nil
+    }
     @Published var isToolPreviewEqualSplit = false
     var isToolPreviewOpen: Bool { toolPreviewColumn != nil || toolGitPreview != nil }
     func openToolGitPreview(_ request: GitPreviewRequest) {
+        if toolPreviewColumn != nil { toolPreviewFindRequest = 0 }
         prepareToolPreview()
         toolPreviewColumn = nil
         toolGitPreview = request
     }
     func openToolFilePreview(_ column: FileColumn) {
+        if toolGitPreview != nil { toolPreviewFindRequest = 0 }
         prepareToolPreview()
         toolGitPreview = nil
         toolPreviewColumn = column
     }
     private func prepareToolPreview() {
         guard !isToolPreviewOpen else { return }
+        isToolPreviewExpanded = false
         toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
         isToolPreviewEqualSplit = false
     }
@@ -52,8 +70,7 @@ final class WindowState: ObservableObject, Identifiable {
         toolContextSessionID = sessionID
         toolContextLocation = location
         toolGitBranchComparison = false
-        toolPreviewColumn = nil
-        toolGitPreview = nil
+        closeToolPreview()
     }
     @Published var presentation = WorkspacePresentation()
     /// An explicit reveal wins over automatic narrow-window collapse until hidden again.

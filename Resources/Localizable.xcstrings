@@ -1,6 +1,38 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Expand Reading" : {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand Reading"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开阅读"
+          }
+        }
+      }
+    },
+    "Collapse Reading" : {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse Reading"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收起阅读"
+          }
+        }
+      }
+    },
     "Open in Finder" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open in Finder"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "在访达中打开"}}}},
     "Choose Application…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose Application…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择其他应用…"}}}},
     "Desktop apps require a local folder." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Desktop apps require a local folder."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "桌面应用仅支持本机目录"}}}},

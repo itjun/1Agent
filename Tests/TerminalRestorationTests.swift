@@ -142,10 +142,99 @@ enum TerminalRestorationTests {
                 expect(host.session.readScreenText()?.text.contains("FRESH_INPUT_\(index)") == true, "Input must work after old output is restored")
             }
         }
+        if saving { try await readingOverlay(model: model, state: state, window: native, terminal: views[ids[0]]!, home: home) }
         model.isQuitting = true
         try await model.prepareForApplicationExit()
         try defaults.data(forKey: SessionSnapshot.storageKey)!.write(to: snapshotURL)
         print("PASS \(saving ? "save" : "cold restore"): two independent terminals, scrollback, Unicode, no duplication and no PTY replay")
+    }
+
+    /// 完整 RootView 上反复展开，真实 cat PTY 持续收发；不读取或启动用户会话。
+    @MainActor static func readingOverlay(model: AppModel, state: WindowState, window: NSWindow,
+                                          terminal: SSHTerminalNSView, home: String) async throws {
+        let file = URL(fileURLWithPath: home).appendingPathComponent("reading-fixture.txt")
+        try Data("阅读测试\nsecond line\n".utf8).write(to: file)
+        let column = FileColumn(fileSystem: LocalFileSystem())
+        let entry = try await LocalFileSystem().list(home).first { $0.path == file.path }!
+        column.showPreview(entry)
+        state.presentation.sidebarCollapsed = false
+        state.presentation.toolSidebarOpen = true
+        state.toolSidebarTab = .files
+        window.setContentSize(NSSize(width: 1440, height: 900))
+        try await Task.sleep(for: .milliseconds(300))
+        state.openToolFilePreview(column)
+        state.toolPreviewWidth = 390
+        try await Task.sleep(for: .milliseconds(300))
+        let host = terminal.processHost!
+        let pid = host.process.shellPid
+        let identity = host.process.identity
+        let terminalSize = terminal.bounds.size
+        let normalFrame = state.toolPreviewFrame
+        let rightWidth = state.presentation.toolSidebarWidth
+        expect(normalFrame.minX > 260 && normalFrame.width == 390, "Normal preview retains navigation and terminal")
+        func hasToolbarControls() -> Bool {
+            guard let toolbar = window.toolbar else { return false }
+            let items = toolbar.visibleItems ?? []
+            return items.contains { $0.itemIdentifier.rawValue == "workspace.tools" }
+        }
+        func separator(_ view: NSView) -> NSView? {
+            if view.identifier?.rawValue == "workspace.toolbarSeparator" { return view }
+            return view.subviews.compactMap(separator).first
+        }
+        expect(hasToolbarControls(), "Normal preview actions must not overflow the native toolbar")
+        for cycle in 0..<3 {
+            state.isToolPreviewExpanded = true
+            try await Task.sleep(for: .milliseconds(250))
+            expect(state.toolPreviewFrame.minX == 0 && state.toolPreviewFrame.maxX == normalFrame.maxX,
+                   "Expanded reading covers navigation and terminal, retaining the right list")
+            expect(hasToolbarControls(), "Expanded preview actions must remain visible")
+            let tools = window.toolbar!.items.first { $0.itemIdentifier.rawValue == "workspace.tools" }!.view!
+            let titleX = tools.convert(.zero, to: nil).x
+            let zoom = window.standardWindowButton(.zoomButton)!
+            let controlsEnd = zoom.convert(zoom.bounds, to: nil).maxX
+            expect(titleX >= controlsEnd && titleX - controlsEnd < 50,
+                   "Expanded filename follows window controls without reserving the hidden navigation width")
+            let boundary = separator(window.contentView!)!
+            expect(abs(boundary.convert(boundary.bounds, to: nil).minX) < 1,
+                   "Expanded toolbar boundary spans the former left navigation area without a gap")
+            expect(terminal.isHiddenOrHasHiddenAncestor && !terminal.canRestoreModalFocus,
+                   "Covered terminal must not accept or reclaim keyboard focus")
+            expect(terminal.bounds.size == terminalSize, "Expansion must not resize the underlying terminal grid")
+            expect(SSHTerminalRegistry.automationView(terminal.sessionID!) === terminal,
+                   "Expansion must retain the same native terminal surface")
+            let marker = "READING_OVERLAY_\(cycle)"
+            host.process.write(Data((marker + "\n").utf8))
+            for _ in 0..<100 {
+                host.session.waitForPendingOutput()
+                if host.session.readScreenText()?.text.contains(marker) == true { break }
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            expect(host.session.readScreenText()?.text.contains(marker) == true,
+                   "The original PTY must continue receiving output while covered")
+            expect(host.process.shellPid == pid && host.process.identity == identity,
+                   "Reading must never restart the terminal process")
+            state.isToolPreviewExpanded = false
+            try await Task.sleep(for: .milliseconds(250))
+            expect(state.toolPreviewFrame == normalFrame && state.presentation.toolSidebarWidth == rightWidth,
+                   "Collapse restores the exact preview and sidebar geometry")
+            expect(!terminal.isHiddenOrHasHiddenAncestor, "Collapse reveals the retained terminal")
+        }
+        state.isToolPreviewExpanded = true
+        for width: CGFloat in [1100, 1800, 1440] {
+            window.setContentSize(NSSize(width: width, height: 900))
+            try await Task.sleep(for: .milliseconds(250))
+            expect(state.toolPreviewFrame.minX == 0 && abs(state.toolPreviewFrame.maxX - (width - rightWidth - 1)) < 2,
+                   "Expanded reading follows window size while preserving the list width")
+            expect(hasToolbarControls(), "Reading controls stay visible after window resize")
+        }
+        state.toolPreviewFindRequest = 1
+        state.closeToolPreview()
+        expect(state.toolPreviewFindRequest == 0, "A new preview must not replay a previous find action")
+        try await Task.sleep(for: .milliseconds(250))
+        expect(!state.isToolReadingExpanded && state.toolPreviewFrame == .zero && !terminal.isHiddenOrHasHiddenAncestor,
+               "Close removes the overlay and restores navigation and terminal")
+        expect(host.process.shellPid == pid && host.process.identity == identity, "Close must retain the original session")
+        print("PASS reading overlay: native toolbar, full coverage, exact layout restoration, resize, hidden focus, unchanged PTY and live output")
     }
 
     @MainActor

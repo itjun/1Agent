@@ -6,6 +6,8 @@ struct TextPreviewDrawer: View {
     @ObservedObject var column: FileColumn
     var onClose: (() -> Void)? = nil
     var isWorkspaceCard = false
+    var showsHeader = true
+    var externalFindRequest = 0
     @Environment(\.windowChrome) private var chrome
     @State private var converting = false
     @State private var convertError: String?
@@ -18,8 +20,10 @@ struct TextPreviewDrawer: View {
     var body: some View {
         if let preview = column.preview {
             VStack(spacing: 0) {
-                header(preview)
-                Divider()
+                if showsHeader {
+                    header(preview)
+                    Divider()
+                }
                 if showingFormat { formatSheet(preview) }
                 else { content(preview) }
                 if !isWorkspaceCard && !preview.isQuickLook && !showingFormat { formatBar(preview.decoded, preview: preview) }
@@ -78,7 +82,7 @@ struct TextPreviewDrawer: View {
             if let url = preview.quickLook { FilePreviewPane(url: url) {} }
             else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         } else if let decoded = preview.decoded {
-            NativeTextPreview(text: decoded.text, path: preview.entry.path, findRequest: findRequest, onClose: close)
+            NativeTextPreview(text: decoded.text, path: preview.entry.path, findRequest: findRequest + externalFindRequest, onClose: close)
         } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
     }
 
