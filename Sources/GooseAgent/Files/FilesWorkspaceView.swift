@@ -290,12 +290,7 @@ private struct FileEndpointTitle: View {
     @ObservedObject var column: FileColumn
 
     var body: some View {
-        Label {
-            Text(verbatim: column.title).font(.headline).lineLimit(1)
-        } icon: {
-            Image(systemName: column.isRemote ? "cloud" : "laptopcomputer")
-        }
-        .labelStyle(.titleAndIcon)
+        Text(verbatim: column.title).font(.headline).lineLimit(1)
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .familyContextMenu {

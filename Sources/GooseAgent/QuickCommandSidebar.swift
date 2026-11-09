@@ -296,9 +296,10 @@ struct CommandListRow: View {
                 if showsSelection {
                     Image(systemName: isSelected ? "checkmark.square.fill" : "square").foregroundStyle(chrome.accent)
                 }
-                Image(systemName: item.needsRepair ? "exclamationmark.triangle" : "terminal")
-                    .foregroundStyle(item.needsRepair ? chrome.warning : chrome.isSystem && !isSelected ? chrome.secondary : chrome.accent)
-                    .frame(width: isCompact ? Theme.DefaultLayout.iconWidth : nil, height: isCompact ? 18 : nil)
+                if item.needsRepair {
+                    Image(systemName: "exclamationmark.triangle").foregroundStyle(chrome.warning)
+                        .frame(width: isCompact ? Theme.DefaultLayout.iconWidth : nil, height: isCompact ? 18 : nil)
+                }
                 VStack(alignment: .leading, spacing: 5) {
                     Text(verbatim: item.alias).font(Theme.Font.row).fontWeight(isSelected ? .semibold : .regular)
                         .foregroundStyle(chrome.text).lineLimit(isCompact ? 2 : 1)

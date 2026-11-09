@@ -170,7 +170,6 @@ struct QuickCommandLibraryView: View {
             if let selected {
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
                     HStack(spacing: Theme.Space.s) {
-                        Image(systemName: "terminal").foregroundStyle(chrome.accent)
                         Text(verbatim: selected.alias).font(Theme.Font.sectionTitle).lineLimit(2)
                         Spacer(minLength: 0)
                     }
@@ -223,9 +222,11 @@ struct QuickCommandLibraryView: View {
                 VStack(alignment: .leading, spacing: Theme.Space.s) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
-                            Image(systemName: item.needsRepair ? "exclamationmark.triangle" : "terminal")
-                                .foregroundStyle(item.needsRepair ? chrome.warning : chrome.accent)
-                            Text(verbatim: item.alias).font(Theme.Font.row).lineLimit(2)
+                            if item.needsRepair {
+                                Image(systemName: "exclamationmark.triangle").foregroundStyle(chrome.warning)
+                            }
+                            Text(verbatim: item.alias).font(Theme.Font.row)
+                                .fontWeight(selectedID == item.id ? .semibold : .regular).lineLimit(2)
                         }
                         if let directory = item.directory {
                             Text(verbatim: item.host == nil ? LocalTerminal.displayPath(directory) : directory)
@@ -297,7 +298,6 @@ struct QuickCommandLibraryHeader: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
-            Image(systemName: collection == .common ? "books.vertical" : collection == .local ? "laptopcomputer" : "terminal")
             Text(verbatim: collection.title).font(.headline).lineLimit(1)
             Spacer(minLength: 0)
             FamilyMenu("Actions", items: { libraryActions })
@@ -358,8 +358,10 @@ struct QuickCommandLibraryNavigation: View {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(collections.filter { $0.host == nil }) { row($0) }
                 if collections.contains(where: { $0.host != nil }) {
-                    Divider().padding(.vertical, 10)
-                    Text("SSH Hosts").font(Theme.Font.sidebarSection).foregroundStyle(chrome.secondary).padding(.horizontal, 10)
+                    Text("SSH Hosts").font(Theme.Font.sidebarCategory).foregroundStyle(chrome.secondary)
+                        .padding(.horizontal, SidebarLayout.contentInset)
+                        .frame(height: SidebarLayout.sectionHeaderHeight)
+                        .padding(.top, SidebarLayout.sectionGap)
                     ForEach(collections.filter { $0.host != nil }) { row($0) }
                 }
             }.padding(.horizontal, SidebarLayout.rowInset).padding(.top, Theme.Space.s)
@@ -372,11 +374,13 @@ struct QuickCommandLibraryNavigation: View {
             window.commandLibraryCollection = value
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: value == .common ? "books.vertical" : value == .local ? "laptopcomputer" : "terminal")
                 Text(verbatim: value.title).lineLimit(2)
+                    .fontWeight(window.commandLibraryCollection == value ? .semibold : .regular)
                 Spacer(minLength: 0)
                 Text(verbatim: String(store.commands.filter { value.contains($0) }.count)).foregroundStyle(chrome.secondary)
-            }.font(Theme.Font.row).padding(10).frame(maxWidth: .infinity, alignment: .leading)
+            }.font(Theme.Font.row).foregroundStyle(chrome.text)
+                .padding(.horizontal, SidebarLayout.contentInset).padding(.vertical, Theme.Space.s)
+                .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
                 .contentShape(Rectangle())
                 .background(window.commandLibraryCollection == value ? chrome.rowSelection(active: true) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))

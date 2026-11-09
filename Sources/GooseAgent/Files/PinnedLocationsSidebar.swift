@@ -17,7 +17,7 @@ struct PinnedLocationsSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                Text("Locations").font(.system(size: 12, weight: .semibold))
+                Text("Locations").font(Theme.Font.sidebarCategory)
                 Spacer(minLength: 0)
                 Button(action: chooseFolders) { Image(systemName: "plus").frame(width: 22, height: 24) }
                     .help("Pin Folder").accessibilityLabel(Text("Pin Folder"))
@@ -29,7 +29,8 @@ struct PinnedLocationsSidebar: View {
                     .accessibilityIdentifier("locations.edit")
             }
             .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
-            .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 6)
+            .padding(.horizontal, SidebarLayout.rowInset + SidebarLayout.contentInset)
+            .padding(.top, SidebarLayout.sectionGap).padding(.bottom, Theme.Space.s)
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 4) {
                     ForEach(locations.items) { item in
@@ -126,9 +127,8 @@ private struct PinnedLocationRow: View {
         VStack(spacing: 2) {
             if editing {
                 HStack(spacing: 8) {
-                    Image(systemName: "folder").frame(width: 20)
                     TextField("Location Name", text: Binding(get: { item.name ?? title }, set: rename)).textFieldStyle(.plain)
-                }.padding(.horizontal, 11).padding(.top, 8)
+                }.padding(.horizontal, SidebarLayout.contentInset).padding(.top, 8)
                 HStack(spacing: 6) {
                     Text(verbatim: LocalTerminal.displayPath(item.path)).font(.system(size: 12))
                         .lineLimit(1).truncationMode(.middle).frame(maxWidth: .infinity, alignment: .leading)
@@ -139,24 +139,22 @@ private struct PinnedLocationRow: View {
                     Button(action: remove) { Image(systemName: "xmark") }
                         .help("Unpin Folder").accessibilityLabel(Text("Unpin Folder"))
                 }.buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
-                    .padding(.horizontal, 11).padding(.bottom, 8)
+                    .padding(.horizontal, SidebarLayout.contentInset).padding(.bottom, 8)
             } else {
                 Button(action: open) {
                     HStack(spacing: 9) {
-                        Image(systemName: item.path == NSHomeDirectory() + "/Downloads" ? "arrow.down.circle" : "folder")
-                            .font(.system(size: 15)).frame(width: 20)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(verbatim: title).font(.system(size: 14, weight: selected ? .semibold : .regular))
                                 .lineLimit(1).truncationMode(.middle)
                             Text(verbatim: LocalTerminal.displayPath(item.path)).font(.system(size: 12)).foregroundStyle(chrome.secondary)
                                 .lineLimit(1).truncationMode(.middle)
                         }.frame(maxWidth: .infinity, alignment: .leading)
-                    }.padding(.horizontal, 11).frame(height: 46).contentShape(Rectangle())
+                    }.padding(.horizontal, SidebarLayout.contentInset).frame(height: SidebarLayout.rowHeight).contentShape(Rectangle())
                 }.buttonStyle(FamilyButtonStyle()).help(item.path).accessibilityAddTraits(selected ? [.isSelected] : [])
             }
         }
-        .foregroundStyle(selected ? chrome.accent : chrome.text)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(selected ? chrome.accentFill : Color.clear))
+        .foregroundStyle(chrome.text)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(selected ? chrome.rowSelection(active: true) : Color.clear))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("locations.row." + item.path)
     }

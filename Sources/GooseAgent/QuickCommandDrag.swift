@@ -115,7 +115,7 @@ final class QuickCommandDragHandleView: NSView {
                 panel.level = .popUpMenu
                 panel.ignoresMouseEvents = true
                 panel.contentView = NSHostingView(rootView:
-                    HStack { Image(systemName: "terminal"); Text(verbatim: self.title).lineLimit(1); Spacer(minLength: 0) }
+                    HStack { Text(verbatim: self.title).lineLimit(1); Spacer(minLength: 0) }
                         .font(Theme.Font.row).foregroundStyle(self.chrome.text).padding(10)
                         .background(self.chrome.elevated).clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control)))
                 preview = panel

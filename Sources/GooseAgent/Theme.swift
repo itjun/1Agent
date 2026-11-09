@@ -22,8 +22,8 @@ enum Theme {
 
     /// Type scale shared by the sidebar, pane headers, and sheets.
     enum Font {
-        /// 本机、远程等上级分类，字号高于下属终端组和会话。
-        static let sidebarCategory = SwiftUI.Font.system(size: 12, weight: .semibold)
+        /// 本机、远程等上级分类，用字重和留白区分列表层级。
+        static let sidebarCategory = SwiftUI.Font.system(size: 13, weight: .semibold)
         /// Sidebar section and workspace header labels.
         static let sidebarSection = SwiftUI.Font.system(size: 12, weight: .semibold)
         /// One sidebar row (host alias or local path).

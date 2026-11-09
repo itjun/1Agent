@@ -299,7 +299,7 @@ struct FileTabButton: View {
     @Environment(\.windowChrome) private var chrome
     @State private var hovering = false
     private static let closeSize: CGFloat = 14
-    private static let rowHeight: CGFloat = 46
+    private static let rowHeight = SidebarLayout.rowHeight
 
     private var dragging: Bool { tabDrag.draggingID == column.id }
     private var active: Bool { workspace.groups[groupID]?.activeID == column.id }
@@ -311,7 +311,7 @@ struct FileTabButton: View {
     }
 
     private var fill: Color {
-        if dragging || active { return chrome.accentFill }
+        if dragging || active { return chrome.rowSelection(active: true) }
         return hovering ? chrome.elevated : Color.clear
     }
 
@@ -325,8 +325,6 @@ struct FileTabButton: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            Image(systemName: "server.rack")
-                .font(.system(size: 14)).frame(width: 20)
             VStack(alignment: .leading, spacing: 3) {
                 Text(verbatim: title)
                     .font(.system(size: 14, weight: active ? .semibold : .regular))
@@ -344,8 +342,8 @@ struct FileTabButton: View {
                 .frame(width: Self.closeSize, height: Self.closeSize)
                 .opacity(hovering ? 1 : 0)
         }
-        .foregroundStyle(active ? chrome.accent : chrome.text)
-        .padding(.horizontal, 11)
+        .foregroundStyle(chrome.text)
+        .padding(.horizontal, SidebarLayout.contentInset)
         .frame(maxWidth: .infinity)
         .frame(height: Self.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(fill))

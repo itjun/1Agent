@@ -245,8 +245,7 @@ struct RootView: View {
                 }.accessibilityIdentifier("workspace.commands")
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 14)
-            Divider().padding(.horizontal, 16).opacity(appearanceDriver.isShellTransparent ? 0 : 1)
+            .padding(.bottom, SidebarLayout.sectionGap)
 
             if filesMode {
                 FilesSidebar(model: model, window: window, workspace: model.fileWorkspace(for: window), dragArea: pinnedLocationDrag)
@@ -322,7 +321,7 @@ struct RootView: View {
                                     }
                                 }
                             }
-                            .padding(.top, 4)
+                            .padding(.top, groupRows.first?.id == rows.first?.id ? 0 : SidebarLayout.sectionGap)
                         }
                     }
                 }
@@ -372,17 +371,14 @@ struct RootView: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: group == .local ? "laptopcomputer" : group == .remote ? "cloud" : group.symbol)
-                    .font(.system(size: 16)).frame(width: 20).foregroundStyle(folderColor)
                 Text(verbatim: group.title).font(Theme.Font.sidebarCategory)
                     .foregroundStyle(folderColor)
                 Spacer(minLength: 0)
                 Text(verbatim: String(count)).font(Theme.Font.rowMeta).monospacedDigit()
                     .foregroundStyle(sidebarChrome.secondary)
-                    .padding(.horizontal, 5)
             }
-            .padding(.leading, 6).padding(.trailing, 5)
-            .frame(height: SidebarLayout.rowHeight).contentShape(Rectangle())
+            .padding(.horizontal, SidebarLayout.contentInset)
+            .frame(height: SidebarLayout.sectionHeaderHeight).contentShape(Rectangle())
         }
         .buttonStyle(FamilyButtonStyle())
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
@@ -580,17 +576,11 @@ struct RootView: View {
             let labeledSubtitle = model.sessionSubtitle(tab)
             let folderColor = sidebarChrome.secondary
             HStack(spacing: 9) {
-                Group {
-                    if row.isSplit {
-                        SidebarFolderIcon(color: folderColor)
-                    } else {
-                        TerminalPanelIcon(layout: .leaf(row.focusedTabID))
-                            .symbolVariant(window.selectedTabID == tab.id ? .fill : .none)
-                            .foregroundStyle(sessionIconColor(isSelected: window.selectedTabID == tab.id, tab: tab))
-                    }
+                if row.isSplit {
+                    SidebarFolderIcon(color: folderColor)
+                        .font(.system(size: 15)).frame(width: 20)
+                        .accessibilityHidden(true)
                 }
-                .font(.system(size: 15)).frame(width: 20)
-                .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
                         TextField("Rename", text: $panelNameDraft, prompt: Text(verbatim: sessionTitle(tab)))
@@ -624,7 +614,7 @@ struct RootView: View {
                 }
             }
             .foregroundStyle(sidebarChrome.text)
-            .padding(.leading, 11).padding(.trailing, 5).frame(height: SidebarLayout.rowHeight)
+            .padding(.horizontal, SidebarLayout.contentInset).frame(height: SidebarLayout.rowHeight)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected && !row.isSplit,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
                 .animation(isMotionReduced ? nil : .easeOut(duration: Theme.Motion.selectionDuration), value: selected))
@@ -664,11 +654,6 @@ struct RootView: View {
         let isSelected = window.selectedTabID == tab.id
         let subtitle = model.sessionSubtitle(tab)
         return HStack(spacing: 9) {
-            TerminalPanelIcon(layout: .leaf(tab.id))
-                .font(.system(size: 15)).frame(width: 20)
-                .symbolVariant(isSelected ? .fill : .none)
-                .foregroundStyle(sessionIconColor(isSelected: isSelected, tab: tab))
-                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(verbatim: numberedSessionTitle(tab))
                     .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
@@ -819,11 +804,6 @@ struct RootView: View {
             onRename: { beginWorkspaceRename(workspace) })
     }
 
-    private func sessionIconColor(isSelected: Bool, tab: TerminalTab) -> Color {
-        guard isSelected else { return sidebarChrome.inactiveIcon }
-        return sidebarChrome.accent
-    }
-
     private var selectionOutline: Color {
         if sidebarChrome.isSystem { return contrast == .increased ? sidebarChrome.secondary : .clear }
         return sidebarChrome.isDark ? sidebarChrome.accent.opacity(0.75) : .clear
@@ -920,7 +900,7 @@ private struct FilesSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                Text("Opened").font(.system(size: 12, weight: .semibold))
+                Text("Opened").font(Theme.Font.sidebarCategory)
                 Spacer(minLength: 0)
                 Button { model.openHostPicker(in: window, purpose: .files) } label: {
                     Image(systemName: "plus").frame(width: 22, height: 24)
@@ -930,9 +910,9 @@ private struct FilesSidebar: View {
                 .accessibilityIdentifier("files.openedTabs.add")
             }
             .buttonStyle(FamilyButtonStyle()).foregroundStyle(chrome.secondary)
-            .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 6)
+            .padding(.horizontal, SidebarLayout.rowInset + SidebarLayout.contentInset)
+            .padding(.top, Theme.Space.s).padding(.bottom, Theme.Space.s)
             openedTabs.layoutPriority(1)
-            Divider().padding(.horizontal, 16).opacity(isShellTransparent ? 0 : 1)
             PinnedLocationsSidebar(workspace: workspace, dragArea: dragArea) { model.focusFiles(in: window) }
         }
         .onDisappear { workspace.tabDrag.strips.removeAll() }
@@ -978,12 +958,16 @@ enum SidebarLayout {
     /// Space between the header and the list. A list scroll view flush with the title bar
     /// edge takes over clicks on the header buttons.
     static let headerBottomGap: CGFloat = 12
-    /// 顶级分类、工作区、终端组与会话共用同一背景高度。
+    /// 工作区、终端组与会话共用同一背景高度。
     static let rowHeight: CGFloat = 44
     /// Width the traffic lights take from the window's left edge.
     static let trafficLightInset: CGFloat = 78
     /// 所有列表行的背景与侧栏边缘保持相同间距。
     static let rowInset: CGFloat = 8
+    /// 文字行与分组标题共用的行内缩进。
+    static let contentInset: CGFloat = 12
+    static let sectionHeaderHeight: CGFloat = 28
+    static let sectionGap: CGFloat = 24
     /// Space above a Local Group / Ungrouped title.
     static let sectionTopInset: CGFloat = 10
     /// Pane-count capsule on a workspace card.

@@ -193,15 +193,12 @@ private final class PinnedLocationDragPreview: NSView {
             outline.lineWidth = 1
             outline.stroke()
         }
-        let symbol = NSImage(systemSymbolName: removing ? "folder.badge.minus" : "folder", accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [foreground]))
-        symbol?.draw(in: NSRect(x: 10, y: 16, width: 18, height: 18))
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingMiddle
-        (title as NSString).draw(in: NSRect(x: 38, y: 26, width: bounds.width - 48, height: 18),
+        (title as NSString).draw(in: NSRect(x: 12, y: 26, width: bounds.width - 24, height: 18),
             withAttributes: [.font: NSFont.systemFont(ofSize: 14, weight: .medium), .foregroundColor: foreground, .paragraphStyle: paragraph])
         let subtitle = removing ? String(localized: "Release to Unpin") : path
-        (subtitle as NSString).draw(in: NSRect(x: 38, y: 8, width: bounds.width - 48, height: 16),
+        (subtitle as NSString).draw(in: NSRect(x: 12, y: 8, width: bounds.width - 24, height: 16),
             withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: removing ? .medium : .regular), .foregroundColor: secondary, .paragraphStyle: paragraph])
     }
 }
