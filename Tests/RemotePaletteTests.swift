@@ -24,6 +24,7 @@ enum RemotePaletteTests {
                 let focused = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: true, preset: preset)
                 let inactive = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: false, preset: preset)
                 let label = "\(preset.rawValue) \(isDark ? "dark" : "light")"
+                let isWhiteDefault = preset == .system && !isDark
                 try check(focused.contrastRatio(with: base) == 1, "\(label): focused pane keeps theme background")
                 try check(inactive.contrastRatio(with: focused) > 1
                           && inactive.contrastRatio(with: focused) <= 1.08,
@@ -33,10 +34,10 @@ enum RemotePaletteTests {
                 for hex in colors.ansi {
                     let text = RGBColor(ghosttyHex: hex)!
                     try check(text.contrastRatio(with: inactive) >= 4.5
-                              && text.contrastRatio(with: inactive) >= text.contrastRatio(with: focused),
+                              && (isWhiteDefault || text.contrastRatio(with: inactive) >= text.contrastRatio(with: focused)),
                               "\(label): inactive ANSI text keeps its reading contrast")
                 }
-                try check(isDark ? inactive.relativeLuminance < focused.relativeLuminance
+                try check(isDark || isWhiteDefault ? inactive.relativeLuminance < focused.relativeLuminance
                                  : inactive.relativeLuminance > focused.relativeLuminance,
                           "\(label): inactive background recedes without dimming the text")
             }

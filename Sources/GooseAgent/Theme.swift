@@ -231,18 +231,18 @@ enum AppTheme {
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         let base = RGBColor(ghosttyHex: colors.background)!
         guard !isFocused else { return base }
-        // 浅色轻微泛白、深色轻微收暗，避免失焦底板向文字靠近而降低阅读对比度。
-        let neutral = RGBColor(ghosttyHex: isDark ? "000000" : "FFFFFF")!
+        // 纯白底失焦时轻微融入侧栏灰；其他浅色泛白，深色收暗，文字保持原色。
+        let neutral = RGBColor(ghosttyHex: isDark ? "000000" : preset == .system ? colors.gradient[1] : "FFFFFF")!
         return base.mixed(with: neutral, amount: isDark ? 0.10 : 0.16)
     }
 
-    // 默认主题共用冷白底、淡青蓝选中态与石墨文字，终端 ANSI 保留克制的语义色。
+    // 默认浅色采用 macOS 白色阅读底、浅灰侧栏和蓝色强调；文字蓝使用原生选中蓝保证对比。
     private static let systemLight = Colors(
-        gradient: ["F7FAFB", "F7FAFB", "F7FAFB"], glow: "F7FAFB",
-        background: "F7FAFB", foreground: "29363E", secondary: "556A76",
-        accent: "2F5B70", selection: "DFECF2", hover: "EBF3F6", border: "E5EDF0", outline: "78909D",
-        ansi: ["29363E", "A54450", "416D53", "80601E", "426B91", "79557F", "326F78", "556A76",
-               "556A76", "B13E50", "3D714F", "846116", "3E6A9A", "845183", "26737C", "29363E"]
+        gradient: ["F5F5F7", "F5F5F7", "F5F5F7"], glow: "F5F5F7",
+        background: "FFFFFF", foreground: "272727", secondary: "666666",
+        accent: "0064E1", selection: "E5F1FF", hover: "EBEBED", border: "E6E6E6", outline: "808080",
+        ansi: ["272727", "A54450", "416D53", "80601E", "0064E1", "79557F", "326F78", "666666",
+               "666666", "B13E50", "3D714F", "846116", "0064E1", "845183", "26737C", "272727"]
     )
 
     private static let systemDark = Colors(
@@ -531,7 +531,7 @@ struct WindowChrome: Equatable {
     init(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) {
         self.isDark = isDark
         isSystem = preset == .system
-        // 默认主题与终端共用色板，避免系统强调色和独立侧栏材质造成左右撞色。
+        // 外壳与终端共用色板，左右侧栏始终使用同一背景。
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         background = colors.color(colors.background)
         sidebarBackground = colors.color(colors.gradient[1])
@@ -542,7 +542,7 @@ struct WindowChrome: Equatable {
         hairline = colors.color(colors.border)
         accent = colors.color(colors.accent)
         accentFill = colors.color(colors.selection)
-        panelHeader = background
+        panelHeader = isSystem && !isDark ? sidebarBackground : background
         danger = colors.color(colors.ansi[1])
         warning = colors.color(colors.ansi[3])
         success = colors.color(colors.ansi[2])

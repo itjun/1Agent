@@ -97,8 +97,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
         }
 
         func update() {
-            window?.backgroundColor = NSColor(AppTheme.terminalPaneBackground(
-                isDark: AppearanceDriver.shared.isDark, isFocused: true).color)
+            window?.backgroundColor = NSColor(WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark).panelHeader)
             let isTerminal = state.section == .terminals && !state.presentation.fullFilesWorkspace
             let tab = model.selectedTab(in: state)
             window?.title = state.section == .commands ? String(localized: "Command Library")
@@ -325,7 +324,7 @@ private struct WorkspaceToolbarTools: View {
                         } label: {
                             Text(verbatim: tab.title)
                                 .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                                .foregroundStyle(isSelected ? chrome.text : chrome.secondary)
+                                .foregroundStyle(isSelected ? (chrome.isSystem && !chrome.isDark ? chrome.accent : chrome.text) : chrome.secondary)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: Self.height - 8)

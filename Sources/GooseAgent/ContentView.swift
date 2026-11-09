@@ -33,7 +33,7 @@ struct RootView: View {
         WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
-    // 导航共用默认色板；默认主题的整窗底色与选中态保持一致。
+    // 导航共用默认色板；默认浅色使用灰底、蓝色选中态。
     private var sidebarChrome: WindowChrome {
         WindowChrome(isDark: appearanceDriver.isDark, preset: .system)
     }
@@ -62,7 +62,7 @@ struct RootView: View {
                         .padding(.top, Theme.Space.s)
                         .background {
                             if chrome.isSystem {
-                                sidebarChrome.background.ignoresSafeArea().accessibilityHidden(true)
+                                sidebarChrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
                             }
                         }
                         .scrollIndicators(.never)
@@ -135,11 +135,16 @@ struct RootView: View {
         .ignoresSafeArea(edges: .top)
         .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
         .background {
-            ShellBackdrop(
-                isTransparent: appearanceDriver.isShellTransparent,
-                isDark: appearanceDriver.isDark,
-                usesTerminalBackground: true
-            )
+            ZStack(alignment: .top) {
+                ShellBackdrop(
+                    isTransparent: appearanceDriver.isShellTransparent,
+                    isDark: appearanceDriver.isDark,
+                    usesTerminalBackground: true
+                )
+                if chrome.isSystem && !chrome.isDark {
+                    chrome.panelHeader.frame(height: window.workspaceToolbarHeight)
+                }
+            }
             .accessibilityHidden(true)
         }
         .onChange(of: appearanceRaw) { _, _ in
@@ -295,7 +300,7 @@ struct RootView: View {
                 Text(title).font(.system(size: 14, weight: active ? .semibold : .regular))
                 Spacer()
             }
-            .foregroundStyle(sidebarChrome.text)
+            .foregroundStyle(active && !sidebarChrome.isDark ? sidebarChrome.accent : sidebarChrome.text)
             .padding(.horizontal, 12).frame(height: 40)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(active ? sidebarChrome.accentFill : Color.clear))
             .contentShape(Rectangle())
@@ -484,9 +489,13 @@ struct RootView: View {
                 }) {
                     WorkspaceToolSidebar(model: model, window: window)
                         .background {
-                            ShellBackdrop(isTransparent: false, isDark: appearanceDriver.isDark,
-                                          usesTerminalBackground: true)
-                                .ignoresSafeArea().accessibilityHidden(true)
+                            if chrome.isSystem {
+                                chrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
+                            } else {
+                                ShellBackdrop(isTransparent: false, isDark: appearanceDriver.isDark,
+                                              usesTerminalBackground: true)
+                                    .ignoresSafeArea().accessibilityHidden(true)
+                            }
                         }
                         .environment(\.windowChrome, chrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)

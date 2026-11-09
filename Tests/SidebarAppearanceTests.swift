@@ -21,7 +21,7 @@ import SwiftUI
         let model = AppModel()
         let state = model.mainWindow
         state.presentation.sidebarCollapsed = false
-        state.presentation.toolSidebarOpen = false
+        state.presentation.toolSidebarOpen = true
         let host = NSHostingController(rootView: RootView(model: model, window: state))
         let window = NSWindow(contentViewController: host)
         window.styleMask = [.titled, .resizable, .fullSizeContentView]
@@ -48,7 +48,7 @@ import SwiftUI
                     view.cacheDisplay(in: view.bounds, to: image)
                     let color = image.colorAt(x: image.pixelsWide / 2, y: image.pixelsHigh - 20)!
                     if preset == .system {
-                        // 在相同位图色彩空间中比较实际阅读底板，避免把显示器转换后的像素与源 RGB 混比。
+                        // 比较两个已挂载的生产视图，保持位图色彩空间与外观一致。
                         guard let backdrop = SidebarAppearanceTests.readingBackdrop(in: host.view),
                               let reference = backdrop.bitmapImageRepForCachingDisplay(in: backdrop.bounds) else {
                             fatalError("cannot render production reading background")
@@ -57,11 +57,31 @@ import SwiftUI
                         let expected = reference.colorAt(x: reference.pixelsWide / 2,
                             y: reference.pixelsHigh / 2)!.usingColorSpace(.sRGB)!
                         let actual = color.usingColorSpace(.sRGB)!
-                        SidebarAppearanceTests.expect(actual.alphaComponent > 0.99
-                            && abs(actual.redComponent - expected.redComponent) < 0.01
+                        let isSameBackground = abs(actual.redComponent - expected.redComponent) < 0.01
                             && abs(actual.greenComponent - expected.greenComponent) < 0.01
-                            && abs(actual.blueComponent - expected.blueComponent) < 0.01,
-                            "default/\(section), dark=\(isDark): navigation uses the same opaque reading background as the workspace; actual=\(actual), expected=\(expected)")
+                            && abs(actual.blueComponent - expected.blueComponent) < 0.01
+                        let isLightGraySidebar = [actual.redComponent, actual.greenComponent, actual.blueComponent].allSatisfy { $0 > 0.9 }
+                            && actual.redComponent < expected.redComponent - 0.01
+                            && actual.greenComponent < expected.greenComponent - 0.01
+                            && actual.blueComponent < expected.blueComponent - 0.01
+                            && abs(actual.redComponent - actual.blueComponent) < 0.03
+                        SidebarAppearanceTests.expect(actual.alphaComponent > 0.99
+                            && (isDark ? isSameBackground : isLightGraySidebar),
+                            "default/\(section), dark=\(isDark): light navigation is neutral gray beside white reading content; dark navigation retains its reading background; actual=\(actual), reading=\(expected)")
+                        if section == .terminals {
+                            guard let inspector = SidebarAppearanceTests.navigationSplit(in: host.view, identifier: "workspace.inspectorSplit")?.splitViewItems.last?.viewController.view,
+                                  let inspectorImage = inspector.bitmapImageRepForCachingDisplay(in: inspector.bounds) else {
+                                fatalError("cannot render production inspector")
+                            }
+                            inspector.cacheDisplay(in: inspector.bounds, to: inspectorImage)
+                            let right = inspectorImage.colorAt(x: inspectorImage.pixelsWide / 2,
+                                y: inspectorImage.pixelsHigh - 20)!.usingColorSpace(.sRGB)!
+                            SidebarAppearanceTests.expect(right.alphaComponent > 0.99
+                                && abs(actual.redComponent - right.redComponent) < 0.01
+                                && abs(actual.greenComponent - right.greenComponent) < 0.01
+                                && abs(actual.blueComponent - right.blueComponent) < 0.01,
+                                "default sidebars share the same opaque background, dark=\(isDark)")
+                        }
                     } else {
                         SidebarAppearanceTests.expect(color.alphaComponent < 0.01,
                             "\(preset.rawValue)/\(section), dark=\(isDark): other presets retain native material")
@@ -78,7 +98,7 @@ import SwiftUI
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         driver.reapply()
         SidebarAppearanceTests.expect(driver.isDark == TerminalAppearance.systemIsDark, "follow system appearance")
-        print("SidebarAppearanceTests passed: default navigation shares the opaque reading background; other presets retain native material across light/dark and terminal/files/commands; appearance follows macOS")
+        print("SidebarAppearanceTests passed: default sidebars share the opaque sidebar palette; other presets retain native material across light/dark and terminal/files/commands; appearance follows macOS")
     }
 
     static func navigationMatches(_ image: NSBitmapImageRep, _ reference: NSBitmapImageRep) -> Bool {
@@ -100,11 +120,11 @@ import SwiftUI
         return difference / CGFloat(samples) < 0.002
     }
 
-    @MainActor static func navigationSplit(in view: NSView) -> NSSplitViewController? {
+    @MainActor static func navigationSplit(in view: NSView, identifier: String = "workspace.navigationSplit") -> NSSplitViewController? {
         if let split = view as? NSSplitView,
-           split.identifier?.rawValue == "workspace.navigationSplit" { return split.delegate as? NSSplitViewController }
+           split.identifier?.rawValue == identifier { return split.delegate as? NSSplitViewController }
         for child in view.subviews {
-            if let split = SidebarAppearanceTests.navigationSplit(in: child) { return split }
+            if let split = SidebarAppearanceTests.navigationSplit(in: child, identifier: identifier) { return split }
         }
         return nil
     }
