@@ -291,7 +291,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
     }
 }
 
-/// 三个文字选项等宽排列，展开开关在通栏悬停时显示于窗口最右端。
+/// 三个文字选项等宽排列，右端开关在侧栏展开或通栏悬停时显示。
 private struct WorkspaceToolbarTools: View {
     static let height: CGFloat = 36
     @ObservedObject var model: AppModel
@@ -305,7 +305,8 @@ private struct WorkspaceToolbarTools: View {
 
     private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearance.isDark) }
     private var isToggleVisible: Bool {
-        visibility.isRevealed || isControlFocused || NSWorkspace.shared.isVoiceOverEnabled
+        state.presentation.toolSidebarOpen || visibility.isRevealed
+            || isControlFocused || NSWorkspace.shared.isVoiceOverEnabled
     }
 
     var body: some View {
