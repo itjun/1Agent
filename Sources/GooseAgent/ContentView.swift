@@ -33,7 +33,10 @@ struct RootView: View {
         WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
-    private var sidebarChrome: WindowChrome { chrome }
+    // 导航共用默认色板；默认主题的整窗底色与选中态保持一致。
+    private var sidebarChrome: WindowChrome {
+        WindowChrome(isDark: appearanceDriver.isDark, preset: .system)
+    }
 
 
     var body: some View {
@@ -58,13 +61,14 @@ struct RootView: View {
                         .accessibilityHidden(window.isToolReadingExpanded)
                         .padding(.top, Theme.Space.s)
                         .background {
-                            AppTheme.navigationBackground(isDark: appearanceDriver.isDark).color
-                                .ignoresSafeArea().accessibilityHidden(true)
+                            if chrome.isSystem {
+                                sidebarChrome.background.ignoresSafeArea().accessibilityHidden(true)
+                            }
                         }
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
-                        .tint(chrome.accent).font(Theme.Font.body)
+                        .tint(sidebarChrome.accent).font(Theme.Font.body)
                         .preferredColorScheme(appearanceDriver.interfaceColorScheme)
 
                 } detail: {
@@ -261,8 +265,6 @@ struct RootView: View {
             dropRelay.sidebarAnchor = filesMode ? nil : $0
             pinnedLocationDrag.sidebar = filesMode ? $0 : nil
         })
-        // 不透明模式也露出整窗的不透明渐变，避免左右侧栏使用不同底色。
-        .background(Color.clear)
         .onChange(of: filesMode) { _, _ in
             commitPanelRename()
             clearSidebarDrag()
@@ -289,13 +291,13 @@ struct RootView: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: symbol).font(.system(size: 16)).frame(width: 20)
-                    .foregroundStyle(active ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(active ? sidebarChrome.accent : sidebarChrome.secondary)
                 Text(title).font(.system(size: 14, weight: active ? .semibold : .regular))
                 Spacer()
             }
             .foregroundStyle(sidebarChrome.text)
             .padding(.horizontal, 12).frame(height: 40)
-            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(active ? sidebarChrome.hairline : Color.clear))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(active ? sidebarChrome.accentFill : Color.clear))
             .contentShape(Rectangle())
         }.buttonStyle(FamilyButtonStyle()).accessibilityAddTraits(active ? [.isSelected] : [])
     }

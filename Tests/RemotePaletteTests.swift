@@ -24,11 +24,6 @@ enum RemotePaletteTests {
                 let focused = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: true, preset: preset)
                 let inactive = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: false, preset: preset)
                 let label = "\(preset.rawValue) \(isDark ? "dark" : "light")"
-                let navigation = AppTheme.navigationBackground(isDark: isDark, preset: preset)
-                try check(foreground.contrastRatio(with: navigation) >= 4.5,
-                          "\(label): navigation text stays readable on the subtle background")
-                try check(secondary.contrastRatio(with: navigation) >= 4.5,
-                          "\(label): navigation paths stay readable on the subtle background")
                 try check(focused.contrastRatio(with: base) == 1, "\(label): focused pane keeps theme background")
                 try check(inactive.contrastRatio(with: focused) > 1
                           && inactive.contrastRatio(with: focused) <= 1.08,
@@ -44,27 +39,6 @@ enum RemotePaletteTests {
                 try check(isDark ? inactive.relativeLuminance < focused.relativeLuminance
                                  : inactive.relativeLuminance > focused.relativeLuminance,
                           "\(label): inactive background recedes without dimming the text")
-            }
-        }
-        for isDark in [false, true] {
-            let colors = AppTheme.colors(isDark: isDark, preset: .system)
-            for hex in colors.gradient + [colors.background, colors.foreground, colors.secondary, colors.accent, colors.selection] {
-                let color = RGBColor(ghosttyHex: hex)!
-                try check(color.red == color.green && color.green == color.blue, "System terminal stays neutral")
-            }
-            let chrome = WindowChrome(isDark: isDark, preset: .system)
-            NSAppearance(named: isDark ? .darkAqua : .aqua)!.performAsCurrentDrawingAppearance {
-                for (actual, expected) in [(chrome.accent, NSColor.controlAccentColor),
-                                           (chrome.background, NSColor.textBackgroundColor),
-                                           (chrome.text, NSColor.labelColor),
-                                           (chrome.focus, NSColor.keyboardFocusIndicatorColor)] {
-                    let actual = NSColor(actual).usingColorSpace(.sRGB)!
-                    let expected = expected.usingColorSpace(.sRGB)!
-                    precondition(abs(actual.redComponent - expected.redComponent) < 0.001
-                                 && abs(actual.greenComponent - expected.greenComponent) < 0.001
-                                 && abs(actual.blueComponent - expected.blueComponent) < 0.001,
-                                 "Default theme follows macOS colors in both appearances")
-                }
             }
         }
         let suite = "oneagent.remote-palette.\(UUID().uuidString)"
@@ -128,8 +102,7 @@ enum RemotePaletteTests {
                 try check(RGBColor(ghosttyHex: color)!.contrastRatio(with: terminalBackground) >= 4.5,
                           "ANSI text remains readable: \(color), dark=\(isDark)")
             }
-            // 原生控件由 macOS 决定对比度；自定义主题继续遵守自己的色板约束。
-            if preset == .system { continue }
+            // 默认主题也使用固定色板，一并校验浅深色下的正文、路径和选中态。
             let surfaces = [chrome.background, chrome.sidebarBackground, chrome.elevated, chrome.accentFill]
                 + colors.gradientColors
             for surface in surfaces {

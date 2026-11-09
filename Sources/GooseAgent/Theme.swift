@@ -236,29 +236,21 @@ enum AppTheme {
         return base.mixed(with: neutral, amount: isDark ? 0.10 : 0.16)
     }
 
-    /// 导航只与阅读底色保持轻微色差，避免大面积渐变干扰终端和文件阅读。
-    static func navigationBackground(isDark: Bool,
-                                     preset: AppThemePreset = AppTheme.stored()) -> RGBColor {
-        let colors = AppTheme.colors(isDark: isDark, preset: preset)
-        return RGBColor(ghosttyHex: colors.background)!
-            .mixed(with: RGBColor(ghosttyHex: colors.gradient[1])!, amount: 0.2)
-    }
-
-    // 系统预设只给窗口材质使用黑白中性色；终端 ANSI 保留语义色，便于辨认输出。
+    // 默认主题共用冷白底、淡青蓝选中态与石墨文字，终端 ANSI 保留克制的语义色。
     private static let systemLight = Colors(
-        gradient: ["F5F5F5", "F5F5F5", "F5F5F5"], glow: "FFFFFF",
-        background: "FAFAFA", foreground: "202020", secondary: "5C5C5C",
-        accent: "303030", selection: "DEDEDE", hover: "EEEEEE", border: "D8D8D8", outline: "808080",
-        ansi: ["202020", "B4434D", "34754B", "82651D", "466AA5", "8C5790", "287477", "5C5C5C",
-               "5C5C5C", "BB3548", "287A46", "896511", "3E6CB1", "945195", "167B7C", "202020"]
+        gradient: ["F7FAFB", "F7FAFB", "F7FAFB"], glow: "F7FAFB",
+        background: "F7FAFB", foreground: "29363E", secondary: "556A76",
+        accent: "2F5B70", selection: "DFECF2", hover: "EBF3F6", border: "E5EDF0", outline: "78909D",
+        ansi: ["29363E", "A54450", "416D53", "80601E", "426B91", "79557F", "326F78", "556A76",
+               "556A76", "B13E50", "3D714F", "846116", "3E6A9A", "845183", "26737C", "29363E"]
     )
 
     private static let systemDark = Colors(
-        gradient: ["292929", "292929", "292929"], glow: "292929",
-        background: "242424", foreground: "F2F2F2", secondary: "B8B8B8",
-        accent: "E8E8E8", selection: "424242", hover: "333333", border: "454545", outline: "898989",
+        gradient: ["252729", "252729", "252729"], glow: "252729",
+        background: "252729", foreground: "E3EDF2", secondary: "A9BBC5",
+        accent: "ABD0E0", selection: "344A56", hover: "2B363D", border: "39464D", outline: "879DA8",
         ansi: ["B8B8B8", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
-               "B8B8B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "F2F2F2"]
+               "B8B8B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E3EDF2"]
     )
 
     // 前十组使用柔和的同色系渐变，选中态沿用主色；仅最后两组保留撞色。
@@ -498,11 +490,11 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
-    var hoverFill: Color { isSystem ? text.opacity(isDark ? 0.07 : 0.045) : hairline }
+    var hoverFill: Color { isSystem ? elevated : hairline }
 
     func rowSelection(active: Bool) -> Color {
         guard isSystem else { return accentFill }
-        return active ? text.opacity(isDark ? 0.14 : 0.10) : accentFill
+        return active ? accentFill : accentFill.opacity(0.70)
     }
 
     var inactiveIcon: Color { isSystem ? secondary : isDark ? RGBColor(ghosttyHex: "878B92")!.color : secondary }
@@ -539,40 +531,7 @@ struct WindowChrome: Equatable {
     init(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) {
         self.isDark = isDark
         isSystem = preset == .system
-        if isSystem {
-            // 按窗口外观解析系统语义色，跟随用户在 macOS 中选择的强调色。
-            func systemColor(_ color: NSColor) -> Color {
-                var resolved = color
-                let increased = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
-                let appearance: NSAppearance.Name = increased
-                    ? (isDark ? .accessibilityHighContrastDarkAqua : .accessibilityHighContrastAqua)
-                    : (isDark ? .darkAqua : .aqua)
-                NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
-                    resolved = color.usingColorSpace(.sRGB) ?? color
-                }
-                return Color(nsColor: resolved)
-            }
-            background = systemColor(.textBackgroundColor)
-            sidebarBackground = systemColor(.windowBackgroundColor)
-            elevated = systemColor(.controlBackgroundColor)
-            text = systemColor(.labelColor)
-            secondary = systemColor(.secondaryLabelColor)
-            tertiary = systemColor(.tertiaryLabelColor)
-            hairline = systemColor(.separatorColor)
-            accent = systemColor(.controlAccentColor)
-            // 保留侧栏现有选中布局，使用系统的柔和选中底色。
-            accentFill = systemColor(.unemphasizedSelectedContentBackgroundColor)
-            panelHeader = sidebarBackground
-            danger = systemColor(.systemRed)
-            warning = systemColor(.systemOrange)
-            success = systemColor(.systemGreen)
-            accentHover = accent
-            accentActive = systemColor(.selectedContentBackgroundColor)
-            focus = systemColor(.keyboardFocusIndicatorColor)
-            selection = accentFill
-            lineStrong = systemColor(.gridColor)
-            return
-        }
+        // 默认主题与终端共用色板，避免系统强调色和独立侧栏材质造成左右撞色。
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         background = colors.color(colors.background)
         sidebarBackground = colors.color(colors.gradient[1])
@@ -593,6 +552,11 @@ struct WindowChrome: Equatable {
         focus = accent
         selection = accentFill
         lineStrong = colors.color(colors.outline)
+        if isSystem && NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {
+            secondary = text
+            tertiary = text
+            hairline = lineStrong
+        }
     }
 
 }

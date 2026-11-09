@@ -146,6 +146,10 @@ test-modal-appearance:
 test-appearance:
 	bash scripts/test-family-appearance.sh
 
+.PHONY: test-sidebar-appearance
+test-sidebar-appearance:
+	bash scripts/test-sidebar-appearance.sh
+
 # Uses the production Debug module and isolated native terminal surfaces. Run make build first.
 test-terminal-restoration:
 	bash scripts/test-terminal-restoration.sh
