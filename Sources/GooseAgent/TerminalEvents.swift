@@ -308,7 +308,7 @@ final class RemoteShellStatus: ObservableObject {
     }
 }
 
-/// After a remote host's title: the running command, or else the remote directory.
+/// 通栏已单独显示目录；这里只补充远程会话正在运行的命令。
 struct RemoteTitleStatus: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var status = RemoteShellStatus.shared
@@ -328,12 +328,6 @@ struct RemoteTitleStatus: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: String(format: String(localized: "Running: %@"), command)))
-        } else if !tab.isLocal, tab.hasTerminal, let directory = tab.remoteDirectory {
-            Text(verbatim: RemoteShellStatus.shortDirectory(directory))
-                .fontWeight(.regular)
-                .foregroundStyle(chrome.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
         }
     }
 }
