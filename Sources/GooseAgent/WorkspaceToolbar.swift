@@ -327,11 +327,10 @@ private struct WorkspaceToolbarTools: View {
                                 .foregroundStyle(isSelected ? (chrome.isSystem && !chrome.isDark ? chrome.accent : chrome.text) : chrome.secondary)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: Self.height - 8)
+                                .frame(height: Self.height)
                                 .background(isSelected ? chrome.accentFill : hoveredTab == tab ? chrome.hoverFill : .clear,
                                             in: RoundedRectangle(cornerRadius: 6))
                                 .padding(.horizontal, 2)
-                                .frame(height: Self.height)
                                 .contentShape(Rectangle())
                         }
                         .onHover { hoveredTab = $0 ? tab : nil }
