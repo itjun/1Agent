@@ -262,7 +262,9 @@ struct WorkspaceToolbar: NSViewRepresentable {
             } else {
                 sidebarWidth = CGFloat(state.presentation.toolSidebarWidth)
             }
-            return max(WorkspaceToolbarTools.height * 3, sidebarWidth - 2 * Theme.Space.s)
+            // 标签与开关共用右栏宽度，开关始终在最右端预留位置。
+            return max(WorkspaceToolbarTools.height * 3,
+                       sidebarWidth - WorkspaceToolbarTools.height - 4 * Theme.Space.s)
         }
 
         private var toolGroupWidth: CGFloat {
@@ -289,7 +291,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
     }
 }
 
-/// 开关属于终端，三个文字选项在右侧栏内等宽排列。
+/// 三个文字选项等宽排列，展开开关在通栏悬停时显示于窗口最右端。
 private struct WorkspaceToolbarTools: View {
     static let height: CGFloat = 36
     @ObservedObject var model: AppModel
@@ -308,25 +310,6 @@ private struct WorkspaceToolbarTools: View {
 
     var body: some View {
         HStack(spacing: 2 * Theme.Space.s) {
-            if !state.isToolReadingExpanded {
-                Button {
-                    model.toggleToolSidebar(in: state)
-                } label: {
-                    Image(systemName: "sidebar.right")
-                        .font(.system(size: 14, weight: .medium))
-                        .frame(width: Self.height, height: Self.height)
-                        .contentShape(Rectangle())
-                }
-                .modifier(WorkspaceInspectorGlass())
-                .focused($isControlFocused)
-                .help(AppShortcutID.toggleToolSidebar.title + " (" + AppShortcuts.display(for: .toggleToolSidebar) + ")")
-                .accessibilityLabel(AppShortcutID.toggleToolSidebar.title)
-                .accessibilityIdentifier("workspace.inspector")
-                .opacity(isToggleVisible ? 1 : 0)
-                .allowsHitTesting(isToggleVisible)
-                .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
-
-            }
             if state.toolPreviewFrame.width > 0 {
                 WorkspacePreviewToolbar(model: model, state: state)
                     .frame(width: state.isToolReadingExpanded ? nil : state.toolPreviewFrame.width)
@@ -360,6 +343,22 @@ private struct WorkspaceToolbarTools: View {
                 }
                 .frame(width: tabsWidth)
             }
+            Button {
+                model.toggleToolSidebar(in: state)
+            } label: {
+                Image(systemName: "sidebar.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: Self.height, height: Self.height)
+                    .contentShape(Rectangle())
+            }
+            .modifier(WorkspaceInspectorGlass())
+            .focused($isControlFocused)
+            .help(AppShortcutID.toggleToolSidebar.title + " (" + AppShortcuts.display(for: .toggleToolSidebar) + ")")
+            .accessibilityLabel(AppShortcutID.toggleToolSidebar.title)
+            .accessibilityIdentifier("workspace.inspector")
+            .opacity(isToggleVisible ? 1 : 0)
+            .allowsHitTesting(isToggleVisible)
+            .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
         }
         .buttonStyle(.plain)
         .frame(height: Self.height)
