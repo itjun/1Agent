@@ -59,7 +59,6 @@ struct RootView: View {
                     sidebar
                         .allowsHitTesting(!window.isToolReadingExpanded)
                         .accessibilityHidden(window.isToolReadingExpanded)
-                        .padding(.top, Theme.Space.s)
                         .background {
                             if chrome.isSystem {
                                 sidebarChrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
