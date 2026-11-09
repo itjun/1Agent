@@ -584,6 +584,8 @@ struct RootView: View {
             let selected = window.sidebarSelection.isEmpty
                 ? window.selectedTabID.map { row.leafIDs.contains($0) } ?? false
                 : !Set(row.leafIDs).isDisjoint(with: window.sidebarSelection)
+            let rowChrome = sidebarChrome.sessionRowChrome(isSelected: selected && !row.isSplit,
+                isActive: controlActiveState != .inactive)
             let labeledSubtitle = model.sessionSubtitle(tab)
             let folderColor = sidebarChrome.secondary
             HStack(spacing: 9) {
@@ -604,19 +606,19 @@ struct RootView: View {
                             .onAppear { panelNameFocused = true }
                     } else {
                         Text(verbatim: panelDisplayTitle(row)).font(.system(size: 14, weight: selected ? .semibold : .regular))
-                            .foregroundStyle(sidebarChrome.text)
+                            .foregroundStyle(rowChrome.text)
                             .lineLimit(1).truncationMode(.middle)
                     }
                     if !row.isSplit {
                         SidebarSessionSubtitle(tab: tab, location: labeledSubtitle).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
-                            .foregroundStyle(sidebarChrome.secondary)
+                            .foregroundStyle(rowChrome.secondary)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 SidebarBellMark(sessionID: tab.sessionID)
                 if tab.reconnecting || tab.showsDisconnected {
                     Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
                         .font(.system(size: 12))
-                        .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
+                        .foregroundStyle(tab.reconnecting ? rowChrome.warning : rowChrome.danger)
                 }
                 if row.isSplit {
                     Text(verbatim: String(row.leafIDs.count)).font(.system(size: 12, weight: .medium))
@@ -624,7 +626,8 @@ struct RootView: View {
                         .padding(.horizontal, 5).padding(.vertical, 2)
                 }
             }
-            .foregroundStyle(sidebarChrome.text)
+            .foregroundStyle(rowChrome.text)
+            .environment(\.windowChrome, rowChrome)
             .padding(.horizontal, SidebarLayout.contentInset).frame(height: SidebarLayout.rowHeight)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(rowFill(selected: selected && !row.isSplit,
                 hovered: hoveredTabID == row.panelID, tabID: row.focusedTabID))
@@ -664,6 +667,8 @@ struct RootView: View {
     private func panelTerminalRow(_ tab: TerminalTab) -> some View {
         let isSelected = window.selectedTabID == tab.id
         let subtitle = model.sessionSubtitle(tab)
+        let rowChrome = sidebarChrome.sessionRowChrome(isSelected: isSelected,
+            isActive: controlActiveState != .inactive)
         return HStack(spacing: 9) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(verbatim: numberedSessionTitle(tab))
@@ -671,16 +676,17 @@ struct RootView: View {
                     .lineLimit(1).truncationMode(.middle)
                 SidebarSessionSubtitle(tab: tab, location: subtitle)
                     .font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
-                    .foregroundStyle(sidebarChrome.secondary)
+                    .foregroundStyle(rowChrome.secondary)
             }.frame(maxWidth: .infinity, alignment: .leading)
             SidebarBellMark(sessionID: tab.sessionID)
             if tab.reconnecting || tab.showsDisconnected {
                 Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
                     .font(.system(size: 12))
-                    .foregroundStyle(tab.reconnecting ? sidebarChrome.warning : sidebarChrome.danger)
+                    .foregroundStyle(tab.reconnecting ? rowChrome.warning : rowChrome.danger)
             }
         }
-        .foregroundStyle(sidebarChrome.text)
+        .foregroundStyle(rowChrome.text)
+        .environment(\.windowChrome, rowChrome)
         .padding(.leading, 29).padding(.trailing, 30)
         .frame(height: SidebarLayout.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
@@ -822,10 +828,13 @@ struct RootView: View {
 
     private func rowFill(selected: Bool, hovered: Bool, tabID: UUID) -> Color {
         if window.dropHighlight == .sidebarRow(tabID) || window.dropHighlight == .sidebar {
+            if selected && sidebarChrome.isSystem && !sidebarChrome.isDark {
+                return sidebarChrome.sessionSelection(isActive: controlActiveState != .inactive)
+            }
             return sidebarChrome.accent.opacity(0.28)
         }
         if selected {
-            if sidebarChrome.isSystem { return sidebarChrome.rowSelection(active: controlActiveState != .inactive) }
+            if sidebarChrome.isSystem { return sidebarChrome.sessionSelection(isActive: controlActiveState != .inactive) }
             guard sidebarChrome.isDark || controlActiveState != .inactive else { return sidebarChrome.hairline }
             return sidebarChrome.accentFill
         }

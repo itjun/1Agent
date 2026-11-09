@@ -120,6 +120,16 @@ enum RemotePaletteTests {
                       "Necessary control outlines remain identifiable")
             try check(rgb(chrome.text).contrastRatio(with: terminalBackground) >= 7,
                       "Reading text has strong contrast")
+            for isActive in [false, true] {
+                let row = chrome.sessionRowChrome(isSelected: true, isActive: isActive)
+                let fill = chrome.sessionSelection(isActive: isActive)
+                for foreground in [row.text, row.secondary] {
+                    try check(rgb(foreground).contrastRatio(with: rgb(fill)) >= 4.5,
+                              "Selected session titles and paths remain readable, active=\(isActive)")
+                }
+                try check(chrome.sessionRowChrome(isSelected: false, isActive: isActive) == chrome,
+                          "Unselected sessions retain their semantic colors")
+            }
         }
         try check(saturation(rgb(WindowChrome(isDark: true, preset: preset).background)) < 0.12,
                   "Dark reading panels remain neutral charcoal instead of green")

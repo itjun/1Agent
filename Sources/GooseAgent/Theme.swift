@@ -497,6 +497,24 @@ struct WindowChrome: Equatable {
         return active ? accentFill : accentFill.opacity(0.70)
     }
 
+    /// 会话使用蓝底白字；导航与其他列表仍使用浅蓝选中底。
+    func sessionSelection(isActive: Bool) -> Color {
+        guard isSystem && !isDark else { return rowSelection(active: isActive) }
+        return isActive ? accent : RGBColor(ghosttyHex: "DCDCDC")!.color
+    }
+
+    func sessionRowChrome(isSelected: Bool, isActive: Bool) -> WindowChrome {
+        guard isSystem && !isDark && isSelected else { return self }
+        var row = self
+        row.text = isActive ? .white : text
+        row.secondary = row.text
+        row.tertiary = row.text
+        row.danger = row.text
+        row.warning = row.text
+        row.success = row.text
+        return row
+    }
+
     var inactiveIcon: Color { isSystem ? secondary : isDark ? RGBColor(ghosttyHex: "878B92")!.color : secondary }
 
     /// 沿用马卡龙色板，并混入当前主题；文字在普通、悬停和选中背景上均可辨认。
