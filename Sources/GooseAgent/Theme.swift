@@ -225,16 +225,15 @@ enum AppTheme {
         var gradientColors: [Color] { gradient.map { color($0) } }
     }
 
-    /// 聚焦保持主题原底色；未聚焦只调整底板，终端文字和 ANSI 色不参与淡化。
+    /// 聚焦保持原底色；失焦底板向同外观的中性色轻微融合，文字和 ANSI 色保持清晰。
     static func terminalPaneBackground(isDark: Bool, isFocused: Bool,
                                        preset: AppThemePreset = AppTheme.stored()) -> RGBColor {
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         let base = RGBColor(ghosttyHex: colors.background)!
         guard !isFocused else { return base }
-        let foreground = RGBColor(ghosttyHex: colors.foreground)!
-        let accent = RGBColor(ghosttyHex: colors.accent)!
-        let neutral = base.mixed(with: foreground, amount: isDark && preset == .system ? 0.14 : 0.08)
-        return neutral.mixed(with: accent, amount: preset == .system ? 0 : (isDark ? 0.08 : 0.04))
+        // 浅色轻微泛白、深色轻微收暗，避免失焦底板向文字靠近而降低阅读对比度。
+        let neutral = RGBColor(ghosttyHex: isDark ? "000000" : "FFFFFF")!
+        return base.mixed(with: neutral, amount: isDark ? 0.10 : 0.16)
     }
 
     /// 导航只与阅读底色保持轻微色差，避免大面积渐变干扰终端和文件阅读。

@@ -30,12 +30,20 @@ enum RemotePaletteTests {
                 try check(secondary.contrastRatio(with: navigation) >= 4.5,
                           "\(label): navigation paths stay readable on the subtle background")
                 try check(focused.contrastRatio(with: base) == 1, "\(label): focused pane keeps theme background")
-                try check(inactive.contrastRatio(with: focused) >= 1.12, "\(label): pane backgrounds distinguish focus")
+                try check(inactive.contrastRatio(with: focused) > 1
+                          && inactive.contrastRatio(with: focused) <= 1.08,
+                          "\(label): inactive background stays subtle instead of becoming a gray slab")
                 try check(foreground.contrastRatio(with: inactive) >= 4.5, "\(label): inactive output remains readable")
-                try check(secondary.contrastRatio(with: inactive) >= 3, "\(label): secondary output remains readable")
-                try check(isDark ? inactive.relativeLuminance > focused.relativeLuminance
-                                 : inactive.relativeLuminance < focused.relativeLuminance,
-                          "\(label): focus retains normal brightness")
+                try check(secondary.contrastRatio(with: inactive) >= 4.5, "\(label): secondary output remains readable")
+                for hex in colors.ansi {
+                    let text = RGBColor(ghosttyHex: hex)!
+                    try check(text.contrastRatio(with: inactive) >= 4.5
+                              && text.contrastRatio(with: inactive) >= text.contrastRatio(with: focused),
+                              "\(label): inactive ANSI text keeps its reading contrast")
+                }
+                try check(isDark ? inactive.relativeLuminance < focused.relativeLuminance
+                                 : inactive.relativeLuminance > focused.relativeLuminance,
+                          "\(label): inactive background recedes without dimming the text")
             }
         }
         for isDark in [false, true] {
