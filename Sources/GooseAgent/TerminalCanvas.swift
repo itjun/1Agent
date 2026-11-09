@@ -286,6 +286,7 @@ struct TerminalCanvas: View {
                 .foregroundStyle(isSelected ? chrome.accent : chrome.secondary)
             Text(verbatim: numberedPaneTitle(tab))
                 .font(Theme.Font.paneTitle)
+                .fontWeight(isSelected ? .semibold : .medium)
                 .lineLimit(1).truncationMode(.middle)
             if let path = TerminalPaneActions.workingDirectory(of: tab) {
                 Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
@@ -297,7 +298,7 @@ struct TerminalCanvas: View {
                 .buttonStyle(.plain).help("Close")
                 .accessibilityLabel(Text("Close"))
         }
-        .foregroundStyle(chrome.text)
+        .foregroundStyle(isSelected ? chrome.text : chrome.secondary)
         .padding(.horizontal, Theme.Space.m)
         .frame(maxHeight: .infinity)
         .contentShape(Rectangle())
