@@ -562,6 +562,8 @@ private struct FocusedWorkspaceInformation: View {
     @ObservedObject var state: WindowState
     @ObservedObject private var appearance = AppearanceDriver.shared
 
+    private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearance.isDark) }
+
     private func title(_ tab: TerminalTab) -> String {
         let name: String
         if let custom = tab.contentTitle { name = custom }
@@ -579,8 +581,14 @@ private struct FocusedWorkspaceInformation: View {
             } else if state.presentation.fullFilesWorkspace {
                 Text("Files").font(.headline)
             } else if let tab = model.selectedTab(in: state) {
-                Label(tab.isLocal ? "This Mac" : "Remote", systemImage: tab.isLocal ? "laptopcomputer" : "cloud")
-                    .labelStyle(.titleAndIcon).foregroundStyle(.secondary).fixedSize()
+                Text(tab.isLocal ? String(localized: "This Mac") : String(localized: "Remote"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(tab.isLocal ? chrome.secondary : chrome.accent)
+                    .padding(.horizontal, 6)
+                    .frame(height: Theme.DefaultLayout.badgeHeight)
+                    .background(tab.isLocal ? chrome.hoverFill : chrome.accentFill,
+                                in: RoundedRectangle(cornerRadius: Theme.Radius.tag))
+                    .fixedSize()
                 Button {
                     TerminalPaneActions.showTitleContext(model: model, window: state, tabID: tab.id)
                 } label: {
@@ -601,7 +609,7 @@ private struct FocusedWorkspaceInformation: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
+        .environment(\.windowChrome, chrome)
         .accessibilityIdentifier("workspace.focusedInformation")
     }
 }
