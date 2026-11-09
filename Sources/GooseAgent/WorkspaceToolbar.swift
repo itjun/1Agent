@@ -81,7 +81,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
             toolbar.displayMode = .iconOnly
             toolbar.allowsUserCustomization = false
             self.toolbar = toolbar
-            window.toolbarStyle = .unified
+            window.toolbarStyle = .unifiedCompact
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isOpaque = true
@@ -292,7 +292,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
 
 /// 三个文字选项等宽排列，右端开关在侧栏展开或通栏悬停时显示。
 private struct WorkspaceToolbarTools: View {
-    static let height: CGFloat = 36
+    static let height: CGFloat = 32
     @ObservedObject var model: AppModel
     @ObservedObject var state: WindowState
     @ObservedObject var visibility: WorkspaceToolbarVisibility

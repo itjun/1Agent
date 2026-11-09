@@ -30,7 +30,7 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var commandLibrarySplitRatio: CGFloat = 0.5
     @Published var isToolPreviewExpanded = false
     @Published var toolPreviewFrame: CGRect = .zero
-    @Published var workspaceToolbarHeight: CGFloat = 52
+    @Published var workspaceToolbarHeight: CGFloat = 44
     @Published var toolPreviewFindRequest = 0
     var isToolReadingExpanded: Bool {
         isToolPreviewExpanded && isToolPreviewOpen && presentation.toolSidebarOpen
