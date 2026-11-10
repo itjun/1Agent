@@ -584,7 +584,7 @@ struct SettingsView: View {
                 Text(mode.title)
                     .font(.system(size: 13, weight: .medium))
             }
-            .foregroundStyle(selected ? chrome.accent : chrome.text)
+            .foregroundStyle(selected ? chrome.selectionText : chrome.text)
             .padding(.horizontal, Theme.Space.m)
             .frame(height: SettingsLayout.segmentHeight)
             .background(

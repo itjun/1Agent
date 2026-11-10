@@ -324,7 +324,7 @@ private struct WorkspaceToolbarTools: View {
                         } label: {
                             Text(verbatim: tab.title)
                                 .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                                .foregroundStyle(isSelected ? (chrome.isSystem && !chrome.isDark ? chrome.accent : chrome.text) : chrome.secondary)
+                                .foregroundStyle(isSelected ? (chrome.isSystem ? chrome.selectionText : chrome.text) : chrome.secondary)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: Self.height)

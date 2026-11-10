@@ -15,7 +15,9 @@ enum RemotePaletteTests {
     }
 
     static func run() throws {
-        for preset in AppThemePreset.allCases {
+        _ = NSApplication.shared
+        checkSystemColors()
+        for preset in AppThemePreset.allCases.filter({ $0 != .system }) {
             for isDark in [false, true] {
                 let colors = AppTheme.colors(isDark: isDark, preset: preset)
                 let base = RGBColor(ghosttyHex: colors.background)!
@@ -91,7 +93,7 @@ enum RemotePaletteTests {
         try check(AppTheme.stored(defaults: defaults) == .apricotCream, "Apricot Cream persists")
         try check(Set(AppThemePreset.allCases.map(\.icon)) == Set(ApplicationIcon.allCases),
                   "Every existing macaron identity has a complete theme")
-        for preset in AppThemePreset.allCases {
+        for preset in AppThemePreset.allCases.filter({ $0 != .system }) {
         defaults.set(preset.rawValue, forKey: AppTheme.storageKey)
         try check(AppTheme.stored(defaults: defaults) == preset, "Every preset choice persists")
         for isDark in [false, true] {
@@ -137,6 +139,55 @@ enum RemotePaletteTests {
                   && AppTheme.colors(isDark: true, preset: preset).gradient.count > 1,
                   "Both appearances retain the gradient")
         }
+    }
+
+    static func checkSystemColors() {
+        for isDark in [false, true] {
+            let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)!
+            appearance.performAsCurrentDrawingAppearance {
+                let chrome = WindowChrome(isDark: isDark, preset: .system)
+                let pairs: [(Color, NSColor)] = [
+                    (chrome.background, .textBackgroundColor),
+                    (chrome.sidebarBackground, .windowBackgroundColor),
+                    (chrome.text, .labelColor), (chrome.secondary, .secondaryLabelColor),
+                    (chrome.accent, .controlAccentColor), (chrome.hairline, .separatorColor),
+                    (chrome.selectionText, .selectedTextColor),
+                    (chrome.sessionSelection(isActive: true), .selectedContentBackgroundColor),
+                    (chrome.sessionSelection(isActive: false), .unemphasizedSelectedContentBackgroundColor),
+                    (chrome.sessionRowChrome(isSelected: true, isActive: true).text, .alternateSelectedControlTextColor),
+                    (chrome.sessionRowChrome(isSelected: true, isActive: false).text, .unemphasizedSelectedTextColor),
+                ]
+                for (actual, expected) in pairs {
+                    expect(matches(NSColor(actual), expected), "Native semantic colors match macOS, dark=\(isDark)")
+                }
+                expect(chrome.panelHeader == chrome.sidebarBackground, "Toolbar and sidebars share their background")
+                let colors = AppTheme.colors(isDark: isDark, preset: .system)
+                expect(matches(NSColor(colors.color(colors.background)), .textBackgroundColor), "Terminal uses the native reading background")
+                expect(colors.ansi.count == 16, "All terminal ANSI slots remain available")
+                for isFocused in [false, true] {
+                    let background = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: isFocused, preset: .system)
+                    expect(RGBColor(ghosttyHex: colors.foreground)!.contrastRatio(with: background) >= 7,
+                           "Terminal output stays readable in active and inactive panes")
+                    for hex in colors.ansi {
+                        expect(RGBColor(ghosttyHex: hex)!.contrastRatio(with: background) >= 4.5,
+                               "ANSI output stays readable: \(hex)")
+                    }
+                }
+            }
+        }
+        expect(AppTheme.colors(isDark: false, preset: .system).background != AppTheme.colors(isDark: true, preset: .system).background, "Light and dark resolve independently")
+    }
+
+    static func matches(_ actual: NSColor, _ expected: NSColor) -> Bool {
+        let a = actual.usingColorSpace(.sRGB)!, b = expected.usingColorSpace(.sRGB)!
+        return abs(a.redComponent - b.redComponent) < 0.005
+            && abs(a.greenComponent - b.greenComponent) < 0.005
+            && abs(a.blueComponent - b.blueComponent) < 0.005
+            && abs(a.alphaComponent - b.alphaComponent) < 0.005
+    }
+
+    static func expect(_ condition: Bool, _ message: String) {
+        guard condition else { fputs("FAIL: \(message)\n", stderr); exit(1) }
     }
 
     static func check(_ condition: Bool, _ message: String) throws {

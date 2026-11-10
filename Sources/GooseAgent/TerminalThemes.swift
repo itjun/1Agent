@@ -144,13 +144,13 @@ final class AppearanceDriver: ObservableObject {
         let selectedPreset = AppTheme.stored()
         if preset != selectedPreset {
             preset = selectedPreset
-            GhosttyRuntime.applySelectedThemes()
             ApplicationIconManager.shared.applyPresetIcon(selectedPreset.icon)
         }
         let mode = TerminalAppearance.stored()
         let dark = mode.resolvesDark()
         let terminalDark = dark
         TerminalAppearance.applyAppKit(isDark: dark)
+        GhosttyRuntime.applySelectedThemes()
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
         GhosttyRuntime.applyColorSchemes(isDark: dark)
@@ -219,7 +219,9 @@ extension AppTheme {
             name: AppTheme.id + (isDark ? "-dark" : "-light"),
             background: colors.background, foreground: colors.foreground,
             cursorColor: colors.accent, cursorText: colors.background,
-            selectionBackground: colors.selection, selectionForeground: colors.foreground,
+            selectionBackground: colors.selection,
+            selectionForeground: AppTheme.stored() == .system
+                ? SystemTheme.hex(.selectedTextColor, isDark: isDark, over: .selectedTextBackgroundColor) : colors.foreground,
             palette: Dictionary(uniqueKeysWithValues: colors.ansi.enumerated().map { ($0.offset, $0.element) })
         )
     }

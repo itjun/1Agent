@@ -195,6 +195,41 @@ enum AppThemePreset: String, CaseIterable, Identifiable {
     }
 }
 
+/// 在指定外观下解析系统颜色，避免预览和终端误用当前窗口的浅深色。
+enum SystemTheme {
+    static func appearance(isDark: Bool) -> NSAppearance {
+        let isHighContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        return NSAppearance(named: isHighContrast
+            ? (isDark ? .accessibilityHighContrastDarkAqua : .accessibilityHighContrastAqua)
+            : (isDark ? .darkAqua : .aqua))!
+    }
+
+    static func resolved(_ color: NSColor, isDark: Bool) -> NSColor {
+        var resolved: NSColor!
+        SystemTheme.appearance(isDark: isDark).performAsCurrentDrawingAppearance {
+            resolved = color.usingColorSpace(.sRGB)!
+        }
+        return resolved
+    }
+
+    static func color(_ color: NSColor, isDark: Bool) -> Color {
+        Color(nsColor: SystemTheme.resolved(color, isDark: isDark))
+    }
+
+    /// 终端配置只接受不透明 RGB；先将语义色的透明度合成到对应背景上。
+    static func hex(_ color: NSColor, isDark: Bool, over background: NSColor = .textBackgroundColor) -> String {
+        let value = SystemTheme.resolved(color, isDark: isDark)
+        let base = SystemTheme.resolved(background, isDark: isDark)
+        let alpha = value.alphaComponent
+        let channels = [
+            value.redComponent * alpha + base.redComponent * (1 - alpha),
+            value.greenComponent * alpha + base.greenComponent * (1 - alpha),
+            value.blueComponent * alpha + base.blueComponent * (1 - alpha),
+        ]
+        return channels.map { String(format: "%02X", Int(($0 * 255).rounded())) }.joined()
+    }
+}
+
 /// 一套完整预设同时决定窗口、终端和应用图标；旧 Ghostty 偏好不参与取色。
 enum AppTheme {
     static let storageKey = "appearance.preset"
@@ -237,21 +272,26 @@ enum AppTheme {
     }
 
     // 默认浅色采用 macOS 白色阅读底、浅灰侧栏和蓝色强调；文字蓝使用原生选中蓝保证对比。
-    private static let systemLight = Colors(
-        gradient: ["F5F5F7", "F5F5F7", "F5F5F7"], glow: "F5F5F7",
-        background: "FFFFFF", foreground: "272727", secondary: "666666",
-        accent: "0064E1", selection: "E5F1FF", hover: "EBEBED", border: "E6E6E6", outline: "808080",
-        ansi: ["272727", "A54450", "416D53", "80601E", "0064E1", "79557F", "326F78", "666666",
-               "666666", "B13E50", "3D714F", "846116", "0064E1", "845183", "26737C", "272727"]
-    )
-
-    private static let systemDark = Colors(
-        gradient: ["252729", "252729", "252729"], glow: "252729",
-        background: "252729", foreground: "E3EDF2", secondary: "A9BBC5",
-        accent: "ABD0E0", selection: "344A56", hover: "2B363D", border: "39464D", outline: "879DA8",
-        ansi: ["B8B8B8", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
-               "B8B8B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E3EDF2"]
-    )
+    private static func systemColors(isDark: Bool) -> Colors {
+        let shell = SystemTheme.hex(.windowBackgroundColor, isDark: isDark)
+        return Colors(
+            gradient: [shell, shell, shell], glow: shell,
+            background: SystemTheme.hex(.textBackgroundColor, isDark: isDark),
+            foreground: SystemTheme.hex(.textColor, isDark: isDark),
+            secondary: SystemTheme.hex(.secondaryLabelColor, isDark: isDark),
+            accent: SystemTheme.hex(.controlAccentColor, isDark: isDark),
+            selection: SystemTheme.hex(.selectedTextBackgroundColor, isDark: isDark),
+            hover: SystemTheme.hex(.controlColor, isDark: isDark),
+            border: SystemTheme.hex(.separatorColor, isDark: isDark),
+            outline: SystemTheme.hex(.keyboardFocusIndicatorColor, isDark: isDark),
+            // ANSI 槽位属于终端内容，保留在浅深底色上清晰可读的一组颜色。
+            ansi: isDark
+                ? ["B8B8B8", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
+                   "B8B8B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E3EDF2"]
+                : ["272727", "A54450", "416D53", "80601E", "0064E1", "79557F", "326F78", "666666",
+                   "666666", "B13E50", "3D714F", "846116", "0064E1", "845183", "26737C", "272727"]
+        )
+    }
 
     // 前十组使用柔和的同色系渐变，选中态沿用主色；仅最后两组保留撞色。
     // 深色保留炭灰阅读底，壁纸材质由共用外壳叠加。
@@ -450,7 +490,7 @@ enum AppTheme {
 
     static func colors(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) -> Colors {
         switch preset {
-        case .system: isDark ? AppTheme.systemDark : AppTheme.systemLight
+        case .system: AppTheme.systemColors(isDark: isDark)
         case .mintCandy: isDark ? AppTheme.mintDark : AppTheme.mintLight
         case .strawberryCream: isDark ? AppTheme.strawberryDark : AppTheme.strawberryLight
         case .apricotCream: isDark ? AppTheme.apricotDark : AppTheme.apricotLight
@@ -480,6 +520,7 @@ struct WindowChrome: Equatable {
     var hairline: Color
     var accent: Color
     var accentFill: Color
+    var selectionText: Color
     var panelHeader: Color
     var danger: Color
     var warning: Color
@@ -494,19 +535,20 @@ struct WindowChrome: Equatable {
 
     func rowSelection(active: Bool) -> Color {
         guard isSystem else { return accentFill }
-        return active ? accentFill : accentFill.opacity(0.70)
+        return active ? accentFill : SystemTheme.color(.unemphasizedSelectedContentBackgroundColor, isDark: isDark)
     }
 
-    /// 会话使用蓝底白字；导航与其他列表仍使用浅蓝选中底。
     func sessionSelection(isActive: Bool) -> Color {
-        guard isSystem && !isDark else { return rowSelection(active: isActive) }
-        return isActive ? accent : RGBColor(ghosttyHex: "DCDCDC")!.color
+        guard isSystem else { return rowSelection(active: isActive) }
+        return SystemTheme.color(isActive ? .selectedContentBackgroundColor : .unemphasizedSelectedContentBackgroundColor,
+                                 isDark: isDark)
     }
 
     func sessionRowChrome(isSelected: Bool, isActive: Bool) -> WindowChrome {
-        guard isSystem && !isDark && isSelected else { return self }
+        guard isSystem && isSelected else { return self }
         var row = self
-        row.text = isActive ? .white : text
+        row.text = SystemTheme.color(isActive ? .alternateSelectedControlTextColor : .unemphasizedSelectedTextColor,
+                                    isDark: isDark)
         row.secondary = row.text
         row.tertiary = row.text
         row.danger = row.text
@@ -549,6 +591,28 @@ struct WindowChrome: Equatable {
     init(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) {
         self.isDark = isDark
         isSystem = preset == .system
+        if isSystem {
+            background = SystemTheme.color(.textBackgroundColor, isDark: isDark)
+            sidebarBackground = SystemTheme.color(.windowBackgroundColor, isDark: isDark)
+            elevated = SystemTheme.color(.controlColor, isDark: isDark)
+            text = SystemTheme.color(.labelColor, isDark: isDark)
+            secondary = SystemTheme.color(.secondaryLabelColor, isDark: isDark)
+            tertiary = SystemTheme.color(.tertiaryLabelColor, isDark: isDark)
+            hairline = SystemTheme.color(.separatorColor, isDark: isDark)
+            accent = SystemTheme.color(.controlAccentColor, isDark: isDark)
+            accentFill = SystemTheme.color(.selectedTextBackgroundColor, isDark: isDark)
+            selectionText = SystemTheme.color(.selectedTextColor, isDark: isDark)
+            panelHeader = sidebarBackground
+            danger = SystemTheme.color(.systemRed, isDark: isDark)
+            warning = SystemTheme.color(.systemOrange, isDark: isDark)
+            success = SystemTheme.color(.systemGreen, isDark: isDark)
+            accentHover = accent.opacity(0.88)
+            accentActive = accent.opacity(0.76)
+            focus = SystemTheme.color(.keyboardFocusIndicatorColor, isDark: isDark)
+            selection = accentFill
+            lineStrong = SystemTheme.color(.controlTextColor, isDark: isDark)
+            return
+        }
         // 外壳与终端共用色板，左右侧栏始终使用同一背景。
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         background = colors.color(colors.background)
@@ -560,6 +624,7 @@ struct WindowChrome: Equatable {
         hairline = colors.color(colors.border)
         accent = colors.color(colors.accent)
         accentFill = colors.color(colors.selection)
+        selectionText = accent
         panelHeader = isSystem && !isDark ? sidebarBackground : background
         danger = colors.color(colors.ansi[1])
         warning = colors.color(colors.ansi[3])

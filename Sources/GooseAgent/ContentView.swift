@@ -295,11 +295,11 @@ struct RootView: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: symbol).font(.system(size: 16)).frame(width: 20)
-                    .foregroundStyle(active ? sidebarChrome.accent : sidebarChrome.secondary)
+                    .foregroundStyle(active ? sidebarChrome.selectionText : sidebarChrome.secondary)
                 Text(title).font(.system(size: 14, weight: active ? .semibold : .regular))
                 Spacer()
             }
-            .foregroundStyle(active && !sidebarChrome.isDark ? sidebarChrome.accent : sidebarChrome.text)
+            .foregroundStyle(active ? sidebarChrome.selectionText : sidebarChrome.text)
             .padding(.horizontal, 12).frame(height: 40)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(active ? sidebarChrome.accentFill : Color.clear))
             .contentShape(Rectangle())

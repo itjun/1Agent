@@ -48,26 +48,15 @@ import SwiftUI
                     view.cacheDisplay(in: view.bounds, to: image)
                     let color = image.colorAt(x: image.pixelsWide / 2, y: image.pixelsHigh - 20)!
                     if preset == .system {
-                        // 比较两个已挂载的生产视图，保持位图色彩空间与外观一致。
-                        guard let backdrop = SidebarAppearanceTests.readingBackdrop(in: host.view),
-                              let reference = backdrop.bitmapImageRepForCachingDisplay(in: backdrop.bounds) else {
-                            fatalError("cannot render production reading background")
-                        }
-                        backdrop.cacheDisplay(in: backdrop.bounds, to: reference)
-                        let expected = reference.colorAt(x: reference.pixelsWide / 2,
-                            y: reference.pixelsHigh / 2)!.usingColorSpace(.sRGB)!
+                        let expected = NSColor(WindowChrome(isDark: isDark, preset: .system).sidebarBackground).usingColorSpace(.sRGB)!
+                        let native = window.backgroundColor.usingColorSpace(.sRGB)!
                         let actual = color.usingColorSpace(.sRGB)!
-                        let isSameBackground = abs(actual.redComponent - expected.redComponent) < 0.01
-                            && abs(actual.greenComponent - expected.greenComponent) < 0.01
-                            && abs(actual.blueComponent - expected.blueComponent) < 0.01
-                        let isLightGraySidebar = [actual.redComponent, actual.greenComponent, actual.blueComponent].allSatisfy { $0 > 0.9 }
-                            && actual.redComponent < expected.redComponent - 0.01
-                            && actual.greenComponent < expected.greenComponent - 0.01
-                            && actual.blueComponent < expected.blueComponent - 0.01
-                            && abs(actual.redComponent - actual.blueComponent) < 0.03
+                        // 原生背景与系统语义色比较；左右侧栏在下方比较渲染结果，避免混用 HDR 像素和原始 RGB。
                         SidebarAppearanceTests.expect(actual.alphaComponent > 0.99
-                            && (isDark ? isSameBackground : isLightGraySidebar),
-                            "default/\(section), dark=\(isDark): light navigation is neutral gray beside white reading content; dark navigation retains its reading background; actual=\(actual), reading=\(expected)")
+                            && abs(native.redComponent - expected.redComponent) < 0.01
+                            && abs(native.greenComponent - expected.greenComponent) < 0.01
+                            && abs(native.blueComponent - expected.blueComponent) < 0.01,
+                            "default/\(section), dark=\(isDark): opaque navigation and toolbar use the macOS window background")
                         if section == .terminals {
                             guard let inspector = SidebarAppearanceTests.navigationSplit(in: host.view, identifier: "workspace.inspectorSplit")?.splitViewItems.last?.viewController.view,
                                   let inspectorImage = inspector.bitmapImageRepForCachingDisplay(in: inspector.bounds) else {
