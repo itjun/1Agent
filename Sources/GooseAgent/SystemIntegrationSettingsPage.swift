@@ -226,7 +226,7 @@ struct SystemIntegrationSettingsPage: View {
     private func showFinderServices() {
         let alert = FamilyAlert()
         alert.messageText = String(localized: "Finder Directory Services")
-        alert.informativeText = String(localized: "Select a file or folder in Finder, then open the Services menu.\n\nNew 1Agent Tab Here creates a new terminal in the 1Agent window, in the selected folder or a file’s parent folder.")
+        alert.informativeText = String(localized: "Select a file or folder in Finder, then open the Services menu.\n\nOpen in 1Agent creates a new terminal in the 1Agent window, in the selected folder or a file’s parent folder.")
         alert.addButton(withTitle: String(localized: "OK"))
         if let window = NSApp.keyWindow { alert.beginSheetModal(for: window) { _ in } }
         else { alert.runModal() }

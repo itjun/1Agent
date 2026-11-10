@@ -1062,7 +1062,7 @@ final class AppModel: ObservableObject {
         alert.runModal()
     }
 
-    /// Finder "New 1Agent Tab Here", `open` of a folder or script, and `-e` from the command line.
+    /// Finder "Open in 1Agent", `open` of a folder or script, and `-e` from the command line.
     /// Waits for the saved session on a cold launch, then adds and selects in the main window.
     func openLocalTerminals(at directories: [String], initialInput: String? = nil, reuseExisting: Bool = true) {
         guard !directories.isEmpty else { return }

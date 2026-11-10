@@ -1,6 +1,6 @@
 import AppKit
 
-/// Finder's Services menu: "New 1Agent Tab Here".
+/// Finder's Services menu: "Open in 1Agent".
 /// The selector is named by `NSMessage` in the Info.plist `NSServices` entry.
 @MainActor
 final class ServiceProvider: NSObject {

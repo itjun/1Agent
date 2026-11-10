@@ -92,9 +92,9 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>New 1Agent Tab Here</string>
+				<string>Open in 1Agent</string>
 				<key>zh-Hans</key>
-				<string>在此新建 1Agent 标签</string>
+				<string>在 1Agent 中打开</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>openTab</string>

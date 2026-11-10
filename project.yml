@@ -79,8 +79,8 @@ targets:
               - public.unix-executable
         NSServices:
           - NSMenuItem:
-              default: New 1Agent Tab Here
-              zh-Hans: "在此新建 1Agent 标签"
+              default: Open in 1Agent
+              zh-Hans: "在 1Agent 中打开"
             NSMessage: openTab
             NSRequiredContext:
               NSTextContent: FilePath
