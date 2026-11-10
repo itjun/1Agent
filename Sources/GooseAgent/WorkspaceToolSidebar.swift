@@ -57,6 +57,7 @@ struct WorkspaceToolSidebar: View {
 }
 
 private struct GitRefreshKey: Hashable {
+    var location: GitLocation
     var isComparison: Bool
     var base: String
     var revision: Int
@@ -117,7 +118,7 @@ struct WorkspaceChangesView: View {
         window.toolGitBranchComparison ? (base.isEmpty ? snapshot?.defaultBase : base) : nil
     }
     private var refreshKey: GitRefreshKey {
-        GitRefreshKey(isComparison: window.toolGitBranchComparison, base: base, revision: revision)
+        GitRefreshKey(location: location, isComparison: window.toolGitBranchComparison, base: base, revision: revision)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -182,6 +183,9 @@ struct WorkspaceChangesView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task(id: refreshKey) { await refresh() }
         .onReceive(timer) { _ in if !isLoading && NSApp.isActive { revision += 1 } }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            revision += 1
+        }
     }
 
     private func directoryRow(_ row: GitChangeTree.Row) -> some View {

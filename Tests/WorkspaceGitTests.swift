@@ -12,6 +12,78 @@ struct WorkspaceGitTests {
         let result = try await WorkspaceGit.run(args, at: GitLocation(directory: directory))
         try check(result.status == 0, String(decoding: result.stderr, as: UTF8.self))
     }
+    @MainActor static func branchRefreshesOnActivation() async throws {
+        NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("oneagent-branch-refresh-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try await git(["init", "-b", "main"], root.path)
+        try await git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-m", "base"], root.path)
+        let linked = root.appendingPathComponent("linked")
+        try await git(["worktree", "add", "-b", "linked-branch", linked.path], root.path)
+
+        let model = AppModel(), state = WindowState()
+        let tab = TerminalTab(id: UUID(), directory: linked.path, generation: 0, exited: false)
+        let badge = NSHostingView(rootView: TerminalGitBadge(tab: tab, model: model, window: state))
+        let changes = NSHostingView(rootView: WorkspaceChangesView(location: GitLocation(directory: linked.path), window: state))
+        let stack = NSStackView(views: [badge, changes])
+        stack.orientation = .vertical
+        let native = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        native.contentView = stack
+        native.orderFront(nil)
+        defer { native.orderOut(nil); native.contentView = nil }
+
+        func labels(_ object: Any) -> [String] {
+            var visited = Set<ObjectIdentifier>()
+            func walk(_ object: Any) -> [String] {
+                guard let element = object as? NSObject, visited.insert(ObjectIdentifier(element)).inserted else { return [] }
+                func value(_ name: String) -> Any? {
+                    let selector = NSSelectorFromString(name)
+                    return element.responds(to: selector) ? element.perform(selector)?.takeUnretainedValue() : nil
+                }
+                let own = ["accessibilityLabel", "accessibilityTitle", "accessibilityValue"].compactMap { name -> String? in
+                    let item = value(name)
+                    return (item as? String) ?? (item as? NSAttributedString)?.string
+                }
+                return own + (value("accessibilityChildren") as? [Any] ?? []).flatMap(walk)
+            }
+            return walk(object)
+        }
+        func displays(_ branch: String) -> Bool {
+            labels(badge).contains { $0.contains(branch) } && labels(changes).contains { $0.contains(branch) }
+        }
+        func waitForBranch(_ branch: String) async throws {
+            for _ in 0..<60 {
+                native.contentView?.layoutSubtreeIfNeeded()
+                if displays(branch) { return }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+            throw Failure(message: "Badge and Changes must show \(branch) within 3 seconds; badge=\(labels(badge)); changes=\(labels(changes))")
+        }
+        try await waitForBranch("linked-branch")
+        // 外部工具切换同一工作树，回到 1Agent 时不能等待十秒轮询。
+        try await git(["checkout", "-b", "external-switch"], linked.path)
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+        try await waitForBranch("external-switch")
+        try check(try await WorkspaceGit.snapshot(at: GitLocation(directory: root.path))?.branch == "main",
+                  "Switching a linked worktree must not change the main worktree branch")
+        try await git(["branch", "-m", "renamed-branch"], linked.path)
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+        try await waitForBranch("renamed-branch")
+        var mainTab = tab
+        mainTab.directory = root.path
+        badge.rootView = TerminalGitBadge(tab: mainTab, model: model, window: state)
+        changes.rootView = WorkspaceChangesView(location: GitLocation(directory: root.path), window: state)
+        try await waitForBranch("main")
+        try await git(["checkout", "-b", "main-worktree-switch"], root.path)
+        for _ in 0..<3 {
+            NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try await waitForBranch("main-worktree-switch")
+        print("PASS branch activation: external checkout, rename, linked-worktree isolation, directory change, repeated activation, badge and Changes refresh")
+    }
     @MainActor static func previewSurvivesListSwitch(location: GitLocation, snapshot: GitSnapshot, change: GitChange) async throws {
         _ = NSApplication.shared
         let state = WindowState()
@@ -115,6 +187,8 @@ struct WorkspaceGitTests {
         NSApp.run()
     }
     static func run() async throws {
+        try await branchRefreshesOnActivation()
+        if CommandLine.arguments.contains("--branch-refresh-only") { return }
         let treeChanges = [
             GitChange(path: "README.md", status: "M", lineStats: GitLineStats(additions: 1, deletions: 1)),
             GitChange(path: "src/a.swift", status: "D", lineStats: GitLineStats(deletions: 3)),

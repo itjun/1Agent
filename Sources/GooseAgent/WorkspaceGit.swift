@@ -327,6 +327,12 @@ struct TerminalGitBadge: View {
     @State private var branch: String?
     @State private var stats: GitLineStats?
     @State private var statsError: String?
+    @State private var refreshRevision = 0
+    @State private var displayedLocation: GitLocation?
+    private struct RefreshKey: Hashable {
+        var location: GitLocation?
+        var revision: Int
+    }
     private var location: GitLocation? {
         TerminalPaneActions.workingDirectory(of: tab).map { GitLocation(host: tab.isLocal ? nil : tab.alias, directory: $0) }
     }
@@ -342,19 +348,26 @@ struct TerminalGitBadge: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.triangle.branch")
+                            .font(Theme.Toolbar.iconFont)
                         Text(verbatim: branch).lineLimit(1).truncationMode(.middle)
                         if let stats { GitLineStatsLabel(stats: stats).fixedSize() }
-                    }.font(Theme.Font.rowMeta).padding(.horizontal, 7).padding(.vertical, chrome.isSystem ? 0 : 3)
-                        .frame(height: chrome.isSystem ? Theme.DefaultLayout.badgeHeight : nil)
-                        .defaultRowSurface(selected: false, legacyFill: chrome.accentFill, radius: 5)
+                    }.font(.system(size: Theme.Toolbar.textSize)).padding(.horizontal, Theme.Space.s)
+                        .frame(height: Theme.Toolbar.height)
+                        .defaultRowSurface(selected: false, legacyFill: chrome.accentFill, radius: Theme.Radius.control)
                 }.buttonStyle(.plain).help(statsError ?? String(localized: "Show Branch Changes"))
                     .accessibilityIdentifier("workspace.branch." + tab.id.uuidString)
             }
         }
-        .task(id: location) {
-            branch = nil
-            stats = nil
-            statsError = nil
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshRevision += 1
+        }
+        .task(id: RefreshKey(location: location, revision: refreshRevision)) {
+            if displayedLocation != location {
+                branch = nil
+                stats = nil
+                statsError = nil
+                displayedLocation = location
+            }
             guard let location else { return }
             while !Task.isCancelled {
                 do {

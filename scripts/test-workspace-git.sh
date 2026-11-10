@@ -7,7 +7,7 @@ test_dir="$(mktemp -d /private/tmp/oneagent-git-runner.XXXXXX)"
 trap 'rm -rf "$test_dir"' EXIT
 # 原生改动列表回归需要应用内的文件图标与本地化资源。
 test_bundle="$test_dir/WorkspaceGitTests.app/Contents"
-mkdir -p "$test_bundle/MacOS"
+mkdir -p "$test_bundle/MacOS" "$test_dir/home"
 ln -s "$products_dir/1Agent.app/Contents/Resources" "$test_bundle/Resources"
 test_executable="$test_bundle/MacOS/tests"
 swift_compiler=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc
@@ -16,4 +16,4 @@ sdk_dir="$(env DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun --
     -I "$products_dir" -I "$products_dir/include/libghostty" \
     -Xlinker -rpath -Xlinker "$dylib_dir" \
     "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/WorkspaceGitTests.swift" -o "$test_executable"
-"$test_executable"
+CFFIXED_USER_HOME="$test_dir/home" "$test_executable" "$@"

@@ -64,6 +64,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
         private var isPageToolbar = false
         private let navigationSeparator = NSToolbarItem.Identifier("workspace.navigationSeparator")
         private let information = NSToolbarItem.Identifier("workspace.focusedInformation")
+        private let branch = NSToolbarItem.Identifier("workspace.branch")
         private let sidebar = NSToolbarItem.Identifier("workspace.sidebar")
         private let tools = NSToolbarItem.Identifier("workspace.tools")
 
@@ -137,6 +138,14 @@ struct WorkspaceToolbar: NSViewRepresentable {
                     toolsItem = nil
                     toolsWidth = nil
                 }
+                if isTerminal && !state.isToolReadingExpanded && tab != nil {
+                    if !toolbar.items.contains(where: { $0.itemIdentifier == branch }) {
+                        toolbar.insertItem(withItemIdentifier: branch,
+                            at: toolbar.items.firstIndex(where: { $0.itemIdentifier == tools }) ?? toolbar.items.count)
+                    }
+                } else if let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == branch }) {
+                    toolbar.removeItem(at: index)
+                }
             }
             updateInformation()
             FocusedTerminal.shared.refreshSoon()
@@ -181,7 +190,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
         @objc private func windowDidResize(_ notification: Notification) { update() }
 
         func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-            [sidebar, navigationSeparator, information, .flexibleSpace, tools]
+            [sidebar, navigationSeparator, information, .flexibleSpace, branch, tools]
         }
         func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
             toolbarDefaultItemIdentifiers(toolbar)
@@ -222,6 +231,17 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 item.maxSize = NSSize(width: 720, height: Theme.Toolbar.height)
                 item.visibilityPriority = .high
                 if #available(macOS 26.0, *) { item.isBordered = false }
+                return item
+            }
+            if id == branch {
+                let item = NSToolbarItem(itemIdentifier: id)
+                let view = NSHostingView(rootView: WorkspaceToolbarBranch(model: model, state: state))
+                view.sizingOptions = [.intrinsicContentSize]
+                item.view = view
+                item.minSize = NSSize(width: 1, height: Theme.Toolbar.height)
+                item.maxSize = NSSize(width: 240, height: Theme.Toolbar.height)
+                item.visibilityPriority = .high
+                item.isBordered = false
                 return item
             }
             let item = NSToolbarItem(itemIdentifier: id)
@@ -566,6 +586,25 @@ private struct WorkspaceToolbarInformation: View {
         .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
         .preferredColorScheme(appearance.interfaceColorScheme)
         .font(Theme.Font.body)
+        .foregroundStyle(WindowChrome.resolve(isDark: appearance.isDark).text)
+    }
+}
+
+/// 分支放在弹性空白之后，紧靠终端右边界；打开预览时随右侧工具区一起左移。
+private struct WorkspaceToolbarBranch: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var state: WindowState
+    @ObservedObject private var appearance = AppearanceDriver.shared
+
+    var body: some View {
+        Group {
+            if let tab = model.selectedTab(in: state) {
+                TerminalGitBadge(tab: tab, model: model, window: state).id(tab.id)
+                    .frame(maxWidth: 240, alignment: .trailing)
+            }
+        }
+        .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
+        .preferredColorScheme(appearance.interfaceColorScheme)
         .foregroundStyle(WindowChrome.resolve(isDark: appearance.isDark).text)
     }
 }
