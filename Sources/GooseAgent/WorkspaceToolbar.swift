@@ -239,7 +239,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 view.sizingOptions = [.intrinsicContentSize]
                 item.view = view
                 item.minSize = NSSize(width: 1, height: Theme.Toolbar.height)
-                item.maxSize = NSSize(width: 240, height: Theme.Toolbar.height)
+                item.maxSize = NSSize(width: Theme.Toolbar.branchMaxWidth, height: Theme.Toolbar.height)
                 item.visibilityPriority = .high
                 item.isBordered = false
                 return item
@@ -298,7 +298,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 return window?.frame.width ?? state.toolPreviewFrame.width + tabsWidth
             }
             let previewWidth = state.toolPreviewFrame.width
-            return tabsWidth + WorkspaceToolbarTools.height + 2 * Theme.Space.s
+            return tabsWidth + WorkspaceToolbarTools.height + 2 * Theme.Space.s + Theme.Toolbar.sectionInset
                 + (previewWidth > 0 ? previewWidth + 2 * Theme.Space.s : 0)
         }
 
@@ -375,6 +375,7 @@ private struct WorkspaceToolbarTools: View {
             .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
         }
         .buttonStyle(FamilyPlainButtonStyle())
+        .padding(.leading, state.presentation.toolSidebarOpen && !state.isToolReadingExpanded ? Theme.Toolbar.sectionInset : 0)
         .frame(height: Self.height)
         .preferredColorScheme(appearance.interfaceColorScheme)
         .accessibilityElement(children: .contain)
@@ -601,7 +602,8 @@ private struct WorkspaceToolbarBranch: View {
         Group {
             if let tab = model.selectedTab(in: state) {
                 TerminalGitBadge(tab: tab, model: model, window: state).id(tab.id)
-                    .frame(maxWidth: 240, alignment: .trailing)
+                    .frame(minWidth: 0, maxWidth: Theme.Toolbar.branchMaxWidth, alignment: .trailing)
+                    .clipped()
             }
         }
         .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
