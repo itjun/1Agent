@@ -22,6 +22,18 @@ enum HostInformationTests {
         precondition(home.hasPrefix("/private/tmp/oneagent-host-information."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath().path == URL(fileURLWithPath: home).resolvingSymlinksInPath().path)
         let defaults = UserDefaults(suiteName: "oneagent.host-information.\(UUID())")!
+        let pasteboard = NSPasteboard.general
+        let savedPasteboard = (pasteboard.pasteboardItems ?? []).map { item in
+            item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+        }
+        defer {
+            pasteboard.clearContents()
+            pasteboard.writeObjects(savedPasteboard.map { contents in
+                let item = NSPasteboardItem()
+                for (type, data) in contents { item.setData(data, forType: type) }
+                return item
+            })
+        }
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)
         let block: @convention(block) (AnyObject) -> UserDefaults = { _ in defaults }
@@ -66,6 +78,7 @@ enum HostInformationTests {
             terminal.rightMouseUp(with: pointer(.rightMouseUp))
             let presenter = FamilyMenuPresenter.shared
             guard let menu = probe.menu else { fatalError("right-button release must open a native menu") }
+            precondition(!menu.items.contains { $0.title == String(localized: "Copy Info") }, "host copying must be inside Host Information")
             let actions = menu.items.enumerated().filter { $0.element.title == String(localized: "Host Information") }
             precondition(actions.count == 1, "the real menu must contain exactly one Host Information action")
             menu.performActionForItem(at: actions[0].offset)
@@ -94,11 +107,34 @@ enum HostInformationTests {
             precondition(values.contains(expected), "dialog must show the clicked remote host field: \(expected); actual: \(values)")
         }
         precondition(state.selectedTabID == local.id && !state.presentation.toolSidebarOpen, "opening information must not switch panes or require the sidebar")
+        for (field, expected) in [
+            ("name", "fixture-host"), ("address", "192.0.2.10"), ("user", "fixture-user"),
+            ("port", "2222"), ("directory", "/srv/fixture"), ("sshCommand", "ssh -- 'fixture-host'")
+        ] {
+            let button = elements(dialog.contentView!).first { value($0, "accessibilityIdentifier") as? String == "hostInformation.copy." + field }!
+            precondition(invoke(button, "accessibilityPerformPress"), "the field's actual copy button must activate")
+            try await until("copy " + field) { pasteboard.string(forType: .string) == expected }
+        }
+        let copyInfo = elements(dialog.contentView!).first { value($0, "accessibilityIdentifier") as? String == "hostInformation.copyConnectionInfo" }!
+        precondition(invoke(copyInfo, "accessibilityPerformPress"), "the connection information button must activate")
+        try await until("copy connection information") { pasteboard.string(forType: .string) == "fixture-host\n192.0.2.10\nfixture-user" }
+        precondition(state.selectedTabID == local.id, "copying must retain the clicked host without switching the selected terminal")
+        print("PASS: native buttons copy each clicked host field and connection information")
         let close = elements(dialog.contentView!).first { value($0, "accessibilityIdentifier") as? String == "hostInformation.close" }!
         precondition(invoke(close, "accessibilityPerformPress"), "the actual SwiftUI Close button must activate")
         try await until("Close button dismissal") { state.hostInformationTabID == nil && owner.attachedSheet == nil && owner.firstResponder === terminal }
         precondition(!dialog.isVisible && owner.firstResponder === terminal, "closing must remove the native sheet and restore terminal focus")
         print("PASS: right-click → Host Information → remote fields → Close; captured target and focus preserved")
+
+        try "Host fixture-host\n".write(to: config, atomically: true, encoding: .utf8)
+        model.reloadHosts()
+        let missingDialog = try await open(remote)
+        let missingUser = elements(missingDialog.contentView!).first { value($0, "accessibilityIdentifier") as? String == "hostInformation.copy.user" }!
+        precondition(missingUser.responds(to: NSSelectorFromString("isAccessibilityEnabled")) && !invoke(missingUser, "isAccessibilityEnabled"),
+                     "an unknown value cannot copy the placeholder")
+        let missingClose = elements(missingDialog.contentView!).first { value($0, "accessibilityIdentifier") as? String == "hostInformation.close" }!
+        precondition(invoke(missingClose, "accessibilityPerformPress"))
+        try await until("missing-field dialog dismissal") { owner.attachedSheet == nil }
 
         let localDialog = try await open(local)
         let localValues = elements(localDialog.contentView!).flatMap { object in

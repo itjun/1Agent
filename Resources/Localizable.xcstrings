@@ -8,6 +8,8 @@
     "Host" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Host"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "主机"}}}},
     "Run in Current Terminal" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Run in Current Terminal"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "在当前终端执行"}}}},
     "Current Terminal" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current Terminal"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端"}}}},
+    "Copy %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Copy %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "复制%@"}}}},
+    "Copy All" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Copy All"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "复制全部"}}}},
     "Expand Reading" : {
       "localizations": {
         "en": {

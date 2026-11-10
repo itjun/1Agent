@@ -20,32 +20,88 @@ struct HostInformationView: View {
     @ObservedObject var model: AppModel
     let tabID: UUID
     let onClose: () -> Void
+    @State private var isConnectionInfoCopied = false
+
+    private var tab: TerminalTab? {
+        model.tabs.first { $0.id == tabID && $0.hasTerminal }
+    }
 
     var body: some View {
         CommandDialog(title: "Host Information", close: onClose) {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    if let tab = model.tabs.first(where: { $0.id == tabID && $0.hasTerminal }) {
-                        CommandInfoRow(title: "Target Host", value: tab.isLocal ? String(localized: "This Mac") : tab.alias ?? String(localized: "Unknown"))
+                VStack(alignment: .leading, spacing: 16) {
+                    if let tab {
+                        HostInformationRow(title: String(localized: "Target Host"), value: tab.isLocal ? String(localized: "This Mac") : tab.alias, identifier: "name")
                         CommandInfoRow(title: "Connection", value: !tab.exited && !tab.reconnecting ? String(localized: "Connected") : String(localized: "Not connected"))
                         if !tab.isLocal {
                             let host = model.hosts.first { $0.alias == tab.alias }
-                            CommandInfoRow(title: "Address", value: host?.hostName ?? String(localized: "Unknown"))
-                            CommandInfoRow(title: "User", value: host?.user ?? String(localized: "Unknown"))
-                            CommandInfoRow(title: "Port", value: host?.port ?? "22")
+                            HostInformationRow(title: String(localized: "Address"), value: host?.hostName ?? tab.alias, identifier: "address")
+                            HostInformationRow(title: String(localized: "User"), value: host?.user, identifier: "user")
+                            HostInformationRow(title: String(localized: "Port"), value: host?.port ?? "22", identifier: "port")
                         }
-                        CommandInfoRow(title: "Working Directory", value: TerminalPaneActions.workingDirectory(of: tab) ?? String(localized: "Directory unknown"))
-                        CommandInfoRow(title: "Shell", value: tab.isLocal ? LocalTerminal.shellExecutable : String(localized: "Unknown"))
+                        HostInformationRow(title: String(localized: "Working Directory"), value: TerminalPaneActions.workingDirectory(of: tab),
+                            identifier: "directory", placeholder: String(localized: "Directory unknown"))
+                        if tab.isLocal {
+                            HostInformationRow(title: String(localized: "Shell"), value: LocalTerminal.shellExecutable, identifier: "shell")
+                        } else if let alias = tab.alias {
+                            // 保留 SSH 配置中的端口、跳板机和认证方式。
+                            HostInformationRow(title: String(localized: "SSH Command"),
+                                value: "ssh -- '" + alias.replacingOccurrences(of: "'", with: "'\\''") + "'", identifier: "sshCommand")
+                        }
                     } else {
                         Text("Not connected")
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
         } actions: {
+            if let tab, !tab.isLocal {
+                Button(isConnectionInfoCopied ? String(localized: "Copied") : String(localized: "Copy All")) {
+                    copySessionInfo(tab, model: model)
+                    isConnectionInfoCopied = true
+                }
+                .buttonStyle(FamilyButtonStyle())
+                .accessibilityIdentifier("hostInformation.copyConnectionInfo")
+                .task(id: isConnectionInfoCopied) {
+                    guard isConnectionInfoCopied else { return }
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                    isConnectionInfoCopied = false
+                }
+            }
             Button("Close", action: onClose).buttonStyle(FamilyButtonStyle())
                 .accessibilityIdentifier("hostInformation.close")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("hostInformation.dialog")
+    }
+}
+
+private struct HostInformationRow: View {
+    let title: String
+    let value: String?
+    let identifier: String
+    var placeholder = String(localized: "Unknown")
+    @State private var isCopied = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            CommandInfoRow(title: LocalizedStringKey(title), value: value ?? placeholder)
+            Button {
+                guard let value, !value.isEmpty else { return }
+                NSPasteboard.general.clearContents()
+                isCopied = NSPasteboard.general.setString(value, forType: .string)
+            } label: {
+                Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+            }
+            .buttonStyle(FamilyButtonStyle())
+            .disabled(value?.isEmpty != false)
+            .help(isCopied ? String(localized: "Copied") : String(format: String(localized: "Copy %@"), title))
+            .accessibilityLabel(String(format: String(localized: "Copy %@"), title))
+            .accessibilityIdentifier("hostInformation.copy." + identifier)
+            .task(id: isCopied) {
+                guard isCopied else { return }
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                isCopied = false
+            }
+        }
     }
 }
