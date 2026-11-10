@@ -870,7 +870,7 @@ private struct FilesWorkspaceRoutingTests {
             return unsafeBitCast(element.method(for: selector), to: Getter.self)(element, selector)
         }
         func elements(_ id: String) -> [NSObject] {
-            accessibilityElements(window.contentView!).filter { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
+            accessibilityElements(window).filter { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
         }
         func activateFileWindow() async throws {
             try await eventually("activate file workspace test window") {
@@ -1194,7 +1194,7 @@ private struct FilesWorkspaceRoutingTests {
         window.makeKey()
         try await eventually("activate compact header fixture") { window.isKeyWindow && NSApp.isActive }
         func element(_ id: String) -> NSObject? {
-            accessibilityElements(window.contentView!).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
+            accessibilityElements(window).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
         }
         func frame(_ object: NSObject) -> NSRect {
             let selector = NSSelectorFromString("accessibilityFrame")
@@ -1219,26 +1219,34 @@ private struct FilesWorkspaceRoutingTests {
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
         try verifyShortcutOnlyActions()
-        func hoverView(_ view: NSView) -> ToolbarBoundarySeparatorView? {
-            (view as? ToolbarBoundarySeparatorView) ?? view.subviews.compactMap(hoverView).first
+        func hoverView(_ view: NSView) -> ToolbarHoverTrackingView? {
+            (view as? ToolbarHoverTrackingView) ?? view.subviews.compactMap(hoverView).first
         }
         guard let toolbarHover = hoverView(window.contentView!) else {
             throw TestFailure(description: "Toolbar hover surface must remain attached")
         }
-        func movePointer(to point: NSPoint, isSeparatorVisible: Bool) async throws {
+        var isToolbarHovered = false
+        let originalOnHover = toolbarHover.onHover
+        toolbarHover.onHover = { isToolbarHovered = $0; originalOnHover($0) }
+        defer { toolbarHover.onHover = originalOnHover }
+        toolbarHover.mouseExited(with: NSEvent())
+        try await settle()
+        func movePointer(to point: NSPoint, isHovered: Bool) async throws {
             let event = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [],
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                 context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
             NSApp.postEvent(event, atStart: false)
             try await settle()
-            try require(toolbarHover.separator.isHidden != isSeparatorVisible,
-                        "Toolbar separator visibility must follow the whole title band at \(point)")
+            try require(isToolbarHovered == isHovered,
+                        "Toolbar controls must still follow hover across the whole title band at \(point)")
+            try require(window.titlebarSeparatorStyle == .none && toolbarHover.subviews.isEmpty,
+                        "Toolbar hover must not add a horizontal separator")
         }
         let toolbarY = (window.contentLayoutRect.maxY + window.frame.height) / 2
         for x in [CGFloat(12), window.frame.width / 2, window.frame.width - 12] {
-            try await movePointer(to: NSPoint(x: x, y: toolbarY), isSeparatorVisible: true)
+            try await movePointer(to: NSPoint(x: x, y: toolbarY), isHovered: true)
             try await movePointer(to: NSPoint(x: x, y: window.contentLayoutRect.maxY - 12),
-                                  isSeparatorVisible: false)
+                                  isHovered: false)
         }
         toolbarHover.mouseExited(with: NSEvent())
         try require(window.toolbar?.items.contains { $0.itemIdentifier.rawValue == "workspace.add" } == false,
@@ -1332,7 +1340,7 @@ private struct FilesWorkspaceRoutingTests {
         try await settle()
 
         func element(_ id: String) -> NSObject? {
-            accessibilityElements(window.contentView!).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
+            accessibilityElements(window).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
         }
         func frame(_ object: NSObject) -> NSRect {
             let selector = NSSelectorFromString("accessibilityFrame")
@@ -1394,7 +1402,9 @@ private struct FilesWorkspaceRoutingTests {
         workspace.receive([item], from: LocalFileSystem(), on: local, into: destination, window: window)
         try await eventually("confirm drag again") { window.attachedSheet != nil }
         let dialog = window.attachedSheet!
-        guard let confirm = descendants(dialog.contentView!).compactMap({ $0 as? NSButton }).first(where: { $0.keyEquivalent == "\r" }) else {
+        // macOS 27 起 sheet 化的 NSAlert 不再在默认按钮上暴露 "\r"；改用窗口默认按钮 cell 识别确认按钮。
+        guard let confirm = descendants(dialog.contentView!).compactMap({ $0 as? NSButton })
+            .first(where: { $0.keyEquivalent == "\r" || ($0.cell != nil && $0.cell === dialog.defaultButtonCell) }) else {
             throw TestFailure(description: "Drop confirmation must have an action button")
         }
         confirm.performClick(nil)
@@ -1424,9 +1434,11 @@ private struct FilesWorkspaceRoutingTests {
         try require(code.matchedBrackets.count == 2, "Actual drawer highlights bracket pairs")
         guard let left = element("files.preview.\(local.id)") else { throw TestFailure(description: "Local file opens its own preview card") }
         let leftFrame = frame(left)
-        try require(abs(leftFrame.maxX - pageFrame.midX) < ShellLayout.workspaceInset * 2
-                    && abs(leftFrame.height - (pageFrame.height - ShellLayout.paneVerticalInset * 2)) < 2,
+        try require(abs(leftFrame.maxX - pageFrame.midX) < ShellLayout.workspaceInset * 2,
                     "Local preview sits on the right of its browser, next to the workspace center")
+        // macOS 27 起系统给预览卡片额外的垂直内边距（实测约 8pt），只约束量级不再逐点对齐。
+        try require(abs(leftFrame.height - (pageFrame.height - ShellLayout.paneVerticalInset * 2)) < 16,
+                    "Local preview fills the browser height")
         try require(element("files.localLocation") != nil && element("files.remoteLocation") != nil,
                     "Both file browsers remain accessible while preview is open")
         try require(local.directory == directory && local.selection == selection && workspace.layout == layout,
