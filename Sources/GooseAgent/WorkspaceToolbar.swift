@@ -374,7 +374,7 @@ private struct WorkspaceToolbarTools: View {
             .allowsHitTesting(isToggleVisible)
             .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FamilyPlainButtonStyle())
         .frame(height: Self.height)
         .preferredColorScheme(appearance.interfaceColorScheme)
         .accessibilityElement(children: .contain)
@@ -416,6 +416,7 @@ private struct WorkspaceSidebarButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? chrome.accentFill : isHovered ? chrome.hoverFill : .clear,
                         in: RoundedRectangle(cornerRadius: Theme.Radius.control))
             .onHover { isHovered = $0 }
+            .clickableCursor()
     }
 }
 

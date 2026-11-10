@@ -122,7 +122,7 @@ struct QuickCommandSidebar: View {
                                     Text(section == 0 ? "Current Folder" : section == 1 ? "Host Commands" : "Common Commands")
                                     Spacer()
                                 }.font(Theme.Font.sidebarSection).foregroundStyle(chrome.secondary).padding(.bottom, 4).contentShape(Rectangle())
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(FamilyPlainButtonStyle())
                             }
                             if Set(commands.map(\.section)).count == 1 || !collapsedSections.contains(section) {
                                 ForEach(rows) { item in
@@ -298,7 +298,7 @@ struct CommandListRow: View {
                 }
                 Spacer(minLength: 0)
             }.contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityIdentifier("quickCommand." + item.id.uuidString)
+        }.buttonStyle(FamilyPlainButtonStyle()).accessibilityIdentifier("quickCommand." + item.id.uuidString)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .frame(minHeight: isCompact ? SheetLayout.commandSidebarRowHeight : nil)
     }

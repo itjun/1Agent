@@ -108,6 +108,11 @@ struct PinnedLocationDragHandle: NSViewRepresentable {
 }
 
 final class PinnedLocationDragHandleView: NSView {
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addVisibleCursorRect(.pointingHand)
+    }
+
     var itemID: UUID?
     var title = ""
     var path = ""

@@ -16,7 +16,9 @@ final class FamilyAlert {
     private static var active: FamilyAlert?
 
     @discardableResult func addButton(withTitle title: String) -> NSButton {
-        alert.addButton(withTitle: title)
+        let button = alert.addButton(withTitle: title)
+        ClickableCursorView.attach(to: button)
+        return button
     }
 
     func beginSheetModal(for window: NSWindow, completionHandler: @escaping (NSApplication.ModalResponse) -> Void) {
@@ -64,6 +66,14 @@ final class FamilyAlert {
 
 /// 上传检查使用原生复选框，保留现有调用接口。
 final class FamilyNativeButton: NSButton {
+    override var isEnabled: Bool {
+        didSet { window?.invalidateCursorRects(for: self) }
+    }
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if isEnabled { addVisibleCursorRect(.pointingHand) }
+    }
+
     enum Kind { case secondary, primary, danger, checkbox }
     var kind = Kind.secondary {
         didSet {

@@ -85,7 +85,7 @@ struct QuickCommandHistoryView: View {
                         HStack(alignment: .top) {
                             Toggle(isOn: Binding(get: { selected.contains(candidate.command) }, set: { value in
                                 if value { selected.insert(candidate.command) } else { selected.remove(candidate.command) }
-                            })) { EmptyView() }.labelsHidden()
+                            })) { EmptyView() }.labelsHidden().clickableCursor()
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(verbatim: candidate.command).font(.system(size: 12, design: .monospaced)).lineLimit(3)
                                 HStack {
@@ -122,7 +122,7 @@ struct QuickCommandHistoryView: View {
                         Button("Use Current Folder") { directory = current }.buttonStyle(FamilyButtonStyle())
                     }
                 }
-                Toggle("Include Subfolders", isOn: $includesSubdirectories)
+                Toggle("Include Subfolders", isOn: $includesSubdirectories).clickableCursor()
             }
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 14) {

@@ -39,7 +39,7 @@ final class QuickCommandDragHandleView: NSView {
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        addCursorRect(bounds.intersection(visibleRect), cursor: .pointingHand)
+        addVisibleCursorRect(.pointingHand)
     }
 
     override func updateTrackingAreas() {

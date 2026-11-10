@@ -58,7 +58,7 @@ struct FamilyPicker<Value: Hashable>: View {
                 Text(verbatim: settingsControlTitle ?? "")
             }
             .labelsHidden()
-            .pickerStyle(.menu)
+            .pickerStyle(.menu).clickableCursor()
             .controlSize(.large)
         } else {
             themedPicker

@@ -33,6 +33,7 @@ import ObjectiveC
         native.contentViewController = nil
         native.contentView = NSView(frame: native.contentLayoutRect)
         defer { MainWindowManager.shared.close(state) }
+        verifyScrolledCursorRegions(in: native)
         // 只挂载真实侧栏，不创建终端视图；脚本另由已有隔离 PTY 检查覆盖。
         model.openLocalTerminal(at: home, placement: .newTab, beside: UUID(), in: state)
         try await eventually { model.tabs.count == 1 }
@@ -46,6 +47,7 @@ import ObjectiveC
             .environment(\.windowChrome, WindowChrome(isDark: false)))
         native.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        try await eventually { native.isKeyWindow && NSApp.isActive }
         try await eventually { element("quickCommand." + item.id.uuidString, in: native) != nil }
         precondition(element("quickCommands.destination", in: native) == nil, "There is no terminal destination selector")
         precondition(element("quickCommand.run." + item.id.uuidString, in: native) == nil, "Rows contain no execute buttons")
@@ -139,6 +141,29 @@ import ObjectiveC
         try await eventually { !execution.isSubmitting }
         precondition(deliveries == 2 && execution.error == nil)
         print("PASS slow submission guard, failure feedback and recovery")
+    }
+
+    @MainActor static func verifyScrolledCursorRegions(in window: NSWindow) {
+        let clip = NSClipView(frame: NSRect(x: 0, y: 0, width: 260, height: 60))
+        let document = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 400))
+        clip.documentView = document
+        window.contentView!.addSubview(clip)
+        defer { clip.removeFromSuperview() }
+        let controls: [NSView] = [TabDragHandleView(), QuickCommandDragHandleView(),
+            FileTabHandleView(), PinnedLocationDragHandleView(), ClickableCursorView(), FamilyNativeButton()]
+        for control in controls {
+            control.frame = NSRect(x: 0, y: 0, width: 260, height: 40)
+            document.addSubview(control)
+        }
+        for origin in [NSPoint(x: 0, y: 200), .zero, NSPoint(x: 0, y: 200)] {
+            clip.scroll(to: origin)
+            for control in controls {
+                precondition(control.bounds.intersection(control.visibleRect).isEmpty == (origin.y > 0))
+                // 直接调用真实 AppKit 路径；回归时无效矩形会抛异常并使测试进程退出。
+                control.resetCursorRects()
+            }
+        }
+        print("PASS native cursor regions survive scroll out, return and repeated clipping")
     }
 
     @MainActor static func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }

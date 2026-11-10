@@ -904,8 +904,8 @@ final class TabDragHandleView: NSView {
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        guard freezesWindow, bounds.width > 1, bounds.height > 1 else { return }
-        addCursorRect(bounds, cursor: .openHand)
+        guard bounds.width > 1, bounds.height > 1 else { return }
+        addVisibleCursorRect(freezesWindow ? .openHand : .pointingHand)
     }
 
     private var trackedBounds: NSRect = .zero
@@ -933,7 +933,7 @@ final class TabDragHandleView: NSView {
         for area in trackingAreas {
             removeTrackingArea(area)
         }
-        var options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect]
+        var options: NSTrackingArea.Options = [.mouseEnteredAndExited, .cursorUpdate, .activeInKeyWindow, .inVisibleRect]
         if freezesWindow {
             options.formUnion([.mouseMoved, .cursorUpdate])
         }
@@ -944,7 +944,7 @@ final class TabDragHandleView: NSView {
         if freezesWindow {
             NSCursor.openHand.set()
         } else {
-            super.cursorUpdate(with: event)
+            NSCursor.pointingHand.set()
         }
     }
 
@@ -977,11 +977,13 @@ final class TabDragHandleView: NSView {
             NSCursor.openHand.set()
             return
         }
+        NSCursor.pointingHand.set()
         onHover(true)
     }
 
     override func mouseExited(with event: NSEvent) {
         if !freezesWindow {
+            NSCursor.arrow.set()
             onHover(false)
             restoreWindowMovementIfPointerLeft()
             return

@@ -12,9 +12,9 @@ struct FamilyToggleStyle: ToggleStyle {
     @ViewBuilder func makeBody(configuration: Configuration) -> some View {
         if chrome.isSystem {
             if checkbox {
-                nativeToggle(configuration).toggleStyle(.checkbox)
+                nativeToggle(configuration).toggleStyle(.checkbox).clickableCursor()
             } else {
-                nativeToggle(configuration).toggleStyle(.switch)
+                nativeToggle(configuration).toggleStyle(.switch).clickableCursor()
             }
         } else {
             themedToggle(configuration)
@@ -52,7 +52,7 @@ struct FamilyToggleStyle: ToggleStyle {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).focused($focused)
+        .buttonStyle(FamilyPlainButtonStyle()).focused($focused)
         .familyFocusRing(focused).opacity(enabled ? 1 : 0.45)
         .accessibilityRepresentation { Toggle(isOn: configuration.$isOn) { configuration.label } }
     }
@@ -67,7 +67,7 @@ struct FamilySegments<Value: Hashable>: View {
     @FocusState private var focused: Value?
     var body: some View {
         if chrome.isSystem && isFullWidth {
-            FamilyNativeSegments(value: $value, options: options)
+            FamilyNativeSegments(value: $value, options: options).clickableCursor()
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
         } else if chrome.isSystem {
@@ -77,7 +77,7 @@ struct FamilySegments<Value: Hashable>: View {
                 }
             } label: { EmptyView() }
             .labelsHidden()
-            .pickerStyle(.segmented)
+            .pickerStyle(.segmented).clickableCursor()
         } else {
             themedSegments
         }
@@ -92,7 +92,7 @@ struct FamilySegments<Value: Hashable>: View {
                         .padding(.horizontal, 8).frame(maxWidth: .infinity).frame(height: 28)
                         .background(RoundedRectangle(cornerRadius: Theme.Radius.tag).fill(value == item.0 ? chrome.background : .clear))
                 }
-                .buttonStyle(.plain).focused($focused, equals: item.0)
+                .buttonStyle(FamilyPlainButtonStyle()).focused($focused, equals: item.0)
                 .familyFocusRing(focused == item.0)
                 .accessibilityAddTraits(value == item.0 ? [.isSelected] : [])
                 .onMoveCommand { direction in

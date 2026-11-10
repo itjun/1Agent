@@ -354,7 +354,7 @@ struct TerminalGitBadge: View {
                     }.font(.system(size: Theme.Toolbar.textSize)).padding(.horizontal, Theme.Space.s)
                         .frame(height: Theme.Toolbar.height)
                         .defaultRowSurface(selected: false, legacyFill: chrome.accentFill, radius: Theme.Radius.control)
-                }.buttonStyle(.plain).help(statsError ?? String(localized: "Show Branch Changes"))
+                }.buttonStyle(FamilyPlainButtonStyle()).help(statsError ?? String(localized: "Show Branch Changes"))
                     .accessibilityIdentifier("workspace.branch." + tab.id.uuidString)
             }
         }

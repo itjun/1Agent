@@ -191,7 +191,7 @@ struct FileColumnView: View {
                 .frame(height: Theme.Control.height)
                 .background {
                     if !editingPath {
-                        Color.clear.contentShape(Rectangle()).onTapGesture(perform: startEditing)
+                        Color.clear.contentShape(Rectangle()).onTapGesture(perform: startEditing).clickableCursor()
                     }
                 }
                 .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
@@ -281,7 +281,7 @@ struct FileColumnView: View {
                         }
                         // The empty area belongs to the whole path field; it must not
                         // paint an independent hover block after the last breadcrumb.
-                        .buttonStyle(.plain)
+                        .buttonStyle(FamilyPlainButtonStyle())
                         .help("Edit Path")
                         .accessibilityLabel(Text("Edit Path"))
                         .accessibilityIdentifier("files.path.edit")
@@ -511,6 +511,7 @@ struct FileColumnView: View {
         .onHover { inside in
             if inside { hovered = entry.path } else if hovered == entry.path { hovered = nil }
         }
+        .clickableCursor()
         .onTapGesture(count: 2) {
             workspace.open(entry, in: column, window: window)
         }

@@ -28,14 +28,14 @@ struct SystemIntegrationSettingsPage: View {
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                DisclosureGroup("Other Script Types", isExpanded: $showsScriptTypes) {
+                DisclosureGroup(isExpanded: $showsScriptTypes) {
                     VStack(spacing: 0) {
                         entry(.shell)
                         line
                         entry(.zsh)
                     }
                     .padding(.top, Theme.Space.s)
-                }
+                } label: { Text("Other Script Types").clickableCursor() }
             }
 
             HStack(spacing: Theme.Space.m) {
@@ -82,9 +82,9 @@ struct SystemIntegrationSettingsPage: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            DisclosureGroup("Automation", isExpanded: $showsAutomation) {
+            DisclosureGroup(isExpanded: $showsAutomation) {
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
-                    Toggle("Enable Terminal Automation", isOn: $automationEnabled)
+                    Toggle("Enable Terminal Automation", isOn: $automationEnabled).clickableCursor()
                     Text("AppleScript and Shortcuts address windows and terminals by ID.")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                     if !TerminalAutomation.hasDeveloperTeamSignature {
@@ -92,7 +92,7 @@ struct SystemIntegrationSettingsPage: View {
                             .font(Theme.Font.rowMeta).foregroundStyle(chrome.warning)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Toggle("Secure Keyboard Input", isOn: $secureInput.manual)
+                    Toggle("Secure Keyboard Input", isOn: $secureInput.manual).clickableCursor()
                         .help("Secure input is released when the terminal loses focus.")
                     Button("Install Command Line Tool") {
                         do {
@@ -104,7 +104,7 @@ struct SystemIntegrationSettingsPage: View {
                     if let commandLineFeedback { Text(verbatim: commandLineFeedback).font(Theme.Font.rowMeta).textSelection(.enabled) }
                 }
                 .padding(.top, Theme.Space.m)
-            }
+            } label: { Text("Automation").clickableCursor() }
         }
         .font(Theme.Font.body)
         .onAppear { associations.refresh() }
@@ -189,7 +189,7 @@ struct SystemIntegrationSettingsPage: View {
             )) {
                 Text(verbatim: kind.title)
             }
-            .toggleStyle(.checkbox)
+            .toggleStyle(.checkbox).clickableCursor()
             .labelsHidden()
             .disabled(associations.isBusy || associations.isOwned(kind))
             .accessibilityIdentifier("systemIntegration.select.\(kind.rawValue)")

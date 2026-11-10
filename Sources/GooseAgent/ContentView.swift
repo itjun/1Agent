@@ -397,7 +397,7 @@ struct RootView: View {
                 VStack(alignment: .leading, spacing: Theme.Space.s) { selectionActionButtons }
             }
             .font(Theme.Font.rowMeta)
-            .buttonStyle(.borderless)
+            .buttonStyle(.borderless).clickableCursor()
             .menuStyle(.borderlessButton)
         }
         .padding(Theme.Space.s)

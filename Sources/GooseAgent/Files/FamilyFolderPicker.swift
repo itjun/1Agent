@@ -60,6 +60,7 @@ struct FamilyFolderPicker: View {
                         .background(selection.contains(folder) ? chrome.accentFill : hovered == folder ? chrome.elevated : .clear)
                         .overlay(alignment: .bottom) { Rectangle().fill(chrome.hairline).frame(height: 1) }
                         .contentShape(Rectangle()).onHover { hovered = $0 ? folder : nil }
+                        .clickableCursor()
                         .onTapGesture(count: 2) { open(folder.path) }
                         .onTapGesture { select(folder); focusedFolder = folder }
                         .focusable().focusEffectDisabled().focused($focusedFolder, equals: folder)

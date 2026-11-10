@@ -108,6 +108,7 @@ struct ShortcutsSettingsPage: View {
                     recorder.stop()
                     confirmsResetAll = true
                 }
+                .clickableCursor()
                 .disabled(AppShortcutID.allCases.allSatisfy { bindings[$0] == $0.defaultChord })
             }
 
@@ -269,11 +270,11 @@ struct ShortcutsSettingsPage: View {
                 AppShortcuts.setChords([conflict.id: conflict.chord, conflict.other: .unbound])
                 pendingConflict = nil
             }
-            .controlSize(.small)
+            .controlSize(.small).clickableCursor()
             Button("Cancel") {
                 pendingConflict = nil
             }
-            .controlSize(.small)
+            .controlSize(.small).clickableCursor()
         }
     }
 

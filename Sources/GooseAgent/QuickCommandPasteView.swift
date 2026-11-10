@@ -57,7 +57,7 @@ struct QuickCommandPasteView: View {
                 if folderScope {
                     CommandTextField(text: $directory, placeholder: String(localized: "Enter a target folder, such as ~/sample-project"),
                                      identifier: "quickCommands.paste.directory").frame(height: 32)
-                    Toggle("Include Subfolders", isOn: $includesSubdirectories)
+                    Toggle("Include Subfolders", isOn: $includesSubdirectories).clickableCursor()
                     if let resolvedDirectory, validatedInput == directory {
                         Text(verbatim: resolvedDirectory).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).textSelection(.enabled)
                     } else if directoryError == nil && !directory.isEmpty { ProgressView().controlSize(.small) }

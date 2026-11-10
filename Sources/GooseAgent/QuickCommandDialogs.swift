@@ -229,7 +229,7 @@ struct QuickCommandConfirmation: View {
                             .frame(height: 32)
                     } else { CommandInfoRow(title: "Working Directory", value: directory) }
                     if checking { ProgressView().controlSize(.small) }
-                    Toggle("Run in a new terminal", isOn: $useNewTerminal).disabled(!ready || submitted)
+                    Toggle("Run in a new terminal", isOn: $useNewTerminal).clickableCursor().disabled(!ready || submitted)
                     Text(useNewTerminal
                          ? "A new shell uses its login environment. Temporary variables and virtual environments from the current terminal are not inherited."
                          : "The current terminal is ready. Its input buffer is checked again when you execute.")

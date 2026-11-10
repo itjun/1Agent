@@ -80,14 +80,14 @@ struct AdvancedSettingsPage: View {
                         importStatus = nil
                         plan = GhosttyConfigImport.makePlan()
                     }
-                    .disabled(detectedFiles.isEmpty)
+                    .clickableCursor().disabled(detectedFiles.isEmpty)
                     if hasBackup {
                         Button("Undo Last Import") {
                             GhosttyConfigImport.undoLastImport()
                             importStatus = "Last import undone"
                             reloadState()
                             snippetDraft = storedSnippet
-                        }
+                        }.clickableCursor()
                     }
                 }
                 if let importStatus {
@@ -164,7 +164,7 @@ struct AdvancedSettingsPage: View {
                     Button("Apply") {
                         applySnippet()
                     }
-                    .disabled(snippetDraft == storedSnippet)
+                    .clickableCursor().disabled(snippetDraft == storedSnippet)
                 }
             }
         }
@@ -306,7 +306,7 @@ struct GhosttyImportPreviewSheet: View {
 
             HStack(spacing: Theme.Space.m) {
                 Spacer(minLength: 0)
-                Button("Cancel", action: onCancel)
+                Button("Cancel", action: onCancel).clickableCursor()
                     .keyboardShortcut(.cancelAction)
                 Button("Import", action: onImport)
                     .keyboardShortcut(.defaultAction)

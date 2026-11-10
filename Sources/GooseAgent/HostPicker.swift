@@ -124,7 +124,7 @@ struct HostPicker: View {
                     } else {
                         VStack(alignment: .leading, spacing: Theme.Space.s) {
                             Text("No matching hosts")
-                            Button("Clear search") { query = "" }.buttonStyle(.borderless)
+                            Button("Clear search") { query = "" }.buttonStyle(.borderless).clickableCursor()
                         }
                     }
                 }
@@ -309,6 +309,7 @@ struct HostPicker: View {
             ticked = []
             highlighted = host.alias
         }
+        .clickableCursor()
         .onTapGesture(count: 2) { open([host.alias]) }
         .onTapGesture {
             if NSEvent.modifierFlags.contains(.command) {

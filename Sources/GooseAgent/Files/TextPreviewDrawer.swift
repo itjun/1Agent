@@ -111,7 +111,7 @@ struct TextPreviewDrawer: View {
             outputEnding = nil
             convertError = nil
             showingFormat = true
-        }.disabled(converting || decoded == nil).fixedSize()
+        }.clickableCursor().disabled(converting || decoded == nil).fixedSize()
     }
 
     private func formatBar(_ decoded: TextFile.Decoded?, preview: FileColumn.Preview) -> some View {
@@ -163,12 +163,12 @@ struct TextPreviewDrawer: View {
                 }
             }
             Button("Use UTF-8 + LF") { outputEncoding = .utf8; outputEnding = .lf }
-                .buttonStyle(.link)
+                .buttonStyle(.link).clickableCursor()
             if let convertError { Text(verbatim: convertError).foregroundStyle(chrome.danger).textSelection(.enabled) }
             HStack {
                 Spacer()
-                Button("Cancel") { showingFormat = false }.keyboardShortcut(.cancelAction)
-                Button(converting ? String(localized: "Converting…") : String(localized: "Save Correction")) { save() }
+                Button("Cancel") { showingFormat = false }.clickableCursor().keyboardShortcut(.cancelAction)
+                Button(converting ? String(localized: "Converting…") : String(localized: "Save Correction")) { save() }.clickableCursor()
                     .keyboardShortcut(.defaultAction)
             }.disabled(converting)
         }

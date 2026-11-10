@@ -240,7 +240,7 @@ struct QuickCommandLibraryView: View {
                     Text(verbatim: item.command.replacingOccurrences(of: "\n", with: " ↵ "))
                         .font(.system(size: 12, design: .monospaced)).foregroundStyle(chrome.secondary).lineLimit(1)
                 }.frame(maxWidth: .infinity, minHeight: 20, alignment: .leading).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityIdentifier("quickCommand." + item.id.uuidString)
+            }.buttonStyle(FamilyPlainButtonStyle()).accessibilityIdentifier("quickCommand." + item.id.uuidString)
                 .accessibilityAddTraits(selectedID == item.id ? .isSelected : [])
                 .overlay {
                     if item.scope == .all {
@@ -384,7 +384,7 @@ struct QuickCommandLibraryNavigation: View {
                 .contentShape(Rectangle())
                 .background(window.commandLibraryCollection == value ? chrome.rowSelection(active: true) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-        }.buttonStyle(.plain).accessibilityAddTraits(window.commandLibraryCollection == value ? .isSelected : [])
+        }.buttonStyle(FamilyPlainButtonStyle()).accessibilityAddTraits(window.commandLibraryCollection == value ? .isSelected : [])
             .accessibilityIdentifier("quickCommands.library.collection." + value.id)
             .background {
                 if value != .common {

@@ -146,7 +146,7 @@ struct WorkspaceChangesView: View {
                     Picker("Compare with", selection: Binding(get: { comparisonBase ?? "" }, set: { base = $0 })) {
                         if comparisonBase == nil { Text("Select a branch").tag("") }
                         ForEach(snapshot.branches, id: \.self) { Text(verbatim: $0).tag($0) }
-                    }.labelsHidden()
+                    }.labelsHidden().clickableCursor()
                 }
             }
             if let error {
@@ -203,7 +203,7 @@ struct WorkspaceChangesView: View {
                 .padding(.vertical, 6).padding(.horizontal, 6)
                 .padding(.leading, CGFloat(min(row.depth, 8)) * 12)
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain).help(row.path)
+        }.buttonStyle(FamilyPlainButtonStyle()).help(row.path)
             .accessibilityValue(Text(isCollapsed ? "Collapsed" : "Expanded"))
             .accessibilityIdentifier("workspace.gitDirectory." + row.path)
     }
@@ -223,7 +223,7 @@ struct WorkspaceChangesView: View {
                 .padding(.leading, CGFloat(min(depth, 8)) * 12 + 16)
                 .contentShape(Rectangle())
                 .defaultRowSurface(selected: selection == change.path, legacyFill: selection == change.path ? chrome.accentFill : .clear)
-        }.buttonStyle(.plain).help(change.path)
+        }.buttonStyle(FamilyPlainButtonStyle()).help(change.path)
             .accessibilityIdentifier("workspace.gitFile." + change.path)
     }
 
@@ -380,7 +380,7 @@ private struct WorkspaceFileRow: View {
                 }.padding(.vertical, 7).padding(.horizontal, 6)
                     .padding(.leading, CGFloat(min(depth, 8)) * 12).contentShape(Rectangle())
                     .defaultRowSurface(selected: selectedPath == entry.path, legacyFill: selectedPath == entry.path ? chrome.accentFill : .clear)
-            }.buttonStyle(.plain).help(entry.path)
+            }.buttonStyle(FamilyPlainButtonStyle()).help(entry.path)
                 .accessibilityAddTraits(selectedPath == entry.path ? .isSelected : [])
                 .accessibilityIdentifier("workspace.fileRow." + entry.path)
             if isExpanded {

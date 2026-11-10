@@ -159,6 +159,11 @@ private struct FileTabHandle: NSViewRepresentable {
 }
 
 final class FileTabHandleView: NSView {
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addVisibleCursorRect(.pointingHand)
+    }
+
     var closeWidth: CGFloat = 0
     var menuItems: [FileTabMenuItem] = []
     var onClick: () -> Void = {}
