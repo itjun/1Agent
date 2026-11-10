@@ -3,7 +3,7 @@ import ObjectiveC
 import SwiftUI
 @testable import GooseAgent
 
-/// 默认侧栏使用稳定阅读底色；其他预设保留材质。不启动终端或 SSH。
+/// 通栏和左右侧栏共用不透明主题底色，不启动终端或 SSH。
 @main enum SidebarAppearanceTests {
     @MainActor static func main() {
         let suite = "oneagent.sidebar-appearance.\(UUID())"
@@ -31,7 +31,6 @@ import SwiftUI
         let driver = AppearanceDriver.shared
         for isDark in [false, true] {
             defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
-            var glassImages: [AppSection: NSBitmapImageRep] = [:]
             for preset in AppThemePreset.allCases {
                 driver.selectPreset(preset)
                 for section in [AppSection.terminals, .files, .commands] {
@@ -47,39 +46,25 @@ import SwiftUI
                     }
                     view.cacheDisplay(in: view.bounds, to: image)
                     let color = image.colorAt(x: image.pixelsWide / 2, y: image.pixelsHigh - 20)!
-                    if preset == .system {
-                        let expected = NSColor(WindowChrome(isDark: isDark, preset: .system).sidebarBackground).usingColorSpace(.sRGB)!
-                        let native = window.backgroundColor.usingColorSpace(.sRGB)!
-                        let actual = color.usingColorSpace(.sRGB)!
-                        // 原生背景与系统语义色比较；左右侧栏在下方比较渲染结果，避免混用 HDR 像素和原始 RGB。
-                        SidebarAppearanceTests.expect(actual.alphaComponent > 0.99
-                            && abs(native.redComponent - expected.redComponent) < 0.01
-                            && abs(native.greenComponent - expected.greenComponent) < 0.01
-                            && abs(native.blueComponent - expected.blueComponent) < 0.01,
-                            "default/\(section), dark=\(isDark): opaque navigation and toolbar use the macOS window background")
-                        if section == .terminals {
-                            guard let inspector = SidebarAppearanceTests.navigationSplit(in: host.view, identifier: "workspace.inspectorSplit")?.splitViewItems.last?.viewController.view,
-                                  let inspectorImage = inspector.bitmapImageRepForCachingDisplay(in: inspector.bounds) else {
-                                fatalError("cannot render production inspector")
-                            }
-                            inspector.cacheDisplay(in: inspector.bounds, to: inspectorImage)
-                            let right = inspectorImage.colorAt(x: inspectorImage.pixelsWide / 2,
-                                y: inspectorImage.pixelsHigh - 20)!.usingColorSpace(.sRGB)!
-                            SidebarAppearanceTests.expect(right.alphaComponent > 0.99
-                                && abs(actual.redComponent - right.redComponent) < 0.01
-                                && abs(actual.greenComponent - right.greenComponent) < 0.01
-                                && abs(actual.blueComponent - right.blueComponent) < 0.01,
-                                "default sidebars share the same opaque background, dark=\(isDark)")
+                    let actual = color.usingColorSpace(.sRGB)!
+                    let chrome = WindowChrome(isDark: isDark, preset: preset)
+                    SidebarAppearanceTests.expect(actual.alphaComponent > 0.99,
+                        "\(preset.rawValue)/\(section), dark=\(isDark): navigation uses an opaque background")
+                    SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
+                        && split.splitView.dividerThickness == 1,
+                        "navigation hides its separator while preserving the resize geometry")
+                    SidebarAppearanceTests.expect(SidebarAppearanceTests.matches(window.backgroundColor, NSColor(chrome.sidebarBackground)),
+                        "toolbar and navigation share one opaque background")
+                    if section == .terminals {
+                        guard let inspector = SidebarAppearanceTests.navigationSplit(in: host.view, identifier: "workspace.inspectorSplit")?.splitViewItems.last?.viewController.view,
+                              let inspectorImage = inspector.bitmapImageRepForCachingDisplay(in: inspector.bounds) else {
+                            fatalError("cannot render production inspector")
                         }
-                    } else {
-                        SidebarAppearanceTests.expect(color.alphaComponent < 0.01,
-                            "\(preset.rawValue)/\(section), dark=\(isDark): other presets retain native material")
-                        if let reference = glassImages[section] {
-                            SidebarAppearanceTests.expect(SidebarAppearanceTests.navigationMatches(image, reference),
-                                "\(preset.rawValue)/\(section), dark=\(isDark): other presets retain shared navigation colors")
-                        } else {
-                            glassImages[section] = image
-                        }
+                        inspector.cacheDisplay(in: inspector.bounds, to: inspectorImage)
+                        let right = inspectorImage.colorAt(x: inspectorImage.pixelsWide / 2,
+                            y: inspectorImage.pixelsHigh - 20)!
+                        SidebarAppearanceTests.expect(SidebarAppearanceTests.matches(actual, right),
+                            "\(preset.rawValue): both sidebars share the same opaque background, dark=\(isDark)")
                     }
                 }
             }
@@ -87,26 +72,16 @@ import SwiftUI
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         driver.reapply()
         SidebarAppearanceTests.expect(driver.isDark == TerminalAppearance.systemIsDark, "follow system appearance")
-        print("SidebarAppearanceTests passed: default sidebars share the opaque sidebar palette; other presets retain native material across light/dark and terminal/files/commands; appearance follows macOS")
+        print("SidebarAppearanceTests passed: macOS system colors share opaque toolbar and sidebar backgrounds across light/dark and terminal/files/commands; hidden navigation divider retains its resize geometry")
     }
 
-    static func navigationMatches(_ image: NSBitmapImageRep, _ reference: NSBitmapImageRep) -> Bool {
-        guard image.pixelsWide == reference.pixelsWide, image.pixelsHigh == reference.pixelsHigh else { return false }
-        let scale = CGFloat(image.pixelsWide) / image.size.width
-        var difference: CGFloat = 0
-        var samples = 0
-        for y in stride(from: 0, to: min(image.pixelsHigh, Int(180 * scale)), by: 3) {
-            for x in stride(from: 0, to: image.pixelsWide, by: 3) {
-                guard let a = image.colorAt(x: x, y: y)?.usingColorSpace(.sRGB),
-                      let b = reference.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return false }
-                difference += abs(a.redComponent * a.alphaComponent - b.redComponent * b.alphaComponent)
-                    + abs(a.greenComponent * a.alphaComponent - b.greenComponent * b.alphaComponent)
-                    + abs(a.blueComponent * a.alphaComponent - b.blueComponent * b.alphaComponent)
-                    + abs(a.alphaComponent - b.alphaComponent)
-                samples += 4
-            }
-        }
-        return difference / CGFloat(samples) < 0.002
+    static func matches(_ first: NSColor, _ second: NSColor) -> Bool {
+        let a = first.usingColorSpace(.sRGB)!
+        let b = second.usingColorSpace(.sRGB)!
+        return a.alphaComponent > 0.99 && b.alphaComponent > 0.99
+            && abs(a.redComponent - b.redComponent) < 0.01
+            && abs(a.greenComponent - b.greenComponent) < 0.01
+            && abs(a.blueComponent - b.blueComponent) < 0.01
     }
 
     @MainActor static func navigationSplit(in view: NSView, identifier: String = "workspace.navigationSplit") -> NSSplitViewController? {
@@ -114,14 +89,6 @@ import SwiftUI
            split.identifier?.rawValue == identifier { return split.delegate as? NSSplitViewController }
         for child in view.subviews {
             if let split = SidebarAppearanceTests.navigationSplit(in: child, identifier: identifier) { return split }
-        }
-        return nil
-    }
-
-    @MainActor static func readingBackdrop(in view: NSView) -> ShellBackdropView? {
-        if let backdrop = view as? ShellBackdropView, backdrop.usesTerminalBackground { return backdrop }
-        for child in view.subviews {
-            if let backdrop = SidebarAppearanceTests.readingBackdrop(in: child) { return backdrop }
         }
         return nil
     }

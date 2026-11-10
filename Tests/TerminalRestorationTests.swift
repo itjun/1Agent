@@ -224,9 +224,8 @@ enum TerminalRestorationTests {
             let controlsEnd = zoom.convert(zoom.bounds, to: nil).maxX
             expect(titleX >= controlsEnd && titleX - controlsEnd < 50,
                    "Expanded filename follows window controls without reserving the hidden navigation width")
-            let boundary = separator(window.contentView!)!
-            expect(abs(boundary.convert(boundary.bounds, to: nil).minX) < 1,
-                   "Expanded toolbar boundary spans the former left navigation area without a gap")
+            expect(separator(window.contentView!) == nil,
+                   "Expanded reading keeps the toolbar free of a horizontal separator")
             expect(terminal.isHiddenOrHasHiddenAncestor && !terminal.canRestoreModalFocus,
                    "Covered terminal must not accept or reclaim keyboard focus")
             expect(terminal.bounds.size == terminalSize, "Expansion must not resize the underlying terminal grid")

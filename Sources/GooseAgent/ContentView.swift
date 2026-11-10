@@ -33,10 +33,8 @@ struct RootView: View {
         WindowChrome.resolve(isDark: appearanceDriver.isDark)
     }
 
-    // 导航共用默认色板；默认浅色使用灰底、蓝色选中态。
-    private var sidebarChrome: WindowChrome {
-        WindowChrome(isDark: appearanceDriver.isDark, preset: .system)
-    }
+    // 导航、会话选中态与终端共用当前主题，包括冷暖变化。
+    private var sidebarChrome: WindowChrome { chrome }
 
 
     var body: some View {
@@ -46,7 +44,7 @@ struct RootView: View {
             let shownSidebarWidth = sidebarDisplayWidth(totalWidth: geometry.size.width)
             VStack(spacing: 0) {
                 NativeSidebarSplit(
-                    collapsed: collapsed, isDividerHidden: false,
+                    collapsed: collapsed, isDividerHidden: true,
                     toolbarIdentifier: "workspace.navigationSplit",
                     extendsSidebarIntoTitlebar: !window.isToolReadingExpanded, width: shownSidebarWidth,
                     minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
@@ -60,9 +58,7 @@ struct RootView: View {
                         .allowsHitTesting(!window.isToolReadingExpanded)
                         .accessibilityHidden(window.isToolReadingExpanded)
                         .background {
-                            if chrome.isSystem {
-                                sidebarChrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
-                            }
+                            sidebarChrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
                         }
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
@@ -140,9 +136,7 @@ struct RootView: View {
                     isDark: appearanceDriver.isDark,
                     usesTerminalBackground: true
                 )
-                if chrome.isSystem && !chrome.isDark {
-                    chrome.panelHeader.frame(height: window.workspaceToolbarHeight)
-                }
+                chrome.panelHeader.frame(height: window.workspaceToolbarHeight)
             }
             .accessibilityHidden(true)
         }
@@ -164,11 +158,7 @@ struct RootView: View {
             appearanceDriver.reapply()
         }
         .background(WorkspaceToolbar(model: model, state: window, visibility: toolbarVisibility))
-        .overlay(alignment: .top) {
-            ToolbarBoundarySeparator(onHover: toolbarVisibility.setHovered)
-                .padding(.leading, window.isToolReadingExpanded || sidebarIsCollapsed(totalWidth: availableWidth) ? 0 : sidebarDisplayWidth(totalWidth: availableWidth) + 1)
-                .frame(height: 8).offset(y: -4)
-        }
+        .background(ToolbarHoverTracking(onHover: toolbarVisibility.setHovered))
         .modifier(HostInformationPresentation(model: model, window: window))
         .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let confirmation = window.quickCommandConfirmation {
@@ -488,13 +478,7 @@ struct RootView: View {
                 }) {
                     WorkspaceToolSidebar(model: model, window: window)
                         .background {
-                            if chrome.isSystem {
-                                chrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
-                            } else {
-                                ShellBackdrop(isTransparent: false, isDark: appearanceDriver.isDark,
-                                              usesTerminalBackground: true)
-                                    .ignoresSafeArea().accessibilityHidden(true)
-                            }
+                            chrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
                         }
                         .environment(\.windowChrome, chrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)

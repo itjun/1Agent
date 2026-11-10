@@ -27,8 +27,6 @@ enum FamilyAppearanceTests {
         let driver = AppearanceDriver.shared
         driver.reapply()
         checkDiffReading()
-        let lightChrome = WindowChrome.resolve(isDark: false)
-        let darkChrome = WindowChrome.resolve(isDark: true)
         var windows: [NSWindow] = []
         var views: [SSHTerminalNSView] = []
         var sessions: [InMemoryTerminalSession] = []
@@ -58,8 +56,7 @@ enum FamilyAppearanceTests {
         func check(_ uiDark: Bool, _ terminalDark: Bool, _ context: String) {
             drain()
             expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == terminalDark, context + ": driver states")
-            let expectedChrome = AppTheme.stored() == .system
-                ? (uiDark ? darkChrome : lightChrome) : WindowChrome(isDark: uiDark, preset: AppTheme.stored())
+            let expectedChrome = WindowChrome(isDark: uiDark, preset: AppTheme.stored())
             expect(WindowChrome.resolve(isDark: uiDark) == expectedChrome, context + ": selected preset palette")
             for (index, target) in TerminalThemeTarget.allCases.enumerated() {
                 let runtime = GhosttyRuntime.controller(for: target)
@@ -67,6 +64,10 @@ enum FamilyAppearanceTests {
                 let value = Int(definition.background, radix: 16)!
                 let expectedBackground = TerminalColor(red: UInt8((value >> 16) & 255), green: UInt8((value >> 8) & 255), blue: UInt8(value & 255))
                 expect(runtime.backgroundColor == expectedBackground, context + ": actual engine background for " + target.rawValue)
+                let rendered = (terminalDark ? runtime.theme.dark : runtime.theme.light).rendered
+                let colors = AppTheme.colors(isDark: terminalDark)
+                expect(rendered.contains("selection-background = #" + colors.selection),
+                       context + ": terminal text selection follows the theme")
                 expect((runtime.effectiveColorScheme == .dark) == terminalDark, context + ": shared engine scheme")
                 expect((windows[index].effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == uiDark,
                        context + ": window chrome")
@@ -156,7 +157,7 @@ enum FamilyAppearanceTests {
                 for _ in 0..<5 { drain() }
                 let material = findBackdrop(in: settingsWindow.contentView!)
                 expect(material?.preset == preset && material?.isDark == isDark,
-                       "settings keeps a wallpaper material for every selected preset and mode")
+                       "settings refreshes its material for every selected preset and mode")
                 expect(material?.isTransparent == driver.isShellTransparent,
                        "settings passes the underlying transparency policy into its material")
             }

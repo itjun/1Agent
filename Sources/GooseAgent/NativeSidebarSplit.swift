@@ -262,7 +262,7 @@ private final class SidebarSplitView: NSSplitView {
     override var dividerColor: NSColor { isDividerHidden ? .clear : super.dividerColor }
 
     override func drawDivider(in rect: NSRect) {
-        // 透明外壳始终不画边界，保留原生拖动、光标及双击调宽的命中区域。
+        // 隐藏边界只影响绘制，保留原生拖动、光标及双击调宽的命中区域。
         guard !isDividerHidden else { return }
         let visibleRect = drawsDividerBelowTitlebar && window != nil
             ? rect.intersection(convert(window!.contentLayoutRect, from: nil)) : rect

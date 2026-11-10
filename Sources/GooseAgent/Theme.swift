@@ -79,6 +79,13 @@ enum Theme {
         static let compactHeight: CGFloat = 28
     }
 
+    /// 原生通栏内的标签、分支和操作按钮共用尺寸。
+    enum Toolbar {
+        static let height = Control.compactHeight
+        static let textSize: CGFloat = 13
+        static let iconFont = SwiftUI.Font.system(size: 13, weight: .medium)
+    }
+
     /// Geometry of the title bar and status banner above each terminal pane.
     enum PaneStyle {
         /// Divider line between panes, at rest and while hovered or dragged.
@@ -218,15 +225,15 @@ enum AppTheme {
         var gradientColors: [Color] { gradient.map { color($0) } }
     }
 
-    /// 聚焦保持原底色；失焦底板向同外观的中性色轻微融合，文字和 ANSI 色保持清晰。
+    /// 聚焦保持实色底板；失焦使用轻微灰阶色差，文字和 ANSI 色保持清晰。
     static func terminalPaneBackground(isDark: Bool, isFocused: Bool,
                                        preset: AppThemePreset = AppTheme.stored()) -> RGBColor {
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
         let base = RGBColor(ghosttyHex: colors.background)!
         guard !isFocused else { return base }
-        // 纯白底失焦时轻微融入侧栏灰；其他浅色泛白，深色收暗，文字保持原色。
-        let neutral = RGBColor(ghosttyHex: isDark ? "000000" : colors.gradient[1])!
-        return base.mixed(with: neutral, amount: isDark ? 0.10 : 0.16)
+        // 系统窗口底色可能与终端底色完全相同，直接混合侧栏色无法区分分屏。
+        let neutral = RGBColor(ghosttyHex: isDark ? "FFFFFF" : "000000")!
+        return base.mixed(with: neutral, amount: isDark ? 0.06 : 0.05)
     }
 
     static var light: Colors { AppTheme.colors(isDark: false) }

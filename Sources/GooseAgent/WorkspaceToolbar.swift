@@ -165,17 +165,17 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 }
                 informationWidth?.constant = width
                 informationWidth?.isActive = true
-                informationItem.minSize = NSSize(width: width, height: 28)
-                informationItem.maxSize = NSSize(width: width, height: 28)
+                informationItem.minSize = NSSize(width: width, height: Theme.Toolbar.height)
+                informationItem.maxSize = NSSize(width: width, height: Theme.Toolbar.height)
             } else {
                 informationWidth?.isActive = false
                 informationView.sizingOptions = [.intrinsicContentSize]
-                informationItem.minSize = NSSize(width: 120, height: 28)
-                informationItem.maxSize = NSSize(width: 720, height: 28)
+                informationItem.minSize = NSSize(width: 120, height: Theme.Toolbar.height)
+                informationItem.maxSize = NSSize(width: 720, height: Theme.Toolbar.height)
             }
             informationView.rootView = AnyView(WorkspaceToolbarInformation(model: model, state: state,
                 contentWidth: contentWidth, contentLeadingInset: contentLeadingInset)
-                .frame(width: isPageToolbar ? width : nil, height: 28))
+                .frame(width: isPageToolbar ? width : nil, height: Theme.Toolbar.height))
         }
 
         @objc private func windowDidResize(_ notification: Notification) { update() }
@@ -218,20 +218,25 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 item.view = view
                 informationItem = item
                 informationView = view
-                item.minSize = NSSize(width: 120, height: 28)
-                item.maxSize = NSSize(width: 720, height: 28)
+                item.minSize = NSSize(width: 120, height: Theme.Toolbar.height)
+                item.maxSize = NSSize(width: 720, height: Theme.Toolbar.height)
                 item.visibilityPriority = .high
                 if #available(macOS 26.0, *) { item.isBordered = false }
                 return item
             }
             let item = NSToolbarItem(itemIdentifier: id)
             let title = AppShortcutID.toggleSidebar.title
-            item.target = self
-            item.action = #selector(toggleSidebar)
+            let control = NSHostingView(rootView: WorkspaceSidebarToggle(shortcut: .toggleSidebar,
+                systemImage: "sidebar.left", identifier: "workspace.sidebar") { [weak self] in
+                    guard let self else { return }
+                    model.toggleSidebar(in: state)
+                })
+            control.sizingOptions = [.intrinsicContentSize]
+            item.view = control
             item.autovalidates = false
             item.label = title
             item.toolTip = title + " (" + AppShortcuts.display(for: .toggleSidebar) + ")"
-            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: title)
+            item.isBordered = false
             return item
         }
         private func findSplitView(in view: NSView, identifier: String) -> NSSplitView? {
@@ -285,14 +290,12 @@ struct WorkspaceToolbar: NSViewRepresentable {
             toolsItem?.minSize = NSSize(width: state.isToolReadingExpanded ? toolTabsWidth + 220 : width, height: WorkspaceToolbarTools.height)
             toolsItem?.maxSize = NSSize(width: width, height: WorkspaceToolbarTools.height)
         }
-
-        @objc private func toggleSidebar() { model.toggleSidebar(in: state) }
     }
 }
 
 /// 三个文字选项等宽排列，右端开关在侧栏展开或通栏悬停时显示。
 private struct WorkspaceToolbarTools: View {
-    static let height: CGFloat = 32
+    static let height: CGFloat = Theme.Toolbar.height
     @ObservedObject var model: AppModel
     @ObservedObject var state: WindowState
     @ObservedObject var visibility: WorkspaceToolbarVisibility
@@ -323,13 +326,13 @@ private struct WorkspaceToolbarTools: View {
                             state.toolSidebarTab = tab
                         } label: {
                             Text(verbatim: tab.title)
-                                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                                .font(.system(size: Theme.Toolbar.textSize, weight: isSelected ? .semibold : .regular))
                                 .foregroundStyle(isSelected ? chrome.selectionText : chrome.secondary)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: Self.height)
                                 .background(isSelected ? chrome.accentFill : hoveredTab == tab ? chrome.hoverFill : .clear,
-                                            in: RoundedRectangle(cornerRadius: 6))
+                                            in: RoundedRectangle(cornerRadius: Theme.Radius.control))
                                 .padding(.horizontal, 2)
                                 .contentShape(Rectangle())
                         }
@@ -342,19 +345,11 @@ private struct WorkspaceToolbarTools: View {
                 }
                 .frame(width: tabsWidth)
             }
-            Button {
+            WorkspaceSidebarToggle(shortcut: .toggleToolSidebar,
+                systemImage: "sidebar.right", identifier: "workspace.inspector") {
                 model.toggleToolSidebar(in: state)
-            } label: {
-                Image(systemName: "sidebar.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: Self.height, height: Self.height)
-                    .contentShape(Rectangle())
             }
-            .modifier(WorkspaceInspectorGlass())
             .focused($isControlFocused)
-            .help(AppShortcutID.toggleToolSidebar.title + " (" + AppShortcuts.display(for: .toggleToolSidebar) + ")")
-            .accessibilityLabel(AppShortcutID.toggleToolSidebar.title)
-            .accessibilityIdentifier("workspace.inspector")
             .opacity(isToggleVisible ? 1 : 0)
             .allowsHitTesting(isToggleVisible)
             .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
@@ -368,14 +363,39 @@ private struct WorkspaceToolbarTools: View {
     }
 }
 
-/// 与原生侧栏按钮一致，给右侧开关独立的圆形玻璃背景。
-private struct WorkspaceInspectorGlass: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content.glassEffect(.regular.interactive(), in: Circle())
-        } else {
-            content.background(.regularMaterial, in: Circle())
+/// 左右侧栏共用扁平按钮，只在悬停和按下时显示底色。
+private struct WorkspaceSidebarToggle: View {
+    let shortcut: AppShortcutID
+    let systemImage: String
+    let identifier: String
+    let action: () -> Void
+    @ObservedObject private var appearance = AppearanceDriver.shared
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(Theme.Toolbar.iconFont)
+                .frame(width: Theme.Toolbar.height, height: Theme.Toolbar.height)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(WorkspaceSidebarButtonStyle(chrome: WindowChrome.resolve(isDark: appearance.isDark)))
+        .help(shortcut.title + " (" + AppShortcuts.display(for: shortcut) + ")")
+        .accessibilityLabel(shortcut.title)
+        .accessibilityIdentifier(identifier)
+        .preferredColorScheme(appearance.interfaceColorScheme)
+    }
+}
+
+private struct WorkspaceSidebarButtonStyle: ButtonStyle {
+    let chrome: WindowChrome
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(chrome.text)
+            .background(configuration.isPressed ? chrome.accentFill : isHovered ? chrome.hoverFill : .clear,
+                        in: RoundedRectangle(cornerRadius: Theme.Radius.control))
+            .onHover { isHovered = $0 }
     }
 }
 
@@ -400,13 +420,16 @@ private struct WorkspacePreviewToolbar: View {
             } label: {
                 Image(systemName: state.isToolReadingExpanded
                     ? "arrow.down.left.and.arrow.up.right" : "arrow.up.right.and.arrow.down.left")
-                    .frame(width: 28, height: 32).contentShape(Rectangle())
+                    .font(Theme.Toolbar.iconFont)
+                    .frame(width: Theme.Toolbar.height, height: Theme.Toolbar.height).contentShape(Rectangle())
             }
             .help(state.isToolReadingExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
             .accessibilityLabel(state.isToolReadingExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
             .accessibilityIdentifier("workspace.preview.expand")
             Button { state.toolPreviewFindRequest += 1 } label: {
-                Image(systemName: "magnifyingglass").frame(width: 28, height: 32).contentShape(Rectangle())
+                Image(systemName: "magnifyingglass")
+                    .font(Theme.Toolbar.iconFont)
+                    .frame(width: Theme.Toolbar.height, height: Theme.Toolbar.height).contentShape(Rectangle())
             }
             .help(String(localized: "Find in Preview") + " (" + AppShortcuts.display(for: .find) + ")").accessibilityLabel(Text("Find in Preview"))
             .accessibilityIdentifier("workspace.preview.find")
@@ -414,7 +437,9 @@ private struct WorkspacePreviewToolbar: View {
                 state.closeToolPreview()
                 if let tab = model.selectedTab(in: state) { SSHTerminalRegistry.focus(tab.sessionID) }
             } label: {
-                Image(systemName: "xmark").frame(width: 28, height: 32).contentShape(Rectangle())
+                Image(systemName: "xmark")
+                    .font(Theme.Toolbar.iconFont)
+                    .frame(width: Theme.Toolbar.height, height: Theme.Toolbar.height).contentShape(Rectangle())
             }
             .help("Close Preview").accessibilityLabel(Text("Close Preview"))
             .accessibilityIdentifier("workspace.preview.close")
@@ -449,39 +474,29 @@ final class ToolbarAttachmentView: NSView {
     }
 }
 
-/// 系统分割线只在整条顶部通栏悬停时显示，点击继续交给原有控件。
-struct ToolbarBoundarySeparator: NSViewRepresentable {
+/// 跟踪整条通栏的悬停状态，供右侧展开按钮使用；点击继续交给原有控件。
+struct ToolbarHoverTracking: NSViewRepresentable {
     var onHover: (Bool) -> Void = { _ in }
-    func makeNSView(context: Context) -> ToolbarBoundarySeparatorView {
-        let view = ToolbarBoundarySeparatorView()
+    func makeNSView(context: Context) -> ToolbarHoverTrackingView {
+        let view = ToolbarHoverTrackingView()
         view.onHover = onHover
         return view
     }
-    func updateNSView(_ view: ToolbarBoundarySeparatorView, context: Context) { view.onHover = onHover }
+    func updateNSView(_ view: ToolbarHoverTrackingView, context: Context) { view.onHover = onHover }
 }
 
-final class ToolbarBoundarySeparatorView: NSView {
-    let separator = NSBox()
+final class ToolbarHoverTrackingView: NSView {
     var onHover: (Bool) -> Void = { _ in }
     private var isHovered = false
     private var mouseMonitor: Any?
     private weak var trackingView: NSView?
     private var toolbarTrackingArea: NSTrackingArea?
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        separator.boxType = .separator
-        separator.isHidden = true
-        separator.identifier = NSUserInterfaceItemIdentifier("workspace.toolbarSeparator")
-        addSubview(separator)
-    }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     deinit {
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         if let toolbarTrackingArea { trackingView?.removeTrackingArea(toolbarTrackingArea) }
     }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    override func layout() { super.layout(); separator.frame = bounds }
 
     private var toolbarRect: NSRect {
         guard let window, window.toolbar?.isVisible == true else { return .zero }
@@ -493,7 +508,7 @@ final class ToolbarBoundarySeparatorView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         guard let host = window?.contentView?.superview else { return }
-        // 分割线本身只有几像素高；跟踪区域放到窗口视图，覆盖原生标题栏及两侧按钮。
+        // 跟踪区域放到窗口视图，覆盖原生标题栏及两侧按钮。
         let rect = host.convert(toolbarRect, from: nil)
         if trackingView === host, toolbarTrackingArea?.rect == rect { return }
         if let toolbarTrackingArea { trackingView?.removeTrackingArea(toolbarTrackingArea) }
@@ -505,7 +520,6 @@ final class ToolbarBoundarySeparatorView: NSView {
         setHovered(toolbarRect.contains(window!.mouseLocationOutsideOfEventStream))
     }
     private func setHovered(_ hovered: Bool) {
-        separator.isHidden = !hovered
         guard isHovered != hovered else { return }
         isHovered = hovered
         // 跟踪区域可能在布局过程中刷新，延后发布，避免在 SwiftUI 更新中修改状态。
@@ -581,19 +595,15 @@ private struct FocusedWorkspaceInformation: View {
                 Text("Files").font(.headline)
             } else if let tab = model.selectedTab(in: state) {
                 Text(tab.isLocal ? String(localized: "This Mac") : String(localized: "Remote"))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(tab.isLocal ? chrome.secondary : chrome.accent)
-                    .padding(.horizontal, 6)
-                    .frame(height: Theme.DefaultLayout.badgeHeight)
-                    .background(tab.isLocal ? chrome.hoverFill : chrome.accentFill,
-                                in: RoundedRectangle(cornerRadius: Theme.Radius.tag))
+                    .font(.system(size: Theme.Toolbar.textSize, weight: .medium))
+                    .foregroundStyle(chrome.secondary)
+                    .padding(.horizontal, Theme.Space.s)
+                    .frame(height: Theme.Toolbar.height)
+                    .background(chrome.hoverFill,
+                                in: RoundedRectangle(cornerRadius: Theme.Radius.control))
                     .fixedSize()
-                Button {
-                    TerminalPaneActions.showTitleContext(model: model, window: state, tabID: tab.id)
-                } label: {
-                    Text(verbatim: title(tab)).font(.headline)
-                        .lineLimit(1).truncationMode(.middle)
-                }.buttonStyle(.plain)
+                Text(verbatim: title(tab)).font(.headline)
+                    .lineLimit(1).truncationMode(.middle)
                     .accessibilityIdentifier("workspace.focusedTerminalTitle")
                 if let path = TerminalPaneActions.workingDirectory(of: tab) {
                     Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
@@ -601,8 +611,6 @@ private struct FocusedWorkspaceInformation: View {
                         .help(path)
                 }
                 RemoteTitleStatus(tab: tab)
-                TerminalGitBadge(tab: tab, model: model, window: state).id(tab.id)
-                    .frame(maxWidth: 180)
             } else {
                 Text("1Agent").font(.headline)
             }
