@@ -144,7 +144,6 @@ final class AppearanceDriver: ObservableObject {
         let selectedPreset = AppTheme.stored()
         if preset != selectedPreset {
             preset = selectedPreset
-            ApplicationIconManager.shared.applyPresetIcon(selectedPreset.icon)
         }
         let mode = TerminalAppearance.stored()
         let dark = mode.resolvesDark()

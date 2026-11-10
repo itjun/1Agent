@@ -153,7 +153,6 @@ enum Theme {
 enum AppThemePreset: String, CaseIterable, Identifiable {
     case system
     var id: String { rawValue }
-    var icon: ApplicationIcon { .original }
 }
 
 /// 在指定外观下解析系统颜色，避免预览和终端误用当前窗口的浅深色。
@@ -200,7 +199,6 @@ enum AppTheme {
         AppThemePreset(rawValue: defaults.string(forKey: AppTheme.storageKey) ?? "") ?? AppTheme.defaultPreset
     }
 
-    static var icon: ApplicationIcon { AppTheme.stored().icon }
     static var id: String { AppTheme.stored().rawValue }
 
     struct Colors {

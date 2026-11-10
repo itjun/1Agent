@@ -1,5 +1,4 @@
-// Regenerate theme icons with Xcode's native macOS icon compiler.
-// Use --macarons-only --palette=M11 --palette=M12 to generate selected alternatives.
+// Regenerate the original icon with Xcode's native macOS icon compiler.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -10,9 +9,7 @@ const source = path.join(root, 'Resources/AppIcon');
 const output = path.join(root, 'Resources/ApplicationIcons');
 const work = path.join(root, 'build/ApplicationIcons.noindex');
 const original = path.join(source, 'macaron-original-mark.png');
-const isMacaronsOnly = process.argv.includes('--macarons-only');
-const palettes = JSON.parse(fs.readFileSync(path.join(source, 'macaron-palettes.json'), 'utf8'));
-// Flat macaron icons keep the original outlined mark. The installed OneAgentIcon.icon is a
+// The original icon keeps the outlined mark. The installed OneAgentIcon.icon is a
 // separate full-color mark so system notifications stay readable; macOS derives adaptive appearances.
 const template = {
   fill: { solid: 'srgb:1.00000,1.00000,1.00000,1.00000' },
@@ -28,7 +25,6 @@ const template = {
   }],
   'supported-platforms': { circles: ['watchOS'], squares: 'shared' },
 };
-const rgb = hex => hex.match(/[\da-f]{2}/gi).map(value => parseInt(value, 16));
 const run = (command, args) => execFileSync(command, args, {
   encoding: 'utf8', env: { ...process.env, DEVELOPER_DIR: '/Applications/Xcode.app/Contents/Developer' },
 });
@@ -42,7 +38,7 @@ function compileIcon(iconDir, id, icon) {
   fs.copyFileSync(path.join(compiled, `${id}.icns`), path.join(output, `${id}.icns`));
 }
 
-if (!isMacaronsOnly) {
+{
   // The bundled default always uses the untouched original mark on a white background.
   const originalIconDir = path.join(work, 'Original.icon');
   fs.mkdirSync(path.join(originalIconDir, 'Assets'), { recursive: true });
@@ -61,29 +57,4 @@ if (!isMacaronsOnly) {
 </svg>
 `);
   console.log('Original: white and blue default restored; original mark unchanged');
-}
-
-const selectedIDs = process.argv.filter(arg => arg.startsWith('--palette=')).map(arg => arg.slice('--palette='.length));
-for (const id of selectedIDs) {
-  if (!palettes.some(palette => palette.id === id)) throw new Error(`Unknown palette: ${id}`);
-}
-for (const palette of palettes.filter(palette => selectedIDs.length === 0 || selectedIDs.includes(palette.id))) {
-  const ink = rgb(palette.ink), fill = rgb(palette.fill), ring = rgb(palette.ring);
-  // Map the original black/blue/white colors; leave alpha and geometry untouched.
-  const rows = ink.map((value, index) => {
-    const whiteDelta = (fill[index] - value) / 255;
-    const blueDelta = (ring[index] - value) / 255;
-    return [(243 * whiteDelta - 255 * blueDelta) / 190, 0, (-53 * whiteDelta + 255 * blueDelta) / 190, 0, 0, value / 255];
-  });
-  const matrix = [...rows, [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]].flat().map(value => value.toFixed(9)).join(' ');
-  const iconDir = path.join(work, `${palette.id}.icon`);
-  fs.mkdirSync(path.join(iconDir, 'Assets'), { recursive: true });
-  const mark = path.join(iconDir, 'Assets/ghostty-mark.png');
-  run('magick', [original, '-color-matrix', matrix, '-depth', '8', mark]);
-  const alphaDiff = run('magick', ['(', original, '-alpha', 'extract', ')', '(', mark, '-alpha', 'extract', ')', '-metric', 'AE', '-compare', '-format', '%[distortion]', 'info:']).trim();
-  if (alphaDiff !== '0') throw new Error(`${palette.id}: original silhouette changed`);
-  const icon = structuredClone(template);
-  icon.fill.solid = `srgb:${rgb(palette.bg).map(value => (value / 255).toFixed(5)).join(',')},1.00000`;
-  compileIcon(iconDir, palette.id, icon);
-  console.log(`${palette.id}: native icon generated; silhouette unchanged`);
 }

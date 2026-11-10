@@ -50,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = FileTransferQueue.shared
-        ApplicationIconManager.shared.applyPresetIcon(AppTheme.icon)
+        ApplicationIconManager.shared.restoreSystemIcon()
         AppearanceDriver.shared.reapply()
         TerminalDefaults.registerBundledFonts()
         GhosttyRuntime.removeLeftoverConfigFiles()

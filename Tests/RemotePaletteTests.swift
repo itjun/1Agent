@@ -9,10 +9,12 @@ enum RemotePaletteTests {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         expect(AppThemePreset.allCases == [.system], "Only the system theme is available")
+        expect(ApplicationIcon.allCases == [.original], "Only the original icon is available")
         for oldID in (1...12).map({ String(format: "M%02d", $0) }) + ["unknown"] {
             defaults.set(oldID, forKey: AppTheme.storageKey)
             defaults.set(oldID, forKey: ApplicationIcon.storageKey)
             expect(AppTheme.stored(defaults: defaults) == .system, "Old theme resolves to macOS: \(oldID)")
+            expect(ApplicationIcon.stored(defaults: defaults) == .original, "Old icon resolves to original: \(oldID)")
         }
         for isDark in [false, true] {
             let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)!
