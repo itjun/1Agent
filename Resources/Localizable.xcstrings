@@ -1,6 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "The current terminal cannot accept a command. Wait for it to finish or clear its input, then try again." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The current terminal cannot accept a command. Wait for it to finish or clear its input, then try again."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端暂时无法接收指令，请等待任务结束或清空输入后重试。"}}}},
+    "The command or target changed. Open the preview again." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The command or target changed. Open the preview again."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "指令或执行目标已变化，请重新打开预览后执行。"}}}},
+    "Drag up or down to reorder; drag into a terminal to run" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag up or down to reorder; drag into a terminal to run"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上下拖动可排序；拖入终端可执行"}}}},
+    "Directory" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Directory"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "目录"}}}},
+    "Host" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Host"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "主机"}}}},
+    "Run in Current Terminal" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Run in Current Terminal"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "在当前终端执行"}}}},
+    "Current Terminal" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current Terminal"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端"}}}},
     "Expand Reading" : {
       "localizations": {
         "en": {

@@ -158,6 +158,10 @@ test-terminal-restoration:
 test-quick-command-drop:
 	bash scripts/test-quick-command-drop.sh
 
+.PHONY: test-quick-command-sidebar
+test-quick-command-sidebar:
+	bash scripts/test-quick-command-sidebar.sh
+
 # Production model and persisted sidebar grouping, using isolated storage and no SSH/shells.
 test-sidebar-groups:
 	bash scripts/test-sidebar-groups.sh

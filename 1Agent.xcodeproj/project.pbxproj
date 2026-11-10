@@ -76,6 +76,7 @@
 		7860366F3F23C4E9EFA09527 /* goose-agent-icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */; };
 		7A23CA6C6D9709BB4A6C5EAF /* TerminalAssociations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */; };
 		7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5782B6F0D1DCFF6AFBD57407 /* SymbolsNerdFont-LICENSE.txt */; };
+		7D211004008AEDDD60C50C7A /* QuickCommandSidebarExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 336B3B833BC99258B0345988 /* QuickCommandSidebarExecution.swift */; };
 		814CFFA356249659247FD5B1 /* SidebarMenus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */; };
 		837075A95F60DAEF5F9564E0 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC2AB74FE4D721374A45471 /* TerminalView.swift */; };
 		84BF3EEB40D32F81D8F361D7 /* FileTypeIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4806CBBE45B7F1353328348D /* FileTypeIcon.swift */; };
@@ -117,6 +118,7 @@
 		CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D91EB1556003521E0650B7 /* AppModel.swift */; };
 		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
 		CF4B6D7911791ED91EAC823F /* FileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B9E55BFC942871BBD992B /* FileTransfer.swift */; };
+		D1161882F61AD568037387C4 /* QuickCommandPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E603284DC48745C1935660 /* QuickCommandPreview.swift */; };
 		D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4085933113D9936B6D98C8FC /* RemoteShell.swift */; };
 		D5BE2E38FD6348292FDC0F17 /* FileTabDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = A73E8CF0BB02A346B770159B /* FileTabDrag.swift */; };
 		D77456A7DBB9E12229EADFD3 /* SheetLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF91141EEC0B753F9445733B /* SheetLayout.swift */; };
@@ -179,6 +181,7 @@
 		2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationIcon.swift; sourceTree = "<group>"; };
 		32D91EB1556003521E0650B7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		32E75555FCC89483D29787D4 /* WindowAtmosphere.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = WindowAtmosphere.png; sourceTree = "<group>"; };
+		336B3B833BC99258B0345988 /* QuickCommandSidebarExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandSidebarExecution.swift; sourceTree = "<group>"; };
 		34E42671B05FC0FE55B2965F /* DragDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragDrop.swift; sourceTree = "<group>"; };
 		361A21A864C230DE8DF8A323 /* TerminalThemes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalThemes.swift; sourceTree = "<group>"; };
 		375997FFA560C71B9DCE5E3D /* SymbolsNerdFontMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SymbolsNerdFontMono-Regular.ttf"; sourceTree = "<group>"; };
@@ -288,6 +291,7 @@
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAssociations.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
+		F6E603284DC48745C1935660 /* QuickCommandPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandPreview.swift; sourceTree = "<group>"; };
 		F7598CCEED462B4329E3B155 /* 1agent */ = {isa = PBXFileReference; path = 1agent; sourceTree = "<group>"; };
 		FBE87DE2ED5872092C13985A /* ApplicationIcons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ApplicationIcons; path = Resources/ApplicationIcons; sourceTree = SOURCE_ROOT; };
 		FC199BA5503EE914D1E884FD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -457,7 +461,9 @@
 				A9B18799BA36F4789180EC87 /* QuickCommandHistoryView.swift */,
 				384566BABBE38F655397C1D0 /* QuickCommandLibraryView.swift */,
 				0465AA079B8A127DDAA44D22 /* QuickCommandPasteView.swift */,
+				F6E603284DC48745C1935660 /* QuickCommandPreview.swift */,
 				6B6347AF625D9C3A0AA7CAE0 /* QuickCommandSidebar.swift */,
+				336B3B833BC99258B0345988 /* QuickCommandSidebarExecution.swift */,
 				1CD11169BC693046BBA4B666 /* QuickCommandStore.swift */,
 				4A0D4D2DC99D26A068742A81 /* QuickCommandTransfer.swift */,
 				6ED45FA3719FB04737F90722 /* RemoteShellIntegration.swift */,
@@ -695,7 +701,9 @@
 				8A9CB1C237B52349AD56633B /* QuickCommandHistoryView.swift in Sources */,
 				886D985B199BDDE9E8CC5DBA /* QuickCommandLibraryView.swift in Sources */,
 				AF6BF414FA5B4FD68582CB75 /* QuickCommandPasteView.swift in Sources */,
+				D1161882F61AD568037387C4 /* QuickCommandPreview.swift in Sources */,
 				51FA7F27493E8F39148F39A6 /* QuickCommandSidebar.swift in Sources */,
+				7D211004008AEDDD60C50C7A /* QuickCommandSidebarExecution.swift in Sources */,
 				0049A3ADBCF920705C9917A7 /* QuickCommandStore.swift in Sources */,
 				B744A1ACD2B549995CF0049C /* QuickCommandTransfer.swift in Sources */,
 				D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */,

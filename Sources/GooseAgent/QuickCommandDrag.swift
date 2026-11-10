@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Like the sidebar's pane drags, commands stay inside native event tracking.
-/// 主机指令保持确认执行；公共文本可复制给主机或走终端粘贴保护。
+/// 主机指令在落点终端执行；公共文本可复制给主机或走终端粘贴保护。
 struct QuickCommandDragHandle: NSViewRepresentable {
     let item: QuickCommand
     let chrome: WindowChrome
@@ -36,6 +36,22 @@ final class QuickCommandDragHandleView: NSView {
         bounds.intersection(visibleRect).contains(convert(point, from: superview)) ? self : nil
     }
     override func scrollWheel(with event: NSEvent) { nextResponder?.scrollWheel(with: event) }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds.intersection(visibleRect), cursor: .pointingHand)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(rect: .zero,
+            options: [.mouseEnteredAndExited, .cursorUpdate, .activeInKeyWindow, .inVisibleRect], owner: self))
+    }
+
+    override func cursorUpdate(with event: NSEvent) { NSCursor.pointingHand.set() }
+    override func mouseEntered(with event: NSEvent) { NSCursor.pointingHand.set() }
+    override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
 
     static func terminal(at point: NSPoint, in window: NSWindow) -> SSHTerminalNSView? {
         guard let content = window.contentView else { return nil }
@@ -77,7 +93,8 @@ final class QuickCommandDragHandleView: NSView {
             reorderTarget?.insertionAfter = nil
             copyTarget?.isHighlighted = false
             preview?.close()
-            NSCursor.arrow.set()
+            let pointer = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            (bounds.intersection(visibleRect).contains(pointer) ? NSCursor.pointingHand : NSCursor.arrow).set()
             window.isMovable = wasMovable
         }
         window.trackEvents(matching: [.leftMouseDragged, .leftMouseUp, .keyDown], timeout: 3600, mode: .eventTracking) { event, stop in

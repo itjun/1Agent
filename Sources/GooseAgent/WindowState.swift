@@ -79,6 +79,7 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var hostInformationTabID: UUID?
     /// Transient: dropping a command only opens confirmation, never restores a run.
     @Published var quickCommandConfirmation: QuickCommandConfirmationTarget?
+    let quickCommandSidebarExecution = QuickCommandSidebarExecution()
     /// The session that last opened Files. Closing the dock does not reset its browsing state.
     var filesSourceTabID: UUID?
     /// Filtering is transient and must not change shortcut positions or saved ordering.

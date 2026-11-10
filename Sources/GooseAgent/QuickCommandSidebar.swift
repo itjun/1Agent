@@ -5,6 +5,7 @@ struct QuickCommandSidebar: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     @ObservedObject private var store = QuickCommandStore.shared
+    @ObservedObject private var execution: QuickCommandSidebarExecution
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
     var showsHeader = true
@@ -17,6 +18,13 @@ struct QuickCommandSidebar: View {
     @State private var collapsedSections: Set<Int> = []
     @State private var selectedCommandID: UUID?
     @State private var previewCommandID: UUID?
+
+    init(model: AppModel, window: WindowState, showsHeader: Bool = true) {
+        self.model = model
+        self.window = window
+        self.showsHeader = showsHeader
+        execution = window.quickCommandSidebarExecution
+    }
 
     private var context: QuickCommandContext { model.quickCommandContext(in: window) }
     private var commands: [QuickCommand] {
@@ -43,6 +51,7 @@ struct QuickCommandSidebar: View {
         }
         .onChange(of: context.host) { _, _ in cancelSelection(); status = nil; previewCommandID = nil }
         .onChange(of: context.directory) { _, _ in cancelSelection(); previewCommandID = nil }
+        .onChange(of: context.sessionID) { _, _ in previewCommandID = nil; execution.error = nil }
         .onChange(of: store.commands.map(\.id)) { _, ids in selectedIDs.formIntersection(ids) }
         .familySheet(isPresented: optionalBinding($pasteRequest), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let pasteRequest {
@@ -91,7 +100,7 @@ struct QuickCommandSidebar: View {
             }
             if batchSelecting { batchControls }
             if let status { Text(verbatim: status).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
-            if let message = error ?? store.loadError { Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger) }
+            if let message = error ?? execution.error ?? store.loadError { Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger) }
             commandRows
         }.padding(Theme.DefaultLayout.toolInset)
     }
@@ -117,31 +126,7 @@ struct QuickCommandSidebar: View {
                             }
                             if Set(commands.map(\.section)).count == 1 || !collapsedSections.contains(section) {
                                 ForEach(rows) { item in
-                                    CommandListRow(item: item, action: {
-                                        selectedCommandID = item.id
-                                        if batchSelecting {
-                                            if !selectedIDs.insert(item.id).inserted { selectedIDs.remove(item.id) }
-                                        } else {
-                                            previewCommandID = item.id
-                                        }
-                                    }, allowsDragging: !batchSelecting,
-                                                   isSelected: batchSelecting ? selectedIDs.contains(item.id) : selectedCommandID == item.id,
-                                                   onDoubleClick: {
-                                        guard !batchSelecting else { return }
-                                        selectedCommandID = item.id
-                                        previewCommandID = nil
-                                        model.confirmQuickCommand(item, in: window)
-                                    }, onDragStart: { selectedCommandID = item.id; previewCommandID = nil }, showsSelection: batchSelecting, isCompact: true, onReorder: { source, target, after in
-                                        do { try store.move(source, relativeTo: target, after: after); error = nil }
-                                        catch { self.error = error.localizedDescription }
-                                    })
-                                    .popover(isPresented: Binding(
-                                        get: { previewCommandID == item.id },
-                                        set: { if !$0 && previewCommandID == item.id { previewCommandID = nil } }
-                                    ), arrowEdge: .leading) {
-                                        commandPreview(item)
-                                    }
-                                    .familyContextMenu { commandActions(item) }
+                                    commandRow(item)
                                 }
                             }
                             if commands.contains(where: { $0.section > section }) {
@@ -157,6 +142,28 @@ struct QuickCommandSidebar: View {
                 }
             }
         }
+    }
+
+    private func commandRow(_ item: QuickCommand) -> some View {
+        CommandListRow(item: item, action: {
+            selectedCommandID = item.id
+            if batchSelecting {
+                if !selectedIDs.insert(item.id).inserted { selectedIDs.remove(item.id) }
+            } else { execution.error = nil; previewCommandID = item.id }
+        }, allowsDragging: !batchSelecting,
+                       isSelected: batchSelecting ? selectedIDs.contains(item.id) : selectedCommandID == item.id,
+                       onDragStart: { selectedCommandID = item.id; previewCommandID = nil },
+                       showsSelection: batchSelecting, isCompact: true, onReorder: { source, target, after in
+            do { try store.move(source, relativeTo: target, after: after); error = nil }
+            catch { self.error = error.localizedDescription }
+        }, namePreview: AnyView(QuickCommandPreview(item: item, context: context,
+                            isPresented: !batchSelecting && previewCommandID == item.id,
+                            onDismiss: { if previewCommandID == item.id { previewCommandID = nil } }) { maximumWidth in
+            QuickCommandPreviewContent(item: item, context: context, model: model, window: window,
+                                       execution: execution, maximumWidth: maximumWidth, onExecuted: { previewCommandID = nil })
+                .environment(\.windowChrome, chrome)
+        }))
+        .familyContextMenu { commandActions(item) }
     }
 
     private var batchControls: some View {
@@ -204,31 +211,6 @@ struct QuickCommandSidebar: View {
         window.commandLibraryDraft = item
         model.showSection(.commands, in: window)
     }
-    private func commandPreview(_ item: QuickCommand) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Command Preview").font(Theme.Font.sidebarSection).foregroundStyle(chrome.secondary)
-                Spacer()
-                Button { CommandClipboard.copy(item.command) } label: { Image(systemName: "doc.on.doc") }
-                    .buttonStyle(FamilyButtonStyle()).help("Copy Preview Text")
-                    .accessibilityLabel(Text("Copy Preview Text")).accessibilityIdentifier("quickCommands.preview.copy")
-            }
-            ScrollView {
-                Text(verbatim: item.command).font(.system(size: 13, design: .monospaced))
-                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-            }.frame(height: previewTextHeight(item.command))
-        }
-        .padding(16)
-        .frame(width: SheetLayout.commandSidebarPreviewWidth)
-        .foregroundStyle(chrome.text).background(chrome.background)
-        .accessibilityElement(children: .contain).accessibilityIdentifier("quickCommands.preview")
-    }
-    private func previewTextHeight(_ text: String) -> CGFloat {
-        let bounds = (text as NSString).boundingRect(with: NSSize(width: SheetLayout.commandSidebarPreviewWidth - 32, height: CGFloat.greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)])
-        return min(SheetLayout.commandSidebarPreviewHeight, max(44, bounds.height + 12))
-    }
     private func draft() -> QuickCommand {
         QuickCommand(scope: context.directory == nil ? (context.host == nil ? .local : .host) : .directory,
                      host: context.host, directory: context.directory)
@@ -254,6 +236,7 @@ struct CommandListRow: View {
     var showsSelection = false
     var isCompact = false
     var onReorder: (UUID, UUID, Bool) -> Void = { _, _, _ in }
+    var namePreview: AnyView? = nil
     @Environment(\.windowChrome) private var chrome
     @State private var hovered = false
     var body: some View {
@@ -264,15 +247,18 @@ struct CommandListRow: View {
                         QuickCommandDragHandle(item: item, chrome: chrome, onClick: action, onDoubleClick: onDoubleClick, onDragStart: onDragStart)
                             .accessibilityHidden(true)
                     }
-                        .help(item.scope == .all ? "Drag to a host to copy, or to a terminal to paste text" : "Drag up or down to reorder; drag into a terminal to confirm execution")
+                        .help(item.scope == .all ? "Drag to a host to copy, or to a terminal to paste text" : "Drag up or down to reorder; drag into a terminal to run")
                 } else { commandButton }
             }
+            .background { if let namePreview { namePreview } }
             if let menu {
                 FamilyMenu(items: menu) { Image(systemName: "ellipsis").frame(width: 24, height: 28) }
                     .help("Command Actions")
             }
         }
-        .padding(10)
+        .padding(.horizontal, isCompact ? 8 : 10)
+        .padding(.vertical, isCompact ? 0 : 10)
+        .frame(minHeight: isCompact ? SheetLayout.commandSidebarRowHeight : nil)
         .defaultRowSurface(selected: isSelected, legacyFill: isSelected ? chrome.accentFill : hovered ? chrome.elevated : .clear)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
         .overlay {
@@ -287,7 +273,7 @@ struct CommandListRow: View {
             }
         }
         .onHover { hovered = $0 }
-        .help(item.alias + "\n" + item.command)
+        .help(isCompact ? "" : item.alias + "\n" + item.command)
     }
 
     private var commandButton: some View {
@@ -314,6 +300,7 @@ struct CommandListRow: View {
             }.contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityIdentifier("quickCommand." + item.id.uuidString)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .frame(minHeight: isCompact ? SheetLayout.commandSidebarRowHeight : nil)
     }
 }
 

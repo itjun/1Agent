@@ -55,7 +55,7 @@ import ObjectiveC
         let terminal = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 500, height: 400))
         terminal.sessionID = right.sessionID
         terminal.canDropQuickCommand = { model.commandForDrop($0, on: right.id, in: window) != nil }
-        terminal.onQuickCommandDrop = { model.confirmDroppedQuickCommand($0, on: right.id, in: window) }
+        terminal.onQuickCommandDrop = { model.runDroppedQuickCommand($0, on: right.id, in: window) }
         nativeWindow.contentView?.addSubview(terminal)
         precondition(model.commandForDrop(item.id, on: right.id, in: window) != nil)
         precondition(TerminalActivity.shared.isOnScreen(sessionID: right.sessionID), "Fixture destination must be visible")
@@ -64,22 +64,20 @@ import ObjectiveC
         terminal.highlightQuickCommand(item.id)
         precondition(window.selectedTabID == left.id && window.quickCommandConfirmation == nil, "Hover must not change selection or execute")
         precondition(terminal.dropQuickCommand(item.id))
-        let confirmation = window.quickCommandConfirmation!
-        precondition(window.selectedTabID == right.id && confirmation.context.sessionID == right.sessionID)
-        precondition(confirmation.context.directory.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath() }
-                     == URL(fileURLWithPath: folder).resolvingSymlinksInPath(), "Destination directory: \(String(describing: confirmation.context.directory))")
-        precondition(confirmation.item.command == item.command)
-        precondition(terminal.processHost == nil && model.tabs.count == 2, "Drop must only request confirmation")
-        precondition(!terminal.dropQuickCommand(item.id), "An open confirmation must not be replaced")
-        window.quickCommandConfirmation = nil // Cancel
-        precondition(model.tabs.count == 2 && terminal.processHost == nil)
-
-        // The click and drop entries carry the same immutable target snapshot.
-        model.confirmQuickCommand(item, in: window)
-        precondition(window.quickCommandConfirmation?.context == confirmation.context)
+        let droppedContext = model.quickCommandContext(in: window)
+        precondition(window.selectedTabID == right.id && droppedContext.sessionID == right.sessionID)
+        precondition(droppedContext.directory.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath() }
+                     == URL(fileURLWithPath: folder).resolvingSymlinksInPath())
+        precondition(window.quickCommandConfirmation == nil && window.quickCommandSidebarExecution.isSubmitting,
+                     "Dropping submits directly in the destination terminal, without confirmation")
+        precondition(!terminal.dropQuickCommand(item.id), "A pending run cannot be submitted twice")
+        await wait { !window.quickCommandSidebarExecution.isSubmitting }
+        precondition(window.quickCommandSidebarExecution.error != nil, "A destination without a shell must reject execution")
+        precondition(terminal.processHost == nil && model.tabs.count == 2, "A busy destination must not create another terminal")
         model.selectTab(left.id, in: window, focusTerminal: false)
-        precondition(window.quickCommandConfirmation?.context != model.quickCommandContext(in: window))
-        window.quickCommandConfirmation = nil
+        precondition(!model.runSidebarQuickCommand(item.id, in: window, expectedContext: droppedContext),
+                     "The old preview context must not execute in the newly selected terminal")
+        precondition(window.quickCommandConfirmation == nil)
 
         var bound = item; bound.scope = .directory; bound.directory = folder
         try store.save(bound)
@@ -145,7 +143,7 @@ import ObjectiveC
         try store.remove(common.id)
         precondition(QuickCommandCopyTargetView.target(at: destination, in: nativeWindow, commandID: common.id) == nil)
         print("Verified public text copy to offline host, no execution, hidden/disabled targets and deleted source rejection")
-        print("Verified split destination, click/drop parity, cancel, stale selection, host/folder scope, hidden panes, deleted IDs and outside drops")
+        print("Verified direct split destination, shared submission guard, no new terminal, stale selection, host/folder scope, hidden panes, deleted IDs and outside drops")
     }
 
     @MainActor private static func wait(_ predicate: () -> Bool) async {

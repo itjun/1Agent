@@ -18,7 +18,12 @@ enum SheetLayout {
     static let commandEditorGroupWidth: CGFloat = 220
     static let commandCardTextHeight: CGFloat = 200
     static let commandSidebarPreviewHeight: CGFloat = 180
-    static let commandSidebarPreviewWidth: CGFloat = 360
+    static let commandSidebarPreviewWidth: CGFloat = 420
+    static let commandSidebarPreviewMaxWidth: CGFloat = 900
+    static let commandSidebarRowHeight: CGFloat = 40
+    static let commandPreviewInset: CGFloat = 16
+    static let commandPreviewCodeInset: CGFloat = 10
+    static let commandPreviewCodeSpacing: CGFloat = 8
     static let folderPicker: CGFloat = 600
     static let confirmation: CGFloat = 420
     static let dialogInset: CGFloat = 32
