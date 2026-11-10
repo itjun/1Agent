@@ -110,7 +110,7 @@ enum GhosttyIgnoreReason: Equatable {
         case .shader:
             return String(localized: "This terminal engine does not support custom shaders")
         case .preset:
-            return String(localized: "Colors are managed by the app preset")
+            return String(localized: "Colors follow macOS")
         }
     }
 }

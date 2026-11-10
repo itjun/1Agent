@@ -5,11 +5,6 @@ enum SettingsLayout {
     static let windowMinimumSize = CGSize(width: SheetLayout.settings, height: SheetLayout.settingsBodyHeight)
     static let windowDefaultSize = CGSize(width: 1280, height: 820)
     static let sidebarWidthKey = "settings.sidebarWidth"
-    static let presetChoiceWidth: CGFloat = 200
-    static let appIconPreviewSize: CGFloat = 40
-    static let appIconChoiceWidth: CGFloat = 52
-    static let appIconSwatchSize: CGFloat = 12
-    static let appIconSelectionSize: CGFloat = 18
     static let pageHeaderHeight: CGFloat = 76
     static let pageTitleSize: CGFloat = 28
     static let contentMaxWidth: CGFloat = 960
@@ -338,13 +333,6 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
             SettingsCard("Appearance Mode") {
                 appearanceModeControl
-            }
-
-            SettingsCard("Preset Theme") {
-                AppThemeIdentity()
-                Text("Window and terminal colors follow this preset. Custom Ghostty colors are no longer applied.")
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.secondary)
             }
 
             contrastCard

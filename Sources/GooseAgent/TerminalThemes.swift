@@ -220,8 +220,7 @@ extension AppTheme {
             background: colors.background, foreground: colors.foreground,
             cursorColor: colors.accent, cursorText: colors.background,
             selectionBackground: colors.selection,
-            selectionForeground: AppTheme.stored() == .system
-                ? SystemTheme.hex(.selectedTextColor, isDark: isDark, over: .selectedTextBackgroundColor) : colors.foreground,
+            selectionForeground: SystemTheme.hex(.selectedTextColor, isDark: isDark, over: .selectedTextBackgroundColor),
             palette: Dictionary(uniqueKeysWithValues: colors.ansi.enumerated().map { ($0.offset, $0.element) })
         )
     }

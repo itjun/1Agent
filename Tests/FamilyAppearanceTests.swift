@@ -85,21 +85,21 @@ enum FamilyAppearanceTests {
             driver.reapply()
             check(isDark, isDark, "mode changes the whole app without replacing sessions")
         }
-        for preset in AppThemePreset.allCases + AppThemePreset.allCases.reversed() + [.mintCandy] {
+        for preset in AppThemePreset.allCases + AppThemePreset.allCases.reversed() {
             driver.selectPreset(preset)
             expect(AppTheme.stored() == preset && driver.preset == preset, "preset choice persists and publishes")
-            expect(ApplicationIcon.stored() == preset.icon, "changing appearance selects its paired icon")
+            expect(ApplicationIcon.stored() == .original, "only the original icon remains")
             for isDark in [false, true] {
                 defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
                 driver.reapply()
                 check(isDark, isDark, "preset switches preserve native sessions in both modes")
             }
         }
-        for icon in ApplicationIcon.allCases {
-            defaults.set(icon.rawValue, forKey: ApplicationIcon.storageKey)
-            defaults.set(icon.rawValue, forKey: SharedPalette.storageKey)
-            defaults.set(icon.rawValue, forKey: LocalPalette.storageKey)
-            defaults.set(icon.rawValue, forKey: RemotePalette.storageKey)
+        for icon in (1...12).map({ String(format: "M%02d", $0) }) {
+            defaults.set(icon, forKey: ApplicationIcon.storageKey)
+            defaults.set(icon, forKey: "appearance.sharedPalette")
+            defaults.set(icon, forKey: "appearance.localPalette")
+            defaults.set(icon, forKey: "appearance.remotePalette")
             driver.reapply()
             GhosttyRuntime.applySelectedThemes()
             check(true, true, "icons and legacy colors cannot change the preset")
@@ -124,7 +124,7 @@ enum FamilyAppearanceTests {
         settingsOwner.setContentSize(MainWindowFrame.minimumSize)
         for _ in 0..<5 { drain() }
         let savedFrame = settingsOwner.frame
-        driver.selectPreset(.cocoaMilkTea)
+        driver.selectPreset(.system)
         settingsModel.showSettings()
         let settingsWindow = SettingsWindowController.shared.window!
         expect(settingsModel.showingSettings && settingsWindow !== settingsOwner
@@ -148,7 +148,7 @@ enum FamilyAppearanceTests {
             }
             return nil
         }
-        for preset in AppThemePreset.allCases + [.cocoaMilkTea] {
+        for preset in AppThemePreset.allCases + [.system] {
             driver.selectPreset(preset)
             for isDark in [false, true] {
                 defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
@@ -325,7 +325,6 @@ enum FamilyAppearanceTests {
 
     @MainActor static func checkSettingsPages(in window: NSWindow) {
         let pages = ["appearance", "font", "terminal", "shortcuts", "systemIntegration", "advanced", "about"]
-        var themeCardHeight: CGFloat?
         for size in [SettingsLayout.windowMinimumSize, CGSize(width: 1200, height: 800), CGSize(width: 1800, height: 1000)] {
             window.setContentSize(size)
             for page in pages {
@@ -350,52 +349,11 @@ enum FamilyAppearanceTests {
                     accessibilityValue($0, "accessibilityRole") as? String == "AXScrollBar"
                 }, "settings pages and sidebar expose no scrollbars: " + page)
                 if page == "appearance" {
-                    expect(identifiers.contains("settings.preset.identity"), "appearance includes the linked preset icon")
-                    expect(Set(identifiers.filter { $0.hasPrefix("settings.preset.choice.") })
-                           == Set(AppThemePreset.allCases.map { "settings.preset.choice." + $0.id }),
-                           "every completed preset is directly selectable in the theme list")
-                    expect(!identifiers.contains("settings.preset.picker"), "preset choices are visible without opening a menu")
-                    expect(!identifiers.contains("settings.navigation.appIcon"), "icons cannot be selected separately")
-                    expect(!identifiers.contains("settings.appearance.preview.save"), "no external theme transaction remains")
-                    let elements = accessibilityElements(window)
-                    let list = elements.first { accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.preset.identity" }!
-                    let listFrame = accessibilityFrame(list)
-                    let scrollArea = elements.first {
-                        accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.content.appearance"
-                    }!
-                    let viewport = accessibilityFrame(scrollArea)
-                    let rows = AppThemePreset.allCases.map { preset in
-                        let choice = elements.first {
-                            accessibilityValue($0, "accessibilityIdentifier") as? String == "settings.preset.choice." + preset.id
-                        }!
-                        expect(accessibilityValue(choice, "accessibilityRole") as? String == "AXButton",
-                               "each theme card is one accessible selection button: " + preset.id)
-                        return accessibilityFrame(choice)
-                    }
-                    expect(rows.allSatisfy { $0.width > 0 && $0.height > 0
-                        && $0.minX >= listFrame.minX - 1 && $0.maxX <= listFrame.maxX + 1 },
-                           "theme cards stay within the grid width at every window size")
-                    expect(rows.allSatisfy { $0.minX >= viewport.minX - 1 && $0.maxX <= viewport.maxX + 1 },
-                           "theme choices stay inside the visible settings viewport")
-                    if let themeCardHeight {
-                        expect(rows.allSatisfy { abs($0.height - themeCardHeight) <= 1 },
-                               "wider windows do not add empty height to theme cards")
-                    } else {
-                        themeCardHeight = rows.first?.height
-                    }
-                    expect(rows.allSatisfy { $0.width <= 220 },
-                           "theme choices stay narrow even in large settings windows")
-                    let firstRow = rows.filter { abs($0.maxY - rows[0].maxY) <= 1 }
-                    expect(firstRow.count >= (size.width >= 1200 ? 4 : 2),
-                           "theme grid uses the available width for more choices")
-                    for (index, frame) in rows.enumerated() {
-                        for other in rows.dropFirst(index + 1) {
-                            expect(!frame.insetBy(dx: 1, dy: 1).intersects(other),
-                                   "theme choices never overlap at any window size")
-                        }
-                    }
-
+                    expect(!identifiers.contains(where: { $0.hasPrefix("settings.preset.") }),
+                           "appearance has no theme or colored icon picker")
+                    expect(!identifiers.contains("settings.navigation.appIcon"), "no separate icon settings remain")
                 }
+
                 if let output = ProcessInfo.processInfo.environment["ONEAGENT_SETTINGS_QA_DIR"],
                    let view = window.contentView,
                    let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
