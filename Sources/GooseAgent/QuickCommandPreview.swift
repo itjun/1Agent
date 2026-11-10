@@ -35,6 +35,7 @@ struct QuickCommandPreviewContent: View {
                 .help("Run in Current Terminal").accessibilityIdentifier("quickCommands.preview.run")
                 .fixedSize()
             }
+            .padding(.trailing, SheetLayout.commandPreviewCodeInset)
             HStack(alignment: .top, spacing: SheetLayout.commandPreviewCodeSpacing) {
                 ScrollView([.horizontal, .vertical]) {
                     Text(verbatim: item.command).font(.system(size: 13, design: .monospaced))
