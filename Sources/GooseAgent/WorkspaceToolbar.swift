@@ -641,7 +641,7 @@ private struct FocusedWorkspaceInformation: View {
                     .foregroundStyle(chrome.secondary)
                     .padding(.horizontal, Theme.Space.s)
                     .frame(height: Theme.Toolbar.height)
-                    .background(chrome.hoverFill,
+                    .background(chrome.isDark ? Color.clear : chrome.hoverFill,
                                 in: RoundedRectangle(cornerRadius: Theme.Radius.control))
                     .fixedSize()
                 Text(verbatim: title(tab)).font(.headline)
