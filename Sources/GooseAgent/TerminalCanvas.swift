@@ -282,21 +282,31 @@ struct TerminalCanvas: View {
     private func terminalHeader(_ tab: TerminalTab) -> some View {
         let isSelected = window.selectedTabID == tab.id && window.section == .terminals
         return HStack(spacing: Theme.Space.s) {
-            Image(systemName: tab.isLocal ? "terminal" : "network")
-                .foregroundStyle(isSelected ? chrome.accent : chrome.secondary)
-            Text(verbatim: numberedPaneTitle(tab))
-                .font(Theme.Font.paneTitle)
-                .fontWeight(isSelected ? .semibold : .medium)
-                .lineLimit(1).truncationMode(.middle)
-            if let path = TerminalPaneActions.workingDirectory(of: tab) {
-                Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
-                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                    .lineLimit(1).truncationMode(.middle).help(path)
+            HStack(spacing: Theme.Space.s) {
+                Image(systemName: tab.isLocal ? "terminal" : "network")
+                    .foregroundStyle(isSelected ? chrome.accent : chrome.secondary)
+                Text(verbatim: numberedPaneTitle(tab))
+                    .font(Theme.Font.paneTitle)
+                    .fontWeight(isSelected ? .semibold : .medium)
+                    .lineLimit(1).truncationMode(.middle)
+                if let path = TerminalPaneActions.workingDirectory(of: tab) {
+                    Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
+                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                        .lineLimit(1).truncationMode(.middle).help(path)
+                }
+                Spacer(minLength: 4)
             }
-            Spacer(minLength: 4)
-            Button { model.closeTab(tab.id) } label: { Image(systemName: "xmark") }
-                .buttonStyle(.plain).help("Close")
-                .accessibilityLabel(Text("Close"))
+            .frame(maxHeight: .infinity)
+            .overlay {
+                TabDragHandle(
+                    onClick: { _, _ in model.notePaneFocused(tab.id, in: window) },
+                    onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
+                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                    onSecondaryClick: { TerminalPaneActions.showContext(tab: tab, model: model, window: window) },
+                    freezesWindow: true
+                ).accessibilityHidden(true)
+            }
         }
         .foregroundStyle(isSelected ? chrome.text : chrome.secondary)
         .padding(.horizontal, Theme.Space.m)

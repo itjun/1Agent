@@ -170,6 +170,10 @@ test-sidebar-groups:
 test-sidebar-panel-drop:
 	bash scripts/test-sidebar-panel-drop.sh
 
+.PHONY: test-terminal-pane-drag
+test-terminal-pane-drag:
+	bash scripts/test-terminal-pane-drag.sh
+
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj
 
