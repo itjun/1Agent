@@ -624,8 +624,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         if NSApp.keyWindow?.identifier == MainWindowManager.windowID { owner = NSApp.keyWindow }
         if owner == nil { owner = MainWindowManager.shared.window(for: model.mainWindow) }
         let settings = window ?? makeWindow(model: model)
+        let isOpening = !settings.isVisible
         window = settings
         MainWindowManager.bringToActiveSpace(settings)
+        if isOpening {
+            // 打开时不自动聚焦首个分类；用户按 Tab 后再显示键盘焦点。
+            settings.makeFirstResponder(nil)
+        }
     }
 
     private func makeWindow(model: AppModel) -> NSWindow {
