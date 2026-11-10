@@ -215,7 +215,6 @@ func terminalContextMenu(for tab: TerminalTab, model: AppModel, window: WindowSt
         },
         createArea: { model.createAreaFromSidebar(targets, in: window) },
         close: { model.closeTabs(targets) },
-        copyInfo: { copySessionInfo(tab, model: model) },
         rename: forPane ? nil : onRename
     )
 }

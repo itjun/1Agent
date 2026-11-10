@@ -182,19 +182,6 @@ enum TerminalPaneActionsTests {
         expect(RemoteShellStatus.shortDirectory("/root/diteng-knowall/knowall-logs") == "…/diteng-knowall/knowall-logs",
                "deep directories keep their last two folders")
 
-        let menu = TerminalPaneActions.titleItems(model: model, window: window, tabID: tab.id)
-        let titles = menu.map(\.title)
-        expect(titles.first == "fixture-host", "the remote title menu starts with its host")
-        expect(titles.contains(String(format: String(localized: "Directory: %@"), "/srv/fixture")), "the full remote directory is listed")
-        expect(titles.contains { $0.contains("vim build.sh") }, "the running command is listed")
-        expect(titles.contains { $0.contains("make build") && $0.contains(String(format: String(localized: "Exit Code %lld"), 2)) },
-               "the last command and its exit code are listed")
-        expect(menu.allSatisfy { !$0.enabled }, "status lines are information, not actions")
-        expect(!menu.contains { $0.title == String(localized: "Switch Tab") }, "the title card does not switch tabs")
-        expect(TerminalPaneActions.titleItems(model: model, window: window).isEmpty, "a title click without a pane shows nothing")
-        let nativeMenu = FamilyMenuPresenter.menu(menu)
-        expect(nativeMenu.items.allSatisfy { !$0.isEnabled }, "native title information stays non-actionable")
-
         status.report(.commandFinished(exitCode: 0), sessionID: tab.sessionID)
         expect(status.runningCommand(of: tab) == nil, "a finished command gives the title back to the directory")
         model.closeTab(tab.id)
@@ -367,8 +354,6 @@ enum TerminalPaneActionsTests {
         let first = window.selectedTabID!
         model.open(.preview(path: "/tmp/title-second"), placement: .newTab, beside: first, in: window)
         let second = window.selectedTabID!
-        expect(TerminalPaneActions.titleItems(model: model, window: window, tabID: first).isEmpty,
-               "a local title click does not offer tab switching")
         let context = TerminalPaneActions.items(tab: model.tabs.first { $0.id == first }!, model: model, window: window)
         model.selectOnly(second, in: window, focusTerminal: false)
         context.first { $0.title == String(localized: "Close Preview") }!.action()

@@ -876,7 +876,6 @@ struct TabContextMenu {
     var remove: () -> Void
     var createArea: () -> Void
     var close: () -> Void
-    var copyInfo: () -> Void
     var rename: (() -> Void)? = nil
 }
 
@@ -1117,13 +1116,6 @@ final class TabDragHandleView: NSView {
 
     private func sidebarMenu(for actions: TabContextMenu) -> NSMenu {
         let menu = NSMenu()
-        let copyInfo = NSMenuItem(
-            title: String(localized: "Copy Info"),
-            action: #selector(copyInfoFromMenu(_:)),
-            keyEquivalent: ""
-        )
-        copyInfo.target = self
-        menu.addItem(copyInfo)
         if actions.rename != nil {
             let rename = NSMenuItem(title: String(localized: "Rename"), action: #selector(renameFromMenu(_:)), keyEquivalent: "")
             rename.target = self
@@ -1194,10 +1186,6 @@ final class TabDragHandleView: NSView {
         item.keyEquivalentModifierMask = chord.menuModifierMask
         item.target = self
         return item
-    }
-
-    @objc private func copyInfoFromMenu(_: Any?) {
-        contextMenuActions?.copyInfo()
     }
 
     @objc private func renameFromMenu(_: Any?) { contextMenuActions?.rename?() }

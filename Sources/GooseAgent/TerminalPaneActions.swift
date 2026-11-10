@@ -1,38 +1,14 @@
 import AppKit
 
-/// Terminal context actions and the pane-title status card.
+/// Terminal context actions.
 /// Actions keep the pane identity that opened the menu; they never act on whichever
 /// terminal happens to own the keyboard when the popup dismisses.
 @MainActor
 enum TerminalPaneActions {
-    /// A remote title lists what its shell reported. It does not switch tabs.
-    static func titleItems(model: AppModel, window: WindowState, tabID: UUID? = nil) -> [FamilyMenuItem] {
-        guard let tabID, model.sidebarOrder(in: window).contains(tabID),
-              let tab = currentTab(tabID, model: model), let host = model.remoteHostDescription(tab) else { return [] }
-        return RemoteShellStatus.shared.detailLines(of: tab, host: host).map { line in
-            FamilyMenuItem(title: line, enabled: false)
-        }
-    }
-
     static func title(of tab: TerminalTab) -> String {
         if let title = tab.contentTitle { return title }
         if !tab.isLocal { return tab.alias ?? String(localized: "Terminal") }
         return workingDirectory(of: tab).map(LocalTerminal.displayPath) ?? String(localized: "This Mac")
-    }
-
-    /// The card hangs from the middle of the title. A click with no anchor uses the window's title band.
-    static func showTitleContext(model: AppModel, window: WindowState, tabID: UUID? = nil, anchor: NSView? = nil) {
-        guard let owner = anchor?.window ?? MainWindowManager.shared.window(for: window) else { return }
-        let items = titleItems(model: model, window: window, tabID: tabID)
-        guard items.contains(where: { !$0.isSeparator }) else { return }
-        DispatchQueue.main.async {
-            if let anchor, anchor.window != nil {
-                FamilyMenuPresenter.shared.show(items, centeredBelow: anchor)
-            } else {
-                let top = owner.frame.maxY - Theme.PaneStyle.titlebarHeight - 4
-                FamilyMenuPresenter.shared.show(items, at: NSPoint(x: owner.frame.midX, y: top), owner: owner, centered: true)
-            }
-        }
     }
 
     /// Only genuine local directories can be handed to desktop editors.
@@ -155,29 +131,7 @@ enum TerminalPaneActions {
                     model.reconnect(tab.id)
                 }))
         }
-        if !tab.isLocal {
-            items.append(FamilyMenuItem(title: String(localized: "Copy Info"), children: [
-                FamilyMenuItem(title: String(localized: "Host Address"), action: {
-                    guard let current = currentTab(tab.id, model: model), let alias = current.alias else { return }
-                    copy(model.host(alias)?.hostName ?? alias)
-                }),
-                FamilyMenuItem(title: String(localized: "SSH Command"), action: {
-                    guard let alias = currentTab(tab.id, model: model)?.alias else { return }
-                    // A quoted alias preserves the user's SSH config, including ProxyJump and port.
-                    copy("ssh -- '" + alias.replacingOccurrences(of: "'", with: "'\\''") + "'")
-                }),
-                FamilyMenuItem(title: String(localized: "Connection Info"), action: {
-                    guard let current = currentTab(tab.id, model: model) else { return }
-                    copySessionInfo(current, model: model)
-                }),
-            ]))
-        }
         return items
-    }
-
-    private static func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
     }
 
     static func showContext(tab: TerminalTab, model: AppModel, window: WindowState) {

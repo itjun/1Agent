@@ -265,10 +265,10 @@ import SwiftUI
         let remoteItems = items(remote)
         try check(named("New Connection", in: remoteItems) != nil, "Remote connection action exists")
         try check(named("Reveal in Finder", in: remoteItems) == nil, "Remote row cannot reveal a local path")
-        try check(named("Copy Info", in: remoteItems) != nil, "Remote connection information is available")
+        try check(named("Copy Info", in: remoteItems) == nil, "Host copying belongs to the information dialog")
         try check(named("Copy Path", in: remoteItems)?.enabled == false, "Unknown remote cwd is disabled")
         let pageItems = TerminalPaneActions.items(tab: model.tabs.first { $0.id == remote }!, model: model, window: window)
-        let sharedKeys: [String.LocalizationValue] = ["New Connection", "Reconnect", "Open Files", "Copy Path", "Copy Info", "Split View"]
+        let sharedKeys: [String.LocalizationValue] = ["New Connection", "Reconnect", "Open Files", "Copy Path", "Host Information", "Split View"]
         for key in sharedKeys {
             try check(named(key, in: remoteItems) != nil && named(key, in: pageItems) != nil,
                       "Sidebar and terminal page share the same terminal actions")
