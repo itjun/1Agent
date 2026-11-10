@@ -70,9 +70,10 @@ struct QuickCommandPreviewContent: View {
             }
         }
         .padding(SheetLayout.commandPreviewInset).frame(width: previewWidth)
-        .foregroundStyle(chrome.text).background(chrome.background)
+        .foregroundStyle(chrome.text)
+        .background(chrome.text.opacity(chrome.isDark ? 0.06 : 0.035))
+        .background(chrome.background)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(chrome.hairline))
         .accessibilityElement(children: .contain).accessibilityIdentifier("quickCommands.preview")
     }
 
@@ -160,7 +161,7 @@ final class QuickCommandPreviewAnchorView: NSView {
         panel.isReleasedWhenClosed = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.hidesOnDeactivate = true
         panel.becomesKeyOnlyIfNeeded = true
         panel.contentView = hosting
