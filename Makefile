@@ -98,8 +98,7 @@ test: test-ssh-configuration test-command-transparency test-system-integration t
 	/tmp/oneagent-family-dialog-tests
 	swiftc -parse-as-library -o /tmp/oneagent-family-menu-test Sources/GooseAgent/Theme.swift Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/FamilyMenu.swift Tests/FamilyMenuTests.swift
 	/tmp/oneagent-family-menu-test
-	swiftc -parse-as-library -o /tmp/oneagent-preview-syntax-test Sources/GooseAgent/Files/PreviewSyntax.swift Sources/GooseAgent/Files/NativeTextPreview.swift Sources/GooseAgent/Theme.swift Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/FamilyMenu.swift Tests/PreviewSyntaxTests.swift
-	/tmp/oneagent-preview-syntax-test
+	bash scripts/test-preview-syntax.sh
 	swiftc -parse-as-library -o /tmp/oneagent-pinned-locations-test Sources/GooseAgent/Files/PinnedLocations.swift Tests/PinnedLocationsTests.swift
 	/tmp/oneagent-pinned-locations-test
 	swiftc -o /tmp/oneagent-workspace-presentation-test Sources/GooseAgent/WorkspacePresentation.swift Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspacePresentationTests.swift
