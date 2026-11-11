@@ -68,7 +68,7 @@ final class FocusedTerminal: ObservableObject {
         ]
         for name in names {
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated {
+                Task { @MainActor in
                     FocusedTerminal.shared.refresh()
                     // Coming back from another app, the read made right at didBecomeKey finds no terminal.
                     FocusedTerminal.shared.refreshSoon()
