@@ -39,6 +39,8 @@ import SwiftUI
         let item = QuickCommand(alias: "外观检查", command: "printf '%s\\n' '中文文字'", scope: .local)
         try QuickCommandStore.shared.save(item)
         try await checkCommandPreview(item, model: model)
+        state.commandLibraryCollection = QuickCommandCollection.owner(of: item)
+        state.commandLibrarySelection = item.id
         let paste = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [item]), context: context)
         let plan = GhosttyConfigImport.makePlan()
         if let language = ProcessInfo.processInfo.environment["ONEAGENT_TEST_LANGUAGE"] {
@@ -192,8 +194,11 @@ import SwiftUI
         owner.makeKeyAndOrderFront(nil)
         defer { owner.orderOut(nil) }
         await settle()
+        func previewElements() -> [NSObject] {
+            elements(host) + (owner.childWindows ?? []).flatMap { $0.contentView.map(elements) ?? [] }
+        }
         func button(_ id: String) -> NSObject? {
-            elements(host).first { value($0, "accessibilityIdentifier") as? String == id
+            previewElements().first { value($0, "accessibilityIdentifier") as? String == id
                 && $0.responds(to: NSSelectorFromString("accessibilityPerformPress")) }
         }
         let row = button("quickCommand." + item.id.uuidString)
@@ -202,7 +207,7 @@ import SwiftUI
         expect(button("quickCommands.preview.copy") != nil, "command preview popover offers copying")
         expect(!state.isToolPreviewOpen && state.section == .terminals, "selection does not open a separate card or leave the terminal")
         expect(state.quickCommandConfirmation == nil, "preview never asks to execute")
-        let sidebarText = elements(host).flatMap { object in
+        let sidebarText = previewElements().flatMap { object in
             ["accessibilityValue", "accessibilityLabel"].compactMap { value(object, $0) as? String }
         }.joined(separator: " ")
         expect(sidebarText.contains(item.command), "sidebar preview shows complete literal command")
@@ -210,6 +215,8 @@ import SwiftUI
         expect(state.section == .commands && state.commandLibraryDraft != nil, "new command opens the main command page")
         expect(owner.attachedSheet == nil, "sidebar add does not open a modal")
         state.commandLibraryDraft = nil
+        state.commandLibraryCollection = QuickCommandCollection.owner(of: item)
+        state.commandLibrarySelection = item.id
         host.rootView = AnyView(QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
             .environment(\.windowChrome, WindowChrome(isDark: true)))
         await settle()
@@ -243,6 +250,13 @@ import SwiftUI
         expect(button("quickCommands.library.edit") != nil && owner.attachedSheet == nil, "save returns to the main list without a modal")
         try QuickCommandStore.shared.save(item)
         state.commandLibraryCollection = .common
+        host.rootView = AnyView(VStack {
+            QuickCommandLibraryHeader(model: model, window: state)
+            HStack {
+                QuickCommandLibraryNavigation(model: model, window: state).frame(width: 260)
+                QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
+            }
+        }.environment(\.windowChrome, WindowChrome(isDark: true)))
         await settle()
         let newProbe = NativeMenuProbe()
         defer { newProbe.stop() }

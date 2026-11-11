@@ -73,11 +73,14 @@ struct QuickCommandLibraryView: View {
         selectedID = saved.id
     }
     private var libraryContent: some View {
-    HStack(alignment: .top, spacing: 20) {
-        QuickCommandLibraryNavigation(model: model, window: window).frame(width: SheetLayout.commandLibraryNavigation)
-        Divider()
-        detailContent
-    }
+        VStack(spacing: Theme.Space.m) {
+            QuickCommandLibraryHeader(model: model, window: window)
+            HStack(alignment: .top, spacing: 20) {
+                QuickCommandLibraryNavigation(model: model, window: window).frame(width: SheetLayout.commandLibraryNavigation)
+                Divider()
+                detailContent
+            }
+        }
     }
 
     @ViewBuilder
