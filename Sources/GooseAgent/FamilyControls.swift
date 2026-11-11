@@ -1,60 +1,21 @@
 import SwiftUI
 
-/// 1Panel switch and checkbox drawings, using Toggle's binding and accessibility semantics.
+/// 系统控件负责绘制、键盘操作和辅助功能。
 struct FamilyToggleStyle: ToggleStyle {
     var checkbox = false
     var showsLabel = true
-    @Environment(\.windowChrome) private var chrome
-    @Environment(\.isEnabled) private var enabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @FocusState private var focused: Bool
 
     @ViewBuilder func makeBody(configuration: Configuration) -> some View {
-        if chrome.isSystem {
-            if checkbox {
-                nativeToggle(configuration).toggleStyle(.checkbox).clickableCursor()
-            } else {
-                nativeToggle(configuration).toggleStyle(.switch).clickableCursor()
-            }
+        if checkbox {
+            nativeToggle(configuration).toggleStyle(.checkbox).clickableCursor()
         } else {
-            themedToggle(configuration)
+            nativeToggle(configuration).toggleStyle(.switch).clickableCursor()
         }
     }
 
     @ViewBuilder private func nativeToggle(_ configuration: Configuration) -> some View {
-        if showsLabel {
-            Toggle(configuration)
-        } else {
-            Toggle(configuration).labelsHidden()
-        }
-    }
-
-    private func themedToggle(_ configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
-            HStack(spacing: 8) {
-                if checkbox {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: Theme.Radius.tag)
-                            .fill(configuration.isOn ? chrome.accent : chrome.background)
-                        RoundedRectangle(cornerRadius: Theme.Radius.tag)
-                            .strokeBorder(configuration.isOn ? chrome.accent : chrome.lineStrong, lineWidth: 1)
-                        if configuration.isOn { Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(chrome.filledForeground(on: chrome.accent)) }
-                    }.frame(width: 16, height: 16)
-                } else {
-                    Capsule().fill(configuration.isOn ? chrome.accent : chrome.lineStrong)
-                        .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                            Circle().fill(.white).frame(width: 16, height: 16).padding(2)
-                        }
-                        .frame(width: 36, height: 20)
-                        .animation(reduceMotion ? nil : .timingCurve(0.38, 0, 0.24, 1, duration: 0.2), value: configuration.isOn)
-                }
-                if showsLabel { configuration.label }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(FamilyPlainButtonStyle()).focused($focused)
-        .familyFocusRing(focused).opacity(enabled ? 1 : 0.45)
-        .accessibilityRepresentation { Toggle(isOn: configuration.$isOn) { configuration.label } }
+        if showsLabel { Toggle(configuration) }
+        else { Toggle(configuration).labelsHidden() }
     }
 }
 
@@ -62,15 +23,13 @@ struct FamilySegments<Value: Hashable>: View {
     @Binding var value: Value
     var options: [(Value, String)]
     var isFullWidth = false
-    @Environment(\.windowChrome) private var chrome
-    @Environment(\.isEnabled) private var enabled
-    @FocusState private var focused: Value?
+
     var body: some View {
-        if chrome.isSystem && isFullWidth {
+        if isFullWidth {
             FamilyNativeSegments(value: $value, options: options).clickableCursor()
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
-        } else if chrome.isSystem {
+        } else {
             Picker(selection: $value) {
                 ForEach(options, id: \.0) { item in
                     Text(verbatim: item.1).tag(item.0)
@@ -78,31 +37,7 @@ struct FamilySegments<Value: Hashable>: View {
             } label: { EmptyView() }
             .labelsHidden()
             .pickerStyle(.segmented).clickableCursor()
-        } else {
-            themedSegments
         }
-    }
-
-    private var themedSegments: some View {
-        HStack(spacing: 0) {
-            ForEach(options, id: \.0) { item in
-                Button { value = item.0 } label: {
-                    Text(verbatim: item.1).font(.system(size: 14, weight: value == item.0 ? .semibold : .regular))
-                        .foregroundStyle(value == item.0 ? chrome.accent : chrome.text)
-                        .padding(.horizontal, 8).frame(maxWidth: .infinity).frame(height: 28)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.tag).fill(value == item.0 ? chrome.background : .clear))
-                }
-                .buttonStyle(FamilyPlainButtonStyle()).focused($focused, equals: item.0)
-                .familyFocusRing(focused == item.0)
-                .accessibilityAddTraits(value == item.0 ? [.isSelected] : [])
-                .onMoveCommand { direction in
-                    guard enabled, let index = options.firstIndex(where: { $0.0 == value }) else { return }
-                    let next = direction == .left || direction == .up ? index - 1 : index + 1
-                    if options.indices.contains(next) { value = options[next].0; focused = value }
-                }
-            }
-        }.padding(2).background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(chrome.elevated))
-        .opacity(enabled ? 1 : 0.45)
     }
 }
 
