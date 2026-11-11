@@ -4,7 +4,7 @@ Source: https://github.com/Lakr233/libghostty-spm, tag `1.6.20260929`.
 The Swift wrapper remains based on that release. The macOS engine is built from
 Ghostty `v1.4.0` (`83fb95624b0439ee660c2679b43b38c8b63769cd`) using
 `scripts/build-libghostty.sh`. The script checks the source archive SHA-256 and
-applies `Patches/ghostty-v1.4.0.patch`; the generated framework is not tracked.
+applies the ordered patches in `Patches/series` (see `Patches/README.md`); the generated framework is not tracked.
 The patch ports libghostty-spm's host-managed I/O, rendering and screen-history
 changes to v1.4.0. It is based on the patch stack from libghostty-spm
 `2.2.2026102101`, with adaptations for v1.4.0 and Zig 0.17.0.
