@@ -38,14 +38,14 @@ enum RemotePaletteTests {
                 let colors = AppTheme.colors(isDark: isDark)
                 expect(matches(NSColor(colors.color(colors.background)), .textBackgroundColor), "Terminal uses the native reading background")
                 expect(colors.ansi.count == 16, "All terminal ANSI slots remain available")
-                for isFocused in [false, true] {
-                    let background = AppTheme.terminalPaneBackground(isDark: isDark, isFocused: isFocused)
-                    expect(RGBColor(ghosttyHex: colors.foreground)!.contrastRatio(with: background) >= 7,
-                           "Terminal output stays readable in active and inactive panes")
-                    for hex in colors.ansi {
-                        expect(RGBColor(ghosttyHex: hex)!.contrastRatio(with: background) >= 4.5,
-                               "ANSI output stays readable: \(hex)")
-                    }
+                let background = AppTheme.terminalPaneBackground(isDark: isDark)
+                expect(background.color == colors.color(colors.background),
+                       "Pane backing matches the terminal background, so fading a pane keeps its background")
+                expect(RGBColor(ghosttyHex: colors.foreground)!.contrastRatio(with: background) >= 7,
+                       "Terminal output stays readable in the focused pane")
+                for hex in colors.ansi {
+                    expect(RGBColor(ghosttyHex: hex)!.contrastRatio(with: background) >= 4.5,
+                           "ANSI output stays readable: \(hex)")
                 }
             }
         }

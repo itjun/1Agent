@@ -96,7 +96,7 @@ struct RootView: View {
                     if previewWidth > 0 {
                         WorkspaceFilePreview(model: model, window: window)
                             .frame(width: frame.width, height: frame.height)
-                            .background(AppTheme.terminalPaneBackground(isDark: appearanceDriver.isDark, isFocused: true).color)
+                            .background(AppTheme.terminalPaneBackground(isDark: appearanceDriver.isDark).color)
                             .offset(x: frame.minX, y: frame.minY)
                         if !window.isToolReadingExpanded {
                             // 分割线和拖动热区放在预览上方，避免预览盖住边界右半侧。

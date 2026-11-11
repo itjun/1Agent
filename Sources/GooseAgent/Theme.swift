@@ -124,6 +124,9 @@ enum Theme {
         /// Border flashed around a terminal when its bell rings (`bell-features = border`).
         static let bellBorderWidth: CGFloat = 3
         static let bellFlashDuration: Double = 0.6
+        /// 分屏中非焦点终端与其标题的不透明度；底色与焦点分屏一致，只淡化内容。
+        static let unfocusedTerminalOpacity: CGFloat = 0.4
+        static let unfocusedHeaderOpacity: Double = 0.6
         /// OSC 9;4 progress bar along the bottom of the title bar (or of the lone pane's strip).
         static let progressBarHeight: CGFloat = 2
         static let progressFadeDuration: Double = 0.3
@@ -228,15 +231,9 @@ enum AppTheme {
         var gradientColors: [Color] { gradient.map { color($0) } }
     }
 
-    /// 聚焦保持实色底板；失焦使用轻微灰阶色差，文字和 ANSI 色保持清晰。
-    static func terminalPaneBackground(isDark: Bool, isFocused: Bool,
-                                       preset: AppThemePreset = AppTheme.stored()) -> RGBColor {
-        let colors = AppTheme.colors(isDark: isDark, preset: preset)
-        let base = RGBColor(ghosttyHex: colors.background)!
-        guard !isFocused else { return base }
-        // 系统窗口底色可能与终端底色完全相同，直接混合侧栏色无法区分分屏。
-        let neutral = RGBColor(ghosttyHex: isDark ? "FFFFFF" : "000000")!
-        return base.mixed(with: neutral, amount: isDark ? 0.06 : 0.05)
+    /// 分屏底板必须与终端底色一致：失焦终端降低不透明度时透出的是这层底板，背景才不会变色。
+    static func terminalPaneBackground(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) -> RGBColor {
+        RGBColor(ghosttyHex: AppTheme.colors(isDark: isDark, preset: preset).background)!
     }
 
     static var light: Colors { AppTheme.colors(isDark: false) }

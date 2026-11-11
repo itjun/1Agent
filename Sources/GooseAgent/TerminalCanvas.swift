@@ -109,7 +109,7 @@ struct TerminalCanvas: View {
                     )
                     .padding(.top, cardHeader)
                     .background {
-                        AppTheme.terminalPaneBackground(isDark: terminalIsDark, isFocused: isSelected).color
+                        AppTheme.terminalPaneBackground(isDark: terminalIsDark).color
                     }
                     .modifier(FloatingContentSurface())
                     .environment(\.windowChrome, chrome)
@@ -297,6 +297,8 @@ struct TerminalCanvas: View {
                 Spacer(minLength: 4)
             }
             .frame(maxHeight: .infinity)
+            .opacity(isSelected ? 1 : Theme.PaneStyle.unfocusedHeaderOpacity)
+            .animation(.easeOut(duration: Theme.Motion.terminalDuration), value: isSelected)
             .overlay {
                 TabDragHandle(
                     onClick: { _, _ in model.notePaneFocused(tab.id, in: window) },
