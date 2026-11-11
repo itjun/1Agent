@@ -35,11 +35,11 @@ make build
 
 官方 Ghostty 使用独立的 `com.mitchellh.ghostty` 与 `ghostty://` 身份。Swift 模块名仍为 `GooseAgent`，Xcode 工程和 target 名为 `1Agent`。
 
-GitHub 上的 [CI](https://github.com/itjun/1Agent/actions/workflows/ci.yml) 只编译 macOS 应用，不安装到运行器的 `/Applications`。推送 `v*` 标签会另外构建安装包，并发布签名的 `latest.json`。已安装的应用会检查这份清单，有新版本时可以下载并替换自己。
+GitHub 上的 [CI](https://github.com/itjun/1Agent/actions/workflows/ci.yml) 只编译 macOS 应用，不安装到运行器的 `/Applications`。推送 `v*` 标签会另外构建安装包和签名的 Sparkle `appcast.xml`，同时保留签名 `latest.json` 供旧客户端升级。新客户端仅使用 Sparkle 2.10.0 标准更新窗口，由用户确认安装；退出前先保存会话。发布必须配置独立的 Sparkle 密钥与 Developer ID 签名，见 [更新与验证说明](docs/official-components.md)。
 
 ### 第三方组件
 
-终端引擎、Swift 封装、Shell 集成、字体、语法高亮和图标等第三方内容保留各自的许可证与署名，详见 `Vendor/libghostty-spm/LICENSE`、`Resources/Fonts/SymbolsNerdFont-LICENSE.txt`、`Resources/PreviewSyntax.LICENSE.txt`、`Resources/FileIcons-NOTICE.txt` 和 `Resources/shell-integration/` 中的许可文件。
+终端引擎、Swift 封装、Sparkle、Shell 集成、字体、语法高亮和图标等第三方内容保留各自的许可证与署名，详见 `Vendor/libghostty-spm/LICENSE`、`Resources/Sparkle.LICENSE.txt`、`Resources/Fonts/SymbolsNerdFont-LICENSE.txt`、`Resources/PreviewSyntax.LICENSE.txt`、`Resources/FileIcons-NOTICE.txt` 和 `Resources/shell-integration/` 中的许可文件。
 
 ### 许可证
 
@@ -71,11 +71,11 @@ The build script installs and launches `/Applications/1Agent.app`. The bundle ID
 
 Official Ghostty keeps its own `com.mitchellh.ghostty` bundle ID and `ghostty://` scheme. The Swift module is still `GooseAgent`. The Xcode project and target are named `1Agent`.
 
-The [CI workflow](https://github.com/itjun/1Agent/actions/workflows/ci.yml) compiles the macOS app. It does not install the app into `/Applications` on the runner. Pushing a `v*` tag builds the installable app and publishes a signed `latest.json`. An installed copy checks that manifest and can download and replace itself.
+The [CI workflow](https://github.com/itjun/1Agent/actions/workflows/ci.yml) compiles the macOS app. It does not install the app into `/Applications` on the runner. Pushing a `v*` tag builds the app and a signed Sparkle appcast, while retaining the signed `latest.json` for older clients. New clients use Sparkle 2.10.0 standard update windows, require user-triggered installation, and save sessions before quitting. Releases require dedicated Sparkle keys and Developer ID signing; see [release and validation notes](docs/official-components.md).
 
 ### Third-party components
 
-The terminal engine, Swift wrappers, shell integration, fonts, syntax highlighting, and icons keep their own licenses and attribution. See `Vendor/libghostty-spm/LICENSE`, `Resources/Fonts/SymbolsNerdFont-LICENSE.txt`, `Resources/PreviewSyntax.LICENSE.txt`, `Resources/FileIcons-NOTICE.txt`, and the license files under `Resources/shell-integration/`.
+The terminal engine, Swift wrappers, Sparkle, shell integration, fonts, syntax highlighting, and icons keep their own licenses and attribution. See `Vendor/libghostty-spm/LICENSE`, `Resources/Sparkle.LICENSE.txt`, `Resources/Fonts/SymbolsNerdFont-LICENSE.txt`, `Resources/PreviewSyntax.LICENSE.txt`, `Resources/FileIcons-NOTICE.txt`, and the license files under `Resources/shell-integration/`.
 
 ### License
 
