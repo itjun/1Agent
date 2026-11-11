@@ -32,7 +32,7 @@
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
 		29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */; };
 		2D7C86FE185C7FD54564D5FF /* macaron-original-mark.png in Resources */ = {isa = PBXBuildFile; fileRef = C5E10203568D61260319007F /* macaron-original-mark.png */; };
-		33DCFCC9A4C67EC83537B7CB /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
+		33DCFCC9A4C67EC83537B7CB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EEF38299B0234AAF0FD1166 /* Sparkle */; };
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
@@ -107,12 +107,14 @@
 		B95805B891CB9A10F703DD10 /* TextPreviewDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */; };
 		BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */; };
 		BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = BD4E62BE663582C439B996D1 /* FileIconCatalog.json */; };
+		BDE0F6784FE455B5144022E1 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
 		C01D9ED719DD9AE851193F49 /* WorkspaceExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EBD6A0E24A363C1F73F4352 /* WorkspaceExternalOpen.swift */; };
-		C0D5997471F66D63679D1F6A /* AppUpdateInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */; };
 		C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */; };
 		C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */; };
 		C47DE107C61A6FF1CC5E4109 /* FileTransferQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */; };
+		C736ADA6DE90055542C5E228 /* Sparkle.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 3BBD386548977A6DABBB8642 /* Sparkle.LICENSE.txt */; };
+		C9F7F6C850E1AB12DCBA2EE9 /* Debug.entitlements in Resources */ = {isa = PBXBuildFile; fileRef = 7456FBC3F7B49DF0E9464650 /* Debug.entitlements */; };
 		CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D91EB1556003521E0650B7 /* AppModel.swift */; };
 		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
 		CF4B6D7911791ED91EAC823F /* FileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B9E55BFC942871BBD992B /* FileTransfer.swift */; };
@@ -188,6 +190,7 @@
 		388A1951E4AD6C678189139A /* FileRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRules.swift; sourceTree = "<group>"; };
 		3A04B67162E2B0A44E4CF076 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		3A4766D4FB85A03ACB975776 /* ShellStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellStyle.swift; sourceTree = "<group>"; };
+		3BBD386548977A6DABBB8642 /* Sparkle.LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Sparkle.LICENSE.txt; sourceTree = "<group>"; };
 		3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewPolicy.swift; sourceTree = "<group>"; };
 		3D06F9EAE0D3A2EFCF05826B /* TerminalEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalEvents.swift; sourceTree = "<group>"; };
 		3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewDrawer.swift; sourceTree = "<group>"; };
@@ -227,6 +230,7 @@
 		6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBoard.swift; sourceTree = "<group>"; };
 		709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyDefaultsMigration.swift; sourceTree = "<group>"; };
 		71FDA7CC65A4FE2654714778 /* PinnedLocationsSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationsSidebar.swift; sourceTree = "<group>"; };
+		7456FBC3F7B49DF0E9464650 /* Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Debug.entitlements; sourceTree = "<group>"; };
 		76AB46074F2E387D4CB2E709 /* FilesWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesWorkspaceView.swift; sourceTree = "<group>"; };
 		76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsPage.swift; sourceTree = "<group>"; };
 		79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPlatformIntegration.swift; sourceTree = "<group>"; };
@@ -284,7 +288,6 @@
 		DE59577D45AC9E2092891039 /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsView.swift; sourceTree = "<group>"; };
 		E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
 		E513AE207C91AAB81A8D5279 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
-		ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateInstall.swift; sourceTree = "<group>"; };
 		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
 		EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ScriptingReplyBridge.m; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
@@ -301,7 +304,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				33DCFCC9A4C67EC83537B7CB /* GhosttyTerminal in Frameworks */,
+				33DCFCC9A4C67EC83537B7CB /* Sparkle in Frameworks */,
+				BDE0F6784FE455B5144022E1 /* GhosttyTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -386,6 +390,7 @@
 			children = (
 				F7598CCEED462B4329E3B155 /* 1agent */,
 				5AD6A1D884E315562428F9EF /* 1Agent.sdef */,
+				7456FBC3F7B49DF0E9464650 /* Debug.entitlements */,
 				BD4E62BE663582C439B996D1 /* FileIconCatalog.json */,
 				CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */,
 				497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */,
@@ -393,6 +398,7 @@
 				4439A8E93DB3E5BDBC1423C2 /* Localizable.xcstrings */,
 				00BF2C9913789DC6BE4D0051 /* PreviewSyntax.js */,
 				66F6C38EE4A145B579647ECD /* PreviewSyntax.LICENSE.txt */,
+				3BBD386548977A6DABBB8642 /* Sparkle.LICENSE.txt */,
 				E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */,
 				15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */,
 				32E75555FCC89483D29787D4 /* WindowAtmosphere.png */,
@@ -419,7 +425,6 @@
 				32D91EB1556003521E0650B7 /* AppModel.swift */,
 				1D45F8AE073D54FC747AEACC /* AppUpdate.swift */,
 				63227BCF8DA29CF6C2F95597 /* AppUpdateController.swift */,
-				ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */,
 				7D82C3644F27E84ABEB8266B /* AppUpdateSettings.swift */,
 				64BF08A42C7BDF982C716507 /* Assets.xcassets */,
 				49B5B6C3942BB433C4B85A1A /* CommandFinishedPolicy.swift */,
@@ -522,6 +527,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 15A29E77E5215DD5F92D4840 /* Build configuration list for PBXNativeTarget "1Agent" */;
 			buildPhases = (
+				0E3020007097CE0545756311 /* Validate release signing */,
 				5A8316C63BDF238B209E5696 /* Sources */,
 				5AE29F9C2F01172D1FAAEEA2 /* Resources */,
 				CAB0B723CEEB01D8A20A4321 /* Frameworks */,
@@ -533,6 +539,7 @@
 			);
 			name = 1Agent;
 			packageProductDependencies = (
+				4EEF38299B0234AAF0FD1166 /* Sparkle */,
 				033219BA9590EAF0ABF5C327 /* GhosttyTerminal */,
 			);
 			productName = 1Agent;
@@ -564,6 +571,7 @@
 			mainGroup = 8B6A8EE0503382D9119AED66;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				750EA450F3985D8FDB2FE3C5 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				6316148249528D2F5CB7267B /* XCLocalSwiftPackageReference "Vendor/libghostty-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -585,6 +593,7 @@
 				61ED839C0AFD56A6F49594EC /* 1agent in Resources */,
 				9C827CD4FE4427CB1881372E /* ApplicationIcons in Resources */,
 				5FB944658C83C93BF52FE910 /* Assets.xcassets in Resources */,
+				C9F7F6C850E1AB12DCBA2EE9 /* Debug.entitlements in Resources */,
 				BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */,
 				44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */,
 				1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */,
@@ -593,6 +602,7 @@
 				C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */,
 				15EE643104E39D97BAEDC26A /* PreviewSyntax.LICENSE.txt in Resources */,
 				A904414E0A56E36983D165D3 /* PreviewSyntax.js in Resources */,
+				C736ADA6DE90055542C5E228 /* Sparkle.LICENSE.txt in Resources */,
 				7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */,
 				8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
 				E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */,
@@ -611,6 +621,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		0E3020007097CE0545756311 /* Validate release signing */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate release signing";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/scripts/validate-release-signing.sh\"";
+		};
 		60AE8236B2BDEF8275CA330E /* Install readable fallback icon */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -642,7 +671,6 @@
 				CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */,
 				F650B15BB9E7C184E5DDD3C3 /* AppUpdate.swift in Sources */,
 				9854DBF312A18A9614642BBA /* AppUpdateController.swift in Sources */,
-				C0D5997471F66D63679D1F6A /* AppUpdateInstall.swift in Sources */,
 				74C77B01ECA7B1792330D91B /* AppUpdateSettings.swift in Sources */,
 				F4B1E0B0F3895EFA22477278 /* ApplicationIcon.swift in Sources */,
 				5C951E0FE24055E131A2123A /* CommandFinishedPolicy.swift in Sources */,
@@ -771,10 +799,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Sources/GooseAgent/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.1.14;
@@ -783,6 +808,7 @@
 				PRODUCT_MODULE_NAME = GooseAgent;
 				PRODUCT_NAME = 1Agent;
 				SDKROOT = macosx;
+				SPARKLE_PUBLIC_KEY = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Sources/GooseAgent/GooseAgent-Bridging-Header.h";
 				SWIFT_VERSION = 5.10;
 			};
@@ -792,6 +818,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = OneAgentIcon;
+				CODE_SIGN_ENTITLEMENTS = Resources/Debug.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application: MOE AI LLC (NCFNX3LJ83)";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -800,10 +827,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Sources/GooseAgent/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.1.14;
@@ -812,6 +836,7 @@
 				PRODUCT_MODULE_NAME = GooseAgent;
 				PRODUCT_NAME = 1Agent;
 				SDKROOT = macosx;
+				SPARKLE_PUBLIC_KEY = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Sources/GooseAgent/GooseAgent-Bridging-Header.h";
 				SWIFT_VERSION = 5.10;
 			};
@@ -966,10 +991,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		750EA450F3985D8FDB2FE3C5 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		033219BA9590EAF0ABF5C327 /* GhosttyTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = GhosttyTerminal;
+		};
+		4EEF38299B0234AAF0FD1166 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 750EA450F3985D8FDB2FE3C5 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

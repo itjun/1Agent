@@ -10,7 +10,7 @@ ln -s "$products_dir/1Agent.app/Contents/Resources" "$test_dir/RefreshTests.app/
 swift_compiler=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc
 sdk_dir="$(env DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun --sdk macosx --show-sdk-path)"
 "$swift_compiler" -parse-as-library -target arm64-apple-macosx14.0 -sdk "$sdk_dir" \
-    -I "$products_dir" -I "$products_dir/include/libghostty" \
+    -F "$products_dir" -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/Frameworks" -I "$products_dir" -I "$products_dir/include/libghostty" \
     -Xlinker -rpath -Xlinker "$dylib_dir" \
     "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/WorkspaceRefreshTests.swift" \
     -o "$test_dir/RefreshTests.app/Contents/MacOS/tests"

@@ -1264,10 +1264,10 @@ final class AppModel: ObservableObject {
 
     /// Flush the final output while native surfaces still exist, then commit
     /// the matching session metadata. No disk export runs during normal typing.
-    func prepareForApplicationExit() async throws {
+    func prepareForApplicationExit(stopProcesses: Bool = true) async throws {
         try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
         persistSession()
-        await SSHTerminalRegistry.killProcessesForApplicationExit()
+        if stopProcesses { await SSHTerminalRegistry.killProcessesForApplicationExit() }
     }
 
     func showSettings() {
