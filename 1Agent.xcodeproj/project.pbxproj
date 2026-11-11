@@ -107,7 +107,6 @@
 		B95805B891CB9A10F703DD10 /* TextPreviewDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */; };
 		BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */; };
 		BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = BD4E62BE663582C439B996D1 /* FileIconCatalog.json */; };
-		BDE0F6784FE455B5144022E1 /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 0A4845DDBF4FBE86870CF14E /* GhosttyTheme */; };
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
 		C01D9ED719DD9AE851193F49 /* WorkspaceExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EBD6A0E24A363C1F73F4352 /* WorkspaceExternalOpen.swift */; };
 		C0D5997471F66D63679D1F6A /* AppUpdateInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECDFC63FF9A1F8B2057A635E /* AppUpdateInstall.swift */; };
@@ -303,7 +302,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				33DCFCC9A4C67EC83537B7CB /* GhosttyTerminal in Frameworks */,
-				BDE0F6784FE455B5144022E1 /* GhosttyTheme in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -536,7 +534,6 @@
 			name = 1Agent;
 			packageProductDependencies = (
 				033219BA9590EAF0ABF5C327 /* GhosttyTerminal */,
-				0A4845DDBF4FBE86870CF14E /* GhosttyTheme */,
 			);
 			productName = 1Agent;
 			productReference = 6AB01AA2ED9BB1CCD25843F6 /* 1Agent.app */;
@@ -973,10 +970,6 @@
 		033219BA9590EAF0ABF5C327 /* GhosttyTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = GhosttyTerminal;
-		};
-		0A4845DDBF4FBE86870CF14E /* GhosttyTheme */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GhosttyTheme;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

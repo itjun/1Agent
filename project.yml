@@ -35,8 +35,6 @@ targets:
     dependencies:
       - package: GhosttyTerminal
         product: GhosttyTerminal
-      - package: GhosttyTerminal
-        product: GhosttyTheme
     info:
       path: Sources/GooseAgent/Info.plist
       properties:

@@ -1,7 +1,6 @@
 import AppKit
 import CoreText
 import GhosttyTerminal
-import GhosttyTheme
 import Quartz
 import SwiftUI
 
@@ -200,8 +199,8 @@ enum GhosttyRuntime {
 
     private static func selectedThemes() -> TerminalTheme {
         return TerminalTheme(
-            light: AppTheme.terminalDefinition(isDark: false).terminalConfiguration(),
-            dark: AppTheme.terminalDefinition(isDark: true).terminalConfiguration()
+            light: AppTheme.terminalConfiguration(isDark: false),
+            dark: AppTheme.terminalConfiguration(isDark: true)
         )
     }
 
