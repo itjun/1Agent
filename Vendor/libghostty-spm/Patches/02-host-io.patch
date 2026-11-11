@@ -1,28 +1,8 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index 9a12b9c..c29a598 100644
+index 9a12b9c..f1e7be8 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
-@@ -481,6 +481,19 @@ typedef struct {
-   bool rectangle;
- } ghostty_selection_s;
- 
-+// libghostty-spm: ghostty_surface_selection_viewport
-+typedef struct {
-+  uint32_t top_left_x;
-+  uint32_t top_left_y;
-+  uint32_t bottom_right_x;
-+  uint32_t bottom_right_y;
-+  uint32_t columns;
-+  uint32_t rows;
-+  bool rectangle;
-+  bool top_left_clipped;
-+  bool bottom_right_clipped;
-+} ghostty_selection_viewport_s;
-+
- typedef struct {
-   const char* key;
-   const char* value;
-@@ -505,10 +518,26 @@ typedef enum {
+@@ -505,10 +505,26 @@ typedef enum {
    GHOSTTY_SURFACE_CONTEXT_SPLIT = 2,
  } ghostty_surface_context_e;
  
@@ -49,25 +29,15 @@ index 9a12b9c..c29a598 100644
    double scale_factor;
    float font_size;
    const char* working_directory;
-@@ -1184,6 +1213,9 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+@@ -1184,6 +1200,8 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
  GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
  GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
  GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
 +GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
-+GHOSTTY_API void ghostty_surface_write_buffer_replay(ghostty_surface_t, const uint8_t*, uintptr_t);
 +GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
  GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_set_content_scale(ghostty_surface_t, double, double);
-@@ -1236,6 +1268,8 @@ GHOSTTY_API void ghostty_surface_deny_clipboard_request(ghostty_surface_t,
-                                                            void*);
- GHOSTTY_API bool ghostty_surface_has_selection(ghostty_surface_t);
- GHOSTTY_API bool ghostty_surface_read_selection(ghostty_surface_t, ghostty_text_s*);
-+GHOSTTY_API bool ghostty_surface_selection_viewport(ghostty_surface_t,
-+                                                   ghostty_selection_viewport_s*);
- GHOSTTY_API bool ghostty_surface_read_text(ghostty_surface_t,
-                                               ghostty_selection_s,
-                                               ghostty_text_s*);
 diff --git a/src/Surface.zig b/src/Surface.zig
 index 369bb23..63df5eb 100644
 --- a/src/Surface.zig
@@ -199,7 +169,7 @@ index 369bb23..63df5eb 100644
          self.mouse.pending_scroll_x = poff - (amount * cell_size);
          const delta: isize = @intFromFloat(@trunc(amount));
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index 697f0a7..5bd0c90 100644
+index 697f0a7..761294c 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -16,8 +16,9 @@ const input = @import("../input.zig");
@@ -330,41 +300,7 @@ index 697f0a7..5bd0c90 100644
  };
  
  // C API
-@@ -1644,7 +1697,12 @@ pub const CAPI = struct {
- 
-             // Clamp our point to the screen bounds.
-             const clamped_x = @min(self.x, screen.pages.cols -| 1);
--            const clamped_y = @min(self.y, screen.pages.rows -| 1);
-+            // Screen-relative text reads must reach every scrollback row.
-+            const coordinate_rows: usize = switch (tag) {
-+                .screen => screen.pages.total_rows,
-+                else => screen.pages.rows,
-+            };
-+            const clamped_y: u32 = @intCast(@min(self.y, coordinate_rows -| 1));
- 
-             return switch (self.coord_tag) {
-                 // Exact coordinates require a specific pin.
-@@ -1692,6 +1750,19 @@ pub const CAPI = struct {
-         }
-     };
- 
-+    // ghostty_selection_viewport_s (libghostty-spm)
-+    const SelectionViewport = extern struct {
-+        top_left_x: u32,
-+        top_left_y: u32,
-+        bottom_right_x: u32,
-+        bottom_right_y: u32,
-+        columns: u32,
-+        rows: u32,
-+        rectangle: bool,
-+        top_left_clipped: bool,
-+        bottom_right_clipped: bool,
-+    };
-+
-     // Reference the conditional exports based on target platform
-     // so they're included in the C API.
-     comptime {
-@@ -1899,6 +1970,43 @@ pub const CAPI = struct {
+@@ -1899,6 +1952,28 @@ pub const CAPI = struct {
          return surface.core_surface.child_exited;
      }
  
@@ -375,21 +311,6 @@ index 697f0a7..5bd0c90 100644
 +    ) void {
 +        if (len == 0) return;
 +        surface.core_surface.io.processOutput(ptr[0..len]);
-+    }
-+
-+    /// Process host output as reconstructed history. The parser and terminal
-+    /// state are updated exactly as with ghostty_surface_write_buffer, but
-+    /// terminal protocol responses caused by this buffer are discarded at
-+    /// their origin. The suppression flag is set under the terminal-state
-+    /// mutex and cleared whenever the parser releases it mid-call, so a
-+    /// response another thread produces in that window is not discarded.
-+    export fn ghostty_surface_write_buffer_replay(
-+        surface: *Surface,
-+        ptr: [*]const u8,
-+        len: usize,
-+    ) void {
-+        if (len == 0) return;
-+        surface.core_surface.io.processOutputSuppressingResponses(ptr[0..len]);
 +    }
 +
 +    export fn ghostty_surface_process_exit(
@@ -408,68 +329,7 @@ index 697f0a7..5bd0c90 100644
      /// Returns true if the surface has a selection.
      export fn ghostty_surface_has_selection(surface: *Surface) bool {
          return surface.core_surface.hasSelection();
-@@ -1921,6 +2029,60 @@ pub const CAPI = struct {
-         return readTextLocked(surface, core_sel, result);
-     }
- 
-+    /// libghostty-spm: the user selection's corners as viewport cells, in
-+    /// the terminal's own column and row count. False when there is no
-+    /// selection or none of it is in the viewport.
-+    export fn ghostty_surface_selection_viewport(
-+        surface: *Surface,
-+        result: *SelectionViewport,
-+    ) bool {
-+        const core_surface = &surface.core_surface;
-+        core_surface.renderer_state.mutex.lockUncancelable(global.io());
-+        defer core_surface.renderer_state.mutex.unlock(global.io());
-+
-+        const screen = core_surface.io.terminal.screens.active;
-+        const sel = screen.selection orelse return false;
-+        const pages = &screen.pages;
-+        const vp_tl = pages.getTopLeft(.viewport);
-+        const vp_br = pages.getBottomRight(.viewport) orelse return false;
-+        const tl_pin = sel.topLeft(screen);
-+        const br_pin = sel.bottomRight(screen);
-+        if (br_pin.before(vp_tl) or vp_br.before(tl_pin)) return false;
-+
-+        const cols: u32 = pages.cols;
-+        const rows: u32 = pages.rows;
-+        if (cols == 0 or rows == 0) return false;
-+        const last_col = cols - 1;
-+
-+        // A corner above or below the viewport is clipped to its edge. A
-+        // rectangle keeps its column there; a linear selection runs to the
-+        // viewport's first or last cell.
-+        const tl_pt: ?terminal.point.Coordinate = if (pages.pointFromPin(.viewport, tl_pin)) |pt|
-+            if (pt.coord().y < rows) pt.coord() else null
-+        else
-+            null;
-+        const br_pt: ?terminal.point.Coordinate = if (pages.pointFromPin(.viewport, br_pin)) |pt|
-+            if (pt.coord().y < rows) pt.coord() else null
-+        else
-+            null;
-+
-+        const tl_x: u32 = if (tl_pt) |pt| pt.x else if (sel.rectangle) tl_pin.x else 0;
-+        const br_x: u32 = if (br_pt) |pt| pt.x else if (sel.rectangle) br_pin.x else last_col;
-+
-+        result.* = .{
-+            .top_left_x = @min(tl_x, last_col),
-+            .top_left_y = if (tl_pt) |pt| pt.y else 0,
-+            .bottom_right_x = @min(br_x, last_col),
-+            .bottom_right_y = if (br_pt) |pt| pt.y else rows - 1,
-+            .columns = cols,
-+            .rows = rows,
-+            .rectangle = sel.rectangle,
-+            .top_left_clipped = tl_pt == null,
-+            .bottom_right_clipped = br_pt == null,
-+        };
-+        return true;
-+    }
-+
-     /// Read some arbitrary text from the surface.
-     ///
-     /// This is an expensive operation so it shouldn't be called too
-@@ -2356,10 +2518,12 @@ pub const CAPI = struct {
+@@ -2356,10 +2431,12 @@ pub const CAPI = struct {
      }
  
      export fn ghostty_inspector_set_size(ptr: *Inspector, w: u32, h: u32) void {
@@ -482,7 +342,7 @@ index 697f0a7..5bd0c90 100644
          ptr.updateContentScale(x, y);
      }
  
-@@ -2369,6 +2533,7 @@ pub const CAPI = struct {
+@@ -2369,6 +2446,7 @@ pub const CAPI = struct {
          button: input.MouseButton,
          mods: c_int,
      ) void {
@@ -490,7 +350,7 @@ index 697f0a7..5bd0c90 100644
          ptr.mouseButtonCallback(
              action,
              button,
-@@ -2380,6 +2545,7 @@ pub const CAPI = struct {
+@@ -2380,6 +2458,7 @@ pub const CAPI = struct {
      }
  
      export fn ghostty_inspector_mouse_pos(ptr: *Inspector, x: f64, y: f64) void {
@@ -498,7 +358,7 @@ index 697f0a7..5bd0c90 100644
          ptr.cursorPosCallback(x, y);
      }
  
-@@ -2389,6 +2555,7 @@ pub const CAPI = struct {
+@@ -2389,6 +2468,7 @@ pub const CAPI = struct {
          y: f64,
          scroll_mods: c_int,
      ) void {
@@ -506,7 +366,7 @@ index 697f0a7..5bd0c90 100644
          ptr.scrollCallback(
              x,
              y,
-@@ -2402,6 +2569,7 @@ pub const CAPI = struct {
+@@ -2402,6 +2482,7 @@ pub const CAPI = struct {
          key: input.Key,
          c_mods: c_int,
      ) void {
@@ -514,7 +374,7 @@ index 697f0a7..5bd0c90 100644
          ptr.keyCallback(
              action,
              key,
-@@ -2419,10 +2587,12 @@ pub const CAPI = struct {
+@@ -2419,10 +2500,12 @@ pub const CAPI = struct {
          ptr: *Inspector,
          str: [*:0]const u8,
      ) void {
@@ -527,7 +387,7 @@ index 697f0a7..5bd0c90 100644
          ptr.focusCallback(focused);
      }
  
-@@ -2436,26 +2606,11 @@ pub const CAPI = struct {
+@@ -2436,26 +2519,11 @@ pub const CAPI = struct {
          app: *App,
          window: *anyopaque,
      ) void {
@@ -557,7 +417,7 @@ index 697f0a7..5bd0c90 100644
      // Darwin-only C APIs.
      const Darwin = struct {
          export fn ghostty_surface_set_display_id(ptr: *Surface, display_id: u32) void {
-@@ -2551,6 +2706,7 @@ pub const CAPI = struct {
+@@ -2551,6 +2619,7 @@ pub const CAPI = struct {
          }
  
          export fn ghostty_inspector_metal_init(ptr: *Inspector, device: objc.c.id) bool {
@@ -565,7 +425,7 @@ index 697f0a7..5bd0c90 100644
              return ptr.initMetal(.fromId(device));
          }
  
-@@ -2559,6 +2715,7 @@ pub const CAPI = struct {
+@@ -2559,6 +2628,7 @@ pub const CAPI = struct {
              command_buffer: objc.c.id,
              descriptor: objc.c.id,
          ) void {
@@ -573,7 +433,7 @@ index 697f0a7..5bd0c90 100644
              return ptr.renderMetal(
                  .fromId(command_buffer),
                  .fromId(descriptor),
-@@ -2569,6 +2726,7 @@ pub const CAPI = struct {
+@@ -2569,6 +2639,7 @@ pub const CAPI = struct {
          }
  
          export fn ghostty_inspector_metal_shutdown(ptr: *Inspector) void {
@@ -581,55 +441,6 @@ index 697f0a7..5bd0c90 100644
              if (ptr.backend) |v| {
                  v.deinit();
                  ptr.backend = null;
-diff --git a/src/apprt/surface.zig b/src/apprt/surface.zig
-index 3b1a04d..3589907 100644
---- a/src/apprt/surface.zig
-+++ b/src/apprt/surface.zig
-@@ -160,6 +160,27 @@ pub const Message = union(enum) {
-     /// Renderer pushed a new frame, redraw this surface.
-     redraw,
- 
-+    /// Discard parser-originated surface requests whose eventual effect is a
-+    /// terminal protocol response. These requests must not escape a
-+    /// reconstructed-history replay scope through the asynchronous surface
-+    /// mailbox.
-+    ///
-+    /// `kitty_clipboard_read`/`kitty_clipboard_write` are deliberately not
-+    /// covered here: the receiver takes ownership of the boxed request state
-+    /// and must destroy it, and this classifier only knows how to drop a
-+    /// message, not release owned state (see `termio.Message.write_alloc`
-+    /// for the pattern this would need). Replaying reconstructed history
-+    /// that contains a Kitty clipboard protocol sequence can still leak a
-+    /// confirmation to the host; this is a pre-existing gap, not a
-+    /// regression, since Kitty clipboard support did not exist when replay
-+    /// suppression was introduced.
-+    pub fn discardIfTerminalResponse(self: Message) bool {
-+        return switch (self) {
-+            .report_title, .clipboard_read => true,
-+            else => false,
-+        };
-+    }
-+
-     pub const ReportTitleStyle = enum {
-         csi_21_t,
- 
-@@ -248,6 +269,16 @@ pub fn newConfig(
-     return copy;
- }
- 
-+test "replay response classification for surface messages" {
-+    const testing = std.testing;
-+
-+    try testing.expect((Message{ .report_title = .csi_21_t }).discardIfTerminalResponse());
-+    try testing.expect((Message{ .clipboard_read = .standard }).discardIfTerminalResponse());
-+
-+    const bell: Message = .ring_bell;
-+    try testing.expect(!bell.discardIfTerminalResponse());
-+}
-+
- test "DesktopNotification init" {
-     const notification = Message.DesktopNotification.init("Title", "Body");
- 
 diff --git a/src/termio.zig b/src/termio.zig
 index b168851..6931fcb 100644
 --- a/src/termio.zig
@@ -784,32 +595,6 @@ index 0000000..0d18213
 +        _ = alloc;
 +    }
 +};
-diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index 49bd6e0..ab7cc25 100644
---- a/src/termio/Termio.zig
-+++ b/src/termio/Termio.zig
-@@ -710,6 +710,21 @@ pub fn processOutput(self: *Termio, buf: []const u8) void {
-     self.processOutputLocked(buf);
- }
- 
-+/// Process reconstructed terminal history without sending protocol replies
-+/// back to the host. Response suppression is scoped to this parser call while
-+/// the terminal-state mutex is held. The prior suppression state is restored
-+/// before this call returns.
-+pub fn processOutputSuppressingResponses(self: *Termio, buf: []const u8) void {
-+    self.renderer_state.mutex.lockUncancelable(global.io());
-+    defer self.renderer_state.mutex.unlock(global.io());
-+
-+    const previous = self.terminal_stream.handler.suppress_terminal_responses;
-+    self.terminal_stream.handler.suppress_terminal_responses = true;
-+    defer self.terminal_stream.handler.suppress_terminal_responses = previous;
-+
-+    self.processOutputLocked(buf);
-+}
-+
- /// Process output from readdata but the lock is already held.
- fn processOutputLocked(self: *Termio, buf: []const u8) void {
-     // Schedule a render. We can call this first because we have the lock.
 diff --git a/src/termio/backend.zig b/src/termio/backend.zig
 index c29009a..9857cbd 100644
 --- a/src/termio/backend.zig
@@ -923,113 +708,3 @@ index c29009a..9857cbd 100644
          }
      }
  
-diff --git a/src/termio/message.zig b/src/termio/message.zig
-index 2416874..d79891b 100644
---- a/src/termio/message.zig
-+++ b/src/termio/message.zig
-@@ -115,6 +115,27 @@ pub const Message = union(enum) {
-         };
-     }
- 
-+    /// Discard messages whose only effect is sending terminal protocol bytes
-+    /// to the backend. Returns false for state and lifecycle messages that
-+    /// still need to be processed during reconstructed-history replay.
-+    pub fn discardIfTerminalResponse(self: Message) bool {
-+        switch (self) {
-+            .color_scheme_report,
-+            .size_report,
-+            .focused,
-+            .write_small,
-+            .write_stable,
-+            => return true,
-+
-+            .write_alloc => |value| {
-+                value.alloc.free(value.data);
-+                return true;
-+            },
-+
-+            else => return false,
-+        }
-+    }
-+
-     /// Free resources owned by a message that will not be processed.
-     /// The message is invalid after this call.
-     pub fn deinit(self: *const Message) void {
-@@ -144,3 +165,17 @@ test {
-     const testing = std.testing;
-     try testing.expectEqual(@as(usize, 40), @sizeOf(Message));
- }
-+
-+test "replay response classification frees owned writes and preserves state" {
-+    const testing = std.testing;
-+
-+    try testing.expect((Message{ .write_stable = "response" }).discardIfTerminalResponse());
-+
-+    const owned = try testing.allocator.dupe(u8, "allocated response");
-+    try testing.expect((Message{ .write_alloc = .{
-+        .alloc = testing.allocator,
-+        .data = owned,
-+    } }).discardIfTerminalResponse());
-+
-+    try testing.expect(!(Message{ .linefeed_mode = true }).discardIfTerminalResponse());
-+}
-diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index 0f1ee50..edd992a 100644
---- a/src/termio/stream_handler.zig
-+++ b/src/termio/stream_handler.zig
-@@ -89,6 +89,15 @@ pub const StreamHandler = struct {
-     /// to wake up the termio thread.
-     termio_messaged: bool = false,
- 
-+    /// When true, parser-originated messages that would write terminal
-+    /// protocol responses back to the backend are discarded. This is used by
-+    /// host-managed replay and is changed only while the terminal-state mutex
-+    /// is held. The writers below release that mutex when a mailbox is full,
-+    /// so each clears the flag for that window: a message another thread
-+    /// sends meanwhile (changeConfig's color_scheme_report) must not be
-+    /// discarded as part of the replay.
-+    suppress_terminal_responses: bool = false,
-+
-     /// This is set to true when we've seen a title escape sequence. We use
-     /// this to determine if we need to default the window title.
-     seen_title: bool = false,
-@@ -139,9 +148,15 @@ pub const StreamHandler = struct {
-         self: *StreamHandler,
-         msg: apprt.surface.Message,
-     ) void {
-+        if (self.suppress_terminal_responses and msg.discardIfTerminalResponse()) {
-+            return;
-+        }
-         // See messageWriter which has similar logic and explains why
-         // we may have to do this.
-         if (self.surface_mailbox.push(msg, .{ .instant = {} }) == 0) {
-+            const suppress = self.suppress_terminal_responses;
-+            self.suppress_terminal_responses = false;
-+            defer self.suppress_terminal_responses = suppress;
-             self.renderer_state.mutex.unlock(global.io());
-             defer self.renderer_state.mutex.lockUncancelable(global.io());
-             _ = self.surface_mailbox.push(msg, .{ .forever = {} });
-@@ -149,6 +164,13 @@ pub const StreamHandler = struct {
-     }
- 
-     inline fn messageWriter(self: *StreamHandler, msg: termio.Message) void {
-+        if (self.suppress_terminal_responses and msg.discardIfTerminalResponse()) {
-+            return;
-+        }
-+        // send releases the mutex when the termio mailbox is full.
-+        const suppress = self.suppress_terminal_responses;
-+        self.suppress_terminal_responses = false;
-+        defer self.suppress_terminal_responses = suppress;
-         self.termio_mailbox.send(msg, self.renderer_state.mutex);
-         self.termio_messaged = true;
-     }
-@@ -171,6 +193,9 @@ pub const StreamHandler = struct {
-         // Instant would have blocked. Release the renderer mutex,
-         // wake up the renderer to allow it to process the message,
-         // and then try again.
-+        const suppress = self.suppress_terminal_responses;
-+        self.suppress_terminal_responses = false;
-+        defer self.suppress_terminal_responses = suppress;
-         self.renderer_state.mutex.unlock(global.io());
-         defer self.renderer_state.mutex.lockUncancelable(global.io());
-         self.renderer_wakeup.notify() catch |err| {

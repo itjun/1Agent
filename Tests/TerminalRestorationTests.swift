@@ -114,11 +114,12 @@ enum TerminalRestorationTests {
             expect(host.process.shellPid > 0, "Restored terminal must accept input")
             if saving {
                 // The begin marker scrolls offscreen; logs include color and CJK text.
-                host.session.receive("\u{1b}[32mLOG_\(index)_BEGIN 中文日志\u{1b}[0m\r\n" + (0..<180).map { "第 \($0) 行\r\n" }.joined() + "LOG_\(index)_END\r\n")
+                host.session.receive("\u{1b}[32mLOG_\(index)_BEGIN 中文日志\u{1b}[0m\r\n" + (0..<1000).map { "第 \($0) 行\r\n" }.joined() + "SOFT_WRAP_" + String(repeating: "中文🙂", count: 180) + "_END\r\nLOG_\(index)_END\r\n")
             }
             host.session.waitForPendingOutput()
             let text = host.session.readScreenText()?.text ?? ""
             expect(text.contains("LOG_\(index)_BEGIN 中文日志") && text.contains("LOG_\(index)_END"), "Cold restore must preserve previous visible and scrolled-off logs")
+            expect(text.contains("SOFT_WRAP_" + String(repeating: "中文🙂", count: 180) + "_END"), "History export must preserve a logical line spanning many physical rows")
             expect(text.components(separatedBy: "LOG_\(index)_BEGIN").count - 1 == 1, "Repeated launches must not duplicate previous output")
             expect(!text.contains("LOG_\(1 - index)_BEGIN"), "Terminal logs must never cross sessions")
             if !saving {
