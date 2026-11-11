@@ -56,7 +56,6 @@ import SwiftUI
             ("command library", SheetLayout.commandLibrary, SheetLayout.commandLibraryHeight, AnyView(QuickCommandLibraryView(model: model, window: state, onClose: {}))),
             ("command history", SheetLayout.commandLibrary, SheetLayout.commandLibraryHeight, AnyView(QuickCommandHistoryView(context: context, hosts: [], onClose: {}))),
             ("command import", SheetLayout.commandLibrary, SheetLayout.commandLibraryHeight, AnyView(QuickCommandImportView(library: QuickCommandLibrary(commands: [item]), hosts: [], onClose: {}))),
-            ("folder picker", SheetLayout.folderPicker, SheetLayout.sessionBodyHeight, AnyView(FamilyFolderPicker(initialDirectory: home, onCancel: {}, onChoose: { _ in }))),
             ("settings import preview", SheetLayout.importPreview, SheetLayout.importPreviewBodyHeight, AnyView(GhosttyImportPreviewSheet(plan: plan, onCancel: {}, onImport: {})))
         ]
         let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1101, height: 801), styleMask: [.titled], backing: .buffered, defer: false)

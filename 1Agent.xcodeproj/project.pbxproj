@@ -60,7 +60,6 @@
 		5FB944658C83C93BF52FE910 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 64BF08A42C7BDF982C716507 /* Assets.xcassets */; };
 		60DF178EEEA08306D7385297 /* DropTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8680C82540985A8A88BADF /* DropTransfer.swift */; };
 		6167B218E94CB198975D0316 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7EE823807020FCAC7AB30D /* PaneLayout.swift */; };
-		61ACA549F4285840EFB619A5 /* FamilyFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */; };
 		61ED839C0AFD56A6F49594EC /* 1agent in Resources */ = {isa = PBXBuildFile; fileRef = F7598CCEED462B4329E3B155 /* 1agent */; };
 		65D0A618C064D4646AF58B25 /* PinnedLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16730EE26824B43E5A087F41 /* PinnedLocations.swift */; };
 		6633572CB49A2155FA32EFF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2077428E1F778214E2AA9D80 /* ContentView.swift */; };
@@ -140,6 +139,7 @@
 		EE8E86687AA61CED761178BF /* DropZones.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A765B8F209AFF3FB2D170F /* DropZones.swift */; };
 		EECABD4DC9B3EB672205AFE6 /* DragDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E42671B05FC0FE55B2965F /* DragDrop.swift */; };
 		F0B33CCCEC0174D380DC6718 /* LegacyDefaultsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */; };
+		F2B72DD9495C7D05C33CEE95 /* NativeFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0A67DF707D942BDE9CEA6A /* NativeFolderPicker.swift */; };
 		F3CB90109973D461C41E5160 /* QuickCommandDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */; };
 		F4B1E0B0F3895EFA22477278 /* ApplicationIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */; };
 		F650B15BB9E7C184E5DDD3C3 /* AppUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D45F8AE073D54FC747AEACC /* AppUpdate.swift */; };
@@ -244,12 +244,12 @@
 		9287816E82C9C005D220C098 /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
 		92A01572B5CD98B6FE9E0DE8 /* TerminalConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConnectionBanner.swift; sourceTree = "<group>"; };
 		97958BC6F31945F5729782D0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9A0A67DF707D942BDE9CEA6A /* NativeFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFolderPicker.swift; sourceTree = "<group>"; };
 		A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTextPreview.swift; sourceTree = "<group>"; };
 		A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMenus.swift; sourceTree = "<group>"; };
 		A4A765B8F209AFF3FB2D170F /* DropZones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZones.swift; sourceTree = "<group>"; };
 		A73E8CF0BB02A346B770159B /* FileTabDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTabDrag.swift; sourceTree = "<group>"; };
 		A9B18799BA36F4789180EC87 /* QuickCommandHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistoryView.swift; sourceTree = "<group>"; };
-		AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyFolderPicker.swift; sourceTree = "<group>"; };
 		AC04379ABB1F67A2FA6C90F0 /* FamilyMenuControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenuControls.swift; sourceTree = "<group>"; };
 		AF18AD26B40C268A98044CC5 /* WorkspacePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePresentation.swift; sourceTree = "<group>"; };
 		AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ghostty-source.png"; sourceTree = "<group>"; };
@@ -322,7 +322,6 @@
 			isa = PBXGroup;
 			children = (
 				8A8680C82540985A8A88BADF /* DropTransfer.swift */,
-				AA608DC3E12E296FCA6877A2 /* FamilyFolderPicker.swift */,
 				9287816E82C9C005D220C098 /* FileBrowserModel.swift */,
 				D303E19F85127FB7B052F2ED /* FileBrowserView.swift */,
 				3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */,
@@ -335,6 +334,7 @@
 				BCF9D58971B547150DE96B51 /* FileTransferQueue.swift */,
 				4806CBBE45B7F1353328348D /* FileTypeIcon.swift */,
 				906AFAE30A9BC239EE0FB97B /* FileWorkspaceState.swift */,
+				9A0A67DF707D942BDE9CEA6A /* NativeFolderPicker.swift */,
 				A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */,
 				1680E8FA1D903F5737EEFAF4 /* PinnedLocationDrag.swift */,
 				16730EE26824B43E5A087F41 /* PinnedLocations.swift */,
@@ -658,7 +658,6 @@
 				5C1EAA30E3A62A9AF2C99EAB /* ExternalOpen.swift in Sources */,
 				5311EB3EE4A6DAAE61DFDB36 /* FamilyAlert.swift in Sources */,
 				B86203866620E9ED4A6227F2 /* FamilyControls.swift in Sources */,
-				61ACA549F4285840EFB619A5 /* FamilyFolderPicker.swift in Sources */,
 				BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */,
 				A89071147FC25805E84361A6 /* FamilyMenuControls.swift in Sources */,
 				91ED427A152DC13AE187EE58 /* FamilyModal.swift in Sources */,
@@ -685,6 +684,7 @@
 				F0B33CCCEC0174D380DC6718 /* LegacyDefaultsMigration.swift in Sources */,
 				5CEA169FC99C1A6378566982 /* LocalCommandBridge.swift in Sources */,
 				26DF59687027B56B6AF74E4F /* MainWindowFrame.swift in Sources */,
+				F2B72DD9495C7D05C33CEE95 /* NativeFolderPicker.swift in Sources */,
 				E429B1E8C4918A76629EEF91 /* NativeSidebarSplit.swift in Sources */,
 				53BB79DFD89397C0F9A670CA /* NativeTextPreview.swift in Sources */,
 				3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */,

@@ -24,7 +24,6 @@ enum SheetLayout {
     static let commandPreviewInset: CGFloat = 16
     static let commandPreviewCodeInset: CGFloat = 10
     static let commandPreviewCodeSpacing: CGFloat = 8
-    static let folderPicker: CGFloat = 600
     static let confirmation: CGFloat = 420
     static let dialogInset: CGFloat = 32
     static let search: CGFloat = 520

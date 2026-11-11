@@ -9,7 +9,7 @@ struct PinnedLocationsSidebar: View {
     @ObservedObject private var locations = PinnedLocations.shared
     @Environment(\.windowChrome) private var chrome
     @State private var editing = false
-    @State private var choosingFolders = false
+    @StateObject private var folderPicker = NativeFolderPicker()
     @State private var dropTargeted = false
     @State private var dropError = false
     @State private var dropBefore: UUID?
@@ -80,13 +80,7 @@ struct PinnedLocationsSidebar: View {
         .onDisappear { dragArea.cancel(); dragArea.list = nil }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("locations.list")
-        .familySheet(isPresented: $choosingFolders, width: SheetLayout.folderPicker, height: SheetLayout.sessionBodyHeight) {
-            FamilyFolderPicker(initialDirectory: workspace.localColumn.directory, onCancel: { choosingFolders = false }) { urls in
-                locations.add(urls)
-                dropError = false
-                choosingFolders = false
-            }
-        }
+        .background(NativeFolderPickerAnchor(picker: folderPicker))
     }
 
     private func title(_ item: PinnedLocation) -> String {
@@ -96,7 +90,12 @@ struct PinnedLocationsSidebar: View {
         return (item.path as NSString).lastPathComponent
     }
 
-    private func chooseFolders() { choosingFolders = true }
+    private func chooseFolders() {
+        folderPicker.present(directory: workspace.localColumn.directory) { urls in
+            locations.add(urls)
+            dropError = false
+        }
+    }
 
     private func receive(_ providers: [NSItemProvider], before target: UUID?) -> Bool {
         dropTargeted = false

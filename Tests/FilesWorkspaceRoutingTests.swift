@@ -133,7 +133,8 @@ private struct FilesWorkspaceRoutingTests {
             return
         }
         try verifySingleFilesEntry(chromeWindow, visible: false)
-        try await verifyFamilyFolderPicker(window: chromeWindow, home: home)
+        try await verifyNativeFolderPicker(window: chromeWindow, home: home)
+        if environment["ONEAGENT_TEST_NATIVE_FOLDER"] == "1" { return }
         for layout in [FileWorkspaceLayout.belowTerminal, .sideBySide, .belowTerminal] {
             model.selectFilesLayout(layout, in: state)
             try await settle()
@@ -558,46 +559,42 @@ private struct FilesWorkspaceRoutingTests {
     }
 
     @MainActor
-    private static func verifyFamilyFolderPicker(window: NSWindow, home: String) async throws {
+    private static func verifyNativeFolderPicker(window: NSWindow, home: String) async throws {
         window.orderFront(nil)
         let originalPins = PinnedLocations.shared.items
         var chosen: [URL]?
         var cancelled = false
-        var presentation: FamilyModalPresentation?
-        func makePicker() {
-            let host = NSHostingView(rootView: FamilyFolderPicker(initialDirectory: home, onCancel: {
-                cancelled = true
-                presentation?.close()
-            }, onChoose: { urls in
-                chosen = urls
-                presentation?.close()
-            }).environment(\.windowChrome, WindowChrome(isDark: false)))
-            presentation = FamilyModalPresentation(content: host,
-                size: NSSize(width: SheetLayout.folderPicker, height: SheetLayout.sessionBodyHeight), owner: window) {
-                    cancelled = true
-                    presentation?.close()
-                }
-            presentation?.show()
-        }
-        func button(_ title: String) -> NSObject? {
-            guard let root = presentation?.window.contentView else { return nil }
-            return accessibilityElements(root).first {
-                accessibilityValue($0, "accessibilityRole") as? String == "AXButton" &&
-                (accessibilityValue($0, "accessibilityLabel") as? String == title || accessibilityValue($0, "accessibilityTitle") as? String == title)
-            }
-        }
-        makePicker()
-        try await eventually("load custom folder picker") { button("local-a") != nil }
-        try require(accessibilityBool(button("local-a")!, "accessibilityPerformPress"), "folder can be selected through accessibility")
-        try await settle()
-        try require(accessibilityBool(button(String(localized: "Pin Folder"))!, "accessibilityPerformPress"), "chosen folders can be confirmed")
-        try require(chosen?.map(\.path) == [home + "/local-a"], "picker returns selected folder rather than browsing location")
-        makePicker()
-        try await eventually("reopen custom folder picker") { button("local-b") != nil }
-        presentation?.window.cancelOperation(nil)
+        let picker = NativeFolderPicker()
+        picker.owner = window
+        let directory = home + "/local-a"
+        print("checking native directory panel")
+        picker.present(directory: directory) { chosen = $0 }
+        guard let panel = picker.panel else { throw TestFailure(description: "Native directory panel did not open") }
+        picker.present(directory: home) { _ in fatalError("Duplicate panel callback") }
+        try require(picker.panel === panel, "Repeated requests share one panel")
+        try require(panel.canChooseDirectories && !panel.canChooseFiles && panel.allowsMultipleSelection,
+                    "Native panel supports multiple directories only")
+        try await eventually("native directory selection") { panel.url?.path == directory }
+        // Remote NSOpenPanel does not support calling ok: directly.
+        window.endSheet(panel, returnCode: .OK)
+        panel.orderOut(nil)
+        try await eventually("confirm native directory") { chosen != nil }
+        try require(chosen?.map(\.path) == [directory], "Native panel returns the chosen directory")
+        picker.present(directory: home) { _ in chosen = [] }
+        try await eventually("reopen native directory panel") { picker.panel != nil }
+        picker.cancel()
+        try await eventually("native cancellation removes sheet") { window.attachedSheet == nil }
+        cancelled = picker.panel == nil
         try require(cancelled && PinnedLocations.shared.items == originalPins,
-                    "cancel leaves saved pinned locations unchanged")
-        print("ok: family folder picker loads directories asynchronously, selects and confirms a folder, and cancels without changing saved locations")
+                    "Cancel leaves saved pinned locations unchanged")
+        let closingOwner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 500, height: 350), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        closingOwner.isReleasedWhenClosed = false
+        closingOwner.orderFront(nil)
+        picker.owner = closingOwner
+        picker.present(directory: directory) { _ in fatalError("Closing the owner cannot confirm a selection") }
+        closingOwner.close()
+        try await eventually("closing owner cancels native panel") { picker.panel == nil }
+        print("ok: native folder picker confirms a directory, rejects duplicate presentations, cancels and closes with its owner without changing saved locations")
     }
 
     @MainActor
