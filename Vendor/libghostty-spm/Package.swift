@@ -12,7 +12,6 @@ let package = Package(
     products: [
         .library(name: "GhosttyKit", targets: ["GhosttyKit"]),
         .library(name: "GhosttyTerminal", targets: ["GhosttyTerminal"]),
-        .library(name: "ShellCraftKit", targets: ["ShellCraftKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/Lakr233/MSDisplayLink.git", from: "2.2.0"),
@@ -35,11 +34,6 @@ let package = Package(
                 .copy("Resources/Ghostty"),
                 .copy("Resources/terminfo"),
             ]
-        ),
-        .target(
-            name: "ShellCraftKit",
-            dependencies: ["GhosttyTerminal"],
-            path: "Sources/ShellCraftKit"
         ),
         .binaryTarget(
             name: "libghostty",
