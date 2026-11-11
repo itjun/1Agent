@@ -35,6 +35,10 @@ private struct FolderLoadFixture: FileSystem {
 private struct FilesWorkspaceRoutingTests {
     @MainActor
     static func main() {
+        setbuf(stdout, nil)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 120) {
+            fputs("FilesWorkspaceRoutingTests timed out\n", stderr); exit(1)
+        }
         _ = NSApplication.shared
         Task { @MainActor in
             do {
@@ -89,6 +93,14 @@ private struct FilesWorkspaceRoutingTests {
         NSApp.setActivationPolicy(.regular)
         NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         let model = AppModel()
+        // 主机选择会异步新增会话；在 RootView 挂载前准备无进程的终端视图。
+        // 否则隔离环境拒绝启动 shell 后，会话自动关闭，干扰后面的布局/快捷键断言。
+        let terminalFixtures = model.$tabs.sink { tabs in
+            for tab in tabs where tab.hasTerminal {
+                _ = SSHTerminalRegistry.view(for: tab.sessionID) { SSHTerminalNSView(frame: .zero) }
+            }
+        }
+        defer { terminalFixtures.cancel() }
         let state = model.mainWindow
         state.presentation.sidebarCollapsed = false // This fixture starts by exercising expanded navigation.
         try require(MainWindowManager.shared.window(for: state) == nil, "The test must not mount the production window")
@@ -122,6 +134,10 @@ private struct FilesWorkspaceRoutingTests {
             try await verifyCompactHeaderGeometry(model: model, state: state, window: chromeWindow)
             chromeWindow.orderOut(nil)
             chromeWindow.contentView = nil
+            return
+        }
+        if environment["ONEAGENT_TEST_HOST_PICKER"] == "1" {
+            try await verifyHostPickerAccessibility(model: model, state: state, window: chromeWindow, home: home)
             return
         }
         if environment["ONEAGENT_TEST_PINNED_DRAG"] == "1" {
@@ -487,7 +503,10 @@ private struct FilesWorkspaceRoutingTests {
         try await eventually("confirm file tab close again") { window.attachedSheet != nil }
         let dialog = window.attachedSheet!
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-        let confirm = descendants(dialog.contentView!).compactMap { $0 as? NSButton }.first { $0.keyEquivalent == "\r" }!
+        try await eventually("native close confirmation button") {
+            descendants(dialog.contentView!).compactMap { $0 as? NSButton }.contains { $0.title == String(localized: "Close") }
+        }
+        let confirm = descendants(dialog.contentView!).compactMap { $0 as? NSButton }.first { $0.title == String(localized: "Close") }!
         confirm.performClick(nil)
         try await eventually("close confirmed file tab") { !files.allTabs.contains(where: { $0 === column }) }
         try require(!files.allTabs.contains(where: { $0 === column }) && files.remoteTabs.count == 2,
@@ -514,7 +533,7 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        let expectedTopInset: CGFloat = 0
+        let expectedTopInset = rootRect.maxY - window.convertToScreen(window.contentLayoutRect).maxY
         try require(abs(rootRect.maxY - terminalRect.maxY - expectedTopInset) < 1,
                     "A single terminal fills content below the native window toolbar without a pane header")
         try require(terminals.values.allSatisfy { terminal in
@@ -1228,20 +1247,17 @@ private struct FilesWorkspaceRoutingTests {
         guard let toolbarHover = hoverView(window.contentView!) else {
             throw TestFailure(description: "Toolbar hover surface must remain attached")
         }
-        var isToolbarHovered = false
-        let originalOnHover = toolbarHover.onHover
-        toolbarHover.onHover = { isToolbarHovered = $0; originalOnHover($0) }
-        defer { toolbarHover.onHover = originalOnHover }
         toolbarHover.mouseExited(with: NSEvent())
         try await settle()
         func movePointer(to point: NSPoint, isHovered: Bool) async throws {
             let event = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [],
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                 context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
-            NSApp.postEvent(event, atStart: false)
-            try await settle()
-            try require(isToolbarHovered == isHovered,
+            // 同步检查事件结果；后续布局会根据真实鼠标位置刷新 tracking area。
+            NSApp.sendEvent(event)
+            try require(toolbarHover.isHovered == isHovered,
                         "Toolbar controls must still follow hover across the whole title band at \(point)")
+            try await settle()
             try require(window.titlebarSeparatorStyle == .none && toolbarHover.subviews.isEmpty,
                         "Toolbar hover must not add a horizontal separator")
         }
@@ -1265,8 +1281,15 @@ private struct FilesWorkspaceRoutingTests {
         window.contentView?.layoutSubtreeIfNeeded()
         try require(window.toolbar != nil && !state.presentation.sidebarCollapsed,
                     "Restoring the sidebar retains the same title band even in a narrow window")
+        // 侧栏恢复和原生工具栏重新排布异步完成，80 ms 可能仍处于溢出状态。
+        // 等待可观察的布局结果；标题始终隐藏或移入溢出菜单仍会使测试失败。
+        try await eventually("restored file toolbar is visible") {
+            window.toolbar?.visibleItems?.contains { $0.itemIdentifier.rawValue == "workspace.focusedInformation" } == true
+                && element("files.localLocation") != nil
+                && (model.fileWorkspace(for: state).remoteColumn == nil || element("files.remoteLocation") != nil)
+        }
         guard let native = split(window.contentView!), let title = element("files.localLocation") else {
-            throw TestFailure(description: "Restored native sidebar and file header are required")
+            throw TestFailure(description: "Restored native sidebar and file header are required (split=\(split(window.contentView!) != nil), title=\(element("files.localLocation") != nil))")
         }
         try require(native.arrangedSubviews[0].frame.width >= SidebarLayout.minWidth && native.arrangedSubviews[0].frame.width <= 276,
                     "Restored sidebar temporarily fits beside two file panes")

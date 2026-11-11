@@ -509,7 +509,7 @@ struct ToolbarHoverTracking: NSViewRepresentable {
 
 final class ToolbarHoverTrackingView: NSView {
     var onHover: (Bool) -> Void = { _ in }
-    private var isHovered = false
+    private(set) var isHovered = false
     private var mouseMonitor: Any?
     private weak var trackingView: NSView?
     private var toolbarTrackingArea: NSTrackingArea?
