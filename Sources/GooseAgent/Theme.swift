@@ -329,7 +329,10 @@ struct WindowChrome: Equatable {
         self.isDark = isDark
         isSystem = preset == .system
         background = SystemTheme.color(.textBackgroundColor, isDark: isDark)
-        sidebarBackground = SystemTheme.color(.windowBackgroundColor, isDark: isDark)
+        // 新系统上窗口底色与文本底色相同；页底色在部分环境下是半透明灰，侧栏只能自行合成不透明的异色。
+        let readingBackground = SystemTheme.resolved(.textBackgroundColor, isDark: isDark)
+        sidebarBackground = Color(nsColor: readingBackground.blended(withFraction: 0.02,
+                                                                     of: isDark ? .white : .black)!)
         elevated = SystemTheme.color(.controlColor, isDark: isDark)
         text = SystemTheme.color(.labelColor, isDark: isDark)
         secondary = SystemTheme.color(.secondaryLabelColor, isDark: isDark)
@@ -338,7 +341,7 @@ struct WindowChrome: Equatable {
         accent = SystemTheme.color(.controlAccentColor, isDark: isDark)
         accentFill = SystemTheme.color(.selectedTextBackgroundColor, isDark: isDark)
         selectionText = SystemTheme.color(.selectedTextColor, isDark: isDark)
-        panelHeader = sidebarBackground
+        panelHeader = SystemTheme.color(.windowBackgroundColor, isDark: isDark)
         danger = SystemTheme.color(.systemRed, isDark: isDark)
         warning = SystemTheme.color(.systemOrange, isDark: isDark)
         success = SystemTheme.color(.systemGreen, isDark: isDark)

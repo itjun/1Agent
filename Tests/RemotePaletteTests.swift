@@ -22,7 +22,7 @@ enum RemotePaletteTests {
                 let chrome = WindowChrome(isDark: isDark)
                 let pairs: [(Color, NSColor)] = [
                     (chrome.background, .textBackgroundColor),
-                    (chrome.sidebarBackground, .windowBackgroundColor),
+                    (chrome.panelHeader, .windowBackgroundColor),
                     (chrome.text, .labelColor), (chrome.secondary, .secondaryLabelColor),
                     (chrome.accent, .controlAccentColor), (chrome.hairline, .separatorColor),
                     (chrome.selectionText, .selectedTextColor),
@@ -34,8 +34,10 @@ enum RemotePaletteTests {
                 for (actual, expected) in pairs {
                     expect(matches(NSColor(actual), expected), "Native semantic colors match macOS, dark=\(isDark)")
                 }
-                expect(chrome.panelHeader == chrome.sidebarBackground, "Toolbar and sidebars share their background")
                 let colors = AppTheme.colors(isDark: isDark)
+                let sidebar = NSColor(chrome.sidebarBackground).usingColorSpace(.sRGB)!
+                expect(sidebar.alphaComponent > 0.99 && !matches(sidebar, NSColor(colors.color(colors.background))),
+                       "Sidebars are opaque and stand apart from the terminal background, dark=\(isDark)")
                 expect(matches(NSColor(colors.color(colors.background)), .textBackgroundColor), "Terminal uses the native reading background")
                 expect(colors.ansi.count == 16, "All terminal ANSI slots remain available")
                 let background = AppTheme.terminalPaneBackground(isDark: isDark)

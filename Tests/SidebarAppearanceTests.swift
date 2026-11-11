@@ -53,8 +53,10 @@ import SwiftUI
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
                         && split.splitView.dividerThickness == 1,
                         "navigation hides its separator while preserving the resize geometry")
-                    SidebarAppearanceTests.expect(SidebarAppearanceTests.matches(window.backgroundColor, NSColor(chrome.sidebarBackground)),
-                        "toolbar and navigation share one opaque background")
+                    SidebarAppearanceTests.expect(SidebarAppearanceTests.matches(window.backgroundColor, NSColor(chrome.panelHeader)),
+                        "toolbar uses the opaque window background")
+                    SidebarAppearanceTests.expect(!SidebarAppearanceTests.matches(actual, NSColor(chrome.background)),
+                        "\(preset.rawValue)/\(section), dark=\(isDark): navigation stands apart from the terminal background")
                     if section == .terminals {
                         guard let inspector = SidebarAppearanceTests.navigationSplit(in: host.view, identifier: "workspace.inspectorSplit")?.splitViewItems.last?.viewController.view,
                               let inspectorImage = inspector.bitmapImageRepForCachingDisplay(in: inspector.bounds) else {
@@ -72,7 +74,7 @@ import SwiftUI
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         driver.reapply()
         SidebarAppearanceTests.expect(driver.isDark == TerminalAppearance.systemIsDark, "follow system appearance")
-        print("SidebarAppearanceTests passed: macOS system colors share opaque toolbar and sidebar backgrounds across light/dark and terminal/files/commands; hidden navigation divider retains its resize geometry")
+        print("SidebarAppearanceTests passed: opaque toolbar and both sidebars, set apart from the terminal background, across light/dark and terminal/files/commands; hidden navigation divider retains its resize geometry")
     }
 
     static func matches(_ first: NSColor, _ second: NSColor) -> Bool {
