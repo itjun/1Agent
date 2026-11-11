@@ -171,6 +171,18 @@ import SwiftUI
         let index = currentRows.firstIndex(where: { $0.leafIDs.contains(l1) })!
         try check(window.selectedTabID == currentRows[(index + 1) % currentRows.count].focusedTabID, "Keyboard order matches sidebar")
 
+        // Traverse every row in both directions, including category/workspace boundaries and wrapping.
+        let navigationOrder = currentRows.map(\.focusedTabID)
+        model.selectTab(navigationOrder[0], in: window, focusTerminal: false)
+        for step in 1...navigationOrder.count {
+            try check(model.selectAdjacentTerminal(forward: true, in: window), "Forward cycling succeeds")
+            try check(window.selectedTabID == navigationOrder[step % navigationOrder.count], "Forward cycling follows sidebar rows and wraps")
+        }
+        for step in 1...navigationOrder.count {
+            try check(model.selectAdjacentTerminal(forward: false, in: window), "Reverse cycling succeeds")
+            try check(window.selectedTabID == navigationOrder[(navigationOrder.count - step) % navigationOrder.count], "Reverse cycling follows sidebar rows and wraps")
+        }
+
         model.mergeSidebar([l1, r1], onto: l1, as: .columns, in: window)
         try check(model.panelRow(for: l1, in: window)?.block == .mixedGroup, "Cross-category merge enters Mixed")
         try check(Set(model.panelRow(for: l1, in: window)!.leafIDs) == [l1, r1], "Merge preserves both terminals")

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -14,6 +15,7 @@ enum KeyboardShortcutsTests {
         conflicts()
         reservedKeys()
         modifierRule()
+        browserTabKeys()
         expect(!AppShortcutID.allCases.contains { $0.rawValue == "newWindow" || $0.rawValue == "quickTerminal" }, "1Agent has no shortcut that opens another window")
         print("ok")
     }
@@ -108,8 +110,8 @@ enum KeyboardShortcutsTests {
             }
         }
         expect(AppShortcutID.selectTerminal8.terminalNumber == 8 && AppShortcutID.selectLastTerminal.terminalNumber == nil, "⌘9 is the last terminal, not a position")
-        expect(AppShortcutID.nextTerminal.defaultChord.display == "⇧⌘]", "next terminal reads ⇧⌘], the key on the keycap")
-        expect(AppShortcutID.previousTerminal.defaultChord.display == "⇧⌘[", "previous terminal reads ⇧⌘[")
+        expect(AppShortcutID.nextTerminal.defaultChord.display == "⌃⇥", "next terminal reads Control-Tab")
+        expect(AppShortcutID.previousTerminal.defaultChord.display == "⌃⇧⇥", "previous terminal reads Control-Shift-Tab")
         let newTab = AppShortcutID.newTab.defaultChord
         expect(AppShortcuts.check(newTab, for: .toggleFullScreen, bindings: bindings) == .conflict(.newTab), "⌘T for full screen conflicts with New Tab")
         expect(AppShortcuts.check(newTab, for: .newTab, bindings: bindings) == .unchanged, "own chord is unchanged, not a conflict")
@@ -126,6 +128,28 @@ enum KeyboardShortcutsTests {
 
         let settings = AppShortcutID.settings.defaultChord
         expect(AppShortcuts.check(settings, for: .clearScreen, bindings: bindings) == .conflict(.settings), "⌘, is an ordinary shortcut of this app")
+    }
+
+    static func browserTabKeys() {
+        let cases: [(NSEvent.ModifierFlags, String, AppShortcutID)] = [
+            ([.control], "\t", .nextTerminal),
+            ([.control, .shift], "\t", .previousTerminal),
+            ([.control, .shift], "\u{19}", .previousTerminal),
+        ]
+        for (flags, characters, id) in cases {
+            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags,
+                                        timestamp: 0, windowNumber: 0, context: nil,
+                                        characters: characters, charactersIgnoringModifiers: characters,
+                                        isARepeat: false, keyCode: 48)!
+            expect(KeyChord.from(event: event) == id.defaultChord, "Tab event matches \(id.rawValue)")
+        }
+        let suite = "KeyboardShortcutsTests.browserTabs.\(UUID())"
+        let store = UserDefaults(suiteName: suite)!
+        defer { store.removePersistentDomain(forName: suite) }
+        let custom = KeyChord(key: "]", modifiers: [.command, .shift])
+        AppShortcuts.setChords([.nextTerminal: custom, .previousTerminal: .unbound], store: store)
+        expect(AppShortcuts.chord(for: .nextTerminal, store: store) == custom, "custom navigation binding is preserved")
+        expect(AppShortcuts.chord(for: .previousTerminal, store: store).isUnbound, "cleared navigation stays cleared")
     }
 
     static func reservedKeys() {

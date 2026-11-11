@@ -1901,7 +1901,7 @@ final class AppModel: ObservableObject {
         return true
     }
 
-    /// ⇧⌘[ / ⇧⌘]: previous or next terminal in sidebar order, across workspaces, wrapping at the ends.
+    /// Previous or next terminal in sidebar order, across workspaces, wrapping at the ends.
     func selectAdjacentTerminal(forward: Bool, in window: WindowState) -> Bool {
         let order = panelRows(in: window).map(\.focusedTabID)
         guard let target = WorkspaceBoard.adjacentTerminal(to: window.selectedTabID, forward: forward, in: order) else {

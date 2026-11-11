@@ -134,8 +134,8 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
         case .newLocalTerminal: return KeyChord(key: "t", modifiers: [.command, .shift])
         case .openHost: return KeyChord(key: "o", modifiers: .command)
         case .toggleFullScreen: return KeyChord(key: "f", modifiers: [.command, .control])
-        case .previousTerminal: return KeyChord(key: "[", modifiers: [.command, .shift])
-        case .nextTerminal: return KeyChord(key: "]", modifiers: [.command, .shift])
+        case .previousTerminal: return KeyChord(key: "\t", modifiers: [.control, .shift])
+        case .nextTerminal: return KeyChord(key: "\t", modifiers: .control)
         case .selectTerminal1: return KeyChord(key: "1", modifiers: .command)
         case .selectTerminal2: return KeyChord(key: "2", modifiers: .command)
         case .selectTerminal3: return KeyChord(key: "3", modifiers: .command)
@@ -353,6 +353,11 @@ struct KeyChord: Codable, Equatable, Hashable {
            unshifted.count == 1,
            let base = unshifted.first {
             character = base
+        }
+        // AppKit can report Shift-Tab as NSBackTabCharacter instead of Tab.
+        // Keep the same key for matching, recording and displaying both directions.
+        if event.keyCode == 48 || character == Character("\u{19}") {
+            character = "\t"
         }
         return KeyChord(key: String(character), modifiers: modifiers)
     }
