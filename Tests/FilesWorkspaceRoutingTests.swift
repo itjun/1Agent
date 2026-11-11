@@ -849,7 +849,11 @@ private struct FilesWorkspaceRoutingTests {
         let remoteSelection = remote.selection
         // Mount the production file page without leaving a second RootView alive to create
         // terminal surfaces when later routing checks switch the fixture back to Terminal mode.
-        window.contentView = NSHostingView(rootView: FilesWorkspaceView(model: model, window: state, relay: CanvasDropRelay()))
+        window.toolbar = nil
+        window.contentView = NSHostingView(rootView: VStack(spacing: 0) {
+            FilesWorkspaceToolbar(workspace: workspace, contentWidth: window.contentLayoutRect.width, contentLeadingInset: 0).frame(height: 28)
+            FilesWorkspaceView(model: model, window: state, relay: CanvasDropRelay())
+        })
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         local.selection = [localEntry.path]
@@ -982,7 +986,9 @@ private struct FilesWorkspaceRoutingTests {
         try await click(NSPoint(x: paths[0].midX, y: blankY))
         try require(workspace.focusedColumn === local, "Clicking the left blank area must restore left operation focus")
         let leftBeforeHeader = local.selection
-        try await click(NSPoint(x: paths[1].midX, y: paths[1].maxY + 20))
+        guard let remoteTitle = elements("files.remoteLocation").first else { throw TestFailure(description: "Remote header is missing") }
+        let titleFrame = try frame(of: remoteTitle)
+        try await click(NSPoint(x: titleFrame.midX, y: titleFrame.midY))
         NSApp.sendEvent(down)
         try await settle()
         try require(workspace.focusedColumn === remote && local.selection == leftBeforeHeader,

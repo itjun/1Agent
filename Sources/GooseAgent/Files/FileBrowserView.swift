@@ -49,7 +49,11 @@ struct FileColumnHeader<Endpoint: View>: View {
         TextField(String(localized: "Filter"), text: $column.filter)
             .textFieldStyle(.roundedBorder)
             .focused($filterFocused)
-            .background(FilePointerObserver { onFilterFocusChange(true) })
+            .background(FilePointerObserver {
+                column.isFilterFocused = true
+                workspace.focus(column)
+                onFilterFocusChange(true)
+            })
             .accessibilityLabel(Text("Filter"))
             .accessibilityIdentifier("files.filter")
             .onExitCommand {

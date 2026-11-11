@@ -298,6 +298,7 @@ private struct FileEndpointTitle: View {
                 workspace.openTerminal([], in: column)
             })]
         }
+        .background(FilePointerObserver { workspace.focus(column) })
         .accessibilityIdentifier(column.isRemote ? "files.remoteLocation" : "files.localLocation")
     }
 }
