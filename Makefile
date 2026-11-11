@@ -75,7 +75,7 @@ install:
 run: build
 	open "/Applications/$(APP_BUNDLE)"
 
-test: test-command-transparency test-system-integration test-scripting-replies
+test: test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies
 	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/GooseAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
 	/tmp/oneagent-terminal-output-store-tests
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Tests/RemoteCommandBridgeTests.swift
@@ -185,3 +185,8 @@ test-remote-directory:
 .PHONY: test-host-information
 test-host-information:
 	bash scripts/test-host-information.sh
+
+.PHONY: test-ssh-configuration
+test-ssh-configuration:
+	swiftc -parse-as-library Sources/GooseAgent/SSHConfigurationResolver.swift Tests/SSHConfigurationResolverTests.swift -o /tmp/oneagent-ssh-resolution-tests
+	/tmp/oneagent-ssh-resolution-tests

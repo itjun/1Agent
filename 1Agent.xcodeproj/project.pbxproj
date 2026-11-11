@@ -32,6 +32,7 @@
 		292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22680FE638056AFBBDA0F764 /* TerminalProcess.swift */; };
 		29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */; };
 		2D7C86FE185C7FD54564D5FF /* macaron-original-mark.png in Resources */ = {isa = PBXBuildFile; fileRef = C5E10203568D61260319007F /* macaron-original-mark.png */; };
+		327FACE840478309DCDBC856 /* SSHConfigurationResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE1C1723EFB387B6FBA1BE65 /* SSHConfigurationResolver.swift */; };
 		33DCFCC9A4C67EC83537B7CB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EEF38299B0234AAF0FD1166 /* Sparkle */; };
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
@@ -289,6 +290,7 @@
 		E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
 		E513AE207C91AAB81A8D5279 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
 		ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
+		EE1C1723EFB387B6FBA1BE65 /* SSHConfigurationResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigurationResolver.swift; sourceTree = "<group>"; };
 		EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ScriptingReplyBridge.m; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
 		F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAssociations.swift; sourceTree = "<group>"; };
@@ -482,6 +484,7 @@
 				423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */,
 				A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */,
 				440DFBB9CC120A82EAE3507C /* SSHConfig.swift */,
+				EE1C1723EFB387B6FBA1BE65 /* SSHConfigurationResolver.swift */,
 				BEAD42576853180D4E34F59B /* SSHLaunch.swift */,
 				C9913CB31A48D7D7573940C7 /* SystemIntegrationSettingsPage.swift */,
 				F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */,
@@ -734,6 +737,7 @@
 				D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */,
 				124D4B870522C607E44761C4 /* RemoteShellIntegration.swift in Sources */,
 				68E57E62AE433E59107CCA8E /* SSHConfig.swift in Sources */,
+				327FACE840478309DCDBC856 /* SSHConfigurationResolver.swift in Sources */,
 				402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */,
 				1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */,
 				0C4038B602AAF8717BC418C2 /* ServiceProvider.swift in Sources */,
