@@ -250,12 +250,12 @@ enum AppTheme {
             hover: SystemTheme.hex(.controlColor, isDark: isDark),
             border: SystemTheme.hex(.separatorColor, isDark: isDark),
             outline: SystemTheme.hex(.keyboardFocusIndicatorColor, isDark: isDark),
-            // ANSI 槽位属于终端内容，保留在浅深底色上清晰可读的一组颜色。
+            // ANSI 也用于 TUI 背景；黑白槽位保留本义，避免 htop 表头与功能键浅底浅字。
             ansi: isDark
-                ? ["B8B8B8", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
+                ? ["1B1B1B", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
                    "B8B8B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E3EDF2"]
-                : ["272727", "A54450", "416D53", "80601E", "0064E1", "79557F", "326F78", "666666",
-                   "666666", "B13E50", "3D714F", "846116", "0064E1", "845183", "26737C", "272727"]
+                : ["000000", "A54450", "4F7F61", "80601E", "0064E1", "79557F", "437E87", "D9D9D9",
+                   "666666", "B13E50", "3D714F", "846116", "0064E1", "845183", "26737C", "FFFFFF"]
         )
     }
 
