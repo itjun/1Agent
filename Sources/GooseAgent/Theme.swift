@@ -289,6 +289,11 @@ struct WindowChrome: Equatable {
     var selection: Color
     var lineStrong: Color
 
+    /// 通知保留系统中性底色，浅色下比窗口标题背景更轻，深色下仍有清楚的层次。
+    var notificationBackground: Color {
+        Color(nsColor: NSColor(background).blended(withFraction: 0.35, of: NSColor(panelHeader)) ?? NSColor(background))
+    }
+
     var hoverFill: Color { elevated }
 
     func rowSelection(active: Bool) -> Color {

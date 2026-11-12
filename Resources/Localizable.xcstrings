@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "In Progress" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "In Progress"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "进行中"}}}},
+    "Dismiss Notification" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dismiss Notification"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭通知"}}}},
+    "Transfer Progress" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Transfer Progress"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "传输进度"}}}},
     "Could not resolve configuration" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not resolve configuration" } },

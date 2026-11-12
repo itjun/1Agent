@@ -140,6 +140,7 @@
 		EE772365BA73023DCA562619 /* FileRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 388A1951E4AD6C678189139A /* FileRules.swift */; };
 		EE8E86687AA61CED761178BF /* DropZones.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A765B8F209AFF3FB2D170F /* DropZones.swift */; };
 		EECABD4DC9B3EB672205AFE6 /* DragDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E42671B05FC0FE55B2965F /* DragDrop.swift */; };
+		EF4B6CEBBADD12D04F7D44A4 /* AppNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAEAFC33C862D35BD20DB34 /* AppNotification.swift */; };
 		F0B33CCCEC0174D380DC6718 /* LegacyDefaultsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709E940DD9AB06AAA715C4EF /* LegacyDefaultsMigration.swift */; };
 		F2B72DD9495C7D05C33CEE95 /* NativeFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0A67DF707D942BDE9CEA6A /* NativeFolderPicker.swift */; };
 		F3CB90109973D461C41E5160 /* QuickCommandDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */; };
@@ -255,6 +256,7 @@
 		A73E8CF0BB02A346B770159B /* FileTabDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTabDrag.swift; sourceTree = "<group>"; };
 		A9B18799BA36F4789180EC87 /* QuickCommandHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistoryView.swift; sourceTree = "<group>"; };
 		AC04379ABB1F67A2FA6C90F0 /* FamilyMenuControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenuControls.swift; sourceTree = "<group>"; };
+		ACAEAFC33C862D35BD20DB34 /* AppNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotification.swift; sourceTree = "<group>"; };
 		AF18AD26B40C268A98044CC5 /* WorkspacePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePresentation.swift; sourceTree = "<group>"; };
 		AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ghostty-source.png"; sourceTree = "<group>"; };
 		B2D39CACC49F126CA35409C0 /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
@@ -425,6 +427,7 @@
 				CDE68855BD120DF7421F24EE /* AppLanguage.swift */,
 				2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */,
 				32D91EB1556003521E0650B7 /* AppModel.swift */,
+				ACAEAFC33C862D35BD20DB34 /* AppNotification.swift */,
 				1D45F8AE073D54FC747AEACC /* AppUpdate.swift */,
 				63227BCF8DA29CF6C2F95597 /* AppUpdateController.swift */,
 				7D82C3644F27E84ABEB8266B /* AppUpdateSettings.swift */,
@@ -672,6 +675,7 @@
 				5239E4B061DE3741F2558E6C /* AdvancedSettingsView.swift in Sources */,
 				04696D0CA687AB607C42CE64 /* AppLanguage.swift in Sources */,
 				CD3619EF996240FDC9C6E0F0 /* AppModel.swift in Sources */,
+				EF4B6CEBBADD12D04F7D44A4 /* AppNotification.swift in Sources */,
 				F650B15BB9E7C184E5DDD3C3 /* AppUpdate.swift in Sources */,
 				9854DBF312A18A9614642BBA /* AppUpdateController.swift in Sources */,
 				74C77B01ECA7B1792330D91B /* AppUpdateSettings.swift in Sources */,
