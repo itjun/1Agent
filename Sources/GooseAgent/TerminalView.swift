@@ -1520,9 +1520,9 @@ final class TerminalHostView: NSView {
     }
 
     private func applyTerminalEmphasis() {
-        // 当前终端保持清晰，其余内容轻微淡化；复用视图时同步恢复对应状态。
+        // 终端文字始终不透明，焦点通过标题和面板底色表达。
         for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
-            terminal.alphaValue = isFocusTarget ? 1 : 0.8
+            terminal.alphaValue = 1
         }
     }
 
