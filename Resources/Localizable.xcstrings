@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Unable to Open Application" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Unable to Open Application"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法打开应用"}}}},
     "Connection interrupted, waiting to retry" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Connection interrupted, waiting to retry"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "连接已断开，等待重试"}}}},
     "Reconnecting (%lld/%lld)" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reconnecting (%lld/%lld)"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在重连（%1$lld/%2$lld）"}}}},
     "Reconnection failed after %lld attempts" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reconnection failed after %lld attempts"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重连失败，已重试 %lld 次"}}}},

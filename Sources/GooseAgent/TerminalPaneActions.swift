@@ -27,7 +27,7 @@ enum TerminalPaneActions {
             return FamilyMenuItem(title: name, action: {
                 guard let current = currentTab(tab.id, model: model), let directory = externalDirectory(of: current) else { return }
                 NSWorkspace.shared.open([directory], withApplicationAt: appURL, configuration: .init()) { _, error in
-                    if let error { DispatchQueue.main.async { NSAlert(error: error).runModal() } }
+                    if let error { DispatchQueue.main.async { AppNotifications.show(title: String(localized: "Unable to Open Application"), message: error.localizedDescription, level: .error) } }
                 }
             })
         }

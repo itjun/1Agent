@@ -84,7 +84,7 @@ enum WorkspaceExternalOpen {
 
     nonisolated private static func show(_ error: Error?) {
         guard let error else { return }
-        DispatchQueue.main.async { NSAlert(error: error).runModal() }
+        DispatchQueue.main.async { AppNotifications.show(title: String(localized: "Unable to Open Application"), message: error.localizedDescription, level: .error) }
     }
 
     /// 仅转换网络 Git 地址；移除凭据、查询和片段，不打开 file/自定义协议。
