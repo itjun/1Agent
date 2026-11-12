@@ -166,7 +166,7 @@ final class FileTransferQueue: ObservableObject {
         guard now.timeIntervalSince(lastProgress) >= 0.1 || fraction >= 1 else { return }
         lastProgress = now
         if let toast = requests[id]?.toast {
-            TransferToast.shared.progress(toast, job.name + " · " + String(Int(fraction * 100)) + "%", fraction: fraction)
+            TransferToast.shared.progress(toast, job.name + "  " + String(Int(fraction * 100)) + "%", fraction: fraction)
         }
     }
 

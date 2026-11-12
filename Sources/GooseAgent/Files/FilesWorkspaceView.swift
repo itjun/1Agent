@@ -31,7 +31,6 @@ struct FilesDockView: View {
         .padding(.horizontal, 0)
         .padding(.vertical, 0)
         .background(Color.clear)
-        .overlay(alignment: .bottom) { TransferStatusBar(window: window).allowsHitTesting(false) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("workspace.files.content")
         .simultaneousGesture(TapGesture().onEnded { model.focusFiles(in: window) })

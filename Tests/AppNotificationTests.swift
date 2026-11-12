@@ -93,9 +93,18 @@ import SwiftUI
         presenter.layout()
         let panel = owner.childWindows!.first!
         expect(panel.frame.width == 260, "narrow window keeps the whole notification visible")
+        let second = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
+        second.isReleasedWhenClosed = false
+        let firstTransfer = TransferToast.shared.begin("first", in: owner)
+        let secondTransfer = TransferToast.shared.begin("second", in: second)
+        TransferToast.shared.finish(firstTransfer, "first done")
+        expect(presenter.store.current?.message == "first done", "transfer completes in its originating window")
+        expect(AppNotifications.presenter(for: second).store.current?.message == "second", "other window unaffected")
+        TransferToast.shared.finish(secondTransfer, "second done")
         owner.close()
+        second.close()
         expect(presenter.store.current == nil, "closing window clears notifications and timers")
-        print("AppNotificationTests passed: dismissal, expiry races, priority, five states, light/dark, geometry, focus, cleanup")
+        print("AppNotificationTests passed: dismissal, expiry races, priority, five states, light/dark, geometry, focus, multiwindow transfers, cleanup")
     }
     static func expect(_ condition: Bool, _ message: String) {
         if !condition { fatalError(message) }

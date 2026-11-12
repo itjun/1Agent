@@ -178,7 +178,7 @@ import SwiftUI
             defaults.set(dark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             AppearanceDriver.shared.reapply()
             await settle()
-            checkSurface(toast.contentView!, dark: dark, name: "transfer toast", elevated: true)
+            checkSurface(toast.contentView!, dark: dark, name: "transfer toast", notification: true)
         }
         TransferToast.shared.finish(transfer, "检查完成")
         if !failures.isEmpty { throw NSError(domain: "ModalAppearanceTests", code: failures.count, userInfo: [NSLocalizedDescriptionKey: failures.joined(separator: "; ")]) }
@@ -319,7 +319,7 @@ import SwiftUI
         print("CHECKED: command context menu owns right/control-click press and release; terminal and normal selection remain available")
     }
 
-    @MainActor static func checkSurface(_ view: NSView, dark: Bool, name: String, elevated: Bool = false) {
+    @MainActor static func checkSurface(_ view: NSView, dark: Bool, name: String, notification: Bool = false) {
         view.layoutSubtreeIfNeeded(); view.displayIfNeeded()
         let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
         view.cacheDisplay(in: view.bounds, to: bitmap)
@@ -328,7 +328,7 @@ import SwiftUI
         let chrome = WindowChrome(isDark: dark)
         // cacheDisplay is tagged with the display ICC profile; compare in that
         // space instead of interpreting those channels as untagged sRGB.
-        let expected = NSColor(elevated ? chrome.elevated : chrome.background).usingColorSpace(bitmap.colorSpace)!
+        let expected = NSColor(notification ? chrome.notificationBackground : chrome.background).usingColorSpace(bitmap.colorSpace)!
         expect(abs(pixel.redComponent - expected.redComponent) < 0.03 && abs(pixel.greenComponent - expected.greenComponent) < 0.03 && abs(pixel.blueComponent - expected.blueComponent) < 0.03, "\(name): \(dark ? "dark" : "light") surface, actual \(pixel)")
         let expectedText = NSColor(chrome.text).usingColorSpace(.sRGB)!
         for object in elements(view) {
