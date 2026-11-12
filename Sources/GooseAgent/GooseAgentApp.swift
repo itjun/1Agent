@@ -101,11 +101,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.handleShortcut(event)
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + GhosttyConfigImport.promptDelay) { [model] in
-            MainActor.assumeIsolated {
-                GhosttyConfigImport.promptIfNeeded(model: model)
-            }
-        }
     }
 
     /// Dock icon / `open` without arguments. Always bring the terminal window forward: AppKit may

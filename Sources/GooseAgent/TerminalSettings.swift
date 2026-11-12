@@ -312,7 +312,7 @@ struct TerminalSettings: Equatable {
 
     // MARK: - Load / save
 
-    /// Missing or unreadable values fall back to `defaults`, one field at a time.
+    /// 只读取保留的设置项；已隐藏的选项始终使用默认值，忽略旧偏好和自定义片段。
     static func load(from defaults: UserDefaults = .standard) -> TerminalSettings {
         let fallback = TerminalSettings.defaults
         var settings = fallback
@@ -325,42 +325,8 @@ struct TerminalSettings: Equatable {
         if let size = defaults.object(forKey: TerminalSettings.fontSizeKey) as? Double {
             settings.fontSize = TerminalSettings.clampedFontSize(size)
         }
-        if let value = defaults.object(forKey: TerminalSettings.fontThickenKey) as? Bool {
-            settings.fontThicken = value
-        }
-        if let value = defaults.object(forKey: TerminalSettings.fontThickenStrengthKey) as? Int {
-            settings.fontThickenStrength = min(max(value, 0), 255)
-        }
-        if let value = defaults.object(forKey: TerminalSettings.fontLigaturesKey) as? Bool {
-            settings.fontLigatures = value
-        }
-        if let value = defaults.object(forKey: TerminalSettings.cellHeightAdjustKey) as? Int {
-            settings.cellHeightAdjust = value
-        }
-        if let raw = defaults.string(forKey: TerminalSettings.cursorStyleKey),
-           let value = CursorStyle(rawValue: raw) {
-            settings.cursorStyle = value
-        }
-        if let value = defaults.object(forKey: TerminalSettings.cursorBlinkKey) as? Bool {
-            settings.cursorBlink = value
-        }
-        if let value = defaults.object(forKey: TerminalSettings.cursorOpacityKey) as? Double {
-            settings.cursorOpacity = min(max(value, 0), 1)
-        }
-        if let value = defaults.object(forKey: TerminalSettings.paddingXKey) as? Int {
-            settings.paddingX = max(value, 0)
-        }
-        if let value = defaults.object(forKey: TerminalSettings.paddingYKey) as? Int {
-            settings.paddingY = max(value, 0)
-        }
         if let value = defaults.object(forKey: TerminalSettings.backgroundOpacityKey) as? Double {
             settings.backgroundOpacity = min(max(value, 0), 1)
-        }
-        if let value = defaults.object(forKey: TerminalSettings.minimumContrastKey) as? Double {
-            settings.minimumContrast = min(max(value, 1), 21)
-        }
-        if let value = defaults.object(forKey: TerminalSettings.scrollbackLimitMBKey) as? Int {
-            settings.scrollbackLimitMB = max(value, 0)
         }
         if let raw = defaults.string(forKey: TerminalSettings.copyOnSelectKey),
            let value = CopyOnSelect(rawValue: raw) {
@@ -368,32 +334,6 @@ struct TerminalSettings: Equatable {
         }
         if let value = defaults.object(forKey: TerminalSettings.clipboardPasteProtectionKey) as? Bool {
             settings.clipboardPasteProtection = value
-        }
-        if let value = defaults.object(forKey: TerminalSettings.mouseHideWhileTypingKey) as? Bool {
-            settings.mouseHideWhileTyping = value
-        }
-        if let value = defaults.object(forKey: TerminalSettings.linkURLKey) as? Bool {
-            settings.linkURL = value
-        }
-        if let raw = defaults.string(forKey: TerminalSettings.optionAsAltKey),
-           let value = OptionAsAlt(rawValue: raw) {
-            settings.optionAsAlt = value
-        }
-        if let raw = defaults.string(forKey: TerminalSettings.shellIntegrationKey),
-           let value = ShellIntegration(rawValue: raw) {
-            settings.shellIntegration = value
-        }
-        if let raw = defaults.string(forKey: TerminalSettings.shellIntegrationFeaturesKey) {
-            settings.shellIntegrationFeatures = TerminalSettings.storedFeatureSet(
-                raw,
-                known: TerminalSettings.shellIntegrationFeatureNames
-            )
-        }
-        if let raw = defaults.string(forKey: TerminalSettings.bellFeaturesKey) {
-            settings.bellFeatures = TerminalSettings.storedFeatureSet(raw, known: TerminalSettings.bellFeatureNames)
-        }
-        if let value = defaults.string(forKey: TerminalSettings.customConfigKey) {
-            settings.customConfig = value
         }
         return settings
     }

@@ -50,7 +50,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     case terminal
     case shortcuts
     case systemIntegration
-    case advanced
     case about
 
     var id: Self { self }
@@ -62,7 +61,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         case .terminal: "Terminal"
         case .shortcuts: "Hotkeys"
         case .systemIntegration: "System Integration"
-        case .advanced: "Advanced"
         case .about: "About"
         }
     }
@@ -118,14 +116,6 @@ struct SettingsView: View {
     @AppStorage(TerminalAppearance.storageKey) private var appearanceRaw = TerminalAppearance.system.rawValue
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
-    @AppStorage(TerminalSettings.fontThickenKey) private var fontThicken = TerminalSettings.defaults.fontThicken
-    @AppStorage(TerminalSettings.fontThickenStrengthKey) private var fontThickenStrength = TerminalSettings.defaults.fontThickenStrength
-    @AppStorage(TerminalSettings.fontLigaturesKey) private var fontLigatures = TerminalSettings.defaults.fontLigatures
-    @AppStorage(TerminalSettings.cellHeightAdjustKey) private var cellHeightAdjust = TerminalSettings.defaults.cellHeightAdjust
-    @AppStorage(TerminalSettings.paddingXKey) private var paddingX = TerminalSettings.defaults.paddingX
-    @AppStorage(TerminalSettings.paddingYKey) private var paddingY = TerminalSettings.defaults.paddingY
-    @AppStorage(TerminalSettings.minimumContrastKey) private var minimumContrast = TerminalSettings.defaults.minimumContrast
-    @ObservedObject private var importRequests = GhosttyImportRequests.shared
 
     // 全局设置不继承最后一个会话的本机／远程配色。
     private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark) }
@@ -135,7 +125,6 @@ struct SettingsView: View {
 
     init(onRestart: @escaping () -> Void) {
         self.onRestart = onRestart
-        _selectedPage = State(initialValue: GhosttyImportRequests.shared.previewPending ? .advanced : .appearance)
     }
 
     private var appearance: TerminalAppearance {
@@ -202,11 +191,6 @@ struct SettingsView: View {
                 fontFamily = TerminalDefaults.defaultFontFamily
             }
             GhosttyRuntime.applyTerminalSettings()
-        }
-        .onChange(of: importRequests.previewPending) { _, pending in
-            if pending {
-                selectedPage = .advanced
-            }
         }
         .onChange(of: selectedPage) { old, new in
             if old == .shortcuts && new != .shortcuts {
@@ -322,8 +306,6 @@ struct SettingsView: View {
                 SystemIntegrationSettingsPage()
             case .about:
                 AppUpdateSettingsPage(onRestart: onRestart)
-            case .advanced:
-                AdvancedSettingsPage(isActive: selectedPage == .advanced)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -335,31 +317,8 @@ struct SettingsView: View {
                 appearanceModeControl
             }
 
-            contrastCard
-
             RestorePageDefaultsButton {
                 restoreAppearancePageDefaults()
-            }
-        }
-    }
-
-    private var minimumContrastLabel: String {
-        if minimumContrast <= 1 {
-            return String(localized: "Off")
-        }
-        return String(format: "%.1f", minimumContrast)
-    }
-
-    private var contrastCard: some View {
-        SettingsCard("Contrast") {
-            SettingsRow("Minimum Contrast", detail: "Brighten or darken text that is hard to read on its background. 1 turns it off; 4.5 is the usual readability bar.", ghosttyKey: "minimum-contrast") {
-                SettingsSlider(
-                    value: $minimumContrast,
-                    range: TerminalSettings.minimumContrastRange,
-                    step: 0.5,
-                    label: minimumContrastLabel,
-                    onCommit: { GhosttyRuntime.applyTerminalSettings() }
-                )
             }
         }
     }
@@ -368,14 +327,12 @@ struct SettingsView: View {
     private func restoreAppearancePageDefaults() {
         appearanceRaw = TerminalAppearance.system.rawValue
         AppearanceDriver.shared.selectPreset(AppTheme.defaultPreset)
-        minimumContrast = TerminalSettings.defaults.minimumContrast
         GhosttyRuntime.applyTerminalSettings()
     }
 
     private var fontPage: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
             fontFamilyCard
-            fontRenderingCard
             RestorePageDefaultsButton {
                 restoreFontPageDefaults()
             }
@@ -404,10 +361,7 @@ struct SettingsView: View {
                 }
 
                 fontPreview
-                Text("The preview follows Thicken and Line Height roughly; the terminal shows the exact result.")
-                    .font(Theme.Font.rowMeta)
-                    .foregroundStyle(chrome.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+
             }
             .onChange(of: fontFamily) { _, _ in
                 GhosttyRuntime.applyTerminalSettings()
@@ -422,100 +376,17 @@ struct SettingsView: View {
         }
     }
 
-    private var cellHeightLabel: String {
-        if cellHeightAdjust > 0 {
-            return "+\(cellHeightAdjust)%"
-        }
-        return "\(cellHeightAdjust)%"
-    }
-
-    private var fontRenderingCard: some View {
-        SettingsCard("Glyphs and Spacing") {
-            VStack(alignment: .leading, spacing: Theme.Space.l) {
-                SettingsRow("Thicken", detail: "Draw glyphs a little heavier, which helps thin fonts on some displays.", ghosttyKey: "font-thicken", showsSeparator: true) {
-                    SettingsSwitch(isOn: $fontThicken.applyingTerminalSettings())
-                }
-                SettingsRow("Thicken Strength", detail: "How much heavier; only used while Thicken is on.", ghosttyKey: "font-thicken-strength", showsSeparator: true) {
-                    SettingsSlider(
-                        value: Binding(
-                            get: { Double(fontThickenStrength) },
-                            set: { fontThickenStrength = Int($0.rounded()) }
-                        ),
-                        range: TerminalSettings.fontThickenStrengthRange,
-                        step: 5,
-                        label: String(fontThickenStrength),
-                        onCommit: { GhosttyRuntime.applyTerminalSettings() }
-                    )
-                    .disabled(!fontThicken)
-                }
-                SettingsRow("Ligatures", detail: "Join character pairs such as -> and => into one glyph when the font supports it.", ghosttyKey: "font-feature", showsSeparator: true) {
-                    SettingsSwitch(isOn: $fontLigatures.applyingTerminalSettings())
-                }
-                SettingsRow("Line Height", detail: "Add or remove space between lines, as a share of the font's own line height.", ghosttyKey: "adjust-cell-height", showsSeparator: true) {
-                    SettingsSlider(
-                        value: Binding(
-                            get: { Double(cellHeightAdjust) },
-                            set: { cellHeightAdjust = Int($0.rounded()) }
-                        ),
-                        range: TerminalSettings.cellHeightAdjustRange,
-                        step: 5,
-                        label: cellHeightLabel,
-                        onCommit: { GhosttyRuntime.applyTerminalSettings() }
-                    )
-                }
-                SettingsRow("Horizontal Padding", detail: "Space between the text and the left and right edges of the terminal.", ghosttyKey: "window-padding-x", showsSeparator: true) {
-                    paddingStepper($paddingX)
-                }
-                SettingsRow("Vertical Padding", detail: "Space between the text and the bottom edge of the terminal. The top stays close under the title.", ghosttyKey: "window-padding-y") {
-                    paddingStepper($paddingY)
-                }
-            }
-        }
-    }
-
-    private func paddingStepper(_ value: Binding<Int>) -> some View {
-        HStack(spacing: Theme.Space.s) {
-            Text(String(format: String(localized: "%lld pt"), value.wrappedValue))
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(chrome.secondary)
-            FamilyNumberInput(value: value.applyingTerminalSettings(), range: TerminalSettings.paddingRange)
-        }
-    }
-
     private func restoreFontPageDefaults() {
         let defaults = TerminalSettings.defaults
         fontFamily = defaults.fontFamily
         fontSize = defaults.fontSize
-        fontThicken = defaults.fontThicken
-        fontThickenStrength = defaults.fontThickenStrength
-        fontLigatures = defaults.fontLigatures
-        cellHeightAdjust = defaults.cellHeightAdjust
-        paddingX = defaults.paddingX
-        paddingY = defaults.paddingY
         GhosttyRuntime.applyTerminalSettings()
-    }
-
-    /// Thicken has no SwiftUI equivalent; a heavier weight is the closest the preview can get.
-    private var previewWeight: Font.Weight {
-        if !fontThicken {
-            return .regular
-        }
-        if fontThickenStrength >= 128 {
-            return .semibold
-        }
-        return .medium
-    }
-
-    /// Extra space between the preview lines, following Line Height.
-    private var previewLineGap: CGFloat {
-        let extra = CGFloat(fontSize) * CGFloat(cellHeightAdjust) / 100
-        return max(0, Theme.Space.xs + extra)
     }
 
     /// Sample text in the chosen font, drawn with the terminal's own colors: plain text, then
     /// prompt-like tokens in accent / success / warning / danger.
     private var fontPreview: some View {
-        VStack(alignment: .leading, spacing: previewLineGap) {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
             Text("Ghostty 你好 abc 0123456789 -> =>")
                 .foregroundStyle(chrome.text)
             HStack(spacing: 0) {
@@ -526,7 +397,6 @@ struct SettingsView: View {
             }
         }
         .font(.custom(fontFamily, size: CGFloat(fontSize)))
-        .fontWeight(previewWeight)
         .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: SettingsLayout.fontPreviewHeight, alignment: .leading)
