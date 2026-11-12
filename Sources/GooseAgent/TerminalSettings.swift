@@ -176,7 +176,7 @@ struct TerminalSettings: Equatable {
         paddingY: 6,
         backgroundOpacity: 1,
         minimumContrast: 1,
-        scrollbackLimitMB: TerminalSettings.ghosttyDefaultScrollbackLimitMB,
+        scrollbackLimitMB: 128,
         copyOnSelect: .none,
         clipboardPasteProtection: true,
         mouseHideWhileTyping: false,

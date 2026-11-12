@@ -77,7 +77,7 @@ enum TerminalSettingsTests {
             "font-codepoint-map = U+100000-U+10FFFD=Symbols Nerd Font Mono",
         ]
         let rendered = TerminalSettings.defaults.configEntries().map { "\($0.key) = \($0.value)" }
-        expect(rendered == legacy, "defaults render the legacy lines: \(rendered)")
+        expect(rendered == legacy + ["scrollback-limit-bytes = 128000000"], "defaults render the legacy lines: \(rendered)")
 
         let empty = UserDefaults(suiteName: "TerminalSettingsTests.empty")!
         empty.removePersistentDomain(forName: "TerminalSettingsTests.empty")
