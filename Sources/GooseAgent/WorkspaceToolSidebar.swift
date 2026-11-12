@@ -1,61 +1,6 @@
 import AppKit
 import SwiftUI
 
-// 右栏只切换内容，不改变终端分屏树。
-enum WorkspaceToolTab: String, CaseIterable {
-    case commands, changes, files
-    var symbol: String {
-        switch self {
-        case .commands: "terminal"
-        case .changes: "arrow.triangle.branch"
-        case .files: "folder"
-        }
-    }
-    var title: String {
-        switch self {
-        case .commands: String(localized: "Commands")
-        case .changes: String(localized: "Changes")
-        case .files: String(localized: "Files")
-        }
-    }
-}
-
-struct WorkspaceToolSidebar: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject var window: WindowState
-    @Environment(\.windowChrome) private var chrome
-    private var location: GitLocation? {
-        let context = model.quickCommandContext(in: window)
-        return context.directory.map { GitLocation(host: context.host, directory: $0) }
-    }
-    var body: some View {
-        VStack(spacing: 0) {
-            switch window.toolSidebarTab {
-            case .commands: QuickCommandSidebar(model: model, window: window, showsHeader: false)
-            case .changes:
-                if let location { WorkspaceChangesView(location: location, window: window).id(location) }
-                else { unavailable }
-            case .files:
-                if let location { WorkspaceFilesView(location: location, window: window).id(location) }
-                else { unavailable }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .foregroundStyle(chrome.text).background(Color.clear)
-        .onChange(of: window.selectedTabID, initial: true) { _, _ in synchronizeContext() }
-        .onChange(of: location) { _, _ in synchronizeContext() }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("workspace.toolSidebar")
-    }
-    private func synchronizeContext() {
-        window.synchronizeToolContext(sessionID: model.selectedTab(in: window)?.sessionID, location: location)
-    }
-    private var unavailable: some View {
-        Text("Directory unknown").foregroundStyle(chrome.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
 private struct GitRefreshKey: Hashable {
     var location: GitLocation
     var isComparison: Bool
@@ -420,7 +365,7 @@ struct WorkspaceFilePreview: View {
     }
     private func close() {
         window.closeToolPreview()
-        if let tab = model.selectedTab(in: window) { SSHTerminalRegistry.focus(tab.sessionID) }
+
     }
 }
 

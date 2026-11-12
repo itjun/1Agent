@@ -28,6 +28,7 @@ import ObjectiveC
         defer { method_setImplementation(getter, previous); defaults.removePersistentDomain(forName: suite) }
 
         let model = AppModel(), state = model.mainWindow
+        TerminalActivity.shared.model = model
         MainWindowManager.shared.show(state, model: model)
         let native = MainWindowManager.shared.window(for: state)!
         native.contentViewController = nil
@@ -42,37 +43,151 @@ import ObjectiveC
         precondition(store.url.resolvingSymlinksInPath().path.hasPrefix(URL(fileURLWithPath: home).resolvingSymlinksInPath().path + "/"))
         var item = QuickCommand(alias: "构建应用", command: "printf '%s\\n' 'sidebar fixture'", scope: .local)
         try store.save(item)
+        let second = QuickCommand(alias: "第二条", command: "printf second", scope: .local)
+        try store.save(second)
         native.setContentSize(NSSize(width: 260, height: 700))
-        native.contentView = NSHostingView(rootView: QuickCommandSidebar(model: model, window: state, showsHeader: false)
-            .environment(\.windowChrome, WindowChrome(isDark: false)))
+        func mount(isDark: Bool = false) {
+            native.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+            native.contentView = NSHostingView(rootView: QuickCommandSidebar(model: model, window: state, tabID: original.id)
+                .environment(\.windowChrome, WindowChrome(isDark: isDark)))
+        }
+        func capture(_ name: String) throws {
+            guard let directory = ProcessInfo.processInfo.environment["ONEAGENT_COMMAND_SIDEBAR_QA_DIR"] else { return }
+            let view = native.contentView!
+            view.layoutSubtreeIfNeeded()
+            let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
+        }
+        mount()
         native.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        try await eventually { native.isKeyWindow && NSApp.isActive }
         try await eventually { element("quickCommand." + item.id.uuidString, in: native) != nil }
-        precondition(element("quickCommands.destination", in: native) == nil, "There is no terminal destination selector")
-        precondition(element("quickCommand.run." + item.id.uuidString, in: native) == nil, "Rows contain no execute buttons")
-        try await eventually { descendants(native.contentView!).contains { $0 is QuickCommandPreviewAnchorView } }
-        let anchor = descendants(native.contentView!).compactMap { $0 as? QuickCommandPreviewAnchorView }.first!
-        let entered = NSEvent.enterExitEvent(with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0,
-                                            windowNumber: native.windowNumber, context: nil, eventNumber: 0,
-                                            trackingNumber: 0, userData: nil)!
-        anchor.mouseEntered(with: entered)
-        try await Task.sleep(for: .milliseconds(450))
-        precondition(anchor.previewPanel == nil, "Hover alone must never open the command preview")
-        precondition(press(element("quickCommand." + item.id.uuidString, in: native)!))
-        try await eventually { anchor.previewPanel != nil }
-        precondition(native.isKeyWindow, "Opening preview must not take keyboard focus")
-        precondition(state.quickCommandConfirmation == nil && model.tabs.count == 1, "Preview cannot execute or open confirmation")
-        precondition(abs(anchor.previewPanel!.frame.width - SheetLayout.commandSidebarPreviewWidth) < 1)
-        precondition(element("quickCommands.preview.copy", in: anchor.previewPanel!) != nil)
-        precondition(element("quickCommands.preview.run", in: anchor.previewPanel!) != nil)
-        let initialPreviewHeight = anchor.previewPanel!.frame.height
-        let exited = NSEvent.enterExitEvent(with: .mouseExited, location: .zero, modifierFlags: [], timestamp: 0,
-                                           windowNumber: native.windowNumber, context: nil, eventNumber: 0,
-                                           trackingNumber: 0, userData: nil)!
-        anchor.mouseExited(with: exited)
-        try await Task.sleep(for: .milliseconds(250))
-        precondition(anchor.previewPanel != nil, "Click preview stays open when the pointer leaves")
+        precondition(element("quickCommands.toolbox.search", in: native) == nil)
+        precondition(!descendants(native.contentView!).contains { $0 is NSSearchField }, "快捷命令栏没有搜索")
+        for id in ["quickCommands.new", "quickCommands.actions", "quickCommands.edit." + item.id.uuidString] {
+            precondition(element(id, in: native) == nil, "快捷命令栏不提供维护入口")
+        }
+        precondition(!descendants(native.contentView!).contains { $0 is QuickCommandReorderTargetView }, "指令栏不提供拖动排序")
+        try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) != nil }
+        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "首次打开自动选中第一条指令")
+        let rowID = "quickCommand." + item.id.uuidString
+        let secondRowID = "quickCommand." + second.id.uuidString
+        let initialRowHeight = accessibilityFrame(element(rowID, in: native)!).height
+        let initialSecondFrame = accessibilityFrame(element(secondRowID, in: native)!)
+        precondition(press(element(secondRowID, in: native)!))
+        mount()
+        try await eventually { element("quickCommands.code." + second.id.uuidString, in: native) != nil }
+        precondition(model.commandSidebars[original.id]?.selectedCommandID == second.id, "重新打开保留已选指令")
+        precondition(press(element(rowID, in: native)!))
+        try await eventually { element("quickCommands.code." + item.id.uuidString, in: native) != nil }
+        precondition(!descendants(native.contentView!).contains { $0 is QuickCommandPreviewAnchorView }, "完整命令在底部，不打开悬浮窗")
+        precondition(accessibilityFrame(element(rowID, in: native)!).height == initialRowHeight, "选择命令不改变行高")
+        precondition(accessibilityFrame(element(secondRowID, in: native)!) == initialSecondFrame, "选择命令不推动其他行")
+        precondition(element("quickCommands.quickCopy." + item.id.uuidString, in: native) == nil, "列表不重复提供拷贝入口")
+        precondition(element("quickCommands.quickRun." + item.id.uuidString, in: native) == nil, "列表不重复提供执行入口")
+        try capture("fixture-light")
+        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id)
+        precondition(model.tabs.count == 1 && state.quickCommandConfirmation == nil)
+        let shortCommand = item.command
+        let codeID = "quickCommands.code." + item.id.uuidString
+        let shortHeight = accessibilityFrame(element(codeID, in: native)!).height
+        item.command = "printf '%s\\n' '" + String(repeating: "long-command-argument-", count: 12) + "'"
+        try store.save(item)
+        native.setContentSize(NSSize(width: 230, height: 700))
+        try await eventually {
+            guard let code = element(codeID, in: native) else { return false }
+            return accessibilityFrame(code).height > shortHeight * 3
+        }
+        let wrappedFrame = accessibilityFrame(element(codeID, in: native)!)
+        precondition(wrappedFrame.width <= 230, "长命令换行后不能溢出侧栏")
+        let runFrame = accessibilityFrame(element("quickCommands.run." + item.id.uuidString, in: native)!)
+        let previewFrame = accessibilityFrame(element("quickCommands.preview." + original.id.uuidString, in: native)!)
+        precondition(runFrame.maxY <= previewFrame.minY, "执行按钮固定在滚动预览下方，不能被长命令挤走")
+        precondition(accessibilityFrame(element(rowID, in: native)!).height == initialRowHeight, "长命令不撑开列表")
+        item.command += "\nprintf 'second line'\nprintf 'third line'"
+        try store.save(item)
+        try await eventually {
+            guard let code = element(codeID, in: native) else { return false }
+            return accessibilityFrame(code).height > wrappedFrame.height
+        }
+        try capture("fixture-narrow-long")
+        mount(isDark: true)
+        try await eventually { element(codeID, in: native) != nil }
+        try capture("fixture-dark")
+        mount()
+        item.command = shortCommand
+        try store.save(item)
+        native.setContentSize(NSSize(width: 260, height: 700))
+        try await eventually { accessibilityFrame(element(codeID, in: native)!).height <= shortHeight + 1 }
+        print("PASS fixed command rows, stable selection, wrapped and scrollable preview with pinned actions")
+        model.commandSidebars[original.id]?.isExpanded = true
+        try await eventually { element("quickCommand." + second.id.uuidString, in: native) != nil }
+        let terminal = SSHTerminalNSView(frame: .zero)
+        terminal.sessionID = original.sessionID
+        native.contentView!.addSubview(terminal)
+        native.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        native.makeFirstResponder(terminal)
+        try await eventually { native.isKeyWindow && native.firstResponder === terminal }
+        func key(_ code: UInt16, repeatKey: Bool = false) {
+            let character: String
+            switch code {
+            case 36, 76: character = "\r"
+            case 125: character = "\u{f701}"
+            case 126: character = "\u{f700}"
+            case 53: character = "\u{1b}"
+            default: character = ""
+            }
+            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: native.windowNumber, context: nil, characters: character, charactersIgnoringModifiers: character,
+                isARepeat: repeatKey, keyCode: code)!
+            NSApp.sendEvent(event)
+        }
+        key(36)
+        guard !model.commandExecution(for: original.id).isSubmitting else {
+            throw NSError(domain: "QuickCommandSidebarTests", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "终端持有焦点时，Enter 被命令侧栏截获并触发了执行"])
+        }
+        key(76)
+        key(125)
+        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "终端下方向键不切换侧栏命令")
+        key(126)
+        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "终端上方向键不切换侧栏命令")
+        key(53)
+        precondition(!model.commandExecution(for: original.id).isSubmitting, "终端回车不执行侧栏命令")
+        precondition(model.commandSidebars[original.id]?.isExpanded == true, "终端 Esc 不收起侧栏")
+        precondition(native.firstResponder === terminal, "侧栏展开不能抢走终端焦点")
+        precondition(press(element(rowID, in: native)!))
+        try await eventually { native.firstResponder !== terminal }
+        key(125)
+        try await eventually { model.commandSidebars[original.id]?.selectedCommandID == second.id }
+        key(126)
+        try await eventually { model.commandSidebars[original.id]?.selectedCommandID == item.id }
+        key(126)
+        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "首项向上不越界")
+        let keyboardExecution = model.commandExecution(for: original.id)
+        key(36, repeatKey: true)
+        precondition(!keyboardExecution.isSubmitting, "长按回车不执行")
+        key(36)
+        precondition(!keyboardExecution.isSubmitting, "选中侧栏命令后回车也不执行")
+        key(76)
+        precondition(!keyboardExecution.isSubmitting, "侧栏小键盘回车不执行")
+        key(36)
+        precondition(!keyboardExecution.isSubmitting && keyboardExecution.error == nil, "连续回车不发起侧栏命令")
+        key(53)
+        precondition(model.commandSidebars[original.id]?.isExpanded == false, "Esc 收起当前终端的命令栏")
+        model.commandSidebars[original.id]?.isExpanded = true
+        let editor = NSTextView(frame: native.contentView!.bounds)
+        native.contentView!.addSubview(editor)
+        native.makeFirstResponder(editor)
+        key(125)
+        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "文本编辑器不被拦截")
+        editor.removeFromSuperview()
+        terminal.removeFromSuperview()
+        try store.remove(second.id)
+        keyboardExecution.error = nil
+        print("PASS terminal key isolation, focused-list navigation, no sidebar execution on Enter/keypad/repeat and editor isolation")
         let pasteboard = NSPasteboard.general
         let previousClipboard = (pasteboard.pasteboardItems ?? []).map { item in
             item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
@@ -85,44 +200,70 @@ import ObjectiveC
                 return item
             })
         }
-        precondition(press(element("quickCommands.preview.copy", in: anchor.previewPanel!)!))
-        precondition(pasteboard.string(forType: .string) == item.command, "Preview copies the complete literal command")
-        print("PASS click-only preview, persistent panel, full command copy, no row run or destination selector")
+        precondition(press(element("quickCommands.copy." + item.id.uuidString, in: native)!))
+        precondition(pasteboard.string(forType: .string) == item.command)
+        mount()
+        try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) != nil }
+        print("PASS no search, footer preview, a single copy entry and selection survives remount")
 
-        let button = element("quickCommands.preview.run", in: anchor.previewPanel!)!
-        precondition(press(button))
-        precondition(state.quickCommandSidebarExecution.isSubmitting)
-        precondition(!model.runSidebarQuickCommand(item.id, in: state), "Preview and drag share a submission guard")
-        model.confirmQuickCommand(item, in: state)
-        try await eventually { !state.quickCommandSidebarExecution.isSubmitting }
-        precondition(state.quickCommandConfirmation == nil && model.tabs.count == 1)
-        precondition(state.selectedTabID == original.id && model.takeLocalStartupCommand(for: original.id) == nil)
-        precondition(state.quickCommandSidebarExecution.error != nil, "Unavailable current terminal reports an error")
-        precondition(anchor.previewPanel != nil, "Failed execution stays in preview instead of opening a new terminal")
-        try await eventually { element("quickCommands.preview.error", in: anchor.previewPanel!) != nil }
-        precondition(anchor.previewPanel!.frame.height > initialPreviewHeight,
-                     "A compact preview must grow to show execution errors without clipping")
-        precondition(press(element("quickCommands.preview.run", in: anchor.previewPanel!)!))
-        precondition(state.quickCommandSidebarExecution.isSubmitting, "Failure must allow an explicit retry")
-        try await eventually { !state.quickCommandSidebarExecution.isSubmitting }
-        precondition(model.tabs.count == 1)
-        print("PASS preview execute, duplicate guard, current-terminal-only rejection, visible failure and retry")
-
-        let reviewedItem = store.commands.first { $0.id == item.id }!
-        let reviewedContext = model.quickCommandContext(in: state)
-        item.command = "printf '%s\n' 'updated fixture'"
-        try store.save(item)
-        precondition(!model.runSidebarQuickCommand(item.id, in: state, expectedContext: reviewedContext, expectedItem: reviewedItem),
-                     "Changed command must not execute from an old preview")
-        model.openLocalTerminal(at: home, placement: .newTab, beside: original.id, in: state)
+        model.openLocalTerminal(at: "/private/tmp", placement: .newTab, beside: original.id, in: state)
         try await eventually { model.tabs.count == 2 }
-        try await eventually { anchor.previewPanel == nil }
-        precondition(!model.runSidebarQuickCommand(item.id, in: state, expectedContext: reviewedContext),
-                     "Switching terminals invalidates the preview target")
+        let sibling = model.tabs.first { $0.id != original.id }!
+        model.selectOnly(sibling.id, in: state, focusTerminal: false)
+        let originalExecution = model.commandExecution(for: original.id)
+        precondition(press(element("quickCommands.run." + item.id.uuidString, in: native)!))
+        precondition(originalExecution.isSubmitting)
+        precondition(!model.commandExecution(for: sibling.id).isSubmitting, "兄弟终端不显示执行状态")
+        precondition(!press(element("quickCommands.run." + item.id.uuidString, in: native)!), "提交期间执行入口禁用")
+        precondition(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id), "按钮与拖拽共享同一终端的提交守卫")
+        try await eventually { !originalExecution.isSubmitting }
+        precondition(originalExecution.error != nil, "没有 shell 的目标必须明确报错")
+        try await eventually { element("quickCommands.error." + original.id.uuidString, in: native) != nil }
+        precondition(state.selectedTabID == sibling.id && model.tabs.count == 2, "失败不能切到其他终端或新建终端")
+        try await eventually { press(element("quickCommands.run." + item.id.uuidString, in: native)!) }
+        precondition(originalExecution.isSubmitting)
+        try await eventually { !originalExecution.isSubmitting }
+        print("PASS per-terminal execution guard, failure feedback and explicit retry")
+
+        // 维护只在左侧“命令”工作区进行，保存后重新挂载使用栏应看到更新。
+        state.section = .commands
+        state.commandLibraryCollection = .local
+        state.commandLibrarySelection = item.id
+        native.setContentSize(NSSize(width: 1000, height: 760))
+        native.contentView = NSHostingView(rootView: QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
+            .environment(\.windowChrome, WindowChrome(isDark: false)))
+        try await eventually { element("quickCommands.library.edit", in: native) != nil }
+        precondition(press(element("quickCommands.library.edit", in: native)!))
+        try await eventually { element("quickCommand.script", in: native) != nil }
+        precondition(native.attachedSheet == nil, "在命令工作区内编辑")
+        let script = element("quickCommand.script", in: native) as! NSTextView
+        native.makeFirstResponder(script)
+        key(125)
+        precondition(state.commandLibrarySelection == item.id, "编辑指令时方向键不切换列表")
+        script.string = "printf edited"
+        script.didChangeText()
+        precondition(press(element("quickCommand.save", in: native)!))
+        try await eventually { state.commandLibraryDraft == nil && store.commands.first { $0.id == item.id }?.command == "printf edited" }
+        try await eventually { element("quickCommands.library.edit", in: native) != nil }
+        precondition(press(element("quickCommands.library.edit", in: native)!))
+        try await eventually { element("quickCommand.cancel", in: native) != nil }
+        precondition(press(element("quickCommand.cancel", in: native)!))
+        try await eventually { state.commandLibraryDraft == nil }
+        state.section = .terminals
+        native.setContentSize(NSSize(width: 260, height: 700))
+        mount()
+        try await eventually { element("quickCommands.code." + item.id.uuidString, in: native) != nil }
+        precondition(element("quickCommands.edit." + item.id.uuidString, in: native) == nil)
+        precondition(press(element("quickCommands.copy." + item.id.uuidString, in: native)!))
+        precondition(pasteboard.string(forType: .string) == "printf edited", "命令管理保存后使用栏显示新内容")
+        let reviewedContext = model.commandContext(in: state, targetTabID: original.id)
+        precondition(!model.runSidebarQuickCommand(item.id, in: state, expectedContext: reviewedContext,
+                                                 expectedItem: item, targetTabID: original.id), "编辑后旧命令快照被拒绝")
+        item = store.commands.first { $0.id == item.id }!
         try store.remove(item.id)
-        precondition(!model.runSidebarQuickCommand(item.id, in: state))
-        precondition(model.tabs.count == 2 && state.quickCommandSidebarExecution.error != nil)
-        print("PASS command edits, target changes and deleted-command rejection")
+        try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) == nil }
+        precondition(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id))
+        print("PASS management-page editing, live sidebar refresh, stale content and deleted-command rejection")
 
         let execution = QuickCommandSidebarExecution()
         let request = try QuickCommandRunRequest(item: item, context: QuickCommandContext(directory: home), directory: home)
@@ -182,6 +323,11 @@ import ObjectiveC
             return nil
         }
         return find(root)
+    }
+    @MainActor static func accessibilityFrame(_ object: NSObject) -> CGRect {
+        let selector = NSSelectorFromString("accessibilityFrame")
+        typealias Frame = @convention(c) (AnyObject, Selector) -> CGRect
+        return unsafeBitCast(object.method(for: selector), to: Frame.self)(object, selector)
     }
     @MainActor static func press(_ object: NSObject) -> Bool {
         let selector = NSSelectorFromString("accessibilityPerformPress")

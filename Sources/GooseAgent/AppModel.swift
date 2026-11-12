@@ -91,6 +91,16 @@ final class AppModel: ObservableObject {
     @Published private(set) var hosts: [SSHHost] = []
     @Published private(set) var configFailed = false
     @Published private(set) var tabs: [TerminalTab] = []
+    /// 按终端保存，切换分屏或移动到其他窗口不会改变展开状态和选择。
+    @Published var commandSidebars: [UUID: TerminalCommandSidebarState] = [:]
+    private var commandExecutions: [UUID: QuickCommandSidebarExecution] = [:]
+
+    func commandExecution(for tabID: UUID) -> QuickCommandSidebarExecution {
+        if let execution = commandExecutions[tabID] { return execution }
+        let execution = QuickCommandSidebarExecution()
+        commandExecutions[tabID] = execution
+        return execution
+    }
     @Published private(set) var launchEnvironment: [String] = []
     /// Ordered membership and independently selectable display panels, including single-session workspaces.
     @Published private(set) var workspaces: [Workspace] = []
@@ -1533,6 +1543,8 @@ final class AppModel: ObservableObject {
         TerminalProgress.shared.forget(sessionID: tabs[index].sessionID)
         RemoteShellStatus.shared.forget(sessionID: tabs[index].sessionID)
         SSHTerminalRegistry.destroy(tabs[index].sessionID)
+        commandSidebars[id] = nil
+        commandExecutions[id] = nil
         tabs.remove(at: index)
         workspaces = WorkspaceBoard.extract(id, from: workspaces)
         for window in windows {

@@ -3,9 +3,14 @@ import AppKit
 /// Shared entry points for buttons, menus and keyboard commands.
 extension AppModel {
     func toggleToolSidebar(in window: WindowState) {
-        guard window.section == .terminals else { return }
-        updatePresentation(in: window) { $0.toolSidebarOpen.toggle() }
-        if let tab = selectedTab(in: window) { SSHTerminalRegistry.focus(tab.sessionID) }
+        guard window.section == .terminals, let tab = selectedTab(in: window) else { return }
+        toggleCommandSidebar(for: tab.id, in: window)
+    }
+
+    func toggleCommandSidebar(for tabID: UUID, in window: WindowState) {
+        guard sidebarOrder(in: window).contains(tabID), tabs.contains(where: { $0.id == tabID && $0.hasTerminal }) else { return }
+        commandSidebars[tabID, default: TerminalCommandSidebarState()].isExpanded.toggle()
+        selectOnly(tabID, in: window, focusTerminal: true)
     }
 
     func sidebarIsCollapsed(in window: WindowState, totalWidth: CGFloat? = nil) -> Bool {

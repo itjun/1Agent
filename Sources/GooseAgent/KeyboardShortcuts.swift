@@ -90,7 +90,7 @@ enum AppShortcutID: String, CaseIterable, Identifiable {
             return String(localized: "Go to Terminal \(number)")
         case .selectLastTerminal: return String(localized: "Go to Last Terminal")
         case .toggleSidebar: return String(localized: "Toggle Session Sidebar")
-        case .toggleToolSidebar: return String(localized: "Toggle Tool Sidebar")
+        case .toggleToolSidebar: return String(localized: "Toggle Quick Commands")
         case .duplicateRight: return String(localized: "Split Right")
         case .duplicateDown: return String(localized: "Split Down")
         case .openFileBrowser: return String(localized: "Switch Terminals and Files")

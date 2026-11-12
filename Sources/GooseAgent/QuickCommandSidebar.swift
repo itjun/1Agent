@@ -1,219 +1,224 @@
 import AppKit
 import SwiftUI
 
+struct TerminalCommandSidebarState: Equatable {
+    var isExpanded = false
+    var width = SheetLayout.terminalCommandSidebarWidth
+    var selectedCommandID: UUID?
+}
+
 struct QuickCommandSidebar: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
+    let tabID: UUID
     @ObservedObject private var store = QuickCommandStore.shared
     @ObservedObject private var execution: QuickCommandSidebarExecution
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
-    var showsHeader = true
-    @State private var batchSelecting = false
-    @State private var selectedIDs: Set<UUID> = []
-    @State private var pasteRequest: QuickCommandPasteRequest?
-    @State private var status: String?
-    @State private var historyPresented = false
-    @State private var error: String?
-    @State private var collapsedSections: Set<Int> = []
-    @State private var selectedCommandID: UUID?
-    @State private var previewCommandID: UUID?
-
-    init(model: AppModel, window: WindowState, showsHeader: Bool = true) {
+    @State private var copiedCommandID: UUID?
+    @FocusState private var isListFocused: Bool
+    init(model: AppModel, window: WindowState, tabID: UUID) {
         self.model = model
         self.window = window
-        self.showsHeader = showsHeader
-        execution = window.quickCommandSidebarExecution
+        self.tabID = tabID
+        execution = model.commandExecution(for: tabID)
     }
 
-    private var context: QuickCommandContext { model.quickCommandContext(in: window) }
+    private var context: QuickCommandContext { model.commandContext(in: window, targetTabID: tabID) }
     private var commands: [QuickCommand] {
-        store.commands.filter { $0.scope != .all && $0.matches(context) }
-            .sorted(by: QuickCommand.displayOrder)
+        store.commands.filter { $0.scope != .all && $0.matches(context) }.sorted(by: QuickCommand.displayOrder)
     }
-    private var selectedCommand: QuickCommand? { commands.first { $0.id == selectedCommandID } }
+    private var selectedCommandID: UUID? {
+        get { model.commandSidebars[tabID]?.selectedCommandID }
+        nonmutating set { model.commandSidebars[tabID, default: TerminalCommandSidebarState()].selectedCommandID = newValue }
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if showsHeader {
-                Text("Commands").font(Theme.Font.row)
-                    .frame(maxWidth: .infinity).frame(height: 42)
-                Divider()
+        GeometryReader { geometry in
+        VStack(alignment: .leading, spacing: 0) {
+            if let message = execution.error ?? store.loadError {
+                Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger)
+                    .fixedSize(horizontal: false, vertical: true).padding(12)
+                    .accessibilityIdentifier("quickCommands.error." + tabID.uuidString)
             }
-            commandList
+            ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(commands.enumerated()), id: \.element.id) { index, item in
+                        commandRow(item, number: index + 1).id(item.id)
+                    }
+                    if commands.isEmpty {
+                        Text("No Commands").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(12)
+                    }
+                }.padding(8)
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: selectedCommandID) { _, id in
+                if let id { proxy.scrollTo(id) }
+            }
+            }
+            .focusable(interactions: .edit)
+            .focusEffectDisabled()
+            .focused($isListFocused)
+            .onKeyPress(keys: [.upArrow, .downArrow, .escape], phases: [.down, .repeat], action: handleKey)
+            if !commands.isEmpty {
+                Group {
+                    if let item = commands.first(where: { $0.id == selectedCommandID }) {
+                        commandDetails(item)
+                    } else {
+                        Text("Select a command to view its details.")
+                            .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(12)
+                    }
+                }
+                .frame(height: min(SheetLayout.commandSidebarDetailsHeight, geometry.size.height * 0.4))
+            }
         }
-        .foregroundStyle(chrome.text).background(Color.clear)
+        }
+        .foregroundStyle(chrome.text)
+        .background(AppTheme.terminalPaneBackground(isDark: chrome.isDark,
+                    isFocused: window.selectedTabID == tabID).color)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("workspace.toolSidebar")
-        .onChange(of: commands.map(\.id)) { _, ids in
-            if let selectedCommandID, !ids.contains(selectedCommandID) { self.selectedCommandID = nil }
-            if let previewCommandID, !ids.contains(previewCommandID) { self.previewCommandID = nil }
+        .accessibilityIdentifier("quickCommands.pane." + tabID.uuidString)
+        .onChange(of: commands.map(\.id), initial: true) { _, ids in
+            if let selectedCommandID, ids.contains(selectedCommandID) { return }
+            selectedCommandID = ids.first
         }
-        .onChange(of: context.host) { _, _ in cancelSelection(); status = nil; previewCommandID = nil }
-        .onChange(of: context.directory) { _, _ in cancelSelection(); previewCommandID = nil }
-        .onChange(of: context.sessionID) { _, _ in previewCommandID = nil; execution.error = nil }
-        .onChange(of: store.commands.map(\.id)) { _, ids in selectedIDs.formIntersection(ids) }
-        .familySheet(isPresented: optionalBinding($pasteRequest), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
-            if let pasteRequest {
-                QuickCommandPasteView(request: pasteRequest, onClose: { self.pasteRequest = nil }, onSaved: { additions in
-                    self.pasteRequest = nil
-                    cancelSelection()
-                    if let first = additions.first {
-                        collapsedSections.remove(first.section)
-                        selectedCommandID = first.id
-                        let target = [first.host ?? String(localized: "This Mac"), first.directory].compactMap { $0 }.joined(separator: ":")
-                        status = String(format: String(localized: "Added %lld commands to %@"), Int64(additions.count), target)
-                    }
-                }).id(pasteRequest.id)
-            }
-        }
-        .familySheet(isPresented: $historyPresented, width: SheetLayout.commandLibrary, height: SheetLayout.commandLibraryHeight) {
-            QuickCommandHistoryView(context: context, hosts: model.hosts) { historyPresented = false }
+        .onChange(of: context.sessionID) { _, _ in execution.error = nil }
+        .task(id: copiedCommandID) {
+            guard copiedCommandID != nil else { return }
+            do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
+            copiedCommandID = nil
         }
     }
 
-    private var commandList: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(verbatim: context.host ?? String(localized: "This Mac"))
-                        .font(Theme.Font.sectionTitle).lineLimit(1).truncationMode(.middle)
-                    Text(verbatim: context.directory.map { context.host == nil ? LocalTerminal.displayPath($0) : $0 } ?? String(localized: "Directory unknown"))
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(2).truncationMode(.middle)
-                        .textSelection(.enabled)
-                        .help(context.directory ?? String(localized: "Directory unknown"))
-                }
-                Spacer(minLength: 4)
-                Button { editInLibrary(draft()) } label: { Image(systemName: "plus").frame(width: 28, height: 28) }
-                    .buttonStyle(FamilyButtonStyle()).help("New Quick Command").accessibilityIdentifier("quickCommands.new")
-                FamilyMenu(items: {
-                    [FamilyMenuItem(title: String(localized: "Batch Copy Commands"), enabled: !commands.isEmpty && !batchSelecting,
-                                    action: { batchSelecting = true; selectedIDs = []; status = nil }),
-                     FamilyMenuItem(title: String(localized: "Paste Quick Commands…"), action: beginPaste),
-                     FamilyMenuItem(title: String(localized: "Add from History"), action: { historyPresented = true }),
-                     FamilyMenuItem(title: String(localized: "Edit Quick Command"), enabled: selectedCommand != nil,
-                                    action: { if let selectedCommand { editInLibrary(selectedCommand) } }),
-                    ]
-                }) {
-                    Image(systemName: "ellipsis").frame(width: 28, height: 28)
-                }.help("Command Actions").accessibilityIdentifier("quickCommands.actions")
-            }
-            if batchSelecting { batchControls }
-            if let status { Text(verbatim: status).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
-            if let message = error ?? execution.error ?? store.loadError { Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger) }
-            commandRows
-        }.padding(Theme.DefaultLayout.toolInset)
-    }
-
-    private var commandRows: some View {
-        ScrollView(showsIndicators: chrome.isSystem) {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                ForEach(0..<3, id: \.self) { section in
-                    let rows = commands.filter { $0.section == section }
-                    if !rows.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            if Set(commands.map(\.section)).count > 1 {
-                            Button {
-                                if collapsedSections.contains(section) { collapsedSections.remove(section) }
-                                else { collapsedSections.insert(section) }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: collapsedSections.contains(section) ? "chevron.right" : "chevron.down").font(.system(size: 9))
-                                    Text(section == 0 ? "Current Folder" : section == 1 ? "Host Commands" : "Common Commands")
-                                    Spacer()
-                                }.font(Theme.Font.sidebarSection).foregroundStyle(chrome.secondary).padding(.bottom, 4).contentShape(Rectangle())
-                            }.buttonStyle(FamilyPlainButtonStyle())
-                            }
-                            if Set(commands.map(\.section)).count == 1 || !collapsedSections.contains(section) {
-                                ForEach(rows) { item in
-                                    commandRow(item)
-                                }
-                            }
-                            if commands.contains(where: { $0.section > section }) {
-                                Divider().padding(.top, 10)
-                            }
-                        }
-                    }
-                }
-                if commands.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("No Commands").font(Theme.Font.sectionTitle)
-                    }.padding(.vertical, 12)
-                }
-            }
+    private func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        guard model.commandSidebars[tabID]?.isExpanded == true, window.selectedTabID == tabID,
+              window.section == .terminals, !window.presentation.fullFilesWorkspace,
+              window.quickCommandConfirmation == nil,
+              press.modifiers.intersection([.command, .control, .option, .shift]).isEmpty else { return .ignored }
+        switch press.key {
+        case .upArrow, .downArrow:
+            guard !commands.isEmpty else { return .handled }
+            let current = commands.firstIndex { $0.id == selectedCommandID }
+            let next = current.map { min(max($0 + (press.key == .downArrow ? 1 : -1), 0), commands.count - 1) }
+                ?? (press.key == .downArrow ? 0 : commands.count - 1)
+            selectedCommandID = commands[next].id
+            execution.error = nil
+            return .handled
+        case .escape:
+            model.commandSidebars[tabID]?.isExpanded = false
+            if let sessionID = context.sessionID { SSHTerminalRegistry.focus(sessionID) }
+            return .handled
+        default:
+            return .ignored
         }
     }
 
-    private func commandRow(_ item: QuickCommand) -> some View {
-        CommandListRow(item: item, action: {
+    private func run(_ item: QuickCommand) {
+        selectedCommandID = item.id
+        model.runSidebarQuickCommand(item.id, in: window, expectedContext: context,
+                                     expectedItem: item, targetTabID: tabID)
+    }
+
+    private func copy(_ item: QuickCommand) {
+        CommandClipboard.copy(item.command)
+        copiedCommandID = item.id
+    }
+
+    private func commandRow(_ item: QuickCommand, number: Int) -> some View {
+        QuickCommandSidebarRow(item: item, number: number, isSelected: selectedCommandID == item.id,
+                              select: {
+            model.selectOnly(tabID, in: window, focusTerminal: false)
             selectedCommandID = item.id
-            if batchSelecting {
-                if !selectedIDs.insert(item.id).inserted { selectedIDs.remove(item.id) }
-            } else { execution.error = nil; previewCommandID = item.id }
-        }, allowsDragging: !batchSelecting,
-                       isSelected: batchSelecting ? selectedIDs.contains(item.id) : selectedCommandID == item.id,
-                       onDragStart: { selectedCommandID = item.id; previewCommandID = nil },
-                       showsSelection: batchSelecting, isCompact: true, onReorder: { source, target, after in
-            do { try store.move(source, relativeTo: target, after: after); error = nil }
-            catch { self.error = error.localizedDescription }
-        }, namePreview: AnyView(QuickCommandPreview(item: item, context: context,
-                            isPresented: !batchSelecting && previewCommandID == item.id,
-                            onDismiss: { if previewCommandID == item.id { previewCommandID = nil } }) { maximumWidth in
-            QuickCommandPreviewContent(item: item, context: context, model: model, window: window,
-                                       execution: execution, maximumWidth: maximumWidth, onExecuted: { previewCommandID = nil })
-                .environment(\.windowChrome, chrome)
-        }))
-        .familyContextMenu { commandActions(item) }
+            execution.error = nil
+            isListFocused = true
+        })
     }
 
-    private var batchControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(verbatim: String(format: String(localized: "%lld Selected"), Int64(selectedIDs.count)))
-                Spacer()
-                Button("Cancel Selection", action: cancelSelection).buttonStyle(FamilyButtonStyle())
+    private func commandDetails(_ item: QuickCommand) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(verbatim: item.alias).font(Theme.Font.row).fontWeight(.semibold).lineLimit(2)
+            ScrollView {
+                Text(verbatim: item.command).font(.system(size: 12, design: .monospaced))
+                    .textSelection(.enabled)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("quickCommands.code." + item.id.uuidString)
             }
-            HStack {
-                Button("Select All Results") { selectedIDs.formUnion(commands.map(\.id)) }
-                    .buttonStyle(FamilyButtonStyle()).accessibilityIdentifier("quickCommands.selectAll")
-                Spacer(minLength: 4)
-                Button("Copy Selected") {
-                    copyCommands(store.commands.filter { selectedIDs.contains($0.id) }.sorted(by: QuickCommand.displayOrder))
-                }.buttonStyle(FamilyButtonStyle()).disabled(selectedIDs.isEmpty)
-                    .accessibilityIdentifier("quickCommands.copySelected")
-            }
-        }.font(Theme.Font.rowMeta)
-    }
-    private func cancelSelection() { batchSelecting = false; selectedIDs = [] }
-    private func copyCommands(_ items: [QuickCommand]) {
-        do {
-            try QuickCommandClipboard.copy(items)
-            error = nil
-            status = String(format: String(localized: "Copied %lld quick commands"), Int64(items.count))
-            cancelSelection()
-        } catch { self.error = error.localizedDescription }
-    }
-    private func beginPaste() {
-        do {
-            pasteRequest = try QuickCommandPasteRequest(transfer: QuickCommandClipboard.read(), context: context)
-            error = nil; status = nil
-        } catch { self.error = error.localizedDescription }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .id(item.id)
+            .accessibilityIdentifier("quickCommands.preview." + tabID.uuidString)
+            HStack(spacing: 8) {
+                Button { copy(item) } label: {
+                    Label(copiedCommandID == item.id ? "Copied" : "Copy",
+                          systemImage: copiedCommandID == item.id ? "checkmark" : "doc.on.doc")
+                }
+                    .buttonStyle(FamilyButtonStyle()).accessibilityIdentifier("quickCommands.copy." + item.id.uuidString)
+                Spacer(minLength: 0)
+                Button {
+                    run(item)
+                } label: {
+                    if execution.commandID == item.id { ProgressView().controlSize(.mini) }
+                    else { Label("Run", systemImage: "play.fill") }
+                }
+                .buttonStyle(FamilyButtonStyle(kind: .primary))
+                .disabled(execution.isSubmitting || !context.isLive || window.quickCommandConfirmation != nil)
+                .help("Run in This Terminal").accessibilityIdentifier("quickCommands.run." + item.id.uuidString)
+            }.font(Theme.Font.rowMeta).controlSize(.small)
+        }.padding(12)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("quickCommands.details." + tabID.uuidString)
     }
 
-    private func commandActions(_ item: QuickCommand) -> [FamilyMenuItem] {
-        [FamilyMenuItem(title: String(localized: "Edit Quick Command"), action: { editInLibrary(item) }),
-         FamilyMenuItem(title: String(localized: "Copy Preview Text"), action: { CommandClipboard.copy(item.command) }),
-         FamilyMenuItem(title: String(localized: "Copy Quick Command"), action: { copyCommands([item]) }),
-         FamilyMenuItem(title: String(localized: "Save Command Copy"), action: { var copy = item; copy.id = UUID(); editInLibrary(copy) })]
-    }
-    private func editInLibrary(_ item: QuickCommand) {
-        previewCommandID = nil
-        window.commandLibraryDraft = item
-        model.showSection(.commands, in: window)
-    }
-    private func draft() -> QuickCommand {
-        QuickCommand(scope: context.directory == nil ? (context.host == nil ? .local : .host) : .directory,
-                     host: context.host, directory: context.directory)
+}
+
+private struct QuickCommandSidebarRow: View {
+    let item: QuickCommand
+    let number: Int
+    let isSelected: Bool
+    let select: () -> Void
+    @Environment(\.windowChrome) private var chrome
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: select) {
+            HStack(alignment: .top, spacing: Theme.Space.s) {
+                Text(verbatim: String(number)).font(Theme.Font.row).monospacedDigit()
+                    .foregroundStyle(chrome.secondary)
+                    .frame(minWidth: Theme.DefaultLayout.iconWidth, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top, spacing: 5) {
+                    if item.needsRepair {
+                        Image(systemName: "exclamationmark.triangle").foregroundStyle(chrome.warning)
+                    }
+                    Text(verbatim: item.alias).font(Theme.Font.row)
+                        .fontWeight(isSelected ? .semibold : .regular).lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxHeight: .infinity, alignment: .top)
+                Text(verbatim: item.command.replacingOccurrences(of: "\n", with: " ↵ "))
+                    .font(.system(size: 11, design: .monospaced)).foregroundStyle(chrome.secondary)
+                    .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 22, alignment: .leading)
+            }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .frame(height: SheetLayout.commandSidebarUsageRowHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FamilyPlainButtonStyle())
+        .accessibilityIdentifier("quickCommand." + item.id.uuidString)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .overlay {
+            QuickCommandDragHandle(item: item, chrome: chrome, onClick: select,
+                                   onDoubleClick: select, onDragStart: select)
+                .accessibilityHidden(true)
+        }
+        .help(item.alias + "\n" + item.command + "\n" + String(localized: "Drag into a terminal to run"))
+        .defaultRowSurface(selected: isSelected, legacyFill: isHovered ? chrome.elevated : .clear)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -237,9 +242,12 @@ struct CommandListRow: View {
     var isCompact = false
     var onReorder: (UUID, UUID, Bool) -> Void = { _, _, _ in }
     var namePreview: AnyView? = nil
+    var showsCommandPreview = false
+    var inlineDetails: AnyView? = nil
     @Environment(\.windowChrome) private var chrome
     @State private var hovered = false
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
         HStack(spacing: 6) {
             Group {
                 if allowsDragging {
@@ -255,6 +263,8 @@ struct CommandListRow: View {
                 FamilyMenu(items: menu) { Image(systemName: "ellipsis").frame(width: 24, height: 28) }
                     .help("Command Actions")
             }
+        }
+            if let inlineDetails { inlineDetails }
         }
         .padding(.horizontal, isCompact ? 8 : 10)
         .padding(.vertical, isCompact ? 0 : 10)
@@ -290,10 +300,10 @@ struct CommandListRow: View {
                     Text(verbatim: item.alias).font(Theme.Font.row).fontWeight(isSelected ? .semibold : .regular)
                         .foregroundStyle(chrome.text).lineLimit(isCompact ? 2 : 1)
                         .frame(minHeight: isCompact ? Theme.DefaultLayout.commandTextHeight : nil, alignment: .topLeading)
-                    if !isCompact {
+                    if !isCompact || showsCommandPreview {
                     Text(verbatim: item.command.replacingOccurrences(of: "\n", with: " ↵ "))
                         .font(.system(size: 12, design: .monospaced)).foregroundStyle(chrome.secondary).lineLimit(1)
-                    if !item.group.isEmpty { Text(verbatim: item.group).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
+                    if !isCompact && !item.group.isEmpty { Text(verbatim: item.group).font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary) }
                     }
                 }
                 Spacer(minLength: 0)

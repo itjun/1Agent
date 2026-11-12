@@ -7,7 +7,7 @@ extension AppModel {
     }
 
     func commandForDrop(_ id: UUID, on tabID: UUID, in window: WindowState) -> QuickCommand? {
-        guard window.quickCommandConfirmation == nil, !window.quickCommandSidebarExecution.isSubmitting,
+        guard window.quickCommandConfirmation == nil, !commandExecution(for: tabID).isSubmitting,
               window.section == .terminals, !window.presentation.fullFilesWorkspace,
               let root = displayRoot(in: window), PaneLayout.contains(tabID, in: root),
               let tab = tabs.first(where: { $0.id == tabID && $0.hasTerminal }),
@@ -25,7 +25,7 @@ extension AppModel {
         if item.scope == .all, let tab = tabs.first(where: { $0.id == tabID }) {
             return SSHTerminalRegistry.pasteLibraryText(item.command, into: tab.sessionID)
         }
-        return runSidebarQuickCommand(item.id, in: window)
+        return runSidebarQuickCommand(item.id, in: window, targetTabID: tabID)
     }
 
     func copyLibraryCommand(_ id: UUID, to destination: QuickCommandCollection, in window: WindowState) {
@@ -39,14 +39,14 @@ extension AppModel {
         } catch { window.commandLibraryMessage = error.localizedDescription }
     }
 
-    func executeQuickCommand(_ request: QuickCommandRunRequest, in window: WindowState, newTerminal: Bool) async throws {
-        guard quickCommandContext(in: window) == request.context else { throw QuickCommandError.changedTarget }
+    func executeQuickCommand(_ request: QuickCommandRunRequest, in window: WindowState, newTerminal: Bool, targetTabID: UUID? = nil) async throws {
+        guard commandContext(in: window, targetTabID: targetTabID) == request.context else { throw QuickCommandError.changedTarget }
         try QuickCommandExecution.claim(request.id)
         if newTerminal {
             try await launchQuickCommand(request, in: window)
         } else {
             try await SSHTerminalRegistry.runQuickCommand(request) {
-                self.quickCommandContext(in: window) == request.context
+                self.commandContext(in: window, targetTabID: targetTabID) == request.context
             }
         }
     }
@@ -54,12 +54,13 @@ extension AppModel {
     @discardableResult
     func runSidebarQuickCommand(_ id: UUID, in window: WindowState,
                                 expectedContext: QuickCommandContext? = nil, expectedItem: QuickCommand? = nil,
+                                targetTabID: UUID? = nil,
                                 onSuccess: @escaping () -> Void = {}) -> Bool {
-        let execution = window.quickCommandSidebarExecution
+        let execution = targetTabID.map { commandExecution(for: $0) } ?? window.quickCommandSidebarExecution
         guard !execution.isSubmitting, window.quickCommandConfirmation == nil else { return false }
         do {
             // 点击时重新读取指令和目标；不使用预览打开时的旧内容。
-            let context = quickCommandContext(in: window)
+            let context = commandContext(in: window, targetTabID: targetTabID)
             guard context.sessionID != nil,
                   let item = QuickCommandStore.shared.commands.first(where: { $0.id == id }) else {
                 throw QuickCommandError.changedTarget
@@ -73,15 +74,31 @@ extension AppModel {
                 if request.context.host == nil, ExternalOpen.validatedDirectory(request.directory) == nil {
                     throw QuickCommandError.invalidDirectory
                 }
-                try await self.executeQuickCommand(request, in: window, newTerminal: false)
-                if let id = request.context.sessionID { SSHTerminalRegistry.focus(id) }
+                try await self.executeQuickCommand(request, in: window, newTerminal: false, targetTabID: targetTabID)
+                if let tab = self.tabs.first(where: { $0.sessionID == request.context.sessionID }),
+                   let owner = self.windows.first(where: { self.sidebarOrder(in: $0).contains(tab.id) }) {
+                    self.selectOnly(tab.id, in: owner, focusTerminal: false)
+                    MainWindowManager.shared.window(for: owner)?.makeKeyAndOrderFront(nil)
+                    SSHTerminalRegistry.focus(tab.sessionID)
+                }
             }, onSuccess: onSuccess)
             return true
         } catch { execution.report(error); return false }
     }
 
     func quickCommandContext(in window: WindowState) -> QuickCommandContext {
+        currentTerminalContext(in: window)
+    }
+
+    func currentTerminalContext(in window: WindowState) -> QuickCommandContext {
         guard let tab = selectedTab(in: window), tab.hasTerminal else { return QuickCommandContext() }
+        return quickCommandContext(for: tab)
+    }
+
+    func commandContext(in window: WindowState, targetTabID: UUID?) -> QuickCommandContext {
+        guard let targetTabID else { return quickCommandContext(in: window) }
+        guard sidebarOrder(in: window).contains(targetTabID),
+              let tab = tabs.first(where: { $0.id == targetTabID && $0.hasTerminal }) else { return QuickCommandContext() }
         return quickCommandContext(for: tab)
     }
 

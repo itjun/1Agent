@@ -28,11 +28,20 @@ enum TerminalPaneActionsTests {
         expect(item("Reveal in Finder", in: localItems)?.enabled == true, "Finder belongs to local directory actions")
         expect(item("Copy Path", in: localItems)?.enabled == true, "known paths can be copied")
 
+        let external = TerminalPaneActions.externalItems(tab: local, model: model)
+        let isGitHubDesktopInstalled = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.github.GitHubClient") != nil
+        expect(external.contains { $0.title == "GitHub Desktop" } == isGitHubDesktopInstalled,
+               "installed GitHub Desktop is available from the terminal menu")
+        // 当前 tab 已不存在：所有外部打开动作都应直接返回，不能启动应用。
+        for action in external { action.action() }
+
         var remote = TerminalTab(id: UUID(), alias: "remote", directory: "/wrong/local/path", generation: 0, exited: false)
         let unknownItems = TerminalPaneActions.items(tab: remote, model: model, window: window)
         expect(TerminalPaneActions.workingDirectory(of: remote) == nil, "remote sessions must never expose the local ssh process directory")
         expect(item("Copy Path", in: unknownItems)?.enabled == false, "unreported remote cwd cannot be copied as a fabricated path")
         expect(item("Reveal in Finder", in: unknownItems) == nil, "remote paths must not be sent to Finder")
+        expect(TerminalPaneActions.externalItems(tab: remote, model: model).isEmpty,
+               "remote directories never open as local repositories or editor folders")
         remote.remoteDirectory = "/srv/agent project"
         expect(TerminalPaneActions.workingDirectory(of: remote) == "/srv/agent project", "remote OSC or launch directory is retained verbatim")
         remote.remoteDirectory = "relative/path"
@@ -297,10 +306,10 @@ enum TerminalPaneActionsTests {
         remote.remoteDirectory = "/srv/project"
         expect(TerminalPaneActions.externalDirectory(of: local)?.path == local.directory, "external tools receive an intact local directory URL")
         expect(TerminalPaneActions.externalDirectory(of: remote) == nil, "remote directories are never mistaken for local editor paths")
-        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 0, width: 500, height: 300)) == 0,
-               "top-row panes use the window title band without a duplicate header")
-        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 305, width: 500, height: 300)) == 0,
-               "lower split panes also use the single global information toolbar")
+        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 0, width: 500, height: 300)) == ShellLayout.compactHeaderHeight,
+               "top-row terminals own one integrated title")
+        expect(TerminalCanvas.headerHeight(for: CGRect(x: 0, y: 305, width: 500, height: 300)) == ShellLayout.compactHeaderHeight,
+               "lower split panes own their title and context menu")
         let panes = (0..<4).map { _ in UUID() }
         let grid = PaneNode.split(SplitNode(id: UUID(), axis: .horizontal, ratio: 0.5,
             leading: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
@@ -312,11 +321,11 @@ enum TerminalPaneActionsTests {
         for id in panes {
             let card = cards[id]!
             let body = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true)
-            expect(TerminalCanvas.headerHeight(for: frames[id]!, isFloating: true) == 0,
-                   "no terminal pane reserves a repeated title")
+            expect(TerminalCanvas.headerHeight(for: frames[id]!, isFloating: true) == ShellLayout.compactHeaderHeight,
+                   "each terminal reserves exactly one title")
             expect(body.minX == card.minX && body.maxX == card.maxX && body.maxY == card.maxY,
                    "title and terminal share one outer card, with no second content inset")
-            expect(body.minY == card.minY, "output fills the pane from its top edge")
+            expect(body.minY == card.minY + ShellLayout.compactHeaderHeight, "output starts immediately below its own title")
             let searching = TerminalCanvas.terminalContentFrame(frames[id]!, isFloating: true,
                                                                 accessoryHeight: Theme.PaneStyle.findBarHeight)
             expect(searching.minY == body.minY + Theme.PaneStyle.findBarHeight && searching.maxY == card.maxY,
@@ -330,8 +339,8 @@ enum TerminalPaneActionsTests {
                cards[panes[3]]!.maxX == 1000 && cards[panes[3]]!.maxY == 700,
                "interior pane gaps do not add a second outer inset")
         let zoomed = TerminalCanvas.paneFrames(grid, zoomed: panes[0], in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
-        expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!, isFloating: true) == 0,
-               "single and zoomed terminals use the same headerless content")
+        expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!, isFloating: true) == ShellLayout.compactHeaderHeight,
+               "single and zoomed terminals use the same integrated title")
         let menu = FamilyMenuPresenter.menu([FamilyMenuItem(title: "fixture-host", enabled: false)])
         expect(menu.items.first?.title == "fixture-host" && menu.items.first?.isEnabled == false,
                "the global title information uses a native informational menu")

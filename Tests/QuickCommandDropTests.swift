@@ -129,11 +129,11 @@ import ObjectiveC
         precondition(window.selectedTabID == right.id && droppedContext.sessionID == right.sessionID)
         precondition(droppedContext.directory.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath() }
                      == URL(fileURLWithPath: folder).resolvingSymlinksInPath())
-        precondition(window.quickCommandConfirmation == nil && window.quickCommandSidebarExecution.isSubmitting,
+        precondition(window.quickCommandConfirmation == nil && model.commandExecution(for: right.id).isSubmitting,
                      "Dropping submits directly in the destination terminal, without confirmation")
         precondition(!terminal.dropQuickCommand(item.id), "A pending run cannot be submitted twice")
-        await wait { !window.quickCommandSidebarExecution.isSubmitting }
-        precondition(window.quickCommandSidebarExecution.error != nil, "A destination without a shell must reject execution")
+        await wait { !model.commandExecution(for: right.id).isSubmitting }
+        precondition(model.commandExecution(for: right.id).error != nil, "A destination without a shell must reject execution")
         precondition(terminal.processHost == nil && model.tabs.count == 2, "A busy destination must not create another terminal")
         model.selectTab(left.id, in: window, focusTerminal: false)
         precondition(!model.runSidebarQuickCommand(item.id, in: window, expectedContext: droppedContext),

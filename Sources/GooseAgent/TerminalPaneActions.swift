@@ -52,9 +52,15 @@ enum TerminalPaneActions {
         let directory = workingDirectory(of: tab)
         let split = model.panelRow(for: tab.id, in: window)?.isSplit == true
         let zoomed = model.zoomedPane(in: window) == tab.id
+        let commandSidebarChord = AppShortcuts.chord(for: .toggleToolSidebar)
         var items = connectionItems(tab, model: model, window: window)
         if !items.isEmpty { items.append(.separator) }
         items += [
+            FamilyMenuItem(title: model.commandSidebars[tab.id]?.isExpanded == true ? String(localized: "Hide Quick Commands") : String(localized: "Show Quick Commands"),
+                           key: commandSidebarChord.key, modifiers: commandSidebarChord.menuModifierMask, action: {
+                guard currentTab(tab.id, model: model) != nil else { return }
+                model.toggleCommandSidebar(for: tab.id, in: window)
+            }),
             FamilyMenuItem(title: String(localized: "Host Information"), action: {
                 guard currentTab(tab.id, model: model) != nil else { return }
                 window.hostInformationTabID = tab.id

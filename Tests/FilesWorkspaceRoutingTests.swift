@@ -533,9 +533,9 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        let expectedTopInset = rootRect.maxY - window.convertToScreen(window.contentLayoutRect).maxY
+        let expectedTopInset = ShellLayout.compactHeaderHeight
         try require(abs(rootRect.maxY - terminalRect.maxY - expectedTopInset) < 1,
-                    "A single terminal fills content below the native window toolbar without a pane header")
+                    "A single terminal starts below its own title without a duplicate global toolbar")
         try require(terminals.values.allSatisfy { terminal in
             !terminal.selectionContextMenu().items.contains { $0.title == String(localized: "History") }
         }, "No terminal context menu may expose the removed history feature")
@@ -1298,7 +1298,8 @@ private struct FilesWorkspaceRoutingTests {
         try require(abs(frame(title).midY - collapsedFileY) < 1,
                     "Expanding the sidebar must not shift file headers vertically")
         try require(window.toolbar?.isVisible == true, "Expanded and collapsed states retain the native toolbar")
-        try require(TerminalCanvas.headerHeight(for: .zero) == 0, "Terminals have no repeated pane title")
+        try require(TerminalCanvas.headerHeight(for: .zero) == ShellLayout.compactHeaderHeight,
+                    "Every terminal reserves one compact title of its own")
         window.setContentSize(NSSize(width: 1440, height: 900))
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
@@ -1324,7 +1325,7 @@ private struct FilesWorkspaceRoutingTests {
             try require(!state.presentation.sidebarCollapsed, "Shortcut actions must restore the sidebar repeatedly")
         }
         let tracked = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
-        try require(tracked.count == 1, "Only navigation keeps a separate titlebar region; inspector shares the toolbar")
+        try require(tracked.count == 1, "File navigation keeps one titlebar separator")
         let trackedSplits = tracked.map(\.splitView)
         let savedInspectorOpen = state.presentation.toolSidebarOpen
         state.presentation.toolSidebarOpen = true
@@ -1334,8 +1335,12 @@ private struct FilesWorkspaceRoutingTests {
             model.showSection(section, in: state)
             try await settle()
             window.contentView?.layoutSubtreeIfNeeded()
+            if section == .terminals {
+                try require(window.toolbar == nil, "Terminals use their own headers without a global toolbar")
+                continue
+            }
             let current = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
-            try require(current.count == 1, "Section changes retain the navigation separator and unified inspector toolbar")
+            try require(current.count == 1, "Files and commands retain the navigation separator")
             for (index, item) in current.enumerated() {
                 try require(item.splitView === trackedSplits[index] && item.splitView.window === window,
                             "Page changes must not detach or replace a tracked sidebar split")
@@ -1345,7 +1350,7 @@ private struct FilesWorkspaceRoutingTests {
             }
         }
         state.presentation.toolSidebarOpen = savedInspectorOpen
-        print("ok: full-height navigation and unified inspector toolbar survive terminal/command/file switching")
+        print("ok: full-height navigation survives terminal/command/file switching without a terminal toolbar")
         print("ok: stable title band preserves content Y, geometry and actions across repeated collapse and restore")
     }
 

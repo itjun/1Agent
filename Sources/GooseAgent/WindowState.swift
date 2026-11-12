@@ -18,7 +18,6 @@ final class WindowState: ObservableObject, Identifiable {
     var terminalMRU: [UUID] = []
     /// Which area owns keyboard commands; both areas may be visible.
     @Published var section: AppSection = .terminals
-    @Published var toolSidebarTab: WorkspaceToolTab = .commands
     @Published var toolGitBranchComparison = false
     @Published var toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
     @Published var toolPreviewColumn: FileColumn?
@@ -32,10 +31,8 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var toolPreviewFrame: CGRect = .zero
     @Published var workspaceToolbarHeight: CGFloat = 44
     @Published var toolPreviewFindRequest = 0
-    var isToolReadingExpanded: Bool {
-        isToolPreviewExpanded && isToolPreviewOpen && presentation.toolSidebarOpen
-            && section == .terminals && !presentation.fullFilesWorkspace
-    }
+    // 工具预览只在工具箱内部扩展，永远不遮挡主终端。
+    var isToolReadingExpanded: Bool { false }
     func closeToolPreview() {
         isToolPreviewExpanded = false
         toolPreviewFindRequest = 0
