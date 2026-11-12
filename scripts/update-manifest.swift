@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 /// 根据安装包生成 latest.json，并用 UPDATE_SIGN_KEY 做 ed25519 签名。
-/// 签名必须能被 Sources/GooseAgent/AppUpdate.swift 里的公钥验过，否则客户端会拒绝这份清单。
+/// 签名必须能被 release/legacy-update-public-key.txt 里的旧客户端公钥验过，否则客户端会拒绝这份清单。
 
 struct Args {
     var version = ""
@@ -89,17 +89,7 @@ guard let body = try? JSONSerialization.data(withJSONObject: manifest, options: 
 let signature = try privateKey.signature(for: body)
 let signatureText = Data((signature.base64EncodedString() + "\n").utf8)
 
-let source = (try? String(contentsOfFile: "Sources/GooseAgent/AppUpdate.swift", encoding: .utf8)) ?? ""
-guard let match = source.range(of: #"static let publicKey = "([A-Za-z0-9+/=]+)""#, options: .regularExpression) else {
-    fputs("找不到内置公钥\n", stderr)
-    exit(1)
-}
-let quoted = source[match]
-guard let keyStart = quoted.range(of: "\""), let keyEnd = quoted[keyStart.upperBound...].range(of: "\"") else {
-    fputs("内置公钥格式不对\n", stderr)
-    exit(1)
-}
-let embedded = String(quoted[keyStart.upperBound..<keyEnd.lowerBound])
+let embedded = (try? String(contentsOfFile: "release/legacy-update-public-key.txt", encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 guard let embeddedData = Data(base64Encoded: embedded),
       let embeddedKey = try? Curve25519.Signing.PublicKey(rawRepresentation: embeddedData),
       embeddedKey.isValidSignature(signature, for: body),

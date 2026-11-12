@@ -1,0 +1,710 @@
+diff --git a/include/ghostty.h b/include/ghostty.h
+index 9a12b9c..f1e7be8 100644
+--- a/include/ghostty.h
++++ b/include/ghostty.h
+@@ -505,10 +505,26 @@ typedef enum {
+   GHOSTTY_SURFACE_CONTEXT_SPLIT = 2,
+ } ghostty_surface_context_e;
+ 
++typedef enum {
++  GHOSTTY_SURFACE_IO_BACKEND_EXEC = 0,
++  GHOSTTY_SURFACE_IO_BACKEND_HOST_MANAGED = 1,
++} ghostty_surface_io_backend_e;
++
++typedef void (*ghostty_surface_receive_buffer_cb)(void*, const uint8_t*, size_t);
++typedef void (*ghostty_surface_receive_resize_cb)(void*,
++                                               uint16_t,
++                                               uint16_t,
++                                               uint32_t,
++                                               uint32_t);
++
+ typedef struct {
+   ghostty_platform_e platform_tag;
+   ghostty_platform_u platform;
+   void* userdata;
++  ghostty_surface_io_backend_e backend;
++  void* receive_userdata;
++  ghostty_surface_receive_buffer_cb receive_buffer;
++  ghostty_surface_receive_resize_cb receive_resize;
+   double scale_factor;
+   float font_size;
+   const char* working_directory;
+@@ -1184,6 +1200,8 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+ GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
+ GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
+ GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
++GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
++GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
+ GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
+ GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
+ GHOSTTY_API void ghostty_surface_set_content_scale(ghostty_surface_t, double, double);
+diff --git a/src/Surface.zig b/src/Surface.zig
+index 369bb23..63df5eb 100644
+--- a/src/Surface.zig
++++ b/src/Surface.zig
+@@ -662,43 +662,51 @@ pub fn init(
+     // This separate block ({}) is important because our errdefers must
+     // be scoped here to be valid.
+     {
+-        // Exec.init takes ownership of the env even if it fails, so the
+-        // errdefer for it must not reach past the call.
+-        const env = termio_env: {
+-            var env = rt_surface.defaultTermioEnv() catch |err| env: {
+-                // If an error occurs, we don't want to block surface startup.
+-                log.warn("error getting env map for surface err={}", .{err});
+-                break :env global.environMap() catch std.process.Environ.Map.init(alloc);
+-            };
+-            errdefer env.deinit();
++        var backend: termio.Backend = switch (rt_surface.termioBackend()) {
++            .exec => backend: {
++            // Exec.init takes ownership of the env even if it fails, so the
++            // errdefer for it must not reach past the call.
++            const env = termio_env: {
++                var env = rt_surface.defaultTermioEnv() catch |err| env: {
++                    // If an error occurs, we don't want to block surface startup.
++                    log.warn("error getting env map for surface err={}", .{err});
++                    break :env global.environMap() catch std.process.Environ.Map.init(alloc);
++                };
++                errdefer env.deinit();
+ 
+-            // don't leak GHOSTTY_LOG to any subprocesses
+-            _ = env.orderedRemove("GHOSTTY_LOG");
++                // don't leak GHOSTTY_LOG to any subprocesses
++                _ = env.orderedRemove("GHOSTTY_LOG");
+ 
+-            var buf: [18]u8 = undefined;
+-            try env.put(
+-                "GHOSTTY_SURFACE_ID",
+-                std.mem.print(&buf, "0x{x:0>16}", .{self.id}) catch unreachable,
+-            );
++                var buf: [18]u8 = undefined;
++                try env.put(
++                    "GHOSTTY_SURFACE_ID",
++                    std.mem.print(&buf, "0x{x:0>16}", .{self.id}) catch unreachable,
++                );
+ 
+-            break :termio_env env;
+-        };
++                break :termio_env env;
++            };
+ 
+-        // Initialize our IO backend
+-        var io_exec = try termio.Exec.init(alloc, .{
+-            .command = command,
+-            .env = env,
+-            .env_override = config.env,
+-            .shell_integration = config.@"shell-integration",
+-            .shell_integration_features = config.@"shell-integration-features",
+-            .cursor_blink = config.@"cursor-style-blink",
+-            .working_directory = if (config.@"working-directory") |wd| wd.value() else null,
+-            .resources_dir = global.resourcesDir().host(),
+-            .term = config.term,
+-            .rt_pre_exec_info = .init(config),
+-            .rt_post_fork_info = .init(config),
+-        });
+-        errdefer io_exec.deinit();
++            // Initialize our IO backend
++            var io_exec = try termio.Exec.init(alloc, .{
++                .command = command,
++                .env = env,
++                .env_override = config.env,
++                .shell_integration = config.@"shell-integration",
++                .shell_integration_features = config.@"shell-integration-features",
++                .cursor_blink = config.@"cursor-style-blink",
++                .working_directory = if (config.@"working-directory") |wd| wd.value() else null,
++                .resources_dir = global.resourcesDir().host(),
++                .term = config.term,
++                .rt_pre_exec_info = .init(config),
++                .rt_post_fork_info = .init(config),
++            });
++            errdefer io_exec.deinit();
++
++                break :backend .{ .exec = io_exec };
++            },
++            .host_managed => .{ .host_managed = termio.HostManaged.init(try rt_surface.hostManagedConfig()) },
++        };
++        errdefer backend.deinit();
+ 
+         // Initialize our IO mailbox
+         var io_mailbox = try termio.Mailbox.initSPSC(alloc);
+@@ -712,7 +720,7 @@ pub fn init(
+             .size = size,
+             .full_config = config,
+             .config = io_config,
+-            .backend = .{ .exec = io_exec },
++            .backend = backend,
+             .mailbox = io_mailbox,
+             .renderer_state = &self.renderer_state,
+             .renderer_wakeup = render_thread.wakeup,
+@@ -1384,9 +1392,10 @@ fn childExitedAbnormally(
+     const alloc = arena.allocator();
+ 
+     // Build up our command for the error message
+-    const command = try std.mem.join(alloc, " ", switch (self.io.backend) {
+-        .exec => |*exec| exec.subprocess.args,
+-    });
++    const command = switch (self.io.backend) {
++        .exec => |*exec| try std.mem.join(alloc, " ", exec.subprocess.args),
++        .host_managed => try alloc.dupe(u8, "host-managed session"),
++    };
+     const runtime_str = try alloc.print("{d} ms", .{info.runtime_ms});
+ 
+     self.renderer_state.mutex.lockUncancelable(global.io());
+@@ -3642,7 +3651,7 @@ pub fn scrollCallback(
+         }
+ 
+         // We scroll by the number of rows in the offset and save the remainder
+-        const amount = poff / cell_size;
++        const amount = @trunc(poff / cell_size);
+         assert(@abs(amount) >= 1);
+         self.mouse.pending_scroll_y = poff - (amount * cell_size);
+ 
+@@ -3667,7 +3676,7 @@ pub fn scrollCallback(
+             break :x .{};
+         }
+ 
+-        const amount = poff / cell_size;
++        const amount = @trunc(poff / cell_size);
+         assert(@abs(amount) >= 1);
+         self.mouse.pending_scroll_x = poff - (amount * cell_size);
+         const delta: isize = @intFromFloat(@trunc(amount));
+diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
+index 697f0a7..761294c 100644
+--- a/src/apprt/embedded.zig
++++ b/src/apprt/embedded.zig
+@@ -16,8 +16,9 @@ const input = @import("../input.zig");
+ const internal_os = @import("../os/main.zig");
+ const renderer = @import("../renderer.zig");
+ const terminal = @import("../terminal/main.zig");
++const termio = @import("../termio.zig");
+ const CoreApp = @import("../App.zig");
+-const CoreInspector = @import("../inspector/main.zig").Inspector;
++const CoreInspector = if (@import("../build_config.zig").inspector) @import("../inspector/main.zig").Inspector else struct {};
+ const CoreSurface = @import("../Surface.zig");
+ const configpkg = @import("../config.zig");
+ const Config = configpkg.Config;
+@@ -448,6 +449,8 @@ pub const Surface = struct {
+     app: *App,
+     platform: Platform,
+     userdata: ?*anyopaque = null,
++    termio_backend: TermioBackend = .exec,
++    host_io: HostIO = .{},
+     core_surface: CoreSurface,
+     content_scale: apprt.ContentScale,
+     size: apprt.SurfaceSize,
+@@ -458,6 +461,17 @@ pub const Surface = struct {
+     /// that getTitle works without the implementer needing to save it.
+     title: ?[:0]const u8 = null,
+ 
++    pub const TermioBackend = enum(c_int) {
++        exec = 0,
++        host_managed = 1,
++    };
++
++    pub const HostIO = struct {
++        userdata: ?*anyopaque = null,
++        receive_buffer: ?termio.HostManaged.Config.Write = null,
++        receive_resize: ?termio.HostManaged.Config.Resize = null,
++    };
++
+     /// Surface initialization options.
+     pub const Options = extern struct {
+         /// The platform that this surface is being initialized for and
+@@ -468,6 +482,20 @@ pub const Surface = struct {
+         /// Userdata passed to some of the callbacks.
+         userdata: ?*anyopaque = null,
+ 
++        /// The backend used to satisfy terminal IO for this surface.
++        backend: TermioBackend = .exec,
++
++        /// Userdata passed to host-managed IO callbacks.
++        receive_userdata: ?*anyopaque = null,
++
++        /// Called when Ghostty emits bytes that should be sent to the host
++        /// transport.
++        receive_buffer: ?termio.HostManaged.Config.Write = null,
++
++        /// Called when the terminal size changes and the host transport
++        /// should be updated.
++        receive_resize: ?termio.HostManaged.Config.Resize = null,
++
+         /// The scale factor of the screen.
+         scale_factor: f64 = 1,
+ 
+@@ -506,6 +534,12 @@ pub const Surface = struct {
+             .app = app,
+             .platform = try .init(opts.platform_tag, opts.platform),
+             .userdata = opts.userdata,
++            .termio_backend = opts.backend,
++            .host_io = .{
++                .userdata = opts.receive_userdata orelse opts.userdata,
++                .receive_buffer = opts.receive_buffer,
++                .receive_resize = opts.receive_resize,
++            },
+             .core_surface = undefined,
+             .content_scale = .{
+                 .x = @floatCast(opts.scale_factor),
+@@ -649,6 +683,7 @@ pub const Surface = struct {
+     /// inspector at any given time, so this will return the previous inspector
+     /// if it was already initialized.
+     pub fn initInspector(self: *Surface) !*Inspector {
++        if (comptime !@import("../build_config.zig").inspector) return error.InspectorUnavailable;
+         if (self.inspector) |v| return v;
+ 
+         const alloc = self.app.core_app.alloc;
+@@ -660,6 +695,7 @@ pub const Surface = struct {
+     }
+ 
+     pub fn freeInspector(self: *Surface) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         if (self.inspector) |v| {
+             v.deinit();
+             self.app.core_app.alloc.destroy(v);
+@@ -671,6 +707,19 @@ pub const Surface = struct {
+         return &self.core_surface;
+     }
+ 
++    pub fn termioBackend(self: *const Surface) TermioBackend {
++        return self.termio_backend;
++    }
++
++    pub fn hostManagedConfig(self: *const Surface) !termio.HostManaged.Config {
++        const write = self.host_io.receive_buffer orelse return error.HostManagedWriteRequired;
++        return .{
++            .userdata = self.host_io.userdata,
++            .write = write,
++            .resize = self.host_io.receive_resize,
++        };
++    }
++
+     pub fn rtApp(self: *const Surface) *App {
+         return self.app;
+     }
+@@ -1259,7 +1308,7 @@ pub const Surface = struct {
+ 
+ /// Inspector is the state required for the terminal inspector. A terminal
+ /// inspector is 1:1 with a Surface.
+-pub const Inspector = struct {
++pub const Inspector = if (@import("../build_config.zig").inspector) struct {
+     const cimgui = @import("dcimgui");
+ 
+     surface: *Surface,
+@@ -1506,6 +1555,10 @@ pub const Inspector = struct {
+         } else (1.0 / 60.0);
+         self.instant = now;
+     }
++} else struct {
++    surface: *Surface = undefined,
++    pub fn init(_: *Surface) !@This() { return .{}; }
++    pub fn deinit(_: *@This()) void {}
+ };
+ 
+ // C API
+@@ -1899,6 +1952,28 @@ pub const CAPI = struct {
+         return surface.core_surface.child_exited;
+     }
+ 
++    export fn ghostty_surface_write_buffer(
++        surface: *Surface,
++        ptr: [*]const u8,
++        len: usize,
++    ) void {
++        if (len == 0) return;
++        surface.core_surface.io.processOutput(ptr[0..len]);
++    }
++
++    export fn ghostty_surface_process_exit(
++        surface: *Surface,
++        exit_code: u32,
++        runtime_ms: u64,
++    ) void {
++        _ = surface.core_surface.io.surface_mailbox.push(.{
++            .child_exited = .{
++                .exit_code = exit_code,
++                .runtime_ms = runtime_ms,
++            },
++        }, .{ .forever = {} });
++    }
++
+     /// Returns true if the surface has a selection.
+     export fn ghostty_surface_has_selection(surface: *Surface) bool {
+         return surface.core_surface.hasSelection();
+@@ -2356,10 +2431,12 @@ pub const CAPI = struct {
+     }
+ 
+     export fn ghostty_inspector_set_size(ptr: *Inspector, w: u32, h: u32) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.updateSize(w, h);
+     }
+ 
+     export fn ghostty_inspector_set_content_scale(ptr: *Inspector, x: f64, y: f64) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.updateContentScale(x, y);
+     }
+ 
+@@ -2369,6 +2446,7 @@ pub const CAPI = struct {
+         button: input.MouseButton,
+         mods: c_int,
+     ) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.mouseButtonCallback(
+             action,
+             button,
+@@ -2380,6 +2458,7 @@ pub const CAPI = struct {
+     }
+ 
+     export fn ghostty_inspector_mouse_pos(ptr: *Inspector, x: f64, y: f64) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.cursorPosCallback(x, y);
+     }
+ 
+@@ -2389,6 +2468,7 @@ pub const CAPI = struct {
+         y: f64,
+         scroll_mods: c_int,
+     ) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.scrollCallback(
+             x,
+             y,
+@@ -2402,6 +2482,7 @@ pub const CAPI = struct {
+         key: input.Key,
+         c_mods: c_int,
+     ) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.keyCallback(
+             action,
+             key,
+@@ -2419,10 +2500,12 @@ pub const CAPI = struct {
+         ptr: *Inspector,
+         str: [*:0]const u8,
+     ) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.textCallback(std.mem.sliceTo(str, 0));
+     }
+ 
+     export fn ghostty_inspector_set_focus(ptr: *Inspector, focused: bool) void {
++        if (comptime !@import("../build_config.zig").inspector) return;
+         ptr.focusCallback(focused);
+     }
+ 
+@@ -2436,26 +2519,11 @@ pub const CAPI = struct {
+         app: *App,
+         window: *anyopaque,
+     ) void {
+-        // This is only supported on macOS
+-        if (comptime builtin.target.os.tag != .macos) return;
+-
+-        const config = &app.config;
+-
+-        // Do nothing if we don't have background transparency enabled
+-        if (config.@"background-opacity" >= 1.0) return;
+-
+-        const nswindow = objc.Object.fromId(window);
+-        _ = CGSSetWindowBackgroundBlurRadius(
+-            CGSDefaultConnectionForThread(),
+-            nswindow.msgSend(usize, objc.sel("windowNumber"), .{}),
+-            @intCast(config.@"background-blur".cval()),
+-        );
++        _ = app;
++        _ = window;
++        return;
+     }
+ 
+-    /// See ghostty_set_window_background_blur
+-    extern "c" fn CGSSetWindowBackgroundBlurRadius(*anyopaque, usize, c_int) i32;
+-    extern "c" fn CGSDefaultConnectionForThread() *anyopaque;
+-
+     // Darwin-only C APIs.
+     const Darwin = struct {
+         export fn ghostty_surface_set_display_id(ptr: *Surface, display_id: u32) void {
+@@ -2551,6 +2619,7 @@ pub const CAPI = struct {
+         }
+ 
+         export fn ghostty_inspector_metal_init(ptr: *Inspector, device: objc.c.id) bool {
++            if (comptime !@import("../build_config.zig").inspector) return false;
+             return ptr.initMetal(.fromId(device));
+         }
+ 
+@@ -2559,6 +2628,7 @@ pub const CAPI = struct {
+             command_buffer: objc.c.id,
+             descriptor: objc.c.id,
+         ) void {
++            if (comptime !@import("../build_config.zig").inspector) return;
+             return ptr.renderMetal(
+                 .fromId(command_buffer),
+                 .fromId(descriptor),
+@@ -2569,6 +2639,7 @@ pub const CAPI = struct {
+         }
+ 
+         export fn ghostty_inspector_metal_shutdown(ptr: *Inspector) void {
++            if (comptime !@import("../build_config.zig").inspector) return;
+             if (ptr.backend) |v| {
+                 v.deinit();
+                 ptr.backend = null;
+diff --git a/src/termio.zig b/src/termio.zig
+index b168851..6931fcb 100644
+--- a/src/termio.zig
++++ b/src/termio.zig
+@@ -23,6 +23,7 @@ const message = @import("termio/message.zig");
+ pub const backend = @import("termio/backend.zig");
+ pub const mailbox = @import("termio/mailbox.zig");
+ pub const Exec = @import("termio/Exec.zig");
++pub const HostManaged = @import("termio/HostManaged.zig");
+ pub const Options = @import("termio/Options.zig");
+ pub const Termio = @import("termio/Termio.zig");
+ pub const Thread = @import("termio/Thread.zig");
+diff --git a/src/termio/HostManaged.zig b/src/termio/HostManaged.zig
+new file mode 100644
+index 0000000..0d18213
+--- /dev/null
++++ b/src/termio/HostManaged.zig
+@@ -0,0 +1,136 @@
++const HostManaged = @This();
++
++const std = @import("std");
++const Allocator = std.mem.Allocator;
++const renderer = @import("../renderer.zig");
++const terminal = @import("../terminal/main.zig");
++const termio = @import("../termio.zig");
++
++userdata: ?*anyopaque = null,
++write: Config.Write,
++resize_cb: ?Config.Resize = null,
++grid_size: renderer.GridSize = .{
++    .columns = 0,
++    .rows = 0,
++},
++screen_size: renderer.ScreenSize = .{
++    .width = 0,
++    .height = 0,
++},
++
++pub const Config = struct {
++    pub const Write = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) void;
++    pub const Resize = *const fn (?*anyopaque, u16, u16, u32, u32) callconv(.c) void;
++
++    userdata: ?*anyopaque = null,
++    write: Write,
++    resize: ?Resize = null,
++};
++
++pub fn init(cfg: Config) HostManaged {
++    return .{
++        .userdata = cfg.userdata,
++        .write = cfg.write,
++        .resize_cb = cfg.resize,
++    };
++}
++
++pub fn deinit(self: *HostManaged) void {
++    _ = self;
++}
++
++pub fn initTerminal(self: *HostManaged, term: *terminal.Terminal) void {
++    self.grid_size = .{
++        .columns = term.cols,
++        .rows = term.rows,
++    };
++    self.screen_size = .{
++        .width = term.width_px,
++        .height = term.height_px,
++    };
++}
++
++pub fn threadEnter(
++    self: *HostManaged,
++    alloc: Allocator,
++    io: *termio.Termio,
++    td: *termio.Termio.ThreadData,
++) !void {
++    _ = alloc;
++    _ = io;
++
++    td.backend = .{ .host_managed = .{} };
++    self.notifyResize();
++}
++
++pub fn threadExit(self: *HostManaged, td: *termio.Termio.ThreadData) void {
++    _ = self;
++    _ = td;
++}
++
++pub fn focusGained(
++    self: *HostManaged,
++    td: *termio.Termio.ThreadData,
++    focused: bool,
++) !void {
++    _ = self;
++    _ = td;
++    _ = focused;
++}
++
++pub fn resize(
++    self: *HostManaged,
++    grid_size: renderer.GridSize,
++    screen_size: renderer.ScreenSize,
++) !void {
++    self.grid_size = grid_size;
++    self.screen_size = screen_size;
++    self.notifyResize();
++}
++
++pub fn queueWrite(
++    self: *HostManaged,
++    alloc: Allocator,
++    td: *termio.Termio.ThreadData,
++    data: []const u8,
++    linefeed: bool,
++) !void {
++    _ = alloc;
++    _ = td;
++    _ = linefeed;
++
++    if (data.len == 0) return;
++    self.write(self.userdata, data.ptr, data.len);
++}
++
++pub fn childExitedAbnormally(
++    self: *HostManaged,
++    gpa: Allocator,
++    t: *terminal.Terminal,
++    exit_code: u32,
++    runtime_ms: u64,
++) !void {
++    _ = self;
++    _ = gpa;
++    _ = t;
++    _ = exit_code;
++    _ = runtime_ms;
++}
++
++fn notifyResize(self: *HostManaged) void {
++    const resize_cb = self.resize_cb orelse return;
++    resize_cb(
++        self.userdata,
++        self.grid_size.columns,
++        self.grid_size.rows,
++        self.screen_size.width,
++        self.screen_size.height,
++    );
++}
++
++pub const ThreadData = struct {
++    pub fn deinit(self: *ThreadData, alloc: Allocator) void {
++        _ = self;
++        _ = alloc;
++    }
++};
+diff --git a/src/termio/backend.zig b/src/termio/backend.zig
+index c29009a..9857cbd 100644
+--- a/src/termio/backend.zig
++++ b/src/termio/backend.zig
+@@ -11,28 +11,34 @@ const ProcessInfo = @import("../pty.zig").ProcessInfo;
+ const WRITE_REQ_PREALLOC = std.math.pow(usize, 2, 5);
+ 
+ /// The kinds of backends.
+-pub const Kind = enum { exec };
++pub const Kind = enum { exec, host_managed };
+ 
+ /// Configuration for the various backend types.
+ pub const Config = union(Kind) {
+     /// Exec uses posix exec to run a command with a pty.
+     exec: termio.Exec.Config,
++
++    /// Host managed forwards terminal IO through embedder callbacks.
++    host_managed: termio.HostManaged.Config,
+ };
+ 
+ /// Backend implementations. A backend is responsible for owning the pty
+ /// behavior and providing read/write capabilities.
+ pub const Backend = union(Kind) {
+     exec: termio.Exec,
++    host_managed: termio.HostManaged,
+ 
+     pub fn deinit(self: *Backend) void {
+         switch (self.*) {
+             .exec => |*exec| exec.deinit(),
++            .host_managed => |*host_managed| host_managed.deinit(),
+         }
+     }
+ 
+     pub fn initTerminal(self: *Backend, t: *terminal.Terminal) void {
+         switch (self.*) {
+             .exec => |*exec| exec.initTerminal(t),
++            .host_managed => |*host_managed| host_managed.initTerminal(t),
+         }
+     }
+ 
+@@ -44,12 +50,14 @@ pub const Backend = union(Kind) {
+     ) !void {
+         switch (self.*) {
+             .exec => |*exec| try exec.threadEnter(alloc, io, td),
++            .host_managed => |*host_managed| try host_managed.threadEnter(alloc, io, td),
+         }
+     }
+ 
+     pub fn threadExit(self: *Backend, td: *termio.Termio.ThreadData) void {
+         switch (self.*) {
+             .exec => |*exec| exec.threadExit(td),
++            .host_managed => |*host_managed| host_managed.threadExit(td),
+         }
+     }
+ 
+@@ -60,6 +68,7 @@ pub const Backend = union(Kind) {
+     ) !void {
+         switch (self.*) {
+             .exec => |*exec| try exec.focusGained(td, focused),
++            .host_managed => |*host_managed| try host_managed.focusGained(td, focused),
+         }
+     }
+ 
+@@ -70,6 +79,7 @@ pub const Backend = union(Kind) {
+     ) !void {
+         switch (self.*) {
+             .exec => |*exec| try exec.resize(grid_size, screen_size),
++            .host_managed => |*host_managed| try host_managed.resize(grid_size, screen_size),
+         }
+     }
+ 
+@@ -82,6 +92,7 @@ pub const Backend = union(Kind) {
+     ) !void {
+         switch (self.*) {
+             .exec => |*exec| try exec.queueWrite(alloc, td, data, linefeed),
++            .host_managed => |*host_managed| try host_managed.queueWrite(alloc, td, data, linefeed),
+         }
+     }
+ 
+@@ -99,6 +110,12 @@ pub const Backend = union(Kind) {
+                 exit_code,
+                 runtime_ms,
+             ),
++            .host_managed => |*host_managed| try host_managed.childExitedAbnormally(
++                gpa,
++                t,
++                exit_code,
++                runtime_ms,
++            ),
+         }
+     }
+ 
+@@ -108,6 +125,7 @@ pub const Backend = union(Kind) {
+     pub fn getProcessInfo(self: *Backend, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+         return switch (self.*) {
+             .exec => |*exec| exec.getProcessInfo(info),
++            .host_managed => null,
+         };
+     }
+ };
+@@ -115,10 +133,12 @@ pub const Backend = union(Kind) {
+ /// Termio thread data. See termio.ThreadData for docs.
+ pub const ThreadData = union(Kind) {
+     exec: termio.Exec.ThreadData,
++    host_managed: termio.HostManaged.ThreadData,
+ 
+     pub fn deinit(self: *ThreadData, alloc: Allocator) void {
+         switch (self.*) {
+             .exec => |*exec| exec.deinit(alloc),
++            .host_managed => |*host_managed| host_managed.deinit(alloc),
+         }
+     }
+ 

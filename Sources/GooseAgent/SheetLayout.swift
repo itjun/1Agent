@@ -1,6 +1,10 @@
 import Foundation
 
 enum SheetLayout {
+    static let terminalCommandSidebarWidth: CGFloat = 270
+    static let terminalCommandSidebarMinimumWidth: CGFloat = 230
+    static let terminalCommandSidebarMaximumWidth: CGFloat = 420
+    static let terminalMinimumContentWidth: CGFloat = 180
     static let hostInformation: CGFloat = 520
     static let hostInformationHeight: CGFloat = 640
     static let quickCommand: CGFloat = 880
@@ -21,10 +25,11 @@ enum SheetLayout {
     static let commandSidebarPreviewWidth: CGFloat = 420
     static let commandSidebarPreviewMaxWidth: CGFloat = 900
     static let commandSidebarRowHeight: CGFloat = 40
+    static let commandSidebarUsageRowHeight: CGFloat = 60
+    static let commandSidebarDetailsHeight: CGFloat = 220
     static let commandPreviewInset: CGFloat = 16
     static let commandPreviewCodeInset: CGFloat = 10
     static let commandPreviewCodeSpacing: CGFloat = 8
-    static let folderPicker: CGFloat = 600
     static let confirmation: CGFloat = 420
     static let dialogInset: CGFloat = 32
     static let search: CGFloat = 520

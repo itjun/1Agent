@@ -5,7 +5,8 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 revision=83fb95624b0439ee660c2679b43b38c8b63769cd
 archive_sha=7759929eadaddf602d6fd5ad6b3403d854b91b7083975cd984bb525bc8275187
-patch="$root/Vendor/libghostty-spm/Patches/ghostty-v1.4.0.patch"
+patch_dir="$root/Vendor/libghostty-spm/Patches"
+series="$patch_dir/series"
 work="$root/build/libghostty"
 source_dir="$work/source"
 framework="$root/Vendor/libghostty-spm/BinaryTarget/GhosttyKit.xcframework"
@@ -18,7 +19,14 @@ if [[ ! "$zig_version" =~ ^0\.17\.[0-9]+$ ]]; then
     exit 1
 fi
 
-patch_sha="$(shasum -a 256 "$patch" | awk '{print $1}')"
+patches=()
+while IFS= read -r name || [[ -n "$name" ]]; do
+    [[ -z "$name" || "$name" == \#* ]] && continue
+    [[ "$name" =~ ^[a-zA-Z0-9.-]+\.patch$ && -f "$patch_dir/$name" ]] || { echo "error: invalid patch entry: $name" >&2; exit 1; }
+    patches+=("$patch_dir/$name")
+done < "$series"
+[[ ${#patches[@]} -gt 0 ]] || { echo 'error: empty patch series' >&2; exit 1; }
+patch_sha="$( { cat "$series"; for patch in "${patches[@]}"; do shasum -a 256 "$patch" | awk '{print $1}'; done; } | shasum -a 256 | awk '{print $1}')"
 source_stamp="$revision $archive_sha $patch_sha"
 script_sha="$(shasum -a 256 "$0" | awk '{print $1}')"
 build_stamp="$(printf '%s\n%s\n%s\n%s\n' "$source_stamp" "$script_sha" "$zig_version" "$(xcodebuild -version)" | shasum -a 256 | awk '{print $1}')"
@@ -30,7 +38,9 @@ fi
 mkdir -p "$work"
 if [[ ! -f "$work/source-stamp" || "$(cat "$work/source-stamp")" != "$source_stamp" || ! -f "$source_dir/build.zig" ]]; then
     archive="$work/ghostty-$revision.tar.gz"
-    curl -fL --retry 3 -o "$archive" "https://codeload.github.com/ghostty-org/ghostty/tar.gz/$revision"
+    if [[ ! -f "$archive" ]]; then
+        curl -fL --retry 3 -o "$archive" "https://codeload.github.com/ghostty-org/ghostty/tar.gz/$revision"
+    fi
     actual_sha="$(shasum -a 256 "$archive" | awk '{print $1}')"
     if [[ "$actual_sha" != "$archive_sha" ]]; then
         echo "error: Ghostty source archive checksum mismatch" >&2
@@ -42,8 +52,10 @@ if [[ ! -f "$work/source-stamp" || "$(cat "$work/source-stamp")" != "$source_sta
     # The source lives under the 1Agent checkout. Isolate it so git apply
     # cannot silently skip every patch path relative to the parent repository.
     git -C "$source_dir" init -q
-    git -C "$source_dir" apply --check "$patch"
-    git -C "$source_dir" apply "$patch"
+    for patch in "${patches[@]}"; do
+        git -C "$source_dir" apply --check "$patch"
+        git -C "$source_dir" apply "$patch"
+    done
     if ! grep -q 'GHOSTTY_SURFACE_IO_BACKEND_HOST_MANAGED' "$source_dir/include/ghostty.h" ||
        ! grep -q 'LIBGHOSTTY_SPM_TRIM_PATCH' "$source_dir/src/build/Config.zig"; then
         echo "error: Ghostty patches were not applied" >&2

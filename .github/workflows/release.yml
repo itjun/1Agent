@@ -1,7 +1,7 @@
 name: Release
 
 # 打 v* tag 时触发：构建 macOS 安装包，连同签名更新清单一起发布到 GitHub Release。
-# 客户端读取 https://github.com/itjun/1Agent/releases/latest/download/latest.json
+# 新客户端读取 appcast.xml；保留 latest.json 供旧客户端升级。
 on:
   push:
     tags:
@@ -18,6 +18,10 @@ jobs:
   release:
     name: Publish macOS
     runs-on: macos-latest
+    env:
+      SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+      DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7
 
@@ -31,6 +35,28 @@ jobs:
       - name: Build libghostty
         run: ./scripts/build-libghostty.sh
 
+      - name: Import release signing identity
+        env:
+          CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_PASSWORD }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          for name in CERTIFICATE CERTIFICATE_PASSWORD DEVELOPER_ID_NAME APPLE_TEAM_ID SPARKLE_PUBLIC_KEY SPARKLE_PRIVATE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::缺少发布签名配置 $name"; exit 1; fi
+          done
+          keychain="$RUNNER_TEMP/oneagent-release.keychain-db"
+          password="$(openssl rand -hex 32)"
+          echo "::add-mask::$password"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/developer-id.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          rm "$RUNNER_TEMP/developer-id.p12"
+
       - name: Build
         run: |
           xcodebuild \
@@ -43,13 +69,20 @@ jobs:
             build \
             ONLY_ACTIVE_ARCH=YES \
             ARCHS=arm64 \
-            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_IDENTITY="$DEVELOPER_ID_NAME" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" \
+            MARKETING_VERSION="${GITHUB_REF_NAME#v}" \
+            CURRENT_PROJECT_VERSION="$((1000 + GITHUB_RUN_NUMBER))" \
             CODE_SIGN_STYLE=Manual \
             -skipPackagePluginValidation
 
       - name: Package
         run: |
           app="build/DerivedData.noindex/Build/Products/Release/1Agent.app"
+          ./scripts/sign-sparkle.sh "$app" "$DEVELOPER_ID_NAME"
+          codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_NAME" "$app"
+          codesign --verify --deep --strict "$app"
           stage="$(mktemp -d)"
           mkdir -p dist
           ditto "$app" "$stage/1Agent.app"
@@ -79,6 +112,35 @@ jobs:
             --min "$min" \
             --out dist
 
+      - name: Generate signed Sparkle appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/sparkle.key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$key"
+          package="1Agent-${GITHUB_REF_NAME}-mac-arm64"
+          cp dist/notes.txt "dist/$package.txt"
+          tools="build/SourcePackages/artifacts/sparkle/Sparkle/bin"
+          "$tools/generate_appcast" --ed-key-file "$key" --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" --embed-release-notes --maximum-deltas 0 dist
+          "$tools/sign_update" --verify --ed-key-file "$key" dist/appcast.xml
+          signature="$(python3 -c 'import sys, xml.etree.ElementTree as E; e=E.parse("dist/appcast.xml").find("./channel/item/enclosure"); s=e.get("{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature", ""); assert s, "更新包缺少 Sparkle 签名"; print(s)')"
+          "$tools/sign_update" --verify --ed-key-file "$key" "dist/$package.dmg" "$signature"
+          # 再用客户端内置公钥验证，避免公私钥配置不匹配却发布成功。
+          swift - "$SPARKLE_PUBLIC_KEY" "dist/$package.dmg" "$signature" <<'SWIFT'
+          import CryptoKit
+          import Foundation
+          let arguments = CommandLine.arguments
+          let key = try Curve25519.Signing.PublicKey(rawRepresentation: Data(base64Encoded: arguments[1])!)
+          let archive = try Data(contentsOf: URL(fileURLWithPath: arguments[2]), options: .mappedIfSafe)
+          guard let signature = Data(base64Encoded: arguments[3]), key.isValidSignature(signature, for: archive) else {
+              fputs("error: Sparkle 签名与客户端公钥不匹配\n", stderr)
+              exit(1)
+          }
+          SWIFT
+
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,10 +148,10 @@ jobs:
           tag="$GITHUB_REF_NAME"
           dmg="dist/1Agent-${tag}-mac-arm64.dmg"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "dist/latest.json" "dist/latest.json.sig" "$dmg" --clobber
+            gh release upload "$tag" "dist/appcast.xml" "dist/latest.json" "dist/latest.json.sig" "$dmg" --clobber
             gh release delete-asset "$tag" "1Agent-${tag}-mac-arm64.zip" --yes || true
           else
-            args=(release create "$tag" "dist/latest.json" "dist/latest.json.sig" "$dmg" --title "$tag" --notes-file dist/notes.txt)
+            args=(release create "$tag" "dist/appcast.xml" "dist/latest.json" "dist/latest.json.sig" "$dmg" --title "$tag" --notes-file dist/notes.txt)
             if [[ "$tag" == *-* ]]; then
               args+=(--prerelease --latest=false)
             else
@@ -97,3 +159,9 @@ jobs:
             fi
             gh "${args[@]}"
           fi
+
+      - name: Remove temporary signing identity
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/oneagent-release.keychain-db" || true
+          rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/sparkle.key"

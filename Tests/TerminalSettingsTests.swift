@@ -77,7 +77,7 @@ enum TerminalSettingsTests {
             "font-codepoint-map = U+100000-U+10FFFD=Symbols Nerd Font Mono",
         ]
         let rendered = TerminalSettings.defaults.configEntries().map { "\($0.key) = \($0.value)" }
-        expect(rendered == legacy, "defaults render the legacy lines: \(rendered)")
+        expect(rendered == legacy + ["scrollback-limit-bytes = 128000000"], "defaults render the legacy lines: \(rendered)")
 
         let empty = UserDefaults(suiteName: "TerminalSettingsTests.empty")!
         empty.removePersistentDomain(forName: "TerminalSettingsTests.empty")
@@ -122,7 +122,16 @@ enum TerminalSettingsTests {
         settings.bellFeatures = []
         settings.customConfig = "cursor-color = #ff0000\n"
         settings.save(to: store)
-        expect(TerminalSettings.load(from: store) == settings, "save then load round-trips every field")
+        var expected = TerminalSettings.defaults
+        expected.fontFamily = "Menlo"
+        expected.fontSize = 16
+        expected.backgroundOpacity = 0.9
+        expected.copyOnSelect = .clipboard
+        expected.clipboardPasteProtection = false
+        let loaded = TerminalSettings.load(from: store)
+        expect(loaded == expected, "hidden settings ignore old values; retained settings still load")
+        expect(!loaded.configEntries().contains { $0.key == "cursor-color" }, "old custom snippet is not rendered")
+        expect(store.string(forKey: TerminalSettings.customConfigKey) == settings.customConfig, "loading does not erase old preferences")
         expect(store.string(forKey: "terminal.shellIntegrationFeatures") == "sudo,path", "features stored in Ghostty order")
         expect(store.double(forKey: "appearance.terminalFontSize") == 16, "font size keeps its old key")
         store.removePersistentDomain(forName: suite)

@@ -2,28 +2,6 @@ import AppKit
 import QuartzCore
 import SwiftUI
 
-struct TerminalLocationBadge: View {
-    var tab: TerminalTab
-    @Environment(\.windowChrome) private var chrome
-
-    static let titleInset: CGFloat = 80
-
-    var body: some View {
-        if tab.hasTerminal {
-            Text(tab.isLocal ? "This Mac" : "Remote")
-                .font(Theme.Font.rowMeta)
-                .foregroundStyle(chrome.secondary)
-                .padding(.horizontal, 7)
-                .padding(.vertical, chrome.isSystem ? 0 : 3)
-                .frame(height: chrome.isSystem ? Theme.DefaultLayout.badgeHeight : nil)
-                .background(chrome.isSystem ? chrome.hoverFill : chrome.accentFill, in: RoundedRectangle(cornerRadius: 5))
-                .fixedSize()
-                .allowsHitTesting(false)
-                .accessibilityIdentifier("workspace.location." + tab.id.uuidString)
-        }
-    }
-}
-
 struct TerminalCanvas: View {
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
@@ -34,6 +12,7 @@ struct TerminalCanvas: View {
     var dropRelay: CanvasDropRelay
     var dark: Bool
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
+    @State private var commandWidthDrag: (id: UUID, start: CGFloat)?
     @State private var ratioDrag: (id: UUID, split: UUID, start: CGFloat)?
     /// Divider under the pointer. Its line turns accent while set.
     @State private var hoveredDividerID: UUID?
@@ -41,8 +20,8 @@ struct TerminalCanvas: View {
     /// does not resize the PTY to 1×1 (which reflows scrollback and jumps the cursor).
     @State private var lastContentFrame: [UUID: CGRect] = [:]
 
-    /// 终端信息统一放到窗口工具栏，各分屏只预留搜索和连接状态区域。
-    static func headerHeight(for frame: CGRect, isFloating: Bool = false) -> CGFloat { 0 }
+    /// 所有终端各有一条标题；搜索栏另行预留，通知浮在右下角。
+    static func headerHeight(for frame: CGRect, isFloating: Bool = false) -> CGFloat { ShellLayout.compactHeaderHeight }
 
     var body: some View {
         GeometryReader { geo in
@@ -53,7 +32,7 @@ struct TerminalCanvas: View {
             let frames = Self.paneFrames(root, zoomed: zoomed, in: layout, isFloating: isShellTransparent)
             let dividers = Self.paneDividers(root, zoomed: zoomed, in: layout)
             let isSplit = frames.count > 1
-            let paneHeaderHeight = isSplit ? ShellLayout.compactHeaderHeight : 0
+            let paneHeaderHeight = Self.headerHeight(for: layout)
             let fallbackContent = Self.contentFrame(layout, headerHeight: 0)
             // Only this window's terminals get a view here. A terminal shown in another window
             // keeps its process; the registry hands the same view over when it moves.
@@ -64,7 +43,7 @@ struct TerminalCanvas: View {
             ZStack(alignment: .topLeading) {
                 Color.clear
                 ForEach(ownTabs) { tab in
-                    let content = frames[tab.id].map { Self.terminalContentFrame($0, isFloating: isShellTransparent, accessoryHeight: paneHeaderHeight + findBarInset(tab)) }
+                    let content = frames[tab.id].map { Self.terminalContentFrame($0, isFloating: isShellTransparent, accessoryHeight: findBarInset(tab), commandSidebarWidth: commandSidebarWidth(tab, in: $0)) }
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
                     let isSelected = window.selectedTabID == tab.id && window.section == .terminals
@@ -79,13 +58,13 @@ struct TerminalCanvas: View {
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
                         isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace
-                            && !window.isToolReadingExpanded,
+,
                         isSelected: isSelected,
                         contentCornerRadius: 0,
                         isHeaderIntegrated: false,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
-                                !window.presentation.fullFilesWorkspace && !window.isToolReadingExpanded
+                                !window.presentation.fullFilesWorkspace
                         },
                         takeInitialInput: { model.takeInitialInput(for: tab.id) },
                         takeRemoteStartupCommand: { model.takeRemoteStartupCommand(for: tab.id) },
@@ -133,7 +112,7 @@ struct TerminalCanvas: View {
                 }
                 ForEach(model.tabs.filter { !$0.content.isTerminal && frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
-                        let content = Self.terminalContentFrame(frame, isFloating: isShellTransparent)
+                        let content = ShellLayout.contentFrame(frame, isFloating: isShellTransparent)
                         let cardHeader: CGFloat = 0
                         PaneContentView(model: model, window: window, tab: tab)
                             .frame(width: content.width, height: content.height)
@@ -256,25 +235,44 @@ struct TerminalCanvas: View {
 
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
+        let sidebarWidth = commandSidebarWidth(tab, in: frame)
+        let terminalWidth = max(1, frame.width - sidebarWidth)
         if tab.hasTerminal && headerHeight > 0 {
             terminalHeader(tab)
-                .frame(width: frame.width, height: headerHeight)
-                .position(x: frame.midX, y: frame.minY + headerHeight / 2)
+                .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
+                .frame(width: terminalWidth, height: headerHeight)
+                .background(WindowDragArea().accessibilityHidden(true))
+                .position(x: frame.minX + terminalWidth / 2, y: frame.minY + headerHeight / 2)
                 .zIndex(4)
         }
-        let showsBanner = showsConnectionBanner(tab)
-        if showsBanner {
-            connectionBanner(tab)
-                .frame(width: frame.width, height: Theme.PaneStyle.bannerHeight)
-                .position(x: frame.midX, y: frame.minY + headerHeight + Theme.PaneStyle.bannerHeight / 2)
-                .zIndex(4)
+        if tab.hasTerminal && sidebarWidth > 0 {
+            let height = max(1, frame.height)
+            let dividerX = frame.maxX - sidebarWidth
+            QuickCommandSidebar(model: model, window: window, tabID: tab.id)
+                .environment(\.windowChrome, WindowChrome(isDark: terminalIsDark))
+                .frame(width: sidebarWidth, height: height)
+                .clipped()
+                .position(x: frame.maxX - sidebarWidth / 2, y: frame.midY)
+                .zIndex(3)
+            PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
+                if commandWidthDrag?.id != tab.id { commandWidthDrag = (tab.id, sidebarWidth) }
+                guard let drag = commandWidthDrag else { return }
+                model.commandSidebars[tab.id, default: TerminalCommandSidebarState()].width =
+                    min(SheetLayout.terminalCommandSidebarMaximumWidth,
+                        max(SheetLayout.terminalCommandSidebarMinimumWidth, drag.start - delta))
+            }, onDragEnded: { commandWidthDrag = nil }, onDoubleClick: {
+                model.commandSidebars[tab.id, default: TerminalCommandSidebarState()].width = SheetLayout.terminalCommandSidebarWidth
+            })
+            .frame(width: 6, height: height)
+            .position(x: dividerX, y: frame.midY)
+            .accessibilityLabel("Resize Quick Commands")
+            .zIndex(5)
         }
         if let findState = find.states[tab.sessionID] {
-            let bannerOffset = showsBanner ? Theme.PaneStyle.bannerHeight : 0
-            let findTop = frame.minY + headerHeight + bannerOffset
+            let findTop = frame.minY + headerHeight
             TerminalFindBar(state: findState, onFocus: { model.notePaneFocused(tab.id, in: window) })
-                .frame(width: frame.width, height: Theme.PaneStyle.findBarHeight)
-                .position(x: frame.midX, y: findTop + Theme.PaneStyle.findBarHeight / 2)
+                .frame(width: terminalWidth, height: Theme.PaneStyle.findBarHeight)
+                .position(x: frame.minX + terminalWidth / 2, y: findTop + Theme.PaneStyle.findBarHeight / 2)
                 .zIndex(4)
         }
     }
@@ -283,8 +281,6 @@ struct TerminalCanvas: View {
         let isSelected = window.selectedTabID == tab.id && window.section == .terminals
         return HStack(spacing: Theme.Space.s) {
             HStack(spacing: Theme.Space.s) {
-                Image(systemName: tab.isLocal ? "terminal" : "network")
-                    .foregroundStyle(isSelected ? chrome.accent : chrome.secondary)
                 Text(verbatim: numberedPaneTitle(tab))
                     .font(Theme.Font.paneTitle)
                     .fontWeight(isSelected ? .semibold : .medium)
@@ -294,7 +290,7 @@ struct TerminalCanvas: View {
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                         .lineLimit(1).truncationMode(.middle).help(path)
                 }
-                Spacer(minLength: 4)
+                RemoteTitleStatus(tab: tab)
             }
             .frame(maxHeight: .infinity)
             .overlay {
@@ -307,38 +303,20 @@ struct TerminalCanvas: View {
                     freezesWindow: true
                 ).accessibilityHidden(true)
             }
+
         }
         .foregroundStyle(isSelected ? chrome.text : chrome.secondary)
         .padding(.horizontal, Theme.Space.m)
-        .frame(maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .onTapGesture { model.notePaneFocused(tab.id, in: window) }
-        .familyContextMenu { TerminalPaneActions.items(tab: tab, model: model, window: window) }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func showsConnectionBanner(_ tab: TerminalTab) -> Bool {
-        tab.reconnecting || tab.showsDisconnected
+    private func commandSidebarWidth(_ tab: TerminalTab, in frame: CGRect) -> CGFloat {
+        Self.commandSidebarWidth(model.commandSidebars[tab.id], paneWidth: frame.width)
     }
 
-    /// The terminal starts below an open find bar, and below the banner above that bar, so neither
-    /// hides the row Ghostty scrolls the current match to.
+    /// 搜索栏仍预留空间；右下角通知不再改变终端尺寸或滚动位置。
     private func findBarInset(_ tab: TerminalTab) -> CGFloat {
-        let banner = showsConnectionBanner(tab) ? Theme.PaneStyle.bannerHeight : 0
-        let find = find.openSessionIDs.contains(tab.sessionID) ? Theme.PaneStyle.findBarHeight : 0
-        return banner + find
-    }
-
-    /// Recovery stays inside the reserved strip; it never covers the terminal or takes focus.
-    private func connectionBanner(_ tab: TerminalTab) -> some View {
-        TerminalConnectionBanner(tab: tab, onRecover: {
-            // A queued second click must not restart a terminal that has already recovered.
-            guard let current = model.tabs.first(where: { $0.id == tab.id }), current.showsDisconnected else { return }
-            if current.isLocal { model.reopenLocalTerminal(current.id) }
-            else { model.reconnect(current.id) }
-        }, menuItems: {
-            TerminalPaneActions.items(tab: tab, model: model, window: window)
-        })
-        .environment(\.windowChrome, chrome)
+        find.openSessionIDs.contains(tab.sessionID) ? Theme.PaneStyle.findBarHeight : 0
     }
 
     private func numberedPaneTitle(_ tab: TerminalTab) -> String {
@@ -388,9 +366,20 @@ func copySessionInfo(_ tab: TerminalTab, model: AppModel) {
 
 extension TerminalCanvas {
     /// 先确定整张浮动卡片，再预留内部标题、搜索及连接状态区域。
-    static func terminalContentFrame(_ frame: CGRect, isFloating: Bool, accessoryHeight: CGFloat = 0) -> CGRect {
-        Self.contentFrame(ShellLayout.contentFrame(frame, isFloating: isFloating),
-                          headerHeight: Self.headerHeight(for: frame, isFloating: isFloating) + accessoryHeight)
+    static func terminalContentFrame(_ frame: CGRect, isFloating: Bool, accessoryHeight: CGFloat = 0, commandSidebarWidth: CGFloat = 0) -> CGRect {
+        var content = Self.contentFrame(ShellLayout.contentFrame(frame, isFloating: isFloating),
+                                       headerHeight: Self.headerHeight(for: frame, isFloating: isFloating) + accessoryHeight)
+        content.size.width = max(1, content.width - commandSidebarWidth)
+        return content
+    }
+
+    static func commandSidebarWidth(_ state: TerminalCommandSidebarState?, paneWidth: CGFloat) -> CGFloat {
+        guard let state, state.isExpanded else { return 0 }
+        let available = paneWidth - SheetLayout.terminalMinimumContentWidth
+        // 极窄分屏临时让出正文空间，放大后恢复，不改变终端自己的展开状态。
+        guard available >= SheetLayout.terminalCommandSidebarMinimumWidth else { return 0 }
+        return min(max(state.width, SheetLayout.terminalCommandSidebarMinimumWidth),
+                   SheetLayout.terminalCommandSidebarMaximumWidth, available)
     }
 
     /// A zoomed pane takes the whole area. The other panes get no frame, so their terminals stay

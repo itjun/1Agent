@@ -55,18 +55,13 @@ struct WorkspaceToolbar: NSViewRepresentable {
         let visibility: WorkspaceToolbarVisibility
         private weak var window: NSWindow?
         private var toolbar: NSToolbar?
-        private var toolsItem: NSToolbarItem?
-        private var toolsWidth: NSLayoutConstraint?
-        private var toolsView: NSHostingView<WorkspaceToolbarTools>?
         private var informationItem: NSToolbarItem?
         private var informationView: NSHostingView<AnyView>?
         private var informationWidth: NSLayoutConstraint?
         private var isPageToolbar = false
         private let navigationSeparator = NSToolbarItem.Identifier("workspace.navigationSeparator")
         private let information = NSToolbarItem.Identifier("workspace.focusedInformation")
-        private let branch = NSToolbarItem.Identifier("workspace.branch")
         private let sidebar = NSToolbarItem.Identifier("workspace.sidebar")
-        private let tools = NSToolbarItem.Identifier("workspace.tools")
 
         init(model: AppModel, state: WindowState, visibility: WorkspaceToolbarVisibility) {
             self.model = model
@@ -105,46 +100,23 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 : state.presentation.fullFilesWorkspace ? String(localized: "Files")
                 : tab.map { model.sessionTitle($0) } ?? String(localized: "1Agent")
             isPageToolbar = !isTerminal
+            // 终端标题直接属于各自面板，原生通栏只供文件／命令库使用。
+            if isTerminal {
+                window?.toolbar = nil
+            } else if let toolbar {
+                if window?.toolbar !== toolbar { window?.toolbar = toolbar }
+                let desired = [sidebar, navigationSeparator, information]
+                for index in toolbar.items.indices.reversed() where !desired.contains(toolbar.items[index].itemIdentifier) {
+                    toolbar.removeItem(at: index)
+                }
+                for (index, id) in desired.enumerated() where !toolbar.items.contains(where: { $0.itemIdentifier == id }) {
+                    toolbar.insertItem(withItemIdentifier: id, at: min(index, toolbar.items.count))
+                }
+            }
             if let window {
                 let height = max(0, window.frame.height - window.contentLayoutRect.maxY)
                 if abs(state.workspaceToolbarHeight - height) > 0.5 {
                     DispatchQueue.main.async { [weak self] in self?.state.workspaceToolbarHeight = height }
-                }
-            }
-            if let toolbar {
-                let leadingItems = [sidebar, navigationSeparator, information]
-                for (position, id) in leadingItems.enumerated() {
-                    if state.isToolReadingExpanded {
-                        if let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == id }) {
-                            toolbar.removeItem(at: index)
-                        }
-                    } else if !toolbar.items.contains(where: { $0.itemIdentifier == id }) {
-                        toolbar.insertItem(withItemIdentifier: id, at: min(position, toolbar.items.count))
-                    }
-                }
-                for id in [NSToolbarItem.Identifier.flexibleSpace] {
-                    if isPageToolbar || state.isToolReadingExpanded, let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == id }) {
-                        toolbar.removeItem(at: index)
-                    } else if !isPageToolbar && !state.isToolReadingExpanded && !toolbar.items.contains(where: { $0.itemIdentifier == id }) {
-                        toolbar.insertItem(withItemIdentifier: id, at: toolbar.items.firstIndex(where: { $0.itemIdentifier == tools }) ?? toolbar.items.count)
-                    }
-                }
-                let index = toolbar.items.firstIndex { $0.itemIdentifier == tools }
-                if isTerminal {
-                    if index == nil { toolbar.insertItem(withItemIdentifier: tools, at: toolbar.items.count) }
-                    updateToolWidth()
-                } else if let index {
-                    toolbar.removeItem(at: index)
-                    toolsItem = nil
-                    toolsWidth = nil
-                }
-                if isTerminal && !state.isToolReadingExpanded && tab != nil {
-                    if !toolbar.items.contains(where: { $0.itemIdentifier == branch }) {
-                        toolbar.insertItem(withItemIdentifier: branch,
-                            at: toolbar.items.firstIndex(where: { $0.itemIdentifier == tools }) ?? toolbar.items.count)
-                    }
-                } else if let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == branch }) {
-                    toolbar.removeItem(at: index)
                 }
             }
             updateInformation()
@@ -190,7 +162,7 @@ struct WorkspaceToolbar: NSViewRepresentable {
         @objc private func windowDidResize(_ notification: Notification) { update() }
 
         func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-            [sidebar, navigationSeparator, information, .flexibleSpace, branch, tools]
+            [sidebar, navigationSeparator, information]
         }
         func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
             toolbarDefaultItemIdentifiers(toolbar)
@@ -201,24 +173,6 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 guard let content = window?.contentView,
                       let splitView = findSplitView(in: content, identifier: "workspace.navigationSplit") else { return nil }
                 return NSTrackingSeparatorToolbarItem(identifier: id, splitView: splitView, dividerIndex: 0)
-            }
-            if id == tools {
-                let control = NSHostingView(rootView: WorkspaceToolbarTools(model: model, state: state, visibility: visibility, tabsWidth: toolTabsWidth))
-                control.sizingOptions = []
-                let width = control.widthAnchor.constraint(equalToConstant: toolGroupWidth)
-                width.priority = .defaultLow
-                width.isActive = true
-                control.heightAnchor.constraint(equalToConstant: WorkspaceToolbarTools.height).isActive = true
-                let item = NSToolbarItem(itemIdentifier: id)
-                item.label = String(localized: "Workspace Tools")
-                item.view = control
-                item.autovalidates = false
-                item.visibilityPriority = .high
-                if #available(macOS 26.0, *) { item.isBordered = false }
-                toolsItem = item
-                toolsView = control
-                toolsWidth = width
-                return item
             }
             if id == information {
                 let item = NSToolbarItem(itemIdentifier: id)
@@ -231,17 +185,6 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 item.maxSize = NSSize(width: 720, height: Theme.Toolbar.height)
                 item.visibilityPriority = .high
                 if #available(macOS 26.0, *) { item.isBordered = false }
-                return item
-            }
-            if id == branch {
-                let item = NSToolbarItem(itemIdentifier: id)
-                let view = NSHostingView(rootView: WorkspaceToolbarBranch(model: model, state: state))
-                view.sizingOptions = [.intrinsicContentSize]
-                item.view = view
-                item.minSize = NSSize(width: 1, height: Theme.Toolbar.height)
-                item.maxSize = NSSize(width: Theme.Toolbar.branchMaxWidth, height: Theme.Toolbar.height)
-                item.visibilityPriority = .high
-                item.isBordered = false
                 return item
             }
             let item = NSToolbarItem(itemIdentifier: id)
@@ -272,120 +215,15 @@ struct WorkspaceToolbar: NSViewRepresentable {
         @objc private func splitDidResize(_ notification: Notification) {
             guard let split = notification.object as? NSSplitView, split.window === window else { return }
             DispatchQueue.main.async { [weak self] in
-                self?.updateToolWidth()
                 self?.updateInformation()
             }
         }
 
-        private var toolTabsWidth: CGFloat {
-            let sidebarWidth: CGFloat
-            if let content = window?.contentView,
-               let split = findSplitView(in: content, identifier: "workspace.inspectorSplit"),
-               let inspector = split.arrangedSubviews.last, !split.isSubviewCollapsed(inspector) {
-                sidebarWidth = inspector.frame.width
-            } else {
-                sidebarWidth = CGFloat(state.presentation.toolSidebarWidth)
-            }
-            // 标签与开关共用右栏宽度，开关始终在最右端预留位置。
-            return max(WorkspaceToolbarTools.height * 3,
-                       sidebarWidth - WorkspaceToolbarTools.height - 4 * Theme.Space.s)
-        }
-
-        private var toolGroupWidth: CGFloat {
-            guard state.presentation.toolSidebarOpen else { return WorkspaceToolbarTools.height }
-            let tabsWidth = toolTabsWidth
-            if state.isToolReadingExpanded {
-                return window?.frame.width ?? state.toolPreviewFrame.width + tabsWidth
-            }
-            let previewWidth = state.toolPreviewFrame.width
-            return tabsWidth + WorkspaceToolbarTools.height + 2 * Theme.Space.s + Theme.Toolbar.sectionInset
-                + (previewWidth > 0 ? previewWidth + 2 * Theme.Space.s : 0)
-        }
-
-        private func updateToolWidth() {
-            guard let toolsWidth else { return }
-            let width = toolGroupWidth
-            if abs(toolsWidth.constant - width) > 0.5 { toolsWidth.constant = width }
-            toolsView?.rootView = WorkspaceToolbarTools(model: model, state: state, visibility: visibility, tabsWidth: toolTabsWidth)
-            toolsItem?.minSize = NSSize(width: state.isToolReadingExpanded ? toolTabsWidth + 220 : width, height: WorkspaceToolbarTools.height)
-            toolsItem?.maxSize = NSSize(width: width, height: WorkspaceToolbarTools.height)
-        }
-    }
-}
-
-/// 三个文字选项等宽排列，右端开关在侧栏展开或通栏悬停时显示。
-private struct WorkspaceToolbarTools: View {
-    static let height: CGFloat = Theme.Toolbar.height
-    @ObservedObject var model: AppModel
-    @ObservedObject var state: WindowState
-    @ObservedObject var visibility: WorkspaceToolbarVisibility
-    var tabsWidth: CGFloat
-    @ObservedObject private var appearance = AppearanceDriver.shared
-    @FocusState private var isControlFocused: Bool
-    @Environment(\.accessibilityReduceMotion) private var isMotionReduced
-    @State private var hoveredTab: WorkspaceToolTab?
-
-    private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearance.isDark) }
-    private var isToggleVisible: Bool {
-        state.presentation.toolSidebarOpen || visibility.isRevealed
-            || isControlFocused || NSWorkspace.shared.isVoiceOverEnabled
-    }
-
-    var body: some View {
-        HStack(spacing: 2 * Theme.Space.s) {
-            if state.toolPreviewFrame.width > 0 {
-                WorkspacePreviewToolbar(model: model, state: state)
-                    .frame(width: state.isToolReadingExpanded ? nil : state.toolPreviewFrame.width)
-                    .frame(maxWidth: state.isToolReadingExpanded ? .infinity : nil)
-            }
-            if state.presentation.toolSidebarOpen {
-                HStack(spacing: 0) {
-                    ForEach(WorkspaceToolTab.allCases, id: \.self) { tab in
-                        let isSelected = state.toolSidebarTab == tab
-                        Button {
-                            state.toolSidebarTab = tab
-                        } label: {
-                            Text(verbatim: tab.title)
-                                .font(.system(size: Theme.Toolbar.textSize, weight: isSelected ? .semibold : .regular))
-                                .foregroundStyle(isSelected ? chrome.selectionText : chrome.secondary)
-                                .lineLimit(1)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: Self.height)
-                                .background(isSelected ? chrome.accentFill : hoveredTab == tab ? chrome.hoverFill : .clear,
-                                            in: RoundedRectangle(cornerRadius: Theme.Radius.control))
-                                .padding(.horizontal, 2)
-                                .contentShape(Rectangle())
-                        }
-                        .onHover { hoveredTab = $0 ? tab : nil }
-                        .help(tab.title)
-                        .accessibilityLabel(tab.title)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
-                        .accessibilityIdentifier("workspace.tools.\(tab.rawValue)")
-                    }
-                }
-                .frame(width: tabsWidth)
-            }
-            WorkspaceSidebarToggle(shortcut: .toggleToolSidebar,
-                systemImage: "sidebar.right", identifier: "workspace.inspector") {
-                model.toggleToolSidebar(in: state)
-            }
-            .focused($isControlFocused)
-            .opacity(isToggleVisible ? 1 : 0)
-            .allowsHitTesting(isToggleVisible)
-            .animation(isMotionReduced ? nil : .easeOut(duration: 0.15), value: isToggleVisible)
-        }
-        .buttonStyle(FamilyPlainButtonStyle())
-        .padding(.leading, state.presentation.toolSidebarOpen && !state.isToolReadingExpanded ? Theme.Toolbar.sectionInset : 0)
-        .frame(height: Self.height)
-        .preferredColorScheme(appearance.interfaceColorScheme)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "Workspace Tools"))
-        .accessibilityIdentifier("workspace.tools")
     }
 }
 
 /// 左右侧栏共用扁平按钮，只在悬停和按下时显示底色。
-private struct WorkspaceSidebarToggle: View {
+struct WorkspaceSidebarToggle: View {
     let shortcut: AppShortcutID
     let systemImage: String
     let identifier: String
@@ -422,7 +260,7 @@ private struct WorkspaceSidebarButtonStyle: ButtonStyle {
 }
 
 /// 文件和改动预览共用通栏标题及阅读操作。
-private struct WorkspacePreviewToolbar: View {
+struct WorkspacePreviewToolbar: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: WindowState
     var body: some View {
@@ -440,13 +278,13 @@ private struct WorkspacePreviewToolbar: View {
                 NSApp.keyWindow?.makeFirstResponder(nil)
                 state.isToolPreviewExpanded.toggle()
             } label: {
-                Image(systemName: state.isToolReadingExpanded
+                Image(systemName: state.isToolPreviewExpanded
                     ? "arrow.down.left.and.arrow.up.right" : "arrow.up.right.and.arrow.down.left")
                     .font(Theme.Toolbar.iconFont)
                     .frame(width: Theme.Toolbar.height, height: Theme.Toolbar.height).contentShape(Rectangle())
             }
-            .help(state.isToolReadingExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
-            .accessibilityLabel(state.isToolReadingExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
+            .help(state.isToolPreviewExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
+            .accessibilityLabel(state.isToolPreviewExpanded ? String(localized: "Collapse Reading") : String(localized: "Expand Reading"))
             .accessibilityIdentifier("workspace.preview.expand")
             Button { state.toolPreviewFindRequest += 1 } label: {
                 Image(systemName: "magnifyingglass")
@@ -457,7 +295,7 @@ private struct WorkspacePreviewToolbar: View {
             .accessibilityIdentifier("workspace.preview.find")
             Button {
                 state.closeToolPreview()
-                if let tab = model.selectedTab(in: state) { SSHTerminalRegistry.focus(tab.sessionID) }
+
             } label: {
                 Image(systemName: "xmark")
                     .font(Theme.Toolbar.iconFont)
@@ -509,7 +347,7 @@ struct ToolbarHoverTracking: NSViewRepresentable {
 
 final class ToolbarHoverTrackingView: NSView {
     var onHover: (Bool) -> Void = { _ in }
-    private var isHovered = false
+    private(set) var isHovered = false
     private var mouseMonitor: Any?
     private weak var trackingView: NSView?
     private var toolbarTrackingArea: NSTrackingArea?
@@ -582,83 +420,12 @@ private struct WorkspaceToolbarInformation: View {
                 FilesWorkspaceToolbar(workspace: model.fileWorkspace(for: state),
                     contentWidth: contentWidth, contentLeadingInset: contentLeadingInset)
             } else {
-                FocusedWorkspaceInformation(model: model, state: state)
+                EmptyView()
             }
         }
         .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
         .preferredColorScheme(appearance.interfaceColorScheme)
         .font(Theme.Font.body)
         .foregroundStyle(WindowChrome.resolve(isDark: appearance.isDark).text)
-    }
-}
-
-/// 分支放在弹性空白之后，紧靠终端右边界；打开预览时随右侧工具区一起左移。
-private struct WorkspaceToolbarBranch: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject var state: WindowState
-    @ObservedObject private var appearance = AppearanceDriver.shared
-
-    var body: some View {
-        Group {
-            if let tab = model.selectedTab(in: state) {
-                TerminalGitBadge(tab: tab, model: model, window: state).id(tab.id)
-                    .frame(minWidth: 0, maxWidth: Theme.Toolbar.branchMaxWidth, alignment: .trailing)
-                    .clipped()
-            }
-        }
-        .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
-        .preferredColorScheme(appearance.interfaceColorScheme)
-        .foregroundStyle(WindowChrome.resolve(isDark: appearance.isDark).text)
-    }
-}
-
-private struct FocusedWorkspaceInformation: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject var state: WindowState
-    @ObservedObject private var appearance = AppearanceDriver.shared
-
-    private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearance.isDark) }
-
-    private func title(_ tab: TerminalTab) -> String {
-        let name: String
-        if let custom = tab.contentTitle { name = custom }
-        else if tab.isLocal, let directory = tab.directory {
-            let last = (directory as NSString).lastPathComponent
-            name = last.isEmpty ? String(localized: "This Mac") : last
-        } else { name = tab.alias ?? String(localized: "Terminal") }
-        return model.paneNumber(for: tab.id, in: state).map { "\($0)-\(name)" } ?? name
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            if state.section == .commands {
-                Text("Command Library").font(.headline)
-            } else if state.presentation.fullFilesWorkspace {
-                Text("Files").font(.headline)
-            } else if let tab = model.selectedTab(in: state) {
-                Text(tab.isLocal ? String(localized: "This Mac") : String(localized: "Remote"))
-                    .font(.system(size: Theme.Toolbar.textSize, weight: .medium))
-                    .foregroundStyle(chrome.secondary)
-                    .padding(.horizontal, Theme.Space.s)
-                    .frame(height: Theme.Toolbar.height)
-                    .background(chrome.isDark ? Color.clear : chrome.hoverFill,
-                                in: RoundedRectangle(cornerRadius: Theme.Radius.control))
-                    .fixedSize()
-                Text(verbatim: title(tab)).font(.headline)
-                    .lineLimit(1).truncationMode(.middle)
-                    .accessibilityIdentifier("workspace.focusedTerminalTitle")
-                if let path = TerminalPaneActions.workingDirectory(of: tab) {
-                    Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
-                        .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                        .help(path)
-                }
-                RemoteTitleStatus(tab: tab)
-            } else {
-                Text("1Agent").font(.headline)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .environment(\.windowChrome, chrome)
-        .accessibilityIdentifier("workspace.focusedInformation")
     }
 }

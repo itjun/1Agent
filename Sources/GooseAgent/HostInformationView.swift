@@ -4,11 +4,14 @@ import SwiftUI
 struct HostInformationPresentation: ViewModifier {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
+    var resolver = SSHConfigurationResolver.shared
+    var configurationEnvironment: [String]? = nil
 
     func body(content: Content) -> some View {
         content.familySheet(isPresented: optionalBinding($window.hostInformationTabID), width: SheetLayout.hostInformation, height: SheetLayout.hostInformationHeight) {
             if let tabID = window.hostInformationTabID {
-                HostInformationView(model: model, tabID: tabID) { window.hostInformationTabID = nil }
+                HostInformationView(model: model, tabID: tabID, onClose: { window.hostInformationTabID = nil },
+                                    resolver: resolver, configurationEnvironment: configurationEnvironment)
                     .id(tabID)
             }
         }
@@ -20,7 +23,11 @@ struct HostInformationView: View {
     @ObservedObject var model: AppModel
     let tabID: UUID
     let onClose: () -> Void
+    var resolver = SSHConfigurationResolver.shared
+    var configurationEnvironment: [String]? = nil
     @State private var isConnectionInfoCopied = false
+    @State private var configuration: ResolvedSSHConfiguration?
+    @State private var isResolving = true
 
     private var tab: TerminalTab? {
         model.tabs.first { $0.id == tabID && $0.hasTerminal }
@@ -34,10 +41,10 @@ struct HostInformationView: View {
                         HostInformationRow(title: String(localized: "Target Host"), value: tab.isLocal ? String(localized: "This Mac") : tab.alias, identifier: "name")
                         CommandInfoRow(title: "Connection", value: !tab.exited && !tab.reconnecting ? String(localized: "Connected") : String(localized: "Not connected"))
                         if !tab.isLocal {
-                            let host = model.hosts.first { $0.alias == tab.alias }
-                            HostInformationRow(title: String(localized: "Address"), value: host?.hostName ?? tab.alias, identifier: "address")
-                            HostInformationRow(title: String(localized: "User"), value: host?.user, identifier: "user")
-                            HostInformationRow(title: String(localized: "Port"), value: host?.port ?? "22", identifier: "port")
+                            let placeholder = isResolving ? String(localized: "Loading…") : String(localized: "Could not resolve configuration")
+                            HostInformationRow(title: String(localized: "Address"), value: configuration?.hostName, identifier: "address", placeholder: placeholder)
+                            HostInformationRow(title: String(localized: "User"), value: configuration?.user, identifier: "user", placeholder: placeholder)
+                            HostInformationRow(title: String(localized: "Port"), value: configuration?.port, identifier: "port", placeholder: placeholder)
                         }
                         HostInformationRow(title: String(localized: "Working Directory"), value: TerminalPaneActions.workingDirectory(of: tab),
                             identifier: "directory", placeholder: String(localized: "Directory unknown"))
@@ -56,10 +63,13 @@ struct HostInformationView: View {
         } actions: {
             if let tab, !tab.isLocal {
                 Button(isConnectionInfoCopied ? String(localized: "Copied") : String(localized: "Copy All")) {
-                    copySessionInfo(tab, model: model)
+                    guard let configuration else { return }
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString([tab.alias ?? "", configuration.hostName, configuration.user].joined(separator: "\n"), forType: .string)
                     isConnectionInfoCopied = true
                 }
                 .buttonStyle(FamilyButtonStyle())
+                .disabled(configuration == nil)
                 .accessibilityIdentifier("hostInformation.copyConnectionInfo")
                 .task(id: isConnectionInfoCopied) {
                     guard isConnectionInfoCopied else { return }
@@ -72,6 +82,22 @@ struct HostInformationView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("hostInformation.dialog")
+        .task(id: tab?.alias) {
+            configuration = nil
+            guard let tab, !tab.isLocal, let alias = tab.alias else { isResolving = false; return }
+            isResolving = true
+            let environment: [String]
+            if let configurationEnvironment { environment = configurationEnvironment }
+            else { environment = await SSHLaunchEnvironment.shared.get() }
+            do {
+                let result = try await resolver.resolve(alias: alias, environment: environment)
+                try Task.checkCancellation()
+                configuration = result
+                isResolving = false
+            } catch {
+                if !Task.isCancelled { isResolving = false }
+            }
+        }
     }
 }
 

@@ -1,0 +1,11 @@
+{
+  "original_patch_sha256": "4730d4de37e250fcdcc9685813004050c6fcf35e8d10fac86da2dd1342869a9b",
+  "files_compared": 5932,
+  "identical": true,
+  "split_patch_sha256": {
+    "01-build-platform.patch": "885c2a64ab056dbb5d98e64db4e529276f8db0f61a847963cdfd00b101ccf236",
+    "02-host-io.patch": "c614b7b00e24d9032c59666eaeef0ecbf6103f432f0c96a973d7c516692b36ce",
+    "03-rendering.patch": "04bf940445db70e9d7718183c033776eae4e9e8c96714a2a78f0324f07bafe75",
+    "04-terminal-state.patch": "25e8b3042484edd1adcee15306dbbebd13750687da5f485303481010e2c6ed78"
+  }
+}

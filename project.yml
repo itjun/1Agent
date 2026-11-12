@@ -9,6 +9,9 @@ options:
     - en
     - zh-Hans
 packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
   GhosttyTerminal:
     # Reviewed Swift wrapper; the macOS binary is built from pinned, patched source.
     path: Vendor/libghostty-spm
@@ -33,13 +36,19 @@ targets:
         type: folder
         buildPhase: resources
     dependencies:
+      - package: Sparkle
       - package: GhosttyTerminal
         product: GhosttyTerminal
-      - package: GhosttyTerminal
-        product: GhosttyTheme
     info:
       path: Sources/GooseAgent/Info.plist
       properties:
+        SUFeedURL: https://github.com/itjun/1Agent/releases/latest/download/appcast.xml
+        SUPublicEDKey: "$(SPARKLE_PUBLIC_KEY)"
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: false
+        SUAllowsAutomaticUpdates: false
+        SURequireSignedFeed: true
+        SUVerifyUpdateBeforeExtraction: true
         CFBundleName: "1Agent"
         CFBundleDisplayName: "1Agent"
         CFBundleIconName: OneAgentIcon
@@ -87,6 +96,10 @@ targets:
             NSSendTypes:
               - NSFilenamesPboardType
               - public.plain-text
+    preBuildScripts:
+      - name: Validate release signing
+        basedOnDependencyAnalysis: false
+        script: '"${SRCROOT}/scripts/validate-release-signing.sh"'
     postBuildScripts:
       - name: Install readable fallback icon
         basedOnDependencyAnalysis: false
@@ -96,6 +109,8 @@ targets:
           cp "${SRCROOT}/Resources/ApplicationIcons/Original.icns" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/OneAgentIcon.icns"
     settings:
       base:
+        SPARKLE_PUBLIC_KEY: ""
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
         PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent
         PRODUCT_NAME: "1Agent"
         PRODUCT_MODULE_NAME: GooseAgent
@@ -113,6 +128,7 @@ targets:
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
       configs:
         Debug:
+          CODE_SIGN_ENTITLEMENTS: Resources/Debug.entitlements
           CODE_SIGN_IDENTITY: "Developer ID Application: MOE AI LLC (NCFNX3LJ83)"
           ONLY_ACTIVE_ARCH: YES
         Release:

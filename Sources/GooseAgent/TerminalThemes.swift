@@ -1,46 +1,6 @@
 import AppKit
 import GhosttyTerminal
-import GhosttyTheme
 import SwiftUI
-
-extension GhosttyThemeDefinition {
-    func terminalConfiguration() -> TerminalConfiguration {
-        TerminalConfiguration { builder in
-            builder.withBackground(Self.ghosttyHex(background))
-            builder.withForeground(Self.ghosttyHex(foreground))
-            if let cursorColor { builder.withCursorColor(Self.ghosttyHex(cursorColor)) }
-            if let cursorText { builder.withCursorText(Self.ghosttyHex(cursorText)) }
-            if let selectionBackground { builder.withSelectionBackground(Self.ghosttyHex(selectionBackground)) }
-            if let selectionForeground { builder.withSelectionForeground(Self.ghosttyHex(selectionForeground)) }
-            for (index, color) in palette.sorted(by: { $0.key < $1.key }) {
-                builder.withPalette(index, color: Self.ghosttyHex(color))
-            }
-        }
-    }
-
-    static func ghosttyHex(_ raw: String) -> String {
-        raw.hasPrefix("#") ? raw : "#\(raw)"
-    }
-
-    /// Light backgrounds belong in the white-theme list. Night themes stay in the other list.
-    var isLightBackground: Bool {
-        Self.relativeLuminance(of: background) >= 0.45
-    }
-
-    private static func relativeLuminance(of raw: String) -> Double {
-        var hex = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if hex.hasPrefix("#") { hex.removeFirst() }
-        guard hex.count == 6, let value = Int(hex, radix: 16) else { return 0 }
-        func channel(_ component: Int) -> Double {
-            let s = Double(component) / 255
-            return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
-        }
-        let red = channel((value >> 16) & 0xFF)
-        let green = channel((value >> 8) & 0xFF)
-        let blue = channel(value & 0xFF)
-        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
-    }
-}
 
 enum TerminalAppearance: String, CaseIterable, Identifiable {
     case system
@@ -212,15 +172,22 @@ enum TerminalThemeTarget: String, CaseIterable {
 }
 
 extension AppTheme {
-    static func terminalDefinition(isDark: Bool) -> GhosttyThemeDefinition {
+    static func terminalName(isDark: Bool) -> String {
+        AppTheme.id + (isDark ? "-dark" : "-light")
+    }
+
+    static func terminalConfiguration(isDark: Bool) -> TerminalConfiguration {
         let colors = AppTheme.colors(isDark: isDark)
-        return GhosttyThemeDefinition(
-            name: AppTheme.id + (isDark ? "-dark" : "-light"),
-            background: colors.background, foreground: colors.foreground,
-            cursorColor: colors.accent, cursorText: colors.background,
-            selectionBackground: colors.selection,
-            selectionForeground: SystemTheme.hex(.selectedTextColor, isDark: isDark, over: .selectedTextBackgroundColor),
-            palette: Dictionary(uniqueKeysWithValues: colors.ansi.enumerated().map { ($0.offset, $0.element) })
-        )
+        return TerminalConfiguration { builder in
+            builder.withBackground("#" + colors.background)
+            builder.withForeground("#" + colors.foreground)
+            builder.withCursorColor("#" + colors.accent)
+            builder.withCursorText("#" + colors.background)
+            builder.withSelectionBackground("#" + colors.selection)
+            builder.withSelectionForeground("#" + SystemTheme.hex(.selectedTextColor, isDark: isDark, over: .selectedTextBackgroundColor))
+            for (index, color) in colors.ansi.enumerated() {
+                builder.withPalette(index, color: "#" + color)
+            }
+        }
     }
 }

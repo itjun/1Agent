@@ -1,7 +1,6 @@
 import AppKit
 import CoreText
 import GhosttyTerminal
-import GhosttyTheme
 import Quartz
 import SwiftUI
 
@@ -200,8 +199,8 @@ enum GhosttyRuntime {
 
     private static func selectedThemes() -> TerminalTheme {
         return TerminalTheme(
-            light: AppTheme.terminalDefinition(isDark: false).terminalConfiguration(),
-            dark: AppTheme.terminalDefinition(isDark: true).terminalConfiguration()
+            light: AppTheme.terminalConfiguration(isDark: false),
+            dark: AppTheme.terminalConfiguration(isDark: true)
         )
     }
 
@@ -304,6 +303,7 @@ final class TerminalProcessHost {
     var onRemoteCommand: ((RemoteShellEvent) -> Void)?
     private var remotePreparation: Task<Void, Never>?
     private var cancelForwarding: (() -> Void)?
+    private var isConnectionAttemptCancelled = false
 
     var process: TerminalProcess { box.process }
 
@@ -338,7 +338,7 @@ final class TerminalProcessHost {
     }
 
     func startWhenReady() {
-        guard !terminated, session.hasAttachedSurface, !hasStarted, let launch else { return }
+        guard !terminated, !isConnectionAttemptCancelled, session.hasAttachedSurface, !hasStarted, let launch else { return }
         hasStarted = true
         guard let restoration = pendingRestoration else {
             startProcess(initialLaunch ?? launch)
@@ -359,7 +359,7 @@ final class TerminalProcessHost {
             await self?.waitForSettledColumns()
             guard let self else { return }
             self.isAwaitingHistoryReplay = false
-            guard !self.terminated, self.process.shellPid == 0 else { return }
+            guard !self.terminated, !self.isConnectionAttemptCancelled, self.process.shellPid == 0 else { return }
             self.session.receive(output)
             self.session.receive(restoration.notice())
             self.startProcess(self.initialLaunch ?? launch)
@@ -398,9 +398,20 @@ final class TerminalProcessHost {
     /// Nothing on screen is lost; the new connection continues below the old output.
     func restart(notice: String) {
         guard let launch else { return }
+        isConnectionAttemptCancelled = false
+        hasStarted = true
         process.terminate()
         session.receive("\r\n\u{1b}[2m— \(notice) —\u{1b}[0m\r\n")
         startProcess(launch)
+    }
+
+    func cancelConnectionAttempt() {
+        isConnectionAttemptCancelled = true
+        remotePreparation?.cancel()
+        remotePreparation = nil
+        process.terminate()
+        cancelForwarding?(); cancelForwarding = nil
+        commandBridge = nil
     }
 
     var lastLaunch: TerminalLaunch? { launch }
@@ -508,6 +519,7 @@ enum SSHTerminalRegistry {
     private static var directoryTimer: Timer?
     /// Session IDs are never reused, so a closed one must never get a terminal again.
     private static var closedIDs: Set<String> = []
+    private static var cancelledConnectionIDs: Set<String> = []
 
     /// The terminal for this session, made on first use. Nil once the session was destroyed:
     /// SwiftUI still updates a view that is on its way out, and that must not start a new process.
@@ -519,6 +531,7 @@ enum SSHTerminalRegistry {
             return nil
         }
         let created = make()
+        if cancelledConnectionIDs.remove(id) != nil { created.processHost?.cancelConnectionAttempt() }
         views[id] = created
         if directoryTimer == nil {
             directoryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
@@ -533,6 +546,7 @@ enum SSHTerminalRegistry {
 
     /// The tab closed. Ends the process and drops the view.
     static func destroy(_ id: String) {
+        cancelledConnectionIDs.remove(id)
         closedIDs.insert(id)
         TerminalSecureInput.shared.forget(id)
         guard let view = views.removeValue(forKey: id) else { return }
@@ -678,6 +692,11 @@ enum SSHTerminalRegistry {
     }
 
     static func automationView(_ id: String) -> SSHTerminalNSView? { views[id] }
+
+    static func cancelConnectionAttempt(_ id: String) {
+        if let host = views[id]?.processHost { host.cancelConnectionAttempt() }
+        else if !closedIDs.contains(id) { cancelledConnectionIDs.insert(id) }
+    }
 
     /// Starts the same command again inside the same terminal. False when the view is gone.
     @discardableResult
@@ -1163,6 +1182,8 @@ final class SSHTerminalNSView: AppTerminalView {
         let item = command.destructive
             ? TerminalCloseMenu.item(title: command.title, action: #selector(performPaneAction(_:)), target: self)
             : makeItem(command.title, #selector(performPaneAction(_:)))
+        item.image = command.image
+        if command.image != nil { FamilyMenuPresenter.forceMenuImageVisible(item) }
         item.isEnabled = command.enabled
         item.state = command.checked ? .on : .off
         item.keyEquivalent = command.key
@@ -1501,9 +1522,9 @@ final class TerminalHostView: NSView {
     }
 
     private func applyTerminalEmphasis() {
-        // 当前终端保持清晰，其余内容轻微淡化；复用视图时同步恢复对应状态。
+        // 终端文字始终不透明，焦点通过标题和面板底色表达。
         for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
-            terminal.alphaValue = isFocusTarget ? 1 : 0.8
+            terminal.alphaValue = 1
         }
     }
 

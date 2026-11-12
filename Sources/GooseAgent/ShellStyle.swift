@@ -10,6 +10,29 @@ enum ShellStyle {
     }
 }
 
+/// 导航与工具箱标题共用原生材质，正文始终由各自的不透明底板承载。
+struct SidebarMaterial: NSViewRepresentable {
+    var isDark: Bool
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.identifier = NSUserInterfaceItemIdentifier("workspace.sidebarMaterial")
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        view.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        view.wantsLayer = true
+        let isReduced = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        view.layer?.backgroundColor = isReduced
+            ? NSColor(WindowChrome.resolve(isDark: isDark).sidebarBackground).cgColor : nil
+        view.state = isReduced ? .inactive : .followsWindowActiveState
+    }
+}
+
 enum ShellLayout {
     static let contentRadius: CGFloat = 0
     /// 工作区只为分隔线预留间距。

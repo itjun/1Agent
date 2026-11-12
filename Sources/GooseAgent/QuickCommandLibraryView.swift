@@ -9,6 +9,7 @@ struct QuickCommandLibraryView: View {
     var isWorkspace = false
     let onClose: () -> Void
     @State private var query = ""
+    @FocusState private var isListFocused: Bool
     @State private var splitDragStart: CGFloat?
     @State private var isDividerHovered = false
     private var collection: QuickCommandCollection {
@@ -72,12 +73,26 @@ struct QuickCommandLibraryView: View {
         collection = QuickCommandCollection.owner(of: saved)
         selectedID = saved.id
     }
-    private var libraryContent: some View {
-    HStack(alignment: .top, spacing: 20) {
-        QuickCommandLibraryNavigation(model: model, window: window).frame(width: SheetLayout.commandLibraryNavigation)
-        Divider()
-        detailContent
+    private func moveSelection(by delta: Int) {
+        guard !commands.isEmpty else { return }
+        let current = commands.firstIndex { $0.id == selectedID }
+        let next = current.map { min(max($0 + delta, 0), commands.count - 1) }
+            ?? (delta > 0 ? 0 : commands.count - 1)
+        selectedID = commands[next].id
     }
+    private func select(_ item: QuickCommand) {
+        selectedID = item.id
+        isListFocused = true
+    }
+    private var libraryContent: some View {
+        VStack(spacing: Theme.Space.m) {
+            QuickCommandLibraryHeader(model: model, window: window)
+            HStack(alignment: .top, spacing: 20) {
+                QuickCommandLibraryNavigation(model: model, window: window).frame(width: SheetLayout.commandLibraryNavigation)
+                Divider()
+                detailContent
+            }
+        }
     }
 
     @ViewBuilder
@@ -140,7 +155,8 @@ struct QuickCommandLibraryView: View {
                     .frame(height: ShellLayout.compactHeaderHeight)
             }
             CommandTextField(text: $query, placeholder: String(localized: "Search names, commands, hosts or folders"),
-                             identifier: "quickCommands.library.search", symbol: "magnifyingglass")
+                             identifier: "quickCommands.library.search", symbol: "magnifyingglass",
+                             onMoveSelection: { moveSelection(by: $0) })
                 .frame(height: Theme.Control.height)
             if let message = window.commandLibraryMessage {
                 Text(verbatim: message).foregroundStyle(chrome.secondary).font(Theme.Font.rowMeta)
@@ -148,6 +164,7 @@ struct QuickCommandLibraryView: View {
             if let message = error ?? store.loadError {
                 Text(verbatim: message).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta)
             }
+            ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: Theme.Space.xs) {
                     // 编辑后刷新行里的名称、正文和菜单快照，不复用旧内容。
@@ -159,6 +176,18 @@ struct QuickCommandLibraryView: View {
                     }
                 }
             }.frame(maxHeight: .infinity)
+                .onChange(of: selectedID) { _, id in
+                    if let item = commands.first(where: { $0.id == id }) { proxy.scrollTo(item) }
+                }
+            }
+            .focusable(interactions: .edit)
+            .focusEffectDisabled()
+            .focused($isListFocused)
+            .onKeyPress(keys: [.upArrow, .downArrow], phases: [.down, .repeat]) { press in
+                guard press.modifiers.intersection([.command, .control, .option, .shift]).isEmpty else { return .ignored }
+                moveSelection(by: press.key == .upArrow ? -1 : 1)
+                return .handled
+            }
         }
         .padding(Theme.Space.m)
         .background(commandPaneBackground)
@@ -218,7 +247,7 @@ struct QuickCommandLibraryView: View {
 
     private func libraryRow(_ item: QuickCommand) -> some View {
         HStack(spacing: 0) {
-            Button { selectedID = item.id } label: {
+            Button { select(item) } label: {
                 VStack(alignment: .leading, spacing: Theme.Space.s) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
@@ -244,8 +273,8 @@ struct QuickCommandLibraryView: View {
                 .accessibilityAddTraits(selectedID == item.id ? .isSelected : [])
                 .overlay {
                     if item.scope == .all {
-                        QuickCommandDragHandle(item: item, chrome: chrome, onClick: { selectedID = item.id },
-                                               onDoubleClick: { editing = item }, onDragStart: { selectedID = item.id })
+                        QuickCommandDragHandle(item: item, chrome: chrome, onClick: { select(item) },
+                                               onDoubleClick: { editing = item }, onDragStart: { select(item) })
                             .accessibilityHidden(true)
                     }
                 }
@@ -294,7 +323,14 @@ struct QuickCommandLibraryHeader: View {
     @ObservedObject private var store = QuickCommandStore.shared
     @Environment(\.windowChrome) private var chrome
     @State private var importing: QuickCommandLibrary?
+    @State private var pasteRequest: QuickCommandPasteRequest?
+    @State private var historyPresented = false
     private var collection: QuickCommandCollection { window.commandLibraryCollection }
+    private var maintenanceContext: QuickCommandContext {
+        let current = model.currentTerminalContext(in: window)
+        if collection == .common || collection.host == current.host { return current }
+        return QuickCommandContext(host: collection.host)
+    }
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
@@ -310,11 +346,35 @@ struct QuickCommandLibraryHeader: View {
         .familySheet(isPresented: optionalBinding($importing), width: SheetLayout.commandLibrary, height: SheetLayout.commandLibraryHeight) {
             if let importing { QuickCommandImportView(library: importing, hosts: model.hosts) { self.importing = nil } }
         }
+        .familySheet(isPresented: optionalBinding($pasteRequest), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
+            if let pasteRequest {
+                QuickCommandPasteView(request: pasteRequest, onClose: { self.pasteRequest = nil }, onSaved: { additions in
+                    self.pasteRequest = nil
+                    if let first = additions.first {
+                        window.commandLibraryCollection = QuickCommandCollection.owner(of: first)
+                        window.commandLibrarySelection = first.id
+                    }
+                }).id(pasteRequest.id)
+            }
+        }
+        .familySheet(isPresented: $historyPresented, width: SheetLayout.commandLibrary, height: SheetLayout.commandLibraryHeight) {
+            QuickCommandHistoryView(context: maintenanceContext, hosts: model.hosts) { historyPresented = false }
+        }
     }
 
     private var libraryActions: [FamilyMenuItem] {
         [FamilyMenuItem(title: String(localized: "New Quick Command"), enabled: store.loadError == nil,
-                        action: { window.commandLibraryDraft = collection.draft(in: model.quickCommandContext(in: window)) }),
+                        action: { window.commandLibraryDraft = collection.draft(in: model.currentTerminalContext(in: window)) }),
+         FamilyMenuItem(title: String(localized: "Add from History"), enabled: store.loadError == nil,
+                        action: { historyPresented = true }),
+         FamilyMenuItem(title: String(localized: "Paste Quick Commands…"), enabled: store.loadError == nil, action: {
+             do { pasteRequest = try QuickCommandPasteRequest(transfer: QuickCommandClipboard.read(), context: maintenanceContext) }
+             catch { window.commandLibraryMessage = error.localizedDescription }
+         }),
+         FamilyMenuItem(title: String(localized: "Copy Collection Commands"), enabled: store.commands.contains(where: collection.contains), action: {
+             do { try QuickCommandClipboard.copy(store.commands.filter(collection.contains).sorted(by: QuickCommand.displayOrder)) }
+             catch { window.commandLibraryMessage = error.localizedDescription }
+         }),
          .separator,
          FamilyMenuItem(title: String(localized: "Import Commands"), action: importLibrary),
          FamilyMenuItem(title: String(localized: "Export Commands"), enabled: store.loadError == nil, action: exportLibrary)]

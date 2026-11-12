@@ -3,7 +3,7 @@ import ObjectiveC
 import SwiftUI
 @testable import GooseAgent
 
-/// 通栏和左右侧栏共用不透明主题底色，不启动终端或 SSH。
+/// 主导航使用原生材质，工具箱不占主窗口列；不启动终端或 SSH。
 @main enum SidebarAppearanceTests {
     @MainActor static func main() {
         let suite = "oneagent.sidebar-appearance.\(UUID())"
@@ -40,31 +40,21 @@ import SwiftUI
                     guard let split = SidebarAppearanceTests.navigationSplit(in: host.view),
                           let item = split.splitViewItems.first else { fatalError("missing production navigation split") }
                     SidebarAppearanceTests.expect(item.behavior == .sidebar, "native sidebar behavior")
-                    let view = item.viewController.view
-                    guard let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
-                        fatalError("cannot render sidebar")
-                    }
-                    view.cacheDisplay(in: view.bounds, to: image)
-                    let color = image.colorAt(x: image.pixelsWide / 2, y: image.pixelsHigh - 20)!
-                    let actual = color.usingColorSpace(.sRGB)!
-                    let chrome = WindowChrome(isDark: isDark, preset: preset)
-                    SidebarAppearanceTests.expect(actual.alphaComponent > 0.99,
-                        "\(preset.rawValue)/\(section), dark=\(isDark): navigation uses an opaque background")
+                    let materials = SidebarAppearanceTests.materials(in: split.splitView)
+                    SidebarAppearanceTests.expect(!materials.isEmpty, "主导航必须实际使用原生磨砂")
+                    SidebarAppearanceTests.expect(materials.contains { $0.material == .sidebar && $0.blendingMode == .behindWindow },
+                        "导航使用 AppKit 自带的原生侧栏材质")
+                    SidebarAppearanceTests.expect(!materials.contains { $0.identifier?.rawValue == "workspace.sidebarMaterial" },
+                        "主导航不叠加自绘材质背景")
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
                         && split.splitView.dividerThickness == 1,
                         "navigation hides its separator while preserving the resize geometry")
-                    SidebarAppearanceTests.expect(SidebarAppearanceTests.matches(window.backgroundColor, NSColor(chrome.sidebarBackground)),
-                        "toolbar and navigation share one opaque background")
+                    SidebarAppearanceTests.expect(SidebarAppearanceTests.navigationSplit(in: host.view,
+                        identifier: "workspace.inspectorSplit") == nil, "旧右栏没有保留隐藏占位")
+                    SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.count == 2,
+                        "主窗口仅有导航和内容两列")
                     if section == .terminals {
-                        guard let inspector = SidebarAppearanceTests.navigationSplit(in: host.view, identifier: "workspace.inspectorSplit")?.splitViewItems.last?.viewController.view,
-                              let inspectorImage = inspector.bitmapImageRepForCachingDisplay(in: inspector.bounds) else {
-                            fatalError("cannot render production inspector")
-                        }
-                        inspector.cacheDisplay(in: inspector.bounds, to: inspectorImage)
-                        let right = inspectorImage.colorAt(x: inspectorImage.pixelsWide / 2,
-                            y: inspectorImage.pixelsHigh - 20)!
-                        SidebarAppearanceTests.expect(SidebarAppearanceTests.matches(actual, right),
-                            "\(preset.rawValue): both sidebars share the same opaque background, dark=\(isDark)")
+                        SidebarAppearanceTests.expect(window.toolbar == nil, "终端标题不再使用重复通栏")
                     }
                 }
             }
@@ -72,16 +62,12 @@ import SwiftUI
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         driver.reapply()
         SidebarAppearanceTests.expect(driver.isDark == TerminalAppearance.systemIsDark, "follow system appearance")
-        print("SidebarAppearanceTests passed: macOS system colors share opaque toolbar and sidebar backgrounds across light/dark and terminal/files/commands; hidden navigation divider retains its resize geometry")
+        print("SidebarAppearanceTests passed: native sidebar material, no right column, integrated terminal titles, light/dark and terminal/files/commands")
     }
 
-    static func matches(_ first: NSColor, _ second: NSColor) -> Bool {
-        let a = first.usingColorSpace(.sRGB)!
-        let b = second.usingColorSpace(.sRGB)!
-        return a.alphaComponent > 0.99 && b.alphaComponent > 0.99
-            && abs(a.redComponent - b.redComponent) < 0.01
-            && abs(a.greenComponent - b.greenComponent) < 0.01
-            && abs(a.blueComponent - b.blueComponent) < 0.01
+    @MainActor static func materials(in view: NSView) -> [NSVisualEffectView] {
+        let own = view as? NSVisualEffectView
+        return (own.map { [$0] } ?? []) + view.subviews.flatMap(materials)
     }
 
     @MainActor static func navigationSplit(in view: NSView, identifier: String = "workspace.navigationSplit") -> NSSplitViewController? {

@@ -35,6 +35,10 @@ private struct FolderLoadFixture: FileSystem {
 private struct FilesWorkspaceRoutingTests {
     @MainActor
     static func main() {
+        setbuf(stdout, nil)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 120) {
+            fputs("FilesWorkspaceRoutingTests timed out\n", stderr); exit(1)
+        }
         _ = NSApplication.shared
         Task { @MainActor in
             do {
@@ -89,6 +93,14 @@ private struct FilesWorkspaceRoutingTests {
         NSApp.setActivationPolicy(.regular)
         NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         let model = AppModel()
+        // 主机选择会异步新增会话；在 RootView 挂载前准备无进程的终端视图。
+        // 否则隔离环境拒绝启动 shell 后，会话自动关闭，干扰后面的布局/快捷键断言。
+        let terminalFixtures = model.$tabs.sink { tabs in
+            for tab in tabs where tab.hasTerminal {
+                _ = SSHTerminalRegistry.view(for: tab.sessionID) { SSHTerminalNSView(frame: .zero) }
+            }
+        }
+        defer { terminalFixtures.cancel() }
         let state = model.mainWindow
         state.presentation.sidebarCollapsed = false // This fixture starts by exercising expanded navigation.
         try require(MainWindowManager.shared.window(for: state) == nil, "The test must not mount the production window")
@@ -124,6 +136,10 @@ private struct FilesWorkspaceRoutingTests {
             chromeWindow.contentView = nil
             return
         }
+        if environment["ONEAGENT_TEST_HOST_PICKER"] == "1" {
+            try await verifyHostPickerAccessibility(model: model, state: state, window: chromeWindow, home: home)
+            return
+        }
         if environment["ONEAGENT_TEST_PINNED_DRAG"] == "1" {
             model.selectFilesLayout(.sideBySide, in: state)
             try await settle()
@@ -133,7 +149,8 @@ private struct FilesWorkspaceRoutingTests {
             return
         }
         try verifySingleFilesEntry(chromeWindow, visible: false)
-        try await verifyFamilyFolderPicker(window: chromeWindow, home: home)
+        try await verifyNativeFolderPicker(window: chromeWindow, home: home)
+        if environment["ONEAGENT_TEST_NATIVE_FOLDER"] == "1" { return }
         for layout in [FileWorkspaceLayout.belowTerminal, .sideBySide, .belowTerminal] {
             model.selectFilesLayout(layout, in: state)
             try await settle()
@@ -486,7 +503,10 @@ private struct FilesWorkspaceRoutingTests {
         try await eventually("confirm file tab close again") { window.attachedSheet != nil }
         let dialog = window.attachedSheet!
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-        let confirm = descendants(dialog.contentView!).compactMap { $0 as? NSButton }.first { $0.keyEquivalent == "\r" }!
+        try await eventually("native close confirmation button") {
+            descendants(dialog.contentView!).compactMap { $0 as? NSButton }.contains { $0.title == String(localized: "Close") }
+        }
+        let confirm = descendants(dialog.contentView!).compactMap { $0 as? NSButton }.first { $0.title == String(localized: "Close") }!
         confirm.performClick(nil)
         try await eventually("close confirmed file tab") { !files.allTabs.contains(where: { $0 === column }) }
         try require(!files.allTabs.contains(where: { $0 === column }) && files.remoteTabs.count == 2,
@@ -513,9 +533,9 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        let expectedTopInset: CGFloat = 0
+        let expectedTopInset = ShellLayout.compactHeaderHeight
         try require(abs(rootRect.maxY - terminalRect.maxY - expectedTopInset) < 1,
-                    "A single terminal fills content below the native window toolbar without a pane header")
+                    "A single terminal starts below its own title without a duplicate global toolbar")
         try require(terminals.values.allSatisfy { terminal in
             !terminal.selectionContextMenu().items.contains { $0.title == String(localized: "History") }
         }, "No terminal context menu may expose the removed history feature")
@@ -558,46 +578,42 @@ private struct FilesWorkspaceRoutingTests {
     }
 
     @MainActor
-    private static func verifyFamilyFolderPicker(window: NSWindow, home: String) async throws {
+    private static func verifyNativeFolderPicker(window: NSWindow, home: String) async throws {
         window.orderFront(nil)
         let originalPins = PinnedLocations.shared.items
         var chosen: [URL]?
         var cancelled = false
-        var presentation: FamilyModalPresentation?
-        func makePicker() {
-            let host = NSHostingView(rootView: FamilyFolderPicker(initialDirectory: home, onCancel: {
-                cancelled = true
-                presentation?.close()
-            }, onChoose: { urls in
-                chosen = urls
-                presentation?.close()
-            }).environment(\.windowChrome, WindowChrome(isDark: false)))
-            presentation = FamilyModalPresentation(content: host,
-                size: NSSize(width: SheetLayout.folderPicker, height: SheetLayout.sessionBodyHeight), owner: window) {
-                    cancelled = true
-                    presentation?.close()
-                }
-            presentation?.show()
-        }
-        func button(_ title: String) -> NSObject? {
-            guard let root = presentation?.window.contentView else { return nil }
-            return accessibilityElements(root).first {
-                accessibilityValue($0, "accessibilityRole") as? String == "AXButton" &&
-                (accessibilityValue($0, "accessibilityLabel") as? String == title || accessibilityValue($0, "accessibilityTitle") as? String == title)
-            }
-        }
-        makePicker()
-        try await eventually("load custom folder picker") { button("local-a") != nil }
-        try require(accessibilityBool(button("local-a")!, "accessibilityPerformPress"), "folder can be selected through accessibility")
-        try await settle()
-        try require(accessibilityBool(button(String(localized: "Pin Folder"))!, "accessibilityPerformPress"), "chosen folders can be confirmed")
-        try require(chosen?.map(\.path) == [home + "/local-a"], "picker returns selected folder rather than browsing location")
-        makePicker()
-        try await eventually("reopen custom folder picker") { button("local-b") != nil }
-        presentation?.window.cancelOperation(nil)
+        let picker = NativeFolderPicker()
+        picker.owner = window
+        let directory = home + "/local-a"
+        print("checking native directory panel")
+        picker.present(directory: directory) { chosen = $0 }
+        guard let panel = picker.panel else { throw TestFailure(description: "Native directory panel did not open") }
+        picker.present(directory: home) { _ in fatalError("Duplicate panel callback") }
+        try require(picker.panel === panel, "Repeated requests share one panel")
+        try require(panel.canChooseDirectories && !panel.canChooseFiles && panel.allowsMultipleSelection,
+                    "Native panel supports multiple directories only")
+        try await eventually("native directory selection") { panel.url?.path == directory }
+        // Remote NSOpenPanel does not support calling ok: directly.
+        window.endSheet(panel, returnCode: .OK)
+        panel.orderOut(nil)
+        try await eventually("confirm native directory") { chosen != nil }
+        try require(chosen?.map(\.path) == [directory], "Native panel returns the chosen directory")
+        picker.present(directory: home) { _ in chosen = [] }
+        try await eventually("reopen native directory panel") { picker.panel != nil }
+        picker.cancel()
+        try await eventually("native cancellation removes sheet") { window.attachedSheet == nil }
+        cancelled = picker.panel == nil
         try require(cancelled && PinnedLocations.shared.items == originalPins,
-                    "cancel leaves saved pinned locations unchanged")
-        print("ok: family folder picker loads directories asynchronously, selects and confirms a folder, and cancels without changing saved locations")
+                    "Cancel leaves saved pinned locations unchanged")
+        let closingOwner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 500, height: 350), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        closingOwner.isReleasedWhenClosed = false
+        closingOwner.orderFront(nil)
+        picker.owner = closingOwner
+        picker.present(directory: directory) { _ in fatalError("Closing the owner cannot confirm a selection") }
+        closingOwner.close()
+        try await eventually("closing owner cancels native panel") { picker.panel == nil }
+        print("ok: native folder picker confirms a directory, rejects duplicate presentations, cancels and closes with its owner without changing saved locations")
     }
 
     @MainActor
@@ -852,7 +868,11 @@ private struct FilesWorkspaceRoutingTests {
         let remoteSelection = remote.selection
         // Mount the production file page without leaving a second RootView alive to create
         // terminal surfaces when later routing checks switch the fixture back to Terminal mode.
-        window.contentView = NSHostingView(rootView: FilesWorkspaceView(model: model, window: state, relay: CanvasDropRelay()))
+        window.toolbar = nil
+        window.contentView = NSHostingView(rootView: VStack(spacing: 0) {
+            FilesWorkspaceToolbar(workspace: workspace, contentWidth: window.contentLayoutRect.width, contentLeadingInset: 0).frame(height: 28)
+            FilesWorkspaceView(model: model, window: state, relay: CanvasDropRelay())
+        })
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         local.selection = [localEntry.path]
@@ -985,7 +1005,9 @@ private struct FilesWorkspaceRoutingTests {
         try await click(NSPoint(x: paths[0].midX, y: blankY))
         try require(workspace.focusedColumn === local, "Clicking the left blank area must restore left operation focus")
         let leftBeforeHeader = local.selection
-        try await click(NSPoint(x: paths[1].midX, y: paths[1].maxY + 20))
+        guard let remoteTitle = elements("files.remoteLocation").first else { throw TestFailure(description: "Remote header is missing") }
+        let titleFrame = try frame(of: remoteTitle)
+        try await click(NSPoint(x: titleFrame.midX, y: titleFrame.midY))
         NSApp.sendEvent(down)
         try await settle()
         try require(workspace.focusedColumn === remote && local.selection == leftBeforeHeader,
@@ -1225,20 +1247,17 @@ private struct FilesWorkspaceRoutingTests {
         guard let toolbarHover = hoverView(window.contentView!) else {
             throw TestFailure(description: "Toolbar hover surface must remain attached")
         }
-        var isToolbarHovered = false
-        let originalOnHover = toolbarHover.onHover
-        toolbarHover.onHover = { isToolbarHovered = $0; originalOnHover($0) }
-        defer { toolbarHover.onHover = originalOnHover }
         toolbarHover.mouseExited(with: NSEvent())
         try await settle()
         func movePointer(to point: NSPoint, isHovered: Bool) async throws {
             let event = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [],
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                 context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
-            NSApp.postEvent(event, atStart: false)
-            try await settle()
-            try require(isToolbarHovered == isHovered,
+            // 同步检查事件结果；后续布局会根据真实鼠标位置刷新 tracking area。
+            NSApp.sendEvent(event)
+            try require(toolbarHover.isHovered == isHovered,
                         "Toolbar controls must still follow hover across the whole title band at \(point)")
+            try await settle()
             try require(window.titlebarSeparatorStyle == .none && toolbarHover.subviews.isEmpty,
                         "Toolbar hover must not add a horizontal separator")
         }
@@ -1262,8 +1281,15 @@ private struct FilesWorkspaceRoutingTests {
         window.contentView?.layoutSubtreeIfNeeded()
         try require(window.toolbar != nil && !state.presentation.sidebarCollapsed,
                     "Restoring the sidebar retains the same title band even in a narrow window")
+        // 侧栏恢复和原生工具栏重新排布异步完成，80 ms 可能仍处于溢出状态。
+        // 等待可观察的布局结果；标题始终隐藏或移入溢出菜单仍会使测试失败。
+        try await eventually("restored file toolbar is visible") {
+            window.toolbar?.visibleItems?.contains { $0.itemIdentifier.rawValue == "workspace.focusedInformation" } == true
+                && element("files.localLocation") != nil
+                && (model.fileWorkspace(for: state).remoteColumn == nil || element("files.remoteLocation") != nil)
+        }
         guard let native = split(window.contentView!), let title = element("files.localLocation") else {
-            throw TestFailure(description: "Restored native sidebar and file header are required")
+            throw TestFailure(description: "Restored native sidebar and file header are required (split=\(split(window.contentView!) != nil), title=\(element("files.localLocation") != nil))")
         }
         try require(native.arrangedSubviews[0].frame.width >= SidebarLayout.minWidth && native.arrangedSubviews[0].frame.width <= 276,
                     "Restored sidebar temporarily fits beside two file panes")
@@ -1272,7 +1298,8 @@ private struct FilesWorkspaceRoutingTests {
         try require(abs(frame(title).midY - collapsedFileY) < 1,
                     "Expanding the sidebar must not shift file headers vertically")
         try require(window.toolbar?.isVisible == true, "Expanded and collapsed states retain the native toolbar")
-        try require(TerminalCanvas.headerHeight(for: .zero) == 0, "Terminals have no repeated pane title")
+        try require(TerminalCanvas.headerHeight(for: .zero) == ShellLayout.compactHeaderHeight,
+                    "Every terminal reserves one compact title of its own")
         window.setContentSize(NSSize(width: 1440, height: 900))
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
@@ -1298,7 +1325,7 @@ private struct FilesWorkspaceRoutingTests {
             try require(!state.presentation.sidebarCollapsed, "Shortcut actions must restore the sidebar repeatedly")
         }
         let tracked = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
-        try require(tracked.count == 1, "Only navigation keeps a separate titlebar region; inspector shares the toolbar")
+        try require(tracked.count == 1, "File navigation keeps one titlebar separator")
         let trackedSplits = tracked.map(\.splitView)
         let savedInspectorOpen = state.presentation.toolSidebarOpen
         state.presentation.toolSidebarOpen = true
@@ -1308,8 +1335,12 @@ private struct FilesWorkspaceRoutingTests {
             model.showSection(section, in: state)
             try await settle()
             window.contentView?.layoutSubtreeIfNeeded()
+            if section == .terminals {
+                try require(window.toolbar == nil, "Terminals use their own headers without a global toolbar")
+                continue
+            }
             let current = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
-            try require(current.count == 1, "Section changes retain the navigation separator and unified inspector toolbar")
+            try require(current.count == 1, "Files and commands retain the navigation separator")
             for (index, item) in current.enumerated() {
                 try require(item.splitView === trackedSplits[index] && item.splitView.window === window,
                             "Page changes must not detach or replace a tracked sidebar split")
@@ -1319,7 +1350,7 @@ private struct FilesWorkspaceRoutingTests {
             }
         }
         state.presentation.toolSidebarOpen = savedInspectorOpen
-        print("ok: full-height navigation and unified inspector toolbar survive terminal/command/file switching")
+        print("ok: full-height navigation survives terminal/command/file switching without a terminal toolbar")
         print("ok: stable title band preserves content Y, geometry and actions across repeated collapse and restore")
     }
 

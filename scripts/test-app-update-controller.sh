@@ -23,21 +23,8 @@ swift_compiler="$developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift
 sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path)"
 "$swift_compiler" -parse-as-library -target arm64-apple-macosx14.0 -sdk "$sdk_dir" \
     -module-cache-path "$repo_dir/build/AppUpdateControllerModuleCache.noindex" \
-    -I "$products_dir" -I "$products_dir/include/libghostty" \
+    -F "$products_dir" -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/Frameworks" -I "$products_dir" -I "$products_dir/include/libghostty" \
     -Xlinker -rpath -Xlinker "$dylib_dir" \
     "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/AppUpdateControllerTests.swift" \
     -o "$test_executable"
-for scenario in same-version no-release older-version newer-version disabled skipped remind disable-during-check disable-during-manual; do
-    scenario_home="$test_dir/home/$scenario"
-    prefs_dir="$scenario_home/Library/Application Support/1Agent/update"
-    mkdir -p "$prefs_dir"
-    case "$scenario" in
-        disabled) prefs='{"autoCheck":false,"skippedVersion":"","remindVersion":""}' ;;
-        skipped) prefs='{"autoCheck":true,"skippedVersion":"v1.1.0","remindVersion":""}' ;;
-        remind) prefs='{"autoCheck":true,"skippedVersion":"","remindVersion":"v1.1.0","remindAfter":"2099-01-01T00:00:00Z"}' ;;
-        *) prefs='{"autoCheck":true,"skippedVersion":"","remindVersion":""}' ;;
-    esac
-    printf '%s\n' "$prefs" > "$prefs_dir/prefs.json"
-    /usr/bin/sandbox-exec -p "(version 1) (allow default) (deny network*) (deny process-exec) (allow process-exec (literal \"/usr/bin/env\") (literal \"$test_executable\"))" \
-        /usr/bin/env CFFIXED_USER_HOME="$scenario_home" ONEAGENT_TEST_HOME="$scenario_home" "$test_executable" "$scenario"
-done
+/usr/bin/env CFFIXED_USER_HOME="$test_dir/home" "$test_executable"

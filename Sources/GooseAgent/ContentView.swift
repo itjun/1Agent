@@ -23,9 +23,6 @@ struct RootView: View {
     @State private var skipWorkspaceRenameCommit = false
     @State private var hoveredTabID: UUID?
     @State private var availableWidth: CGFloat = 0
-    @State private var toolSidebarDragStart: Double?
-    @State private var previewDragStart: Double?
-    @State private var isPreviewDividerHovered = false
     @FocusState private var workspaceNameFocused: Bool
 
     /// 本机与远程共用强调色，切换连接不会改变外壳。
@@ -46,7 +43,7 @@ struct RootView: View {
                 NativeSidebarSplit(
                     collapsed: collapsed, isDividerHidden: true,
                     toolbarIdentifier: "workspace.navigationSplit",
-                    extendsSidebarIntoTitlebar: !window.isToolReadingExpanded, width: shownSidebarWidth,
+                    extendsSidebarIntoTitlebar: true, width: shownSidebarWidth,
                     minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
                     defaultWidth: SidebarLayout.defaultWidth,
                     onWidthChange: {
@@ -55,11 +52,6 @@ struct RootView: View {
                     }
                 ) {
                     sidebar
-                        .allowsHitTesting(!window.isToolReadingExpanded)
-                        .accessibilityHidden(window.isToolReadingExpanded)
-                        .background {
-                            sidebarChrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
-                        }
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
@@ -68,6 +60,7 @@ struct RootView: View {
 
                 } detail: {
                     workspaceWithTools
+                        .environment(\.workspaceTitlebarLeadingInset, collapsed ? 132 : 0)
                         .ignoresSafeArea(edges: .top)
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, chrome)
@@ -78,52 +71,14 @@ struct RootView: View {
                 }
             }
             .overlay(alignment: .topLeading) {
-                let leftWidth = collapsed ? 0 : shownSidebarWidth + 1
-                let detailWidth = max(0, geometry.size.width - leftWidth)
-                let rightWidth = ToolSidebarLayout.visibleWidth(detailWidth: detailWidth,
-                    open: window.presentation.toolSidebarOpen && !commandsMode,
-                    filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
-                let previewWidth = WorkspacePreviewLayout.visibleWidth(
-                    available: max(0, detailWidth - rightWidth - 1),
-                    isOpen: rightWidth > 0 && window.isToolPreviewOpen,
-                    preferred: window.toolPreviewWidth, isEqualSplit: window.isToolPreviewEqualSplit)
-                let readingWidth = max(0, geometry.size.width - rightWidth - 1)
-                let frame = CGRect(x: window.isToolReadingExpanded ? 0 : readingWidth - previewWidth,
-                    y: window.workspaceToolbarHeight,
-                    width: window.isToolReadingExpanded ? readingWidth : previewWidth,
-                    height: max(0, geometry.size.height - window.workspaceToolbarHeight))
-                ZStack(alignment: .topLeading) {
-                    if previewWidth > 0 {
-                        WorkspaceFilePreview(model: model, window: window)
-                            .frame(width: frame.width, height: frame.height)
-                            .background(AppTheme.terminalPaneBackground(isDark: appearanceDriver.isDark, isFocused: true).color)
-                            .offset(x: frame.minX, y: frame.minY)
-                        if !window.isToolReadingExpanded {
-                            // 分割线和拖动热区放在预览上方，避免预览盖住边界右半侧。
-                            Rectangle()
-                                .fill(isPreviewDividerHovered || previewDragStart != nil ? chrome.secondary : chrome.hairline)
-                                .frame(width: Theme.PaneStyle.dividerLineWidth, height: geometry.size.height)
-                                .offset(x: frame.minX - Theme.PaneStyle.dividerLineWidth)
-                                .allowsHitTesting(false)
-                            PaneDividerHandle(vertical: true, onHover: { isPreviewDividerHovered = $0 }, onDragChanged: { delta in
-                                if previewDragStart == nil { previewDragStart = Double(previewWidth) }
-                                window.isToolPreviewEqualSplit = false
-                                window.toolPreviewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(previewWidth)) - delta)
-                            }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
-                                window.isToolPreviewEqualSplit = true
-                            })
-                            .frame(width: 10, height: frame.height)
-                            .offset(x: frame.minX - 5.5, y: frame.minY)
-                            .accessibilityLabel(Text("Resize File Preview"))
-                            .onDisappear { isPreviewDividerHovered = false }
-                        }
+                if !filesMode && !commandsMode {
+                    WorkspaceSidebarToggle(shortcut: .toggleSidebar, systemImage: "sidebar.left",
+                                           identifier: "workspace.sidebar") {
+                        model.toggleSidebar(in: window)
                     }
+                    .frame(height: ShellLayout.compactHeaderHeight)
+                    .padding(.leading, 90)
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
-                Color.clear.frame(width: 0, height: 0)
-                    .onGeometryChange(for: CGRect.self) { _ in previewWidth > 0 ? frame : .zero } action: {
-                        window.toolPreviewFrame = $0
-                    }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
@@ -136,7 +91,7 @@ struct RootView: View {
                     isDark: appearanceDriver.isDark,
                     usesTerminalBackground: true
                 )
-                chrome.panelHeader.frame(height: window.workspaceToolbarHeight)
+
             }
             .accessibilityHidden(true)
         }
@@ -158,6 +113,9 @@ struct RootView: View {
             appearanceDriver.reapply()
         }
         .background(WorkspaceToolbar(model: model, state: window, visibility: toolbarVisibility))
+        .background(AppNotificationAnchor(model: model, tabs: model.tabs.filter {
+            model.sidebarOrder(in: window).contains($0.id)
+        }).frame(width: 0, height: 0).accessibilityHidden(true))
         .background(ToolbarHoverTracking(onHover: toolbarVisibility.setHovered))
         .modifier(HostInformationPresentation(model: model, window: window))
         .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
@@ -459,60 +417,19 @@ struct RootView: View {
         .background(Color.clear)
     }
 
-    // 右栏宽度包含两侧留白；扣除与左侧原生分隔线相同的 1pt，让可见占位对称。
-    private var toolSidebarSurroundingWidth: CGFloat {
-        0
-    }
-
     private var workspaceWithTools: some View {
-        GeometryReader { geometry in
-            let width = ToolSidebarLayout.visibleWidth(detailWidth: geometry.size.width,
-                open: window.presentation.toolSidebarOpen && !commandsMode, filesMode: filesMode, preferred: window.presentation.toolSidebarWidth)
-            NativeSidebarSplit(collapsed: width == 0, isTrailing: true,
-                toolbarIdentifier: "workspace.inspectorSplit",
-                width: width > 0 ? width : CGFloat(window.presentation.toolSidebarWidth),
-                minimumWidth: ToolSidebarLayout.minimumWidth, maximumWidth: 480,
-                defaultWidth: WorkspaceChromeLayout.defaultSidebarWidth,
-                onWidthChange: { value in
-                    model.updatePresentation(in: window) { $0.toolSidebarWidth = Double(value) }
-                }) {
-                    WorkspaceToolSidebar(model: model, window: window)
-                        .background {
-                            chrome.sidebarBackground.ignoresSafeArea().accessibilityHidden(true)
-                        }
-                        .environment(\.windowChrome, chrome)
-                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
-                } detail: {
-                    ZStack {
-                        workspaceWithPreview(isInspectorOpen: width > 0)
-                            .opacity(commandsMode ? 0 : 1)
-                            .disabled(commandsMode)
-                            .allowsHitTesting(!commandsMode).accessibilityHidden(commandsMode)
-                        if commandsMode {
-                            QuickCommandLibraryView(model: model, window: window, isWorkspace: true) { model.hideFiles(in: window) }
-                                .accessibilityIdentifier("workspace.commandLibrary")
-                        }
-                    }
-                        .environment(\.windowChrome, chrome)
-                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
-                }
-                .ignoresSafeArea(edges: .top)
-        }
-        .ignoresSafeArea(edges: .top)
-    }
-
-    private func workspaceWithPreview(isInspectorOpen: Bool) -> some View {
-        GeometryReader { geometry in
-            let previewWidth = WorkspacePreviewLayout.visibleWidth(available: geometry.size.width,
-                isOpen: isInspectorOpen && window.isToolPreviewOpen, preferred: window.toolPreviewWidth,
-                isEqualSplit: window.isToolPreviewEqualSplit)
-            let terminalWidth = max(0, geometry.size.width - (previewWidth > 0 ? previewWidth + ShellLayout.workspaceInset : 0))
-            ZStack(alignment: .topLeading) {
-                workspaceSurface.frame(width: terminalWidth)
-                    .allowsHitTesting(!window.isToolReadingExpanded)
-                    .accessibilityHidden(window.isToolReadingExpanded)
+        ZStack {
+            workspaceSurface
+                .opacity(commandsMode ? 0 : 1)
+                .disabled(commandsMode)
+                .allowsHitTesting(!commandsMode).accessibilityHidden(commandsMode)
+            if commandsMode {
+                QuickCommandLibraryView(model: model, window: window, isWorkspace: true) { model.hideFiles(in: window) }
+                    .accessibilityIdentifier("workspace.commandLibrary")
             }
         }
+        .padding(.top, filesMode || commandsMode ? window.workspaceToolbarHeight : 0)
+        .ignoresSafeArea(edges: .top)
     }
 
     private func shortcutHelp(_ id: AppShortcutID) -> String {
@@ -1107,12 +1024,6 @@ enum FileBrowserLayout {
     static let pathSeparatorWidth: CGFloat = 20
     static let folderColor = Color(red: 0x4C / 255, green: 0x8D / 255, blue: 0xFF / 255)
     static let previewByteLimit = 512 * 1024
-    /// Progress toast at the bottom center of the window.
-    static let toastWidth: CGFloat = 360
-    static let toastHeight: CGFloat = 40
-    /// From the window top; clears the tab strip.
-    static let toastTopInset: CGFloat = 44
-    static let toastLingerSeconds: Double = 2.5
     /// Tab strip above each side of the Files area, as in Xftp.
     static let tabStripHeight: CGFloat = 40
     static let tabMinWidth: CGFloat = 56

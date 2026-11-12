@@ -15,10 +15,10 @@ swift_compiler="$developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift
 sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path)"
 "$swift_compiler" -parse-as-library -target arm64-apple-macosx14.0 -sdk "$sdk_dir" \
     -module-cache-path "$repo_dir/build/HostInformationModuleCache.noindex" \
-    -I "$products_dir" -I "$products_dir/include/libghostty" \
+    -F "$products_dir" -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/Frameworks" -I "$products_dir" -I "$products_dir/include/libghostty" \
     -Xlinker -rpath -Xlinker "$dylib_dir" \
     "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/HostInformationTests.swift" \
     -o "$test_executable"
 # Exercise native right-button events, menu dispatch and the production SwiftUI modal in isolation.
-/usr/bin/sandbox-exec -p "(version 1) (allow default) (deny network*) (deny process-exec) (allow process-exec (literal \"/usr/bin/env\") (literal \"$test_executable\"))" \
+/usr/bin/sandbox-exec -p "(version 1) (allow default) (deny network*) (deny process-exec) (allow process-exec (literal \"/usr/bin/env\") (literal \"/usr/bin/ssh\") (literal \"$test_executable\"))" \
     /usr/bin/env CFFIXED_USER_HOME="$test_dir/home" ONEAGENT_TEST_HOME="$test_dir/home" "$test_executable"

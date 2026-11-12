@@ -53,6 +53,19 @@ final class QuickCommandDragHandleView: NSView {
     override func mouseEntered(with event: NSEvent) { NSCursor.pointingHand.set() }
     override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
 
+    /// 按屏幕上的最上层窗口命中，不能穿过工具箱或其他应用落到后台终端。
+    static func dropDestination(at screenPoint: NSPoint) -> (window: NSWindow, point: NSPoint)? {
+        var number = NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: 0)
+        while number > 0, let window = NSApp.window(withWindowNumber: number) {
+            if !window.ignoresMouseEvents {
+                guard window.isVisible, !window.isMiniaturized, window.attachedSheet == nil else { return nil }
+                return (window, window.convertPoint(fromScreen: screenPoint))
+            }
+            number = NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: number)
+        }
+        return nil
+    }
+
     static func terminal(at point: NSPoint, in window: NSWindow) -> SSHTerminalNSView? {
         guard let content = window.contentView else { return nil }
         let location = content.superview?.convert(point, from: nil) ?? point
@@ -106,12 +119,16 @@ final class QuickCommandDragHandleView: NSView {
             if event.type == .leftMouseUp {
                 if dragging {
                     // Re-resolve at release; a pane or its command can change mid-drag.
-                    if let destination = QuickCommandCopyTargetView.target(at: event.locationInWindow, in: window, commandID: id) {
+                    guard let drop = Self.dropDestination(at: window.convertPoint(toScreen: event.locationInWindow)) else {
+                        stop.pointee = true
+                        return
+                    }
+                    if let destination = QuickCommandCopyTargetView.target(at: drop.point, in: drop.window, commandID: id) {
                         destination.onCopy(id)
-                    } else if let row = Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section) {
-                        row.move(id, after: row.isAfter(event.locationInWindow))
+                    } else if let row = Self.reorderTarget(at: drop.point, in: drop.window, sourceID: id, section: self.section) {
+                        row.move(id, after: row.isAfter(drop.point))
                     } else {
-                        Self.terminal(at: event.locationInWindow, in: window)?.dropQuickCommand(id)
+                        Self.terminal(at: drop.point, in: drop.window)?.dropQuickCommand(id)
                     }
                 } else if clickCount == 2 {
                     self.onDoubleClick()
@@ -138,17 +155,18 @@ final class QuickCommandDragHandleView: NSView {
                 preview = panel
             }
             guard dragging else { return }
-            let destination = QuickCommandCopyTargetView.target(at: event.locationInWindow, in: window, commandID: id)
+            let screen = window.convertPoint(toScreen: event.locationInWindow)
+            let drop = Self.dropDestination(at: screen)
+            let destination = drop.flatMap { QuickCommandCopyTargetView.target(at: $0.point, in: $0.window, commandID: id) }
             if destination !== copyTarget { copyTarget?.isHighlighted = false; copyTarget = destination }
             copyTarget?.isHighlighted = true
-            let row = destination == nil ? Self.reorderTarget(at: event.locationInWindow, in: window, sourceID: id, section: self.section) : nil
+            let row = destination == nil ? drop.flatMap { Self.reorderTarget(at: $0.point, in: $0.window, sourceID: id, section: self.section) } : nil
             if row !== reorderTarget { reorderTarget?.insertionAfter = nil; reorderTarget = row }
-            row?.insertionAfter = row?.isAfter(event.locationInWindow)
-            let candidate = row == nil && destination == nil ? Self.terminal(at: event.locationInWindow, in: window) : nil
+            row?.insertionAfter = drop.map { row?.isAfter($0.point) ?? false }
+            let candidate = row == nil && destination == nil ? drop.flatMap { Self.terminal(at: $0.point, in: $0.window) } : nil
             if candidate !== target { target?.highlightQuickCommand(nil); target = candidate }
             let accepted = target?.acceptsQuickCommand(id) == true
             target?.highlightQuickCommand(accepted ? id : nil)
-            let screen = window.convertPoint(toScreen: event.locationInWindow)
             preview?.setFrameOrigin(NSPoint(x: screen.x + 12, y: screen.y - 36))
             preview?.orderFrontRegardless()
             (row != nil ? NSCursor.closedHand : accepted || destination != nil ? NSCursor.dragCopy : NSCursor.operationNotAllowed).set()

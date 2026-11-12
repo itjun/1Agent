@@ -39,6 +39,8 @@ import SwiftUI
         let item = QuickCommand(alias: "外观检查", command: "printf '%s\\n' '中文文字'", scope: .local)
         try QuickCommandStore.shared.save(item)
         try await checkCommandPreview(item, model: model)
+        state.commandLibraryCollection = QuickCommandCollection.owner(of: item)
+        state.commandLibrarySelection = item.id
         let paste = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [item]), context: context)
         let plan = GhosttyConfigImport.makePlan()
         if let language = ProcessInfo.processInfo.environment["ONEAGENT_TEST_LANGUAGE"] {
@@ -56,7 +58,6 @@ import SwiftUI
             ("command library", SheetLayout.commandLibrary, SheetLayout.commandLibraryHeight, AnyView(QuickCommandLibraryView(model: model, window: state, onClose: {}))),
             ("command history", SheetLayout.commandLibrary, SheetLayout.commandLibraryHeight, AnyView(QuickCommandHistoryView(context: context, hosts: [], onClose: {}))),
             ("command import", SheetLayout.commandLibrary, SheetLayout.commandLibraryHeight, AnyView(QuickCommandImportView(library: QuickCommandLibrary(commands: [item]), hosts: [], onClose: {}))),
-            ("folder picker", SheetLayout.folderPicker, SheetLayout.sessionBodyHeight, AnyView(FamilyFolderPicker(initialDirectory: home, onCancel: {}, onChoose: { _ in }))),
             ("settings import preview", SheetLayout.importPreview, SheetLayout.importPreviewBodyHeight, AnyView(GhosttyImportPreviewSheet(plan: plan, onCancel: {}, onImport: {})))
         ]
         let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1101, height: 801), styleMask: [.titled], backing: .buffered, defer: false)
@@ -177,7 +178,7 @@ import SwiftUI
             defaults.set(dark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             AppearanceDriver.shared.reapply()
             await settle()
-            checkSurface(toast.contentView!, dark: dark, name: "transfer toast", elevated: true)
+            checkSurface(toast.contentView!, dark: dark, name: "transfer toast", notification: true)
         }
         TransferToast.shared.finish(transfer, "检查完成")
         if !failures.isEmpty { throw NSError(domain: "ModalAppearanceTests", code: failures.count, userInfo: [NSLocalizedDescriptionKey: failures.joined(separator: "; ")]) }
@@ -185,32 +186,42 @@ import SwiftUI
     }
 
     @MainActor static func checkCommandPreview(_ item: QuickCommand, model: AppModel) async throws {
-        let state = WindowState()
+        let state = model.mainWindow
+        model.openLocalTerminal(at: NSHomeDirectory(), placement: .newTab, beside: UUID(), in: state)
+        try await until { model.selectedTab(in: state) != nil }
+        let tab = model.selectedTab(in: state)!
+        defer { model.closeTab(tab.id) }
         let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1100, height: 800), styleMask: [.titled], backing: .buffered, defer: false)
-        let host = NSHostingView(rootView: AnyView(QuickCommandSidebar(model: model, window: state).frame(width: 260)
+        let host = NSHostingView(rootView: AnyView(QuickCommandSidebar(model: model, window: state, tabID: tab.id).frame(width: 260)
             .environment(\.windowChrome, WindowChrome(isDark: true))))
         owner.contentView = host
         owner.makeKeyAndOrderFront(nil)
         defer { owner.orderOut(nil) }
         await settle()
+        func previewElements() -> [NSObject] {
+            elements(host) + (owner.childWindows ?? []).flatMap { $0.contentView.map(elements) ?? [] }
+        }
         func button(_ id: String) -> NSObject? {
-            elements(host).first { value($0, "accessibilityIdentifier") as? String == id
+            previewElements().first { value($0, "accessibilityIdentifier") as? String == id
                 && $0.responds(to: NSSelectorFromString("accessibilityPerformPress")) }
         }
         let row = button("quickCommand." + item.id.uuidString)
-        expect(row != nil && invoke(row!, "accessibilityPerformPress"), "single click opens command preview popover")
+        expect(row != nil && invoke(row!, "accessibilityPerformPress"), "single click selects the terminal command details")
         await settle()
-        expect(button("quickCommands.preview.copy") != nil, "command preview popover offers copying")
+        expect(button("quickCommands.copy." + item.id.uuidString) != nil, "terminal command details offer copying")
+        expect(model.commandSidebars[tab.id]?.selectedCommandID == item.id, "selection belongs to the displayed terminal")
+        expect(owner.childWindows?.isEmpty != false, "command details stay inside the terminal sidebar")
         expect(!state.isToolPreviewOpen && state.section == .terminals, "selection does not open a separate card or leave the terminal")
         expect(state.quickCommandConfirmation == nil, "preview never asks to execute")
-        let sidebarText = elements(host).flatMap { object in
+        let sidebarText = previewElements().flatMap { object in
             ["accessibilityValue", "accessibilityLabel"].compactMap { value(object, $0) as? String }
         }.joined(separator: " ")
         expect(sidebarText.contains(item.command), "sidebar preview shows complete literal command")
-        expect(invoke(button("quickCommands.new")!, "accessibilityPerformPress"), "sidebar add routes to command management")
-        expect(state.section == .commands && state.commandLibraryDraft != nil, "new command opens the main command page")
-        expect(owner.attachedSheet == nil, "sidebar add does not open a modal")
-        state.commandLibraryDraft = nil
+        expect(button("quickCommands.new") == nil, "terminal sidebar leaves maintenance to the Commands page")
+        model.showSection(.commands, in: state)
+        expect(state.section == .commands && owner.attachedSheet == nil, "command management opens as a page")
+        state.commandLibraryCollection = QuickCommandCollection.owner(of: item)
+        state.commandLibrarySelection = item.id
         host.rootView = AnyView(QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
             .environment(\.windowChrome, WindowChrome(isDark: true)))
         await settle()
@@ -244,6 +255,13 @@ import SwiftUI
         expect(button("quickCommands.library.edit") != nil && owner.attachedSheet == nil, "save returns to the main list without a modal")
         try QuickCommandStore.shared.save(item)
         state.commandLibraryCollection = .common
+        host.rootView = AnyView(VStack {
+            QuickCommandLibraryHeader(model: model, window: state)
+            HStack {
+                QuickCommandLibraryNavigation(model: model, window: state).frame(width: 260)
+                QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
+            }
+        }.environment(\.windowChrome, WindowChrome(isDark: true)))
         await settle()
         let newProbe = NativeMenuProbe()
         defer { newProbe.stop() }
@@ -306,7 +324,7 @@ import SwiftUI
         print("CHECKED: command context menu owns right/control-click press and release; terminal and normal selection remain available")
     }
 
-    @MainActor static func checkSurface(_ view: NSView, dark: Bool, name: String, elevated: Bool = false) {
+    @MainActor static func checkSurface(_ view: NSView, dark: Bool, name: String, notification: Bool = false) {
         view.layoutSubtreeIfNeeded(); view.displayIfNeeded()
         let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
         view.cacheDisplay(in: view.bounds, to: bitmap)
@@ -315,7 +333,7 @@ import SwiftUI
         let chrome = WindowChrome(isDark: dark)
         // cacheDisplay is tagged with the display ICC profile; compare in that
         // space instead of interpreting those channels as untagged sRGB.
-        let expected = NSColor(elevated ? chrome.elevated : chrome.background).usingColorSpace(bitmap.colorSpace)!
+        let expected = NSColor(notification ? chrome.notificationBackground : chrome.background).usingColorSpace(bitmap.colorSpace)!
         expect(abs(pixel.redComponent - expected.redComponent) < 0.03 && abs(pixel.greenComponent - expected.greenComponent) < 0.03 && abs(pixel.blueComponent - expected.blueComponent) < 0.03, "\(name): \(dark ? "dark" : "light") surface, actual \(pixel)")
         let expectedText = NSColor(chrome.text).usingColorSpace(.sRGB)!
         for object in elements(view) {

@@ -48,6 +48,7 @@ struct TerminalTab: Identifiable, Equatable {
     var reconnectAttempts: Int = 0
     /// Waiting for or starting an automatic reconnect.
     var reconnecting: Bool = false
+    var connectionNotice: TerminalConnectionNotice? = nil
     var content: PaneContent = .terminal
     /// Remote shell directory last reported through OSC 7, retained across launches.
     var remoteDirectory: String? = nil
@@ -90,6 +91,16 @@ final class AppModel: ObservableObject {
     @Published private(set) var hosts: [SSHHost] = []
     @Published private(set) var configFailed = false
     @Published private(set) var tabs: [TerminalTab] = []
+    /// 按终端保存，切换分屏或移动到其他窗口不会改变展开状态和选择。
+    @Published var commandSidebars: [UUID: TerminalCommandSidebarState] = [:]
+    private var commandExecutions: [UUID: QuickCommandSidebarExecution] = [:]
+
+    func commandExecution(for tabID: UUID) -> QuickCommandSidebarExecution {
+        if let execution = commandExecutions[tabID] { return execution }
+        let execution = QuickCommandSidebarExecution()
+        commandExecutions[tabID] = execution
+        return execution
+    }
     @Published private(set) var launchEnvironment: [String] = []
     /// Ordered membership and independently selectable display panels, including single-session workspaces.
     @Published private(set) var workspaces: [Workspace] = []
@@ -941,16 +952,11 @@ final class AppModel: ObservableObject {
     }
 
     private func reportUnknownHosts(_ aliases: [String]) {
-        let alert = FamilyAlert()
-        alert.messageText = String(localized: "Some hosts are not in your SSH config")
-        alert.informativeText = String(
-            format: String(localized: "Not opened: %@. Add them to ~/.ssh/config (or config.d) first."),
-            aliases.joined(separator: ", ")
-        )
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(localized: "OK"))
-        NSApp.activate()
-        alert.runModal()
+        activate(mainWindow)
+        AppNotifications.show(title: String(localized: "Some hosts are not in your SSH config"),
+            message: String(format: String(localized: "Not opened: %@. Add them to ~/.ssh/config (or config.d) first."),
+                            aliases.joined(separator: ", ")), level: .warning,
+            in: MainWindowManager.shared.window(for: mainWindow))
     }
 
     /// Multiple hosts share workspace membership, with independent panels unless a layout was requested.
@@ -1053,13 +1059,9 @@ final class AppModel: ObservableObject {
     }
 
     private func reportInvalidDirectory(_ path: String) {
-        let alert = FamilyAlert()
-        alert.messageText = String(localized: "Cannot open this directory")
-        alert.informativeText = path
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(localized: "OK"))
-        NSApp.activate()
-        alert.runModal()
+        activate(mainWindow)
+        AppNotifications.show(title: String(localized: "Cannot open this directory"), message: path, level: .error,
+                              in: MainWindowManager.shared.window(for: mainWindow))
     }
 
     /// Finder "Open in 1Agent", `open` of a folder or script, and `-e` from the command line.
@@ -1264,10 +1266,10 @@ final class AppModel: ObservableObject {
 
     /// Flush the final output while native surfaces still exist, then commit
     /// the matching session metadata. No disk export runs during normal typing.
-    func prepareForApplicationExit() async throws {
+    func prepareForApplicationExit(stopProcesses: Bool = true) async throws {
         try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
         persistSession()
-        await SSHTerminalRegistry.killProcessesForApplicationExit()
+        if stopProcesses { await SSHTerminalRegistry.killProcessesForApplicationExit() }
     }
 
     func showSettings() {
@@ -1308,15 +1310,29 @@ final class AppModel: ObservableObject {
         tabs[index].generation += 1
         tabs[index].exited = false
         tabs[index].restoration = nil
+        tabs[index].connectionNotice = nil
         persistSession()
         if let window = window(containing: tabID) { selectOnly(tabID, in: window) }
     }
 
     func reconnect(_ tabID: UUID) {
+        guard tabs.contains(where: { $0.id == tabID && $0.exited }) else { return }
         beginReconnect(tabID, automatic: false)
         if let window = window(containing: tabID) {
             window.selectedTabID = tabID
         }
+    }
+
+    /// 取消只停止本机正在启动的 SSH，不关闭终端，也不清空历史输出。
+    func cancelReconnect(_ tabID: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }),
+              case .connecting = tabs[index].connectionNotice else { return }
+        cancelAutoReconnect(tabID)
+        cancelStableConnection(tabID)
+        SSHTerminalRegistry.cancelConnectionAttempt(tabs[index].sessionID)
+        tabs[index].exited = true
+        tabs[index].reconnecting = false
+        tabs[index].connectionNotice = .disconnected
     }
 
     /// Reconnects every closed terminal in the workspace, in place.
@@ -1338,6 +1354,10 @@ final class AppModel: ObservableObject {
             path = url.path
         }
         guard path.hasPrefix("/") else { return }
+        if !tabs[index].isLocal, !tabs[index].exited,
+           case .connecting = tabs[index].connectionNotice {
+            tabs[index].connectionNotice = .recovered
+        }
         guard tabs[index].isLocal else {
             if tabs[index].remoteDirectory != path {
                 tabs[index].remoteDirectory = path
@@ -1378,6 +1398,7 @@ final class AppModel: ObservableObject {
         if tabs[index].isLocal {
             tabs[index].reconnecting = false
             cancelAutoReconnect(tabID)
+            tabs[index].connectionNotice = .disconnected
             return
         }
         let shortLived = lived < Self.shortLivedConnectionSeconds
@@ -1386,6 +1407,7 @@ final class AppModel: ObservableObject {
         } else {
             tabs[index].reconnecting = false
             cancelAutoReconnect(tabID)
+            tabs[index].connectionNotice = .failed(tabs[index].reconnectAttempts)
         }
     }
 
@@ -1413,6 +1435,7 @@ final class AppModel: ObservableObject {
         }
         tabs[index].reconnecting = false
         tabs[index].exited = false
+        tabs[index].connectionNotice = .connecting(tabs[index].reconnectAttempts)
         RemoteShellStatus.shared.forget(sessionID: tabs[index].sessionID)
         if !SSHTerminalRegistry.restart(tabs[index].sessionID, notice: notice) {
             // No live terminal to reuse (should not happen); fall back to a fresh surface.
@@ -1432,6 +1455,7 @@ final class AppModel: ObservableObject {
             return
         }
         tabs[index].reconnecting = true
+        tabs[index].connectionNotice = .waiting(attempt)
         let delay = Self.autoReconnectDelays[min(attempt, Self.autoReconnectDelays.count - 1)]
         autoReconnectTasks[tabID] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -1519,6 +1543,8 @@ final class AppModel: ObservableObject {
         TerminalProgress.shared.forget(sessionID: tabs[index].sessionID)
         RemoteShellStatus.shared.forget(sessionID: tabs[index].sessionID)
         SSHTerminalRegistry.destroy(tabs[index].sessionID)
+        commandSidebars[id] = nil
+        commandExecutions[id] = nil
         tabs.remove(at: index)
         workspaces = WorkspaceBoard.extract(id, from: workspaces)
         for window in windows {

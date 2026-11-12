@@ -1,0 +1,450 @@
+diff --git a/src/terminal/Screen.zig b/src/terminal/Screen.zig
+index 0fd0167..b337ecc 100644
+--- a/src/terminal/Screen.zig
++++ b/src/terminal/Screen.zig
+@@ -83,6 +83,15 @@ else
+ /// Semantic prompt (OSC133) state.
+ semantic_prompt: SemanticPrompt = .disabled,
+ 
++/// Set from the moment a resize erased a visible prompt until the shell
++/// has drawn it again (OSC 133 B, then the input after it) or the renderer
++/// gives up waiting. The renderer keeps presenting its last frame meanwhile,
++/// so the erased prompt is never on screen, and bounds the wait itself.
++prompt_redraw: PromptRedraw = .{},
++/// Advances at each visible erase, even if the renderer misses the prompt phase.
++/// Kept across hold completion and reset so a later redraw has a new identity.
++prompt_redraw_generation: u64 = 0,
++
+ /// Dirty flags for the renderer.
+ dirty: Dirty = .{},
+ 
+@@ -427,6 +436,9 @@ pub fn memoryUsage(self: *const Screen) MemoryUsage {
+ /// - Disables protection mode
+ ///
+ pub fn reset(self: *Screen) void {
++    // Whatever prompt a resize erased went with the rest of the screen.
++    self.prompt_redraw = .{};
++
+     // Reset our pages
+     self.pages.reset();
+ 
+@@ -2375,6 +2387,22 @@ fn clearPromptForRedraw(
+     if (redraw != .false and
+         self.cursor.semantic_content != .output)
+     prompt: {
++        // The input on the prompt before the erase, counted over the same
++        // rows promptInputCells counts afterwards — the whole prompt, not
++        // just the rows cleared, so a `.last` erase that keeps the rows
++        // above is measured against what they still hold.
++        const input_before = self.promptInputCells();
++        var visible = false;
++        var input_only = redraw == .last;
++        if (input_only) {
++            for (self.cursor.page_pin.node.page().getCells(self.cursor.page_row)) |cell| {
++                if (!cell.isEmpty() and cell.semantic_content != .input) {
++                    input_only = false;
++                    break;
++                }
++            }
++        }
++
+         switch (redraw) {
+             .false => unreachable,
+ 
+@@ -2384,7 +2412,7 @@ fn clearPromptForRedraw(
+                 const page = self.cursor.page_pin.node.page();
+                 const row = self.cursor.page_row;
+                 const cells = page.getCells(row);
+-                self.clearCells(page, row, cells);
++                self.clearPromptCells(page, row, cells, &visible);
+             },
+ 
+             .true => {
+@@ -2410,11 +2438,91 @@ fn clearPromptForRedraw(
+                     const page = pin.node.page();
+                     const row = pin.rowAndCell().row;
+                     const cells = page.getCells(row);
+-                    self.clearCells(page, row, cells);
++                    self.clearPromptCells(page, row, cells, &visible);
+                 }
+             },
+         }
++
++        // An empty prompt changes nothing the user can see, so there is
++        // nothing to hold a frame for. A visible one has to be drawn again
++        // from the start, remembering the most input seen on the prompt.
++        // An input-only continuation does not need a new prompt marker.
++        if (visible) {
++            self.prompt_redraw_generation +%= 1;
++            self.prompt_redraw.state = if (input_only) .input_only else .prompt;
++            self.prompt_redraw.input_cells = @max(
++                self.prompt_redraw.input_cells,
++                input_before,
++            );
++        }
++    }
++}
++
++/// See the `prompt_redraw` field.
++pub const PromptRedraw = struct {
++    state: State = .none,
++
++    /// Non-empty input cells the prompt held before the erase, counted by
++    /// promptInputCells. OSC 133 B proves only that the prompt is drawn;
++    /// the input area after it counts as drawn once promptInputCells is
++    /// back to at least this.
++    input_cells: usize = 0,
++
++    pub const State = enum {
++        none,
++        /// Waiting for the shell to draw the prompt (OSC 133 B).
++        prompt,
++        /// The prompt is drawn; waiting for the input after it.
++        input,
++        /// Only input cells were erased; a continuation redraw need not send B.
++        input_only,
++    };
++};
++
++/// Clear one prompt row for a shell redraw, noting whether it had anything
++/// on it.
++fn clearPromptCells(
++    self: *Screen,
++    page: *Page,
++    row: *Row,
++    cells: []Cell,
++    visible: *bool,
++) void {
++    for (cells) |cell| {
++        if (cell.isEmpty()) continue;
++        visible.* = true;
++        break;
++    }
++    self.clearCells(page, row, cells);
++}
++
++/// The shell drew the prompt a resize erased (OSC 133 B). What may still be
++/// missing is the input after it, if the erase removed any.
++pub fn promptRedrawn(self: *Screen) void {
++    if (self.prompt_redraw.state != .prompt) return;
++    self.prompt_redraw.state = if (self.prompt_redraw.input_cells == 0)
++        .none
++    else
++        .input;
++}
++
++/// Non-empty input cells on the prompt the cursor is on, from its first row
++/// down: what a shell redraw after clearPromptForRedraw has put back so far.
++pub fn promptInputCells(self: *const Screen) usize {
++    var prompt_it = self.cursor.page_pin.promptIterator(.left_up, null);
++    const start = prompt_it.next() orelse return 0;
++
++    var count: usize = 0;
++    var it = start.rowIterator(.right_down, null);
++    while (it.next()) |pin| {
++        const page = pin.node.page();
++        const row = pin.rowAndCell().row;
++        for (page.getCells(row)) |cell| {
++            if (cell.isEmpty()) continue;
++            if (cell.semantic_content == .input) count += 1;
++        }
+     }
++    return count;
+ }
+ 
+ /// Set a style attribute for the current cursor.
+diff --git a/src/terminal/Terminal.zig b/src/terminal/Terminal.zig
+index 8b2db56..99a917d 100644
+--- a/src/terminal/Terminal.zig
++++ b/src/terminal/Terminal.zig
+@@ -2234,6 +2234,9 @@ pub fn semanticPrompt(
+             self.screens.active.cursorSetSemanticContent(.{
+                 .input = .clear_explicit,
+             });
++
++            // The prompt a resize erased is back on the grid.
++            self.screens.active.promptRedrawn();
+         },
+ 
+         .end_prompt_start_input_terminate_eol => {
+@@ -2247,6 +2250,9 @@ pub fn semanticPrompt(
+             // "End of input, and start of output."
+             self.screens.active.cursorSetSemanticContent(.output);
+ 
++            // A command is running; no prompt redraw is coming any more.
++            self.screens.active.prompt_redraw = .{};
++
+             // If our current row is marked as a prompt and we're
+             // at column zero then we assume we're un-prompting. This
+             // is a heuristic to deal with fish, mostly. The issue that
+@@ -4186,7 +4192,9 @@ pub fn resize(
+         ) catch std.math.maxInt(u32);
+     }
+ 
+-    self.modes.set(.synchronized_output, false);
++    // libghostty-spm: synchronized output stays as the program left it. A
++    // resize must not present the half-drawn frame the mode is hiding; the
++    // termio watchdog still ends a transaction nobody finishes.
+ 
+     // If our cols/rows didn't change, skip grid work but still apply pixels.
+     if (self.cols == opts.cols and self.rows == opts.rows) return;
+@@ -4499,7 +4507,7 @@ test "Terminal setScrollback only affects primary screen" {
+     try testing.expectEqual(alternate, t.screens.active);
+ }
+ 
+-test "Terminal: resize resets synchronized output" {
++test "Terminal: resize preserves synchronized output" {
+     const alloc = testing.allocator;
+     const io_impl = testing.io;
+     var t = try init(io_impl, alloc, .{ .cols = 10, .rows = 5 });
+@@ -4507,7 +4515,7 @@ test "Terminal: resize resets synchronized output" {
+ 
+     t.modes.set(.synchronized_output, true);
+     try t.resize(alloc, .{ .cols = 10, .rows = 5 });
+-    try testing.expect(!t.modes.get(.synchronized_output));
++    try testing.expect(t.modes.get(.synchronized_output));
+ }
+ 
+ test "Terminal: resize rejects zero dimensions before mutation" {
+@@ -4687,7 +4695,7 @@ test "Terminal: resize failure paths preserve consistent state" {
+             try testing.expectEqual(@as(size.CellCountInt, 4), t.rows);
+             try testing.expectEqual(@as(u32, 4617), t.width_px);
+             try testing.expectEqual(@as(u32, 72), t.height_px);
+-            try testing.expect(!t.modes.get(.synchronized_output));
++            try testing.expect(t.modes.get(.synchronized_output));
+             try testing.expect(t.flags.dirty.clear);
+             try testing.expectEqual(@as(size.CellCountInt, 513), primary.pages.cols);
+             try testing.expectEqual(@as(size.CellCountInt, 4), primary.pages.rows);
+@@ -17549,3 +17557,146 @@ test "Terminal: eraseDisplay complete at prompt not on last row scrolls" {
+ 
+     try testing.expect(t.screens.active.pages.total_rows > t.screens.active.pages.rows);
+ }
++
++test "Terminal: semantic prompt redraw after resize" {
++    const alloc = testing.allocator;
++    const io_impl = testing.io;
++    var t = try init(io_impl, alloc, .{ .cols = 10, .rows = 5 });
++    defer t.deinit(alloc);
++
++    try t.semanticPrompt(.init(.fresh_line_new_prompt));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    try testing.expectEqual(.none, t.screens.active.prompt_redraw.state);
++
++    // The resize erases the prompt; the screen waits for the shell.
++    try t.resize(alloc, .{ .cols = 20, .rows = 5 });
++    try testing.expectEqual(.prompt, t.screens.active.prompt_redraw.state);
++    try testing.expectEqual(0, t.screens.active.prompt_redraw.input_cells);
++
++    // The shell draws its prompt again and marks where input starts.
++    t.carriageReturn();
++    try t.semanticPrompt(.init(.prompt_start));
++    for ("$ ") |c| try t.print(c);
++    try testing.expectEqual(.prompt, t.screens.active.prompt_redraw.state);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    try testing.expectEqual(.none, t.screens.active.prompt_redraw.state);
++}
++
++test "Terminal: semantic prompt redraw waits for the input after the prompt" {
++    const alloc = testing.allocator;
++    const io_impl = testing.io;
++    var t = try init(io_impl, alloc, .{ .cols = 10, .rows = 5 });
++    defer t.deinit(alloc);
++
++    try t.semanticPrompt(.init(.fresh_line_new_prompt));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    for ("ls -a") |c| try t.print(c);
++
++    // The erase took the input as well as the prompt.
++    try t.resize(alloc, .{ .cols = 20, .rows = 5 });
++    try testing.expectEqual(.prompt, t.screens.active.prompt_redraw.state);
++    try testing.expectEqual(5, t.screens.active.prompt_redraw.input_cells);
++
++    // The prompt alone does not end the wait: the input is still to come.
++    t.carriageReturn();
++    try t.semanticPrompt(.init(.prompt_start));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    try testing.expectEqual(.input, t.screens.active.prompt_redraw.state);
++    try testing.expectEqual(0, t.screens.active.promptInputCells());
++
++    // The redrawn input is what the renderer counts against the erase.
++    for ("ls -a") |c| try t.print(c);
++    try testing.expectEqual(5, t.screens.active.promptInputCells());
++
++    // A command starting ends the wait whatever was drawn.
++    try t.semanticPrompt(.init(.end_input_start_output));
++    try testing.expectEqual(.none, t.screens.active.prompt_redraw.state);
++}
++
++test "Terminal: semantic prompt redraw starts over on the next resize" {
++    const alloc = testing.allocator;
++    const io_impl = testing.io;
++    var t = try init(io_impl, alloc, .{ .cols = 10, .rows = 5 });
++    defer t.deinit(alloc);
++
++    try t.semanticPrompt(.init(.fresh_line_new_prompt));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    for ("ls -a") |c| try t.print(c);
++
++    try t.resize(alloc, .{ .cols = 20, .rows = 5 });
++    t.carriageReturn();
++    try t.semanticPrompt(.init(.prompt_start));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    try testing.expectEqual(.input, t.screens.active.prompt_redraw.state);
++
++    // Another resize before the input is back: the shell has to draw the
++    // prompt again first, and the input to wait for is still all of it.
++    try t.resize(alloc, .{ .cols = 30, .rows = 5 });
++    try testing.expectEqual(.prompt, t.screens.active.prompt_redraw.state);
++    try testing.expectEqual(5, t.screens.active.prompt_redraw.input_cells);
++}
++
++test "Terminal: semantic prompt redraw=last measures the rows it keeps" {
++    const alloc = testing.allocator;
++    const io_impl = testing.io;
++    var t = try init(io_impl, alloc, .{ .cols = 10, .rows = 5 });
++    defer t.deinit(alloc);
++    t.flags.shell_redraws_prompt = .last;
++
++    // Two input lines; only the one with the cursor is erased.
++    try t.semanticPrompt(.init(.fresh_line_new_prompt));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    for ("hello") |c| try t.print(c);
++    t.carriageReturn();
++    try t.linefeed();
++    for ("world") |c| try t.print(c);
++    try testing.expectEqual(10, t.screens.active.promptInputCells());
++
++    try t.resize(alloc, .{ .cols = 20, .rows = 5 });
++    try testing.expectEqual(.input_only, t.screens.active.prompt_redraw.state);
++    try testing.expectEqual(10, t.screens.active.prompt_redraw.input_cells);
++
++    // The kept row alone is not the redraw; only the erased one brought
++    // back reaches the count the hold is measured against.
++    try testing.expectEqual(5, t.screens.active.promptInputCells());
++    for ("world") |c| try t.print(c);
++    try testing.expectEqual(10, t.screens.active.promptInputCells());
++}
++
++test "Terminal: semantic prompt redraw wait ends with a full reset" {
++    const alloc = testing.allocator;
++    const io_impl = testing.io;
++    var t = try init(io_impl, alloc, .{ .cols = 10, .rows = 5 });
++    defer t.deinit(alloc);
++
++    try t.semanticPrompt(.init(.fresh_line_new_prompt));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    try t.resize(alloc, .{ .cols = 20, .rows = 5 });
++    try testing.expectEqual(.prompt, t.screens.active.prompt_redraw.state);
++
++    t.fullReset();
++    try testing.expectEqual(.none, t.screens.active.prompt_redraw.state);
++}
++
++test "Terminal: semantic prompt no redraw wait during command output" {
++    const alloc = testing.allocator;
++    const io_impl = testing.io;
++    var t = try init(io_impl, alloc, .{ .cols = 10, .rows = 5 });
++    defer t.deinit(alloc);
++
++    try t.semanticPrompt(.init(.fresh_line_new_prompt));
++    for ("$ ") |c| try t.print(c);
++    try t.semanticPrompt(.init(.end_prompt_start_input));
++    try t.semanticPrompt(.init(.end_input_start_output));
++    for ("out") |c| try t.print(c);
++
++    try t.resize(alloc, .{ .cols = 20, .rows = 5 });
++    try testing.expectEqual(.none, t.screens.active.prompt_redraw.state);
++}
+diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
+index 5f047f4..62d666f 100644
+--- a/src/terminal/c/terminal.zig
++++ b/src/terminal/c/terminal.zig
+@@ -7450,7 +7450,7 @@ test "resize pixel overflow saturates" {
+     try testing.expectEqual(std.math.maxInt(u32), zt.height_px);
+ }
+ 
+-test "resize disables synchronized output" {
++test "resize preserves synchronized output" {
+     var t: Terminal = null;
+     try testing.expectEqual(Result.success, new(
+         &lib.alloc.test_allocator,
+@@ -7463,9 +7463,9 @@ test "resize disables synchronized output" {
+     const zt = t.?.terminal;
+     zt.modes.set(.synchronized_output, true);
+ 
+-    // The terminal-level reset must run even if grid work is unnecessary.
++    // A resize with unchanged cell dimensions keeps synchronized output.
+     try testing.expectEqual(Result.success, resize(t, 80, 24, 9, 18));
+-    try testing.expect(!zt.modes.get(.synchronized_output));
++    try testing.expect(zt.modes.get(.synchronized_output));
+ }
+ 
+ test "resize sends in-band size report" {
+diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
+index aa61fb9..b80e64b 100644
+--- a/src/terminal/stream_terminal.zig
++++ b/src/terminal/stream_terminal.zig
+@@ -312,8 +312,8 @@ pub const Handler = struct {
+         ///
+         /// Today the only source of a hold is synchronized output (mode
+         /// 2026). The hold begins when VT input sets the mode. It ends
+-        /// when VT input resets the mode, on a full reset, and on a resize
+-        /// through `Handler.resize`. The calls always come in pairs:
++        /// when VT input resets the mode or on a full reset. A resize
++        /// preserves the hold. The calls always come in pairs:
+         /// setting the mode during a hold does nothing, and neither does
+         /// resetting it when there is no hold. Writing `terminal.modes`
+         /// directly never calls this.
+@@ -521,10 +521,10 @@ pub const Handler = struct {
+     /// because it also handles the side effects like mode 2048 in-band
+     /// size reports if write_pty is set.
+     pub fn resize(self: *Handler, value: Terminal.Resize) !void {
+-        // Resize always turns off synchronized output, ending its hold.
++        // A resize keeps synchronized output active until the program ends it.
+         const sync = self.terminal.modes.get(.synchronized_output);
+         try self.terminal.resize(self.terminal.gpa(), value);
+-        if (sync) self.renderHold(false);
++        if (sync and !self.terminal.modes.get(.synchronized_output)) self.renderHold(false);
+ 
+         // Mode 2048 reports require complete, current cell pixel geometry.
+         const cell_size = value.cell_size_px orelse return;
+@@ -2418,11 +2418,13 @@ test "render hold effect fires on synchronized output transitions only" {
+     s.nextSlice("\x1b[?2026h\x1bc\x1bc");
+     try testing.expectEqualSlices(bool, &.{ true, false }, S.events[0..S.len]);
+ 
+-    // Resize
++    // Resize preserves the hold; an explicit reset ends it once.
+     S.len = 0;
+     s.nextSlice("\x1b[?2026h");
+     try s.handler.resize(.{ .cols = 80, .rows = 24 });
+     try s.handler.resize(.{ .cols = 80, .rows = 24 });
++    try testing.expectEqualSlices(bool, &.{true}, S.events[0..S.len]);
++    s.nextSlice("\x1b[?2026l");
+     try testing.expectEqualSlices(bool, &.{ true, false }, S.events[0..S.len]);
+ }
+ 
+@@ -2475,7 +2477,7 @@ test "render hold effect can snapshot the frame when the hold begins" {
+     try testing.expectEqual('Z', S.char(0, 2));
+ }
+ 
+-test "resize clears synchronized output on unchanged cell dimensions" {
++test "resize preserves synchronized output on unchanged cell dimensions" {
+     var t: Terminal = try .init(testing.io, testing.allocator, .{ .cols = 80, .rows = 24 });
+     defer t.deinit(testing.allocator);
+ 
+@@ -2489,7 +2491,7 @@ test "resize clears synchronized output on unchanged cell dimensions" {
+         .cell_size_px = .{ .width = 9, .height = 18 },
+     });
+ 
+-    try testing.expect(!t.modes.get(.synchronized_output));
++    try testing.expect(t.modes.get(.synchronized_output));
+     try testing.expectEqual(@as(u32, 720), t.width_px);
+     try testing.expectEqual(@as(u32, 432), t.height_px);
+ }

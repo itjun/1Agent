@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+@testable import GooseAgent
 
 @main
 struct PreviewSyntaxTests {

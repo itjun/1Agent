@@ -8,6 +8,7 @@ enum TerminalRestorationTests {
     @MainActor static func main() {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
+        NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         Task { @MainActor in
             do {
                 if CommandLine.arguments.contains("--save-output") || CommandLine.arguments.contains("--restore-output") {
@@ -114,14 +115,19 @@ enum TerminalRestorationTests {
             expect(host.process.shellPid > 0, "Restored terminal must accept input")
             if saving {
                 // The begin marker scrolls offscreen; logs include color and CJK text.
-                host.session.receive("\u{1b}[32mLOG_\(index)_BEGIN 中文日志\u{1b}[0m\r\n" + (0..<180).map { "第 \($0) 行\r\n" }.joined() + "LOG_\(index)_END\r\n")
+                host.session.receive("\u{1b}[32mLOG_\(index)_BEGIN 中文日志\u{1b}[0m\r\n" + (0..<1000).map { "第 \($0) 行\r\n" }.joined() + "SOFT_WRAP_" + String(repeating: "中文🙂", count: 180) + "_END\r\nLOG_\(index)_END\r\n")
             }
             host.session.waitForPendingOutput()
             let text = host.session.readScreenText()?.text ?? ""
             expect(text.contains("LOG_\(index)_BEGIN 中文日志") && text.contains("LOG_\(index)_END"), "Cold restore must preserve previous visible and scrolled-off logs")
+            expect(text.contains("SOFT_WRAP_" + String(repeating: "中文🙂", count: 180) + "_END"), "History export must preserve a logical line spanning many physical rows")
             expect(text.components(separatedBy: "LOG_\(index)_BEGIN").count - 1 == 1, "Repeated launches must not duplicate previous output")
             expect(!text.contains("LOG_\(1 - index)_BEGIN"), "Terminal logs must never cross sessions")
             if !saving {
+                if index == 0 {
+                    expect((0..<3).allSatisfy { text.contains("FILE_PREVIEW_\($0)") },
+                           "Output received during file preview survives repeated cold restores")
+                }
                 let styled = host.session.readScreenStyledText() ?? ""
                 expect(styled.range(of: "\u{1b}\\[[0-9;:]*38;[0-9;:]*mLOG_\(index)_BEGIN", options: .regularExpression) != nil,
                        "Cold restore must keep the previous output's colors")
@@ -141,130 +147,153 @@ enum TerminalRestorationTests {
                 expect(host.session.readScreenText()?.text.contains("FRESH_INPUT_\(index)") == true, "Input must work after old output is restored")
             }
         }
-        if saving { try await readingOverlay(model: model, state: state, window: native, terminal: views[ids[0]]!, home: home) }
+        if saving { try await filePreviewContinuity(model: model, state: state, window: native, terminal: views[ids[0]]!, home: home) }
         model.isQuitting = true
         try await model.prepareForApplicationExit()
         try defaults.data(forKey: SessionSnapshot.storageKey)!.write(to: snapshotURL)
         print("PASS \(saving ? "save" : "cold restore"): two independent terminals, scrollback, Unicode, no duplication and no PTY replay")
     }
 
-    /// 完整 RootView 上反复展开，真实 cat PTY 持续收发；不读取或启动用户会话。
-    @MainActor static func readingOverlay(model: AppModel, state: WindowState, window: NSWindow,
-                                          terminal: SSHTerminalNSView, home: String) async throws {
+    /// 在真实文件页反复预览、调整宽度及切回终端；隔离的 cat PTY 全程持续收发。
+    @MainActor static func filePreviewContinuity(model: AppModel, state: WindowState, window: NSWindow,
+                                                terminal: SSHTerminalNSView, home: String) async throws {
         let file = URL(fileURLWithPath: home).appendingPathComponent("reading-fixture.txt")
-        try Data("阅读测试\nsecond line\n".utf8).write(to: file)
-        let column = FileColumn(fileSystem: LocalFileSystem())
+        let source = "阅读测试\nsecond line\n"
+        try Data(source.utf8).write(to: file)
         let entry = try await LocalFileSystem().list(home).first { $0.path == file.path }!
-        column.showPreview(entry)
         state.presentation.sidebarCollapsed = false
-        state.presentation.toolSidebarOpen = true
-        state.toolSidebarTab = .files
         window.setContentSize(NSSize(width: 1440, height: 900))
-        try await Task.sleep(for: .milliseconds(300))
-        state.openToolFilePreview(column)
-        state.toolPreviewWidth = 390
         try await Task.sleep(for: .milliseconds(300))
         let host = terminal.processHost!
         let pid = host.process.shellPid
         let identity = host.process.identity
         let terminalSize = terminal.bounds.size
-        let normalFrame = state.toolPreviewFrame
-        let rightWidth = state.presentation.toolSidebarWidth
-        expect(normalFrame.minX > 260 && normalFrame.width == 390, "Normal preview retains navigation and terminal")
-        func previewDivider() -> PaneDividerView? {
-            func handles(_ view: NSView) -> [PaneDividerView] {
-                (view as? PaneDividerView).map { [$0] } ?? view.subviews.flatMap(handles)
-            }
-            return handles(window.contentView!).first {
-                abs($0.convert($0.bounds, to: nil).midX - (state.toolPreviewFrame.minX - 0.5)) < 1
-            }
+        let workspace = model.fileWorkspace(for: state)
+        model.showFiles(for: state.selectedTabID, in: state)
+        let column = workspace.localColumn
+        func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+        func value(_ object: NSObject, _ name: String) -> Any? {
+            let selector = NSSelectorFromString(name)
+            return object.responds(to: selector) ? object.perform(selector)?.takeUnretainedValue() : nil
         }
-        func checkPreviewDividerHitArea() {
-            guard let divider = previewDivider() else {
-                expect(false, "Preview boundary must have a native resize handle")
-                return
+        func element(_ id: String) -> NSObject? {
+            var visited = Set<ObjectIdentifier>()
+            func find(_ object: NSObject) -> NSObject? {
+                guard visited.insert(ObjectIdentifier(object)).inserted else { return nil }
+                if value(object, "accessibilityIdentifier") as? String == id { return object }
+                return (value(object, "accessibilityChildren") as? [NSObject] ?? []).compactMap(find).first
             }
-            let content = window.contentView!
-            let frame = divider.convert(divider.bounds, to: nil)
-            for delta: CGFloat in [-4, 0, 4] {
-                let point = content.superview!.convert(NSPoint(x: frame.midX + delta, y: frame.midY), from: nil)
-                expect(content.hitTest(point) === divider,
-                       "Both sides of the visible divider must receive resize hits, including the preview side")
-            }
+            return find(window)
         }
-        checkPreviewDividerHitArea()
-        previewDivider()!.onDragChanged(-60)
-        previewDivider()!.onDragEnded()
-        try await Task.sleep(for: .milliseconds(250))
-        expect(state.toolPreviewFrame.width == normalFrame.width + 60,
-               "Dragging the visible preview boundary resizes the preview")
-        checkPreviewDividerHitArea()
-        state.toolPreviewWidth = normalFrame.width
-        try await Task.sleep(for: .milliseconds(250))
-        func hasToolbarControls() -> Bool {
-            guard let toolbar = window.toolbar else { return false }
-            let items = toolbar.visibleItems ?? []
-            return items.contains { $0.itemIdentifier.rawValue == "workspace.tools" }
+        func frame(_ object: NSObject) -> NSRect {
+            let selector = NSSelectorFromString("accessibilityFrame")
+            typealias Getter = @convention(c) (AnyObject, Selector) -> NSRect
+            return unsafeBitCast(object.method(for: selector), to: Getter.self)(object, selector)
         }
-        func separator(_ view: NSView) -> NSView? {
-            if view.identifier?.rawValue == "workspace.toolbarSeparator" { return view }
-            return view.subviews.compactMap(separator).first
+        func press(_ id: String) {
+            guard let object = element(id) else { expect(false, "Missing preview action: " + id); return }
+            let selector = NSSelectorFromString("accessibilityPerformPress")
+            typealias Action = @convention(c) (AnyObject, Selector) -> Bool
+            expect(unsafeBitCast(object.method(for: selector), to: Action.self)(object, selector), "Preview action activates: " + id)
         }
-        expect(hasToolbarControls(), "Normal preview actions must not overflow the native toolbar")
-        for cycle in 0..<3 {
-            state.isToolPreviewExpanded = true
-            try await Task.sleep(for: .milliseconds(250))
-            expect(state.toolPreviewFrame.minX == 0 && state.toolPreviewFrame.maxX == normalFrame.maxX,
-                   "Expanded reading covers navigation and terminal, retaining the right list")
-            expect(previewDivider() == nil, "Expanded reading has no terminal resize handle")
-            expect(hasToolbarControls(), "Expanded preview actions must remain visible")
-            let tools = window.toolbar!.items.first { $0.itemIdentifier.rawValue == "workspace.tools" }!.view!
-            let titleX = tools.convert(.zero, to: nil).x
-            let zoom = window.standardWindowButton(.zoomButton)!
-            let controlsEnd = zoom.convert(zoom.bounds, to: nil).maxX
-            expect(titleX >= controlsEnd && titleX - controlsEnd < 50,
-                   "Expanded filename follows window controls without reserving the hidden navigation width")
-            expect(separator(window.contentView!) == nil,
-                   "Expanded reading keeps the toolbar free of a horizontal separator")
-            expect(terminal.isHiddenOrHasHiddenAncestor && !terminal.canRestoreModalFocus,
-                   "Covered terminal must not accept or reclaim keyboard focus")
-            expect(terminal.bounds.size == terminalSize, "Expansion must not resize the underlying terminal grid")
-            expect(SSHTerminalRegistry.automationView(terminal.sessionID!) === terminal,
-                   "Expansion must retain the same native terminal surface")
-            let marker = "READING_OVERLAY_\(cycle)"
-            host.process.write(Data((marker + "\n").utf8))
+        func settle() async throws { try await Task.sleep(for: .milliseconds(300)) }
+        func eventually(_ message: String, _ condition: () -> Bool) async throws {
             for _ in 0..<100 {
-                host.session.waitForPendingOutput()
-                if host.session.readScreenText()?.text.contains(marker) == true { break }
+                if condition() { return }
                 try await Task.sleep(for: .milliseconds(20))
             }
-            expect(host.session.readScreenText()?.text.contains(marker) == true,
-                   "The original PTY must continue receiving output while covered")
-            expect(host.process.shellPid == pid && host.process.identity == identity,
-                   "Reading must never restart the terminal process")
-            state.isToolPreviewExpanded = false
-            try await Task.sleep(for: .milliseconds(250))
-            expect(state.toolPreviewFrame == normalFrame && state.presentation.toolSidebarWidth == rightWidth,
-                   "Collapse restores the exact preview and sidebar geometry")
-            checkPreviewDividerHitArea()
-            expect(!terminal.isHiddenOrHasHiddenAncestor, "Collapse reveals the retained terminal")
+            throw NSError(domain: "RestorationTests", code: 3, userInfo: [NSLocalizedDescriptionKey: message])
         }
-        state.isToolPreviewExpanded = true
+        try await eventually("File browser finishes loading the terminal directory") {
+            !column.loading && column.entries.contains { $0.path == entry.path }
+        }
+        let directory = column.directory
+        let layout = workspace.layout
+        let previewID = "files.preview.\(column.id)"
+        func previewFrame() -> NSRect { frame(element(previewID)!) }
+        func previewDivider() -> PaneDividerView? {
+            let edge = previewFrame().minX
+            return descendants(window.contentView!).compactMap { $0 as? PaneDividerView }.first {
+                abs(window.convertToScreen($0.convert($0.bounds, to: nil)).midX - edge) < 4
+            }
+        }
+        func checkDivider() {
+            guard let divider = previewDivider() else { expect(false, "File preview has a native resize handle"); return }
+            let content = window.contentView!
+            let rect = divider.convert(divider.bounds, to: nil)
+            for delta: CGFloat in [-2, 0, 2] {
+                let point = content.superview!.convert(NSPoint(x: rect.midX + delta, y: rect.midY), from: nil)
+                expect(content.hitTest(point) === divider, "Both sides of the preview divider receive resize hits")
+            }
+        }
+        for cycle in 0..<3 {
+            workspace.open(entry, in: column, window: window)
+            try await eventually("File preview loads its literal contents") {
+                column.preview?.decoded?.text == source && element(previewID) != nil
+            }
+            try await settle()
+            let normalFrame = previewFrame()
+            expect(normalFrame.width > 0 && element("files.localLocation") != nil,
+                   "Preview keeps file navigation visible")
+            expect(!terminal.canRestoreModalFocus, "The terminal cannot reclaim focus from the Files page")
+            let hiddenTerminalSize = terminal.bounds.size
+            checkDivider()
+            previewDivider()!.onDragChanged(40)
+            previewDivider()!.onDragEnded()
+            try await settle()
+            expect(abs(previewFrame().width - (normalFrame.width - 40)) < 1,
+                   "Dragging the file preview boundary changes its width")
+            checkDivider()
+            expect(terminal.bounds.size == hiddenTerminalSize, "Preview resizing does not resize the retained terminal")
+            expect(SSHTerminalRegistry.automationView(terminal.sessionID!) === terminal,
+                   "File preview retains the same native terminal surface")
+            let marker = "FILE_PREVIEW_\(cycle)"
+            host.process.write(Data((marker + "\n").utf8))
+            try await eventually("Original PTY receives output while the Files page is visible") {
+                host.session.waitForPendingOutput()
+                return host.session.readScreenText()?.text.contains(marker) == true
+            }
+            expect(host.process.shellPid == pid && host.process.identity == identity, "Preview never restarts the terminal")
+            press("files.preview.find")
+            try await settle()
+            let code = descendants(window.contentView!).compactMap { $0 as? PreviewTextView }.first { $0.string == source }!
+            expect(code.enclosingScrollView?.isFindBarVisible == true, "Find opens in the real preview")
+            press("files.preview.close")
+            try await eventually("Close removes the preview") { column.preview == nil && element(previewID) == nil }
+            expect(column.directory == directory && workspace.layout == layout, "Close preserves browsing and pane layout")
+            model.showSection(.terminals, in: state)
+            try await settle()
+            expect(terminal.canRestoreModalFocus && terminal.bounds.size == terminalSize,
+                   "Returning to Terminals restores focus eligibility and its original grid")
+            model.showSection(.files, in: state)
+            try await settle()
+            workspace.open(entry, in: column, window: window)
+            try await eventually("Preview reopens") { element(previewID) != nil && column.preview?.decoded != nil }
+            try await settle()
+            expect(previewFrame() == normalFrame, "Reopening restores the default preview geometry")
+            let reopened = descendants(window.contentView!).compactMap { $0 as? PreviewTextView }.first { $0.string == source }!
+            expect(reopened.enclosingScrollView?.isFindBarVisible == false, "A reopened preview does not replay Find")
+            press("files.preview.close")
+            try await settle()
+        }
+        workspace.open(entry, in: column, window: window)
+        try await eventually("Preview reopens for window resizing") { element(previewID) != nil }
         for width: CGFloat in [1100, 1800, 1440] {
             window.setContentSize(NSSize(width: width, height: 900))
-            try await Task.sleep(for: .milliseconds(250))
-            expect(state.toolPreviewFrame.minX == 0 && abs(state.toolPreviewFrame.maxX - (width - rightWidth - 1)) < 2,
-                   "Expanded reading follows window size while preserving the list width")
-            expect(hasToolbarControls(), "Reading controls stay visible after window resize")
+            try await settle()
+            let card = previewFrame()
+            expect(card.width > 0 && window.convertToScreen(window.contentLayoutRect).contains(card),
+                   "Preview remains inside the resized file workspace")
+            expect(element("files.preview.find") != nil && element("files.preview.close") != nil,
+                   "Preview actions remain available after window resizing")
         }
-        state.toolPreviewFindRequest = 1
-        state.closeToolPreview()
-        expect(state.toolPreviewFindRequest == 0, "A new preview must not replay a previous find action")
-        try await Task.sleep(for: .milliseconds(250))
-        expect(!state.isToolReadingExpanded && state.toolPreviewFrame == .zero && !terminal.isHiddenOrHasHiddenAncestor,
-               "Close removes the overlay and restores navigation and terminal")
-        expect(host.process.shellPid == pid && host.process.identity == identity, "Close must retain the original session")
-        print("PASS reading overlay: native toolbar, full coverage, exact layout restoration, resize, hidden focus, unchanged PTY and live output")
+        press("files.preview.close")
+        model.showSection(.terminals, in: state)
+        try await settle()
+        expect(terminal.canRestoreModalFocus && terminal.bounds.size == terminalSize,
+               "Leaving Files restores the terminal layout")
+        expect(host.process.shellPid == pid && host.process.identity == identity, "Leaving Files retains the original session")
+        print("PASS file preview: native resize handle, find/close/reopen, page navigation, window resizing, unchanged PTY and live output")
     }
 
     static func snapshots() throws {
@@ -327,6 +356,12 @@ enum TerminalRestorationTests {
             expect(text.range(of: "──")!.lowerBound < text.range(of: "RESTORATION_INPUT_OK")!.lowerBound,
                    "The notice must precede process output")
         }
+        host.cancelConnectionAttempt()
+        host.startWhenReady()
+        expect(host.process.shellPid == 0, "Cancel stops the local process without restarting on focus")
+        host.session.waitForPendingOutput()
+        expect(host.session.readScreenText()?.text.contains("RESTORATION_INPUT_OK") == true,
+               "Cancel keeps terminal output available")
         let processIdentity = host.process.identity
         host.restart(notice: "TEST_RECONNECT")
         expect(host.process.identity != processIdentity, "Reconnect must invalidate confirmed quick-command targets even when the terminal surface is retained")

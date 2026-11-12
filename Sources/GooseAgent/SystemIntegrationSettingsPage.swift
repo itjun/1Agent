@@ -4,8 +4,6 @@ import SwiftUI
 struct SystemIntegrationSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @StateObject private var associations = TerminalAssociationStore.shared
-    @State private var showsScriptTypes = false
-    @State private var showsAutomation = false
     @AppStorage(TerminalAutomation.enabledKey) private var automationEnabled = true
     @ObservedObject private var secureInput = TerminalSecureInput.shared
     @State private var commandLineFeedback: String?
@@ -28,14 +26,16 @@ struct SystemIntegrationSettingsPage: View {
                     .font(Theme.Font.rowMeta)
                     .foregroundStyle(chrome.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                DisclosureGroup(isExpanded: $showsScriptTypes) {
+                VStack(alignment: .leading, spacing: Theme.Space.s) {
+                    Text("Other Script Types")
+                        .font(Theme.Font.sectionTitle)
+                        .foregroundStyle(chrome.text)
                     VStack(spacing: 0) {
                         entry(.shell)
                         line
                         entry(.zsh)
                     }
-                    .padding(.top, Theme.Space.s)
-                } label: { Text("Other Script Types").clickableCursor() }
+                }
             }
 
             HStack(spacing: Theme.Space.m) {
@@ -82,7 +82,10 @@ struct SystemIntegrationSettingsPage: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            DisclosureGroup(isExpanded: $showsAutomation) {
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
+                Text("Automation")
+                    .font(Theme.Font.sectionTitle)
+                    .foregroundStyle(chrome.text)
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
                     Toggle("Enable Terminal Automation", isOn: $automationEnabled).clickableCursor()
                     Text("AppleScript and Shortcuts address windows and terminals by ID.")
@@ -103,8 +106,7 @@ struct SystemIntegrationSettingsPage: View {
                     .buttonStyle(FamilyButtonStyle(kind: .secondary))
                     if let commandLineFeedback { Text(verbatim: commandLineFeedback).font(Theme.Font.rowMeta).textSelection(.enabled) }
                 }
-                .padding(.top, Theme.Space.m)
-            } label: { Text("Automation").clickableCursor() }
+            }
         }
         .font(Theme.Font.body)
         .onAppear { associations.refresh() }

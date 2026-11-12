@@ -4,8 +4,8 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
-    /// Set after an update replaces the bundle, so relaunch opens the new app rather than the renamed copy.
-    var relaunchBundlePath: String?
+    private let exitPreparation = ApplicationExitPreparation()
+    private var isTerminationPending = false
 
     private var shortcutMonitor: Any?
     private var shortcutsObserver: NSObjectProtocol?
@@ -101,11 +101,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.handleShortcut(event)
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + GhosttyConfigImport.promptDelay) { [model] in
-            MainActor.assumeIsolated {
-                GhosttyConfigImport.promptIfNeeded(model: model)
-            }
-        }
     }
 
     /// Dock icon / `open` without arguments. Always bring the terminal window forward: AppKit may
@@ -122,7 +117,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !keyOnActiveSpace {
             model.revealForReopen()
         }
-        AppUpdateController.shared.poke()
     }
 
     /// SwiftUI menus follow the revision themselves; Edit → Select All is an AppKit item and is re-bound
@@ -393,41 +387,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Quitting closes every window; mark it first so those closes keep the terminals in the snapshot.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard !model.isQuitting else { return .terminateLater }
-        model.isQuitting = true
-        TerminalSecureInput.shared.stop()
-        model.persistSessionIfReady()
-        FileTransferQueue.shared.interruptForTermination()
+        guard !isTerminationPending else { return .terminateLater }
+        isTerminationPending = true
         Task { @MainActor in
             do {
-                try await model.prepareForApplicationExit()
+                try await prepareForTermination()
+                await SSHTerminalRegistry.killProcessesForApplicationExit()
                 sender.reply(toApplicationShouldTerminate: true)
-            } catch {
-                model.isQuitting = false
-                model.isRestarting = false
-                model.persistSessionIfReady()
+            }
+            catch {
+                isTerminationPending = false
                 sender.reply(toApplicationShouldTerminate: false)
-                let alert = FamilyAlert()
-                alert.alertStyle = .warning
-                alert.messageText = String(localized: "Could not save terminal logs")
-                alert.informativeText = String(localized: "The app is still open to preserve your logs. Check free disk space and folder permissions, then try quitting again.")
-                alert.addButton(withTitle: String(localized: "OK"))
-                alert.runModal()
+                showExitPreparationError()
             }
         }
         return .terminateLater
     }
 
+    func prepareForTermination() async throws {
+        try await exitPreparation.prepare { [self] in
+            model.isQuitting = true
+            TerminalSecureInput.shared.stop()
+            model.persistSessionIfReady()
+            FileTransferQueue.shared.interruptForTermination()
+            do { try await model.prepareForApplicationExit(stopProcesses: false) }
+            catch {
+                model.isQuitting = false
+                model.isRestarting = false
+                model.persistSessionIfReady()
+                throw error
+            }
+        }
+    }
+
+    func cancelPreparedTermination() {
+        guard !isTerminationPending else { return }
+        exitPreparation.reset()
+        model.isQuitting = false
+        model.isRestarting = false
+        model.persistSessionIfReady()
+    }
+
+    func showExitPreparationError() {
+        model.revealForReopen()
+        AppNotifications.show(title: String(localized: "Could not save terminal logs"),
+            message: String(localized: "The app is still open to preserve your logs. Check free disk space and folder permissions, then try quitting again."),
+            level: .error, in: MainWindowManager.shared.window(for: model.mainWindow))
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         model.persistSessionIfReady()
         RemoteShell.closeSharedConnections()
-        if model.isRestarting {
+        if model.isRestarting && !AppUpdateController.shared.isSparkleRestart {
             // Waits for this process to exit, so the new copy does not hand its launch back to us.
             let relaunch = Process()
             relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
             relaunch.arguments = [
                 "-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$2\"",
-                "sh", String(ProcessInfo.processInfo.processIdentifier), relaunchBundlePath ?? Bundle.main.bundlePath,
+                "sh", String(ProcessInfo.processInfo.processIdentifier), Bundle.main.bundlePath,
             ]
             try? relaunch.run()
         }

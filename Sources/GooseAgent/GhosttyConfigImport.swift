@@ -1,5 +1,4 @@
 import AppKit
-import GhosttyTheme
 import SwiftUI
 
 /// Set by the first-launch prompt: Settings opens the Advanced page and shows the import preview.
@@ -38,8 +37,8 @@ enum GhosttyConfigImport {
         )
         let context = GhosttyImportContext(
             settings: TerminalSettings.load(),
-            lightTheme: AppTheme.terminalDefinition(isDark: false).name,
-            darkTheme: AppTheme.terminalDefinition(isDark: true).name,
+            lightTheme: AppTheme.terminalName(isDark: false),
+            darkTheme: AppTheme.terminalName(isDark: true),
             lookupTheme: { _ in nil }
         )
         return GhosttyConfigImporter.makePlan(config: config, context: context)

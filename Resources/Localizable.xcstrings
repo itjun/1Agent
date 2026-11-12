@@ -1,6 +1,146 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Unable to Open Application" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Unable to Open Application"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法打开应用"}}}},
+    "In Progress" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "In Progress"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "进行中"}}}},
+    "Dismiss Notification" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dismiss Notification"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭通知"}}}},
+    "Transfer Progress" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Transfer Progress"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "传输进度"}}}},
+    "Connection interrupted, waiting to retry" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Connection interrupted, waiting to retry"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "连接已断开，等待重试"}}}},
+    "Reconnecting (%lld/%lld)" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reconnecting (%lld/%lld)"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在重连（%1$lld/%2$lld）"}}}},
+    "Reconnection failed after %lld attempts" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reconnection failed after %lld attempts"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重连失败，已重试 %lld 次"}}}},
+    "Unable to connect" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Unable to connect"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法建立连接"}}}},
+    "Connection restored" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Connection restored"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "连接已恢复"}}}},
+    "Drag into a terminal to run" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag into a terminal to run"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "将指令拖入终端即可执行"}}}},
+    "Select a command to view its details." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Select a command to view its details."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "选择命令，查看完整内容"}}}},
+    "Copy Collection Commands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Collection Commands"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝当前分类的命令"
+          }
+        }
+      }
+    },
+    "Quick Commands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Commands"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷命令"
+          }
+        }
+      }
+    },
+    "Resize Quick Commands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resize Quick Commands"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整快捷命令栏宽度"
+          }
+        }
+      }
+    },
+    "Run in This Terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run in This Terminal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在此终端执行"
+          }
+        }
+      }
+    },
+    "Toggle Quick Commands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Commands"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开或收起指令"
+          }
+        }
+      }
+    },
+    "Hide Quick Commands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Commands"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起指令"
+          }
+        }
+      }
+    },
+    "Show Quick Commands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Commands"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开指令"
+          }
+        }
+      }
+    },
+    "Session Unavailable" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Session Unavailable"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "会话不可用"}}}},
+    "Open Toolbox" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open Toolbox"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开工具箱"}}}},
+    "Toolbox" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Toolbox"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "工具箱"}}}},
+    "Close Toolbox" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Close Toolbox"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭工具箱"}}}},
+    "Toggle Toolbox" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Toggle Toolbox"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "显示或隐藏工具箱"}}}},
+    "Follow Current Terminal" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Follow Current Terminal"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "跟随当前终端"}}}},
+    "Pinned to This Session" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Pinned to This Session"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已固定到此会话"}}}},
+    "Pin to This Session" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Pin to This Session"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "固定到此会话"}}}},
+    "Session Disconnected" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Session Disconnected"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "会话已断开"}}}},
+    "Session Ended" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Session Ended"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "会话已结束"}}}},
+    "No Available Terminal" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "No Available Terminal"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "没有可用终端"}}}},
+    "Could not resolve configuration" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not resolve configuration" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法解析" } }
+      }
+    },
     "The current terminal cannot accept a command. Wait for it to finish or clear its input, then try again." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The current terminal cannot accept a command. Wait for it to finish or clear its input, then try again."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前终端暂时无法接收指令，请等待任务结束或清空输入后重试。"}}}},
     "The command or target changed. Open the preview again." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The command or target changed. Open the preview again."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "指令或执行目标已变化，请重新打开预览后执行。"}}}},
     "Drag up or down to reorder; drag into a terminal to run" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag up or down to reorder; drag into a terminal to run"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "上下拖动可排序；拖入终端可执行"}}}},
@@ -234,6 +374,7 @@
     "Text" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Text"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "文本"}}}},
     "A different 1agent command already exists. It was left unchanged." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "A different 1agent command already exists. It was left unchanged."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已存在其他 1agent 命令，未覆盖该文件。"}}}},
     "External Folder Opens" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "External Folder Opens"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "外部目录打开方式"}}}},
+    "External Tools" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "External Tools"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "外部工具"}}}},
     "Enable Terminal Automation" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enable Terminal Automation"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "启用终端自动化"}}}},
     "AppleScript and Shortcuts address windows and terminals by ID." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "AppleScript and Shortcuts address windows and terminals by ID."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "AppleScript 和系统快捷指令通过 ID 定位窗口与终端。"}}}},
     "Install Command Line Tool" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Install Command Line Tool"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "安装命令行工具"}}}},

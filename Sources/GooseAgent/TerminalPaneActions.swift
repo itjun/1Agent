@@ -21,13 +21,18 @@ enum TerminalPaneActions {
         guard externalDirectory(of: tab) != nil else { return [] }
         let editors = [("Cursor", "com.todesktop.230313mzl4w4u92"),
                        ("Visual Studio Code", "com.microsoft.VSCode"),
-                       ("Zed", "dev.zed.Zed"), ("Xcode", "com.apple.dt.Xcode")]
+                       ("Zed", "dev.zed.Zed"), ("Xcode", "com.apple.dt.Xcode"),
+                       ("GitHub Desktop", "com.github.GitHubClient")]
         return editors.compactMap { name, bundleID in
             guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
-            return FamilyMenuItem(title: name, action: {
+            return FamilyMenuItem(title: name, image: WorkspaceExternalOpen.applicationIcon(at: appURL), action: {
                 guard let current = currentTab(tab.id, model: model), let directory = externalDirectory(of: current) else { return }
+                if bundleID == "com.github.GitHubClient" {
+                    WorkspaceExternalOpen.openGitHubDesktop(directory: directory, app: appURL)
+                    return
+                }
                 NSWorkspace.shared.open([directory], withApplicationAt: appURL, configuration: .init()) { _, error in
-                    if let error { DispatchQueue.main.async { NSAlert(error: error).runModal() } }
+                    if let error { DispatchQueue.main.async { AppNotifications.show(title: String(localized: "Unable to Open Application"), message: error.localizedDescription, level: .error) } }
                 }
             })
         }
@@ -47,9 +52,15 @@ enum TerminalPaneActions {
         let directory = workingDirectory(of: tab)
         let split = model.panelRow(for: tab.id, in: window)?.isSplit == true
         let zoomed = model.zoomedPane(in: window) == tab.id
+        let commandSidebarChord = AppShortcuts.chord(for: .toggleToolSidebar)
         var items = connectionItems(tab, model: model, window: window)
         if !items.isEmpty { items.append(.separator) }
         items += [
+            FamilyMenuItem(title: model.commandSidebars[tab.id]?.isExpanded == true ? String(localized: "Hide Quick Commands") : String(localized: "Show Quick Commands"),
+                           key: commandSidebarChord.key, modifiers: commandSidebarChord.menuModifierMask, action: {
+                guard currentTab(tab.id, model: model) != nil else { return }
+                model.toggleCommandSidebar(for: tab.id, in: window)
+            }),
             FamilyMenuItem(title: String(localized: "Host Information"), action: {
                 guard currentTab(tab.id, model: model) != nil else { return }
                 window.hostInformationTabID = tab.id
@@ -72,7 +83,7 @@ enum TerminalPaneActions {
         }
         let editors = externalItems(tab: tab, model: model)
         if !editors.isEmpty {
-            items.append(FamilyMenuItem(title: String(localized: "Open In…"), children: editors))
+            items.append(FamilyMenuItem(title: String(localized: "External Tools"), children: editors))
         }
         items += [
             FamilyMenuItem(title: String(localized: "Open Files"), action: {

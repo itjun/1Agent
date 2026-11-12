@@ -424,9 +424,6 @@ final class TerminalActivity: ObservableObject {
 
     func desktopNotification(sessionID: String, title: String, body: String) {
         guard let model, let tab = model.tab(forSession: sessionID) else { return }
-        if isAttended(tab) {
-            return
-        }
         TerminalNotifications.shared.post(
             title: model.sessionTitle(tab),
             subtitle: title,
@@ -459,7 +456,8 @@ final class TerminalActivity: ObservableObject {
             subtitle = String(localized: "Command Finished")
             body = String(format: String(localized: "Took %@."), took)
         }
-        TerminalNotifications.shared.post(title: model.sessionTitle(tab), subtitle: subtitle, body: body, tabID: tab.id)
+        TerminalNotifications.shared.post(title: model.sessionTitle(tab), subtitle: subtitle, body: body, tabID: tab.id,
+                                          level: exitCode.map { $0 == 0 ? .success : .error } ?? .information)
     }
 
     /// `bell-features`: `system`, `attention`, `border` and `title`. `audio` needs a sound file setting
@@ -541,7 +539,17 @@ final class TerminalNotifications: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
     }
 
-    func post(title: String, subtitle: String, body: String, tabID: UUID) {
+    func post(title: String, subtitle: String, body: String, tabID: UUID, level: AppNotificationLevel = .information) {
+        if let model = TerminalActivity.shared.model,
+           let state = model.window(containing: tabID),
+           let window = MainWindowManager.shared.window(for: state) {
+            AppNotifications.presenter(for: window).store.show(
+                AppNotificationItem(id: "terminal-\(tabID)", title: title,
+                                    message: [subtitle, body].filter { !$0.isEmpty }.joined(separator: "\n"), level: level),
+                expiresAfter: level == .error ? nil : AppNotificationLayout.lingerSeconds)
+        }
+        // 应用内只显示右下角卡片；切到其他应用后仍保留系统通知，便于返回会话。
+        guard !NSApp.isActive else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.subtitle = subtitle
@@ -563,14 +571,13 @@ final class TerminalNotifications: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Notifications are only posted for a session the user is not looking at, so show them even
-    /// while the app is frontmost.
+    /// 投递期间应用回到前台时，不再叠加系统横幅。
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        completionHandler([.sound])
     }
 
     nonisolated func userNotificationCenter(
@@ -578,15 +585,6 @@ final class TerminalNotifications: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if response.notification.request.content.userInfo[AppUpdate.notificationKey] != nil {
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    AppUpdateController.shared.showFromNotification()
-                }
-                completionHandler()
-            }
-            return
-        }
         let raw = response.notification.request.content.userInfo[TerminalNotifications.tabIDKey] as? String
         let tabID = raw.flatMap { UUID(uuidString: $0) }
         DispatchQueue.main.async {

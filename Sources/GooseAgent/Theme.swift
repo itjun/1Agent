@@ -86,7 +86,6 @@ enum Theme {
         static let iconFont = SwiftUI.Font.system(size: 13, weight: .medium)
         /// 右侧工具组前预留终端边界的留白，分支不能占用侧栏顶部。
         static let sectionInset = Space.l
-        static let branchMaxWidth: CGFloat = 240
     }
 
     /// Geometry of the title bar and status banner above each terminal pane.
@@ -106,13 +105,9 @@ enum Theme {
         /// Title bar of each pane in a split. Dragging the title text merges panes; the terminal starts right below.
         static let headerHeight: CGFloat = 28
         static let titlebarAccessoryInset: CGFloat = 44
-        /// Disconnected / reconnecting banner shown under the title bar.
-        static let bannerHeight: CGFloat = 48
         /// Icon size next to the pane title (reconnecting / disconnected).
         static let statusIconSize: CGFloat = 11
-        /// Opacity of the warning / danger tint over the banner background.
-        static let bannerTintOpacity: Double = 0.14
-        /// ⌘F find bar, under the title bar and any banner.
+        /// ⌘F find bar, under the title bar.
         static let findBarHeight: CGFloat = 36
         /// Query field inside the find bar.
         static let findFieldHeight: CGFloat = 28
@@ -254,12 +249,12 @@ enum AppTheme {
             hover: SystemTheme.hex(.controlColor, isDark: isDark),
             border: SystemTheme.hex(.separatorColor, isDark: isDark),
             outline: SystemTheme.hex(.keyboardFocusIndicatorColor, isDark: isDark),
-            // ANSI 槽位属于终端内容，保留在浅深底色上清晰可读的一组颜色。
+            // ANSI 也用于 TUI 背景；黑白槽位保留本义，避免 htop 表头与功能键浅底浅字。
             ansi: isDark
-                ? ["B8B8B8", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
+                ? ["1B1B1B", "E58D96", "9DCEA8", "D8C18B", "96B9DE", "C2A2D5", "8AC9C6", "B8B8B8",
                    "B8B8B8", "F3A4AC", "B4DFBB", "EAD5A4", "B0CDED", "D6BBE5", "A5DEDA", "E3EDF2"]
-                : ["272727", "A54450", "416D53", "80601E", "0064E1", "79557F", "326F78", "666666",
-                   "666666", "B13E50", "3D714F", "846116", "0064E1", "845183", "26737C", "272727"]
+                : ["000000", "A54450", "4F7F61", "80601E", "0064E1", "79557F", "437E87", "D9D9D9",
+                   "666666", "B13E50", "3D714F", "846116", "0064E1", "845183", "26737C", "FFFFFF"]
         )
     }
 
@@ -288,6 +283,11 @@ struct WindowChrome: Equatable {
     var focus: Color
     var selection: Color
     var lineStrong: Color
+
+    /// 通知保留系统中性底色，浅色下比窗口标题背景更轻，深色下仍有清楚的层次。
+    var notificationBackground: Color {
+        Color(nsColor: NSColor(background).blended(withFraction: 0.35, of: NSColor(panelHeader)) ?? NSColor(background))
+    }
 
     var hoverFill: Color { elevated }
 
@@ -332,7 +332,10 @@ struct WindowChrome: Equatable {
         self.isDark = isDark
         isSystem = preset == .system
         background = SystemTheme.color(.textBackgroundColor, isDark: isDark)
-        sidebarBackground = SystemTheme.color(.windowBackgroundColor, isDark: isDark)
+        // 新系统上窗口底色与文本底色相同；页底色在部分环境下是半透明灰，侧栏只能自行合成不透明的异色。
+        let readingBackground = SystemTheme.resolved(.textBackgroundColor, isDark: isDark)
+        sidebarBackground = Color(nsColor: readingBackground.blended(withFraction: 0.02,
+                                                                     of: isDark ? .white : .black)!)
         elevated = SystemTheme.color(.controlColor, isDark: isDark)
         text = SystemTheme.color(.labelColor, isDark: isDark)
         secondary = SystemTheme.color(.secondaryLabelColor, isDark: isDark)
@@ -341,7 +344,7 @@ struct WindowChrome: Equatable {
         accent = SystemTheme.color(.controlAccentColor, isDark: isDark)
         accentFill = SystemTheme.color(.selectedTextBackgroundColor, isDark: isDark)
         selectionText = SystemTheme.color(.selectedTextColor, isDark: isDark)
-        panelHeader = sidebarBackground
+        panelHeader = SystemTheme.color(.windowBackgroundColor, isDark: isDark)
         danger = SystemTheme.color(.systemRed, isDark: isDark)
         warning = SystemTheme.color(.systemOrange, isDark: isDark)
         success = SystemTheme.color(.systemGreen, isDark: isDark)

@@ -61,6 +61,67 @@ import ObjectiveC
         precondition(TerminalActivity.shared.isOnScreen(sessionID: right.sessionID), "Fixture destination must be visible")
         precondition(QuickCommandDragHandleView.terminal(at: NSPoint(x: 200, y: 200), in: nativeWindow) === terminal)
         precondition(QuickCommandDragHandleView.terminal(at: NSPoint(x: -100, y: -100), in: nativeWindow) == nil)
+        // 工具箱独立后，落点必须按屏幕坐标解析到实际窗口。
+        nativeWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        let screenPoint = nativeWindow.convertPoint(toScreen: NSPoint(x: 200, y: 200))
+        try await Task.sleep(for: .milliseconds(150))
+        let drop = QuickCommandDragHandleView.dropDestination(at: screenPoint)
+        precondition(drop?.window === nativeWindow)
+        precondition(QuickCommandDragHandleView.terminal(at: drop!.point, in: drop!.window) === terminal)
+        let cover = NSPanel(contentRect: NSRect(x: screenPoint.x - 40, y: screenPoint.y - 40, width: 80, height: 80),
+                            styleMask: [.borderless], backing: .buffered, defer: false)
+        cover.isReleasedWhenClosed = false
+        cover.level = .popUpMenu
+        cover.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 80, height: 80))
+        cover.orderFrontRegardless()
+        try await Task.sleep(for: .milliseconds(100))
+        let blockedDrop = QuickCommandDragHandleView.dropDestination(at: screenPoint)
+        precondition(blockedDrop?.window === cover, "不能穿过前方窗口执行后台终端命令")
+        precondition(QuickCommandDragHandleView.terminal(at: blockedDrop!.point, in: blockedDrop!.window) == nil)
+        cover.ignoresMouseEvents = true
+        try await Task.sleep(for: .milliseconds(100))
+        precondition(QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === nativeWindow,
+                     "拖拽浮动预览不遮挡真正落点")
+        cover.close()
+        print("PASS screen-coordinate drop routing, overlapping-window rejection and drag preview passthrough")
+        let dragWindow = NSPanel(contentRect: NSRect(x: screenPoint.x + 300, y: screenPoint.y, width: 180, height: 100),
+                                 styleMask: [.titled], backing: .buffered, defer: false)
+        dragWindow.isReleasedWhenClosed = false
+        let dragContent = NSView(frame: NSRect(x: 0, y: 0, width: 180, height: 100))
+        let dragHandle = QuickCommandDragHandleView(frame: NSRect(x: 0, y: 50, width: 180, height: 50))
+        dragHandle.commandID = item.id
+        dragHandle.section = item.section
+        let reorder = QuickCommandReorderTargetView(frame: NSRect(x: 0, y: 0, width: 180, height: 50))
+        reorder.commandID = UUID()
+        reorder.section = item.section
+        var moves = 0
+        reorder.onMove = { source, _, _ in precondition(source == item.id); moves += 1 }
+        dragContent.addSubview(dragHandle)
+        dragContent.addSubview(reorder)
+        dragWindow.contentView = dragContent
+        dragWindow.makeKeyAndOrderFront(nil)
+        try await Task.sleep(for: .milliseconds(100))
+        // AppKit 进程内事件队列；不发送系统输入，不执行 shell。
+        func drag(to point: NSPoint) {
+            func event(_ type: NSEvent.EventType, _ location: NSPoint) -> NSEvent {
+                NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                   windowNumber: dragWindow.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            }
+            NSApp.postEvent(event(.leftMouseUp, point), atStart: true)
+            NSApp.postEvent(event(.leftMouseDragged, point), atStart: true)
+            dragHandle.mouseDown(with: event(.leftMouseDown, NSPoint(x: 80, y: 75)))
+        }
+        drag(to: NSPoint(x: 80, y: 20))
+        precondition(moves == 1, "真实鼠标跟踪流程必须触发排序一次")
+        var deliveries = 0
+        let originalDrop = terminal.onQuickCommandDrop
+        terminal.onQuickCommandDrop = { dropped in precondition(dropped == item.id); deliveries += 1; return true }
+        drag(to: dragWindow.convertPoint(fromScreen: screenPoint))
+        precondition(deliveries == 1, "独立工具箱跨窗口拖动必须投递到实际终端一次")
+        terminal.onQuickCommandDrop = originalDrop
+        dragWindow.close()
+        print("PASS native mouse-down/drag/up tracking for reorder and cross-window command delivery")
         terminal.highlightQuickCommand(item.id)
         precondition(window.selectedTabID == left.id && window.quickCommandConfirmation == nil, "Hover must not change selection or execute")
         precondition(terminal.dropQuickCommand(item.id))
@@ -68,11 +129,11 @@ import ObjectiveC
         precondition(window.selectedTabID == right.id && droppedContext.sessionID == right.sessionID)
         precondition(droppedContext.directory.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath() }
                      == URL(fileURLWithPath: folder).resolvingSymlinksInPath())
-        precondition(window.quickCommandConfirmation == nil && window.quickCommandSidebarExecution.isSubmitting,
+        precondition(window.quickCommandConfirmation == nil && model.commandExecution(for: right.id).isSubmitting,
                      "Dropping submits directly in the destination terminal, without confirmation")
         precondition(!terminal.dropQuickCommand(item.id), "A pending run cannot be submitted twice")
-        await wait { !window.quickCommandSidebarExecution.isSubmitting }
-        precondition(window.quickCommandSidebarExecution.error != nil, "A destination without a shell must reject execution")
+        await wait { !model.commandExecution(for: right.id).isSubmitting }
+        precondition(model.commandExecution(for: right.id).error != nil, "A destination without a shell must reject execution")
         precondition(terminal.processHost == nil && model.tabs.count == 2, "A busy destination must not create another terminal")
         model.selectTab(left.id, in: window, focusTerminal: false)
         precondition(!model.runSidebarQuickCommand(item.id, in: window, expectedContext: droppedContext),

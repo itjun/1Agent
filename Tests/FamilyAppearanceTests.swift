@@ -1,7 +1,6 @@
 import AppKit
 import Combine
 import GhosttyTerminal
-import GhosttyTheme
 import ObjectiveC
 import QuartzCore
 @testable import GooseAgent
@@ -60,7 +59,7 @@ enum FamilyAppearanceTests {
             expect(WindowChrome.resolve(isDark: uiDark) == expectedChrome, context + ": selected preset palette")
             for (index, target) in TerminalThemeTarget.allCases.enumerated() {
                 let runtime = GhosttyRuntime.controller(for: target)
-                let definition = AppTheme.terminalDefinition(isDark: terminalDark)
+                let definition = AppTheme.colors(isDark: terminalDark)
                 let value = Int(definition.background, radix: 16)!
                 let expectedBackground = TerminalColor(red: UInt8((value >> 16) & 255), green: UInt8((value >> 8) & 255), blue: UInt8(value & 255))
                 expect(runtime.backgroundColor == expectedBackground, context + ": actual engine background for " + target.rawValue)

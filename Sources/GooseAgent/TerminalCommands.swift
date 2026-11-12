@@ -21,15 +21,7 @@ enum PreviewFind {
                let code = preview(document) { return code }
             ancestor = view.superview
         }
-        guard !(window.firstResponder is SSHTerminalNSView),
-              let state = MainWindowManager.shared.state(for: window), state.isToolPreviewOpen,
-              state.presentation.toolSidebarOpen, state.section == .terminals,
-              !state.presentation.fullFilesWorkspace, let content = window.contentView else { return nil }
-        func find(_ view: NSView) -> NSTextView? {
-            if let code = preview(view) { return code }
-            return view.subviews.reversed().compactMap { find($0) }.first
-        }
-        return find(content)
+        return nil
     }
 
     @discardableResult static func perform(_ action: NSTextFinder.Action) -> Bool {
@@ -68,7 +60,7 @@ final class FocusedTerminal: ObservableObject {
         ]
         for name in names {
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated {
+                Task { @MainActor in
                     FocusedTerminal.shared.refresh()
                     // Coming back from another app, the read made right at didBecomeKey finds no terminal.
                     FocusedTerminal.shared.refreshSoon()

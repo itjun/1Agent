@@ -53,7 +53,8 @@ enum HostInformationTests {
         let local = model.tabs.first { $0.id != remote.id }!
 
         // Exercise the production sheet modifier without mounting terminal surfaces or starting PTYs.
-        let host = NSHostingView(rootView: Color.clear.modifier(HostInformationPresentation(model: model, window: state)))
+        let host = NSHostingView(rootView: Color.clear.modifier(HostInformationPresentation(model: model, window: state,
+            resolver: SSHConfigurationResolver(configurationFile: config), configurationEnvironment: ["PATH=/usr/bin:/bin"])))
         let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1100, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
         owner.isReleasedWhenClosed = false
         owner.contentView = host
@@ -97,6 +98,9 @@ enum HostInformationTests {
         model.selectOnly(local.id, in: state, focusTerminal: false)
         state.presentation.toolSidebarOpen = false
         let dialog = try await open(remote)
+        try await until("resolved host") {
+            elements(dialog.contentView!).contains { value($0, "accessibilityValue") as? String == "192.0.2.10" || value($0, "accessibilityLabel") as? String == "192.0.2.10" }
+        }
         let values = elements(dialog.contentView!).flatMap { object -> [String] in
             ["accessibilityLabel", "accessibilityTitle", "accessibilityValue"].compactMap {
                 let item = value(object, $0)
@@ -126,7 +130,7 @@ enum HostInformationTests {
         precondition(!dialog.isVisible && owner.firstResponder === terminal, "closing must remove the native sheet and restore terminal focus")
         print("PASS: right-click → Host Information → remote fields → Close; captured target and focus preserved")
 
-        try "Host fixture-host\n".write(to: config, atomically: true, encoding: .utf8)
+        try "InvalidConfigurationDirective yes\n".write(to: config, atomically: true, encoding: .utf8)
         model.reloadHosts()
         let missingDialog = try await open(remote)
         let missingUser = elements(missingDialog.contentView!).first { value($0, "accessibilityIdentifier") as? String == "hostInformation.copy.user" }!
