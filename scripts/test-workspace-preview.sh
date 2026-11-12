@@ -21,5 +21,5 @@ python3 - "$fixture/fixture.swift" <<'PY'
 import sys
 p=sys.argv[1];s=open(p).read();open(p,'w').write(s.replace('before','after'))
 PY
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -target arm64-apple-macosx14.0 -parse-as-library -I "$products" -I "$products/include/libghostty" -Xlinker -rpath -Xlinker "$products/1Agent.app/Contents/MacOS" "$products/1Agent.app/Contents/MacOS/1Agent.debug.dylib" "$repo/Tests/WorkspacePreviewTests.swift" -o "$test_executable"
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -target arm64-apple-macosx14.0 -parse-as-library -I "$products" -I "$products/include/libghostty" -Xlinker -rpath -Xlinker "$products/1Agent.app/Contents/Frameworks" -Xlinker -rpath -Xlinker "$products/1Agent.app/Contents/MacOS" "$products/1Agent.app/Contents/MacOS/1Agent.debug.dylib" "$repo/Tests/WorkspacePreviewTests.swift" -o "$test_executable"
 CFFIXED_USER_HOME="$fixture/home" ONEAGENT_PREVIEW_FIXTURE="$fixture" "$test_executable"
