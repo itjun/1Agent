@@ -1,6 +1,11 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Connection interrupted, waiting to retry" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Connection interrupted, waiting to retry"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "连接已断开，等待重试"}}}},
+    "Reconnecting (%lld/%lld)" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reconnecting (%lld/%lld)"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在重连（%1$lld/%2$lld）"}}}},
+    "Reconnection failed after %lld attempts" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reconnection failed after %lld attempts"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重连失败，已重试 %lld 次"}}}},
+    "Unable to connect" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Unable to connect"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法建立连接"}}}},
+    "Connection restored" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Connection restored"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "连接已恢复"}}}},
     "In Progress" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "In Progress"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "进行中"}}}},
     "Dismiss Notification" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dismiss Notification"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭通知"}}}},
     "Transfer Progress" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Transfer Progress"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "传输进度"}}}},

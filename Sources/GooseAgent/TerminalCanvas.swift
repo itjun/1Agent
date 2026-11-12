@@ -262,16 +262,8 @@ struct TerminalCanvas: View {
                 .position(x: frame.midX, y: frame.minY + headerHeight / 2)
                 .zIndex(4)
         }
-        let showsBanner = showsConnectionBanner(tab)
-        if showsBanner {
-            connectionBanner(tab)
-                .frame(width: frame.width, height: Theme.PaneStyle.bannerHeight)
-                .position(x: frame.midX, y: frame.minY + headerHeight + Theme.PaneStyle.bannerHeight / 2)
-                .zIndex(4)
-        }
         if let findState = find.states[tab.sessionID] {
-            let bannerOffset = showsBanner ? Theme.PaneStyle.bannerHeight : 0
-            let findTop = frame.minY + headerHeight + bannerOffset
+            let findTop = frame.minY + headerHeight
             TerminalFindBar(state: findState, onFocus: { model.notePaneFocused(tab.id, in: window) })
                 .frame(width: frame.width, height: Theme.PaneStyle.findBarHeight)
                 .position(x: frame.midX, y: findTop + Theme.PaneStyle.findBarHeight / 2)
@@ -316,29 +308,9 @@ struct TerminalCanvas: View {
         .familyContextMenu { TerminalPaneActions.items(tab: tab, model: model, window: window) }
     }
 
-    private func showsConnectionBanner(_ tab: TerminalTab) -> Bool {
-        tab.reconnecting || tab.showsDisconnected
-    }
-
-    /// The terminal starts below an open find bar, and below the banner above that bar, so neither
-    /// hides the row Ghostty scrolls the current match to.
+    /// 搜索栏预留正文空间，通知不参与终端布局。
     private func findBarInset(_ tab: TerminalTab) -> CGFloat {
-        let banner = showsConnectionBanner(tab) ? Theme.PaneStyle.bannerHeight : 0
-        let find = find.openSessionIDs.contains(tab.sessionID) ? Theme.PaneStyle.findBarHeight : 0
-        return banner + find
-    }
-
-    /// Recovery stays inside the reserved strip; it never covers the terminal or takes focus.
-    private func connectionBanner(_ tab: TerminalTab) -> some View {
-        TerminalConnectionBanner(tab: tab, onRecover: {
-            // A queued second click must not restart a terminal that has already recovered.
-            guard let current = model.tabs.first(where: { $0.id == tab.id }), current.showsDisconnected else { return }
-            if current.isLocal { model.reopenLocalTerminal(current.id) }
-            else { model.reconnect(current.id) }
-        }, menuItems: {
-            TerminalPaneActions.items(tab: tab, model: model, window: window)
-        })
-        .environment(\.windowChrome, chrome)
+        find.openSessionIDs.contains(tab.sessionID) ? Theme.PaneStyle.findBarHeight : 0
     }
 
     private func numberedPaneTitle(_ tab: TerminalTab) -> String {

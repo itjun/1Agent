@@ -35,6 +35,25 @@ import SwiftUI
         store.dismiss("connection")
         expect(store.current?.id == "upload", "dismissing current reveals pending notification")
 
+        let model = AppModel()
+        model.openRemoteTerminal("notification-fixture", at: "/tmp", placement: .newTab, beside: UUID(), in: model.mainWindow)
+        for _ in 0..<100 {
+            if !model.tabs.isEmpty { break }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        let tabID = model.tabs.first!.id
+        model.markClosed(tabID, lived: 10)
+        expect(model.tabs.first!.connectionNotice == .waiting(0), "transport loss waits in orange before automatic retry")
+        try? await Task.sleep(for: .milliseconds(1200))
+        expect(model.tabs.first!.connectionNotice == .connecting(1), "automatic retry becomes gray progress")
+        model.noteWorkingDirectory("invalid-relative-path", forSession: model.tabs.first!.sessionID)
+        expect(model.tabs.first!.connectionNotice == .connecting(1), "invalid shell reports cannot claim restored")
+        model.noteWorkingDirectory("/tmp", forSession: model.tabs.first!.sessionID)
+        expect(model.tabs.first!.connectionNotice == .recovered, "confirmed shell becomes green")
+        model.markClosed(tabID, lived: 0)
+        expect(model.tabs.first!.connectionNotice == .failed(1), "failed retry becomes red with attempt count")
+        model.closeTab(tabID)
+
         let owner = NSWindow(contentRect: CGRect(x: 100, y: 100, width: 900, height: 600),
                              styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         owner.isReleasedWhenClosed = false

@@ -106,13 +106,9 @@ enum Theme {
         /// Title bar of each pane in a split. Dragging the title text merges panes; the terminal starts right below.
         static let headerHeight: CGFloat = 28
         static let titlebarAccessoryInset: CGFloat = 44
-        /// Disconnected / reconnecting banner shown under the title bar.
-        static let bannerHeight: CGFloat = 48
         /// Icon size next to the pane title (reconnecting / disconnected).
         static let statusIconSize: CGFloat = 11
-        /// Opacity of the warning / danger tint over the banner background.
-        static let bannerTintOpacity: Double = 0.14
-        /// ⌘F find bar, under the title bar and any banner.
+        /// ⌘F find bar, under the title bar.
         static let findBarHeight: CGFloat = 36
         /// Query field inside the find bar.
         static let findFieldHeight: CGFloat = 28
