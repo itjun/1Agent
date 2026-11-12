@@ -1495,21 +1495,14 @@ final class TerminalHostView: NSView {
         if selected && !isFocusTarget { focusPending = true }
         isFocusTarget = selected
         if !selected { focusPending = false }
-        applyTerminalEmphasis(animated: true)
+        applyTerminalEmphasis()
         scheduleFocus()
     }
 
-    private func applyTerminalEmphasis(animated: Bool = false) {
-        // 渲染器会替换终端视图自己的 layer，透明度设在终端上会随旧 layer 丢失，只能设在外层。
-        let alpha = isFocusTarget ? 1 : Theme.PaneStyle.unfocusedTerminalOpacity
-        guard alphaValue != alpha else { return }
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Theme.Motion.terminalDuration
-                animator().alphaValue = alpha
-            }
-        } else {
-            alphaValue = alpha
+    private func applyTerminalEmphasis() {
+        // 当前终端保持清晰，其余内容轻微淡化；复用视图时同步恢复对应状态。
+        for terminal in subviews.compactMap({ $0 as? SSHTerminalNSView }) {
+            terminal.alphaValue = isFocusTarget ? 1 : 0.8
         }
     }
 
