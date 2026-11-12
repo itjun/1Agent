@@ -1182,6 +1182,8 @@ final class SSHTerminalNSView: AppTerminalView {
         let item = command.destructive
             ? TerminalCloseMenu.item(title: command.title, action: #selector(performPaneAction(_:)), target: self)
             : makeItem(command.title, #selector(performPaneAction(_:)))
+        item.image = command.image
+        if command.image != nil { FamilyMenuPresenter.forceMenuImageVisible(item) }
         item.isEnabled = command.enabled
         item.state = command.checked ? .on : .off
         item.keyEquivalent = command.key

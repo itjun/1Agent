@@ -27,16 +27,7 @@ enum WorkspaceExternalOpen {
                 items.append(FamilyMenuItem(title: name, image: WorkspaceExternalOpen.applicationIcon(at: app), enabled: path != nil, action: {
                     guard let path else { return }
                     if bundleID == "com.github.GitHubClient" {
-                        Task {
-                            do {
-                                // 使用应用随附的 CLI，支持已有实例与包含空格的本机仓库路径。
-                                let process = Process()
-                                process.executableURL = URL(fileURLWithPath: "/bin/bash")
-                                process.arguments = [app.appendingPathComponent("Contents/Resources/app/static/github.sh").path, path]
-                                let result = try await ProcessRunner.run(process, outputLimit: 64 * 1024)
-                                if result.status != 0 { throw ProcessRunner.failure(result) }
-                            } catch { WorkspaceExternalOpen.show(error) }
-                        }
+                        WorkspaceExternalOpen.openGitHubDesktop(directory: URL(fileURLWithPath: path, isDirectory: true), app: app)
                     } else {
                         WorkspaceExternalOpen.open(URL(fileURLWithPath: path, isDirectory: true), with: app)
                     }
@@ -70,13 +61,32 @@ enum WorkspaceExternalOpen {
         return items
     }
 
+    static func openGitHubDesktop(directory: URL, app: URL) {
+        Task {
+            do {
+                let root = try await WorkspaceExternalOpen.repositoryRoot(in: directory)
+                // 应用随附的 CLI 支持已有实例；参数数组保留空格等路径字符。
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/bash")
+                process.arguments = [app.appendingPathComponent("Contents/Resources/app/static/github.sh").path, root]
+                let result = try await ProcessRunner.run(process, outputLimit: 64 * 1024)
+                if result.status != 0 { throw ProcessRunner.failure(result) }
+            } catch { WorkspaceExternalOpen.show(error) }
+        }
+    }
+
+    static func repositoryRoot(in directory: URL) async throws -> String {
+        try await WorkspaceGit.checked(["rev-parse", "--show-toplevel"],
+            at: GitLocation(host: nil, directory: directory.path)).trimmingCharacters(in: .newlines)
+    }
+
     private static func open(_ directory: URL, with app: URL) {
         NSWorkspace.shared.open([directory], withApplicationAt: app, configuration: .init()) { _, error in
             WorkspaceExternalOpen.show(error)
         }
     }
 
-    private static func applicationIcon(at app: URL) -> NSImage {
+    static func applicationIcon(at app: URL) -> NSImage {
         let image = NSWorkspace.shared.icon(forFile: app.path).copy() as! NSImage
         image.size = NSSize(width: 16, height: 16)
         return image

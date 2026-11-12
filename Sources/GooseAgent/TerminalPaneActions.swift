@@ -21,11 +21,16 @@ enum TerminalPaneActions {
         guard externalDirectory(of: tab) != nil else { return [] }
         let editors = [("Cursor", "com.todesktop.230313mzl4w4u92"),
                        ("Visual Studio Code", "com.microsoft.VSCode"),
-                       ("Zed", "dev.zed.Zed"), ("Xcode", "com.apple.dt.Xcode")]
+                       ("Zed", "dev.zed.Zed"), ("Xcode", "com.apple.dt.Xcode"),
+                       ("GitHub Desktop", "com.github.GitHubClient")]
         return editors.compactMap { name, bundleID in
             guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
-            return FamilyMenuItem(title: name, action: {
+            return FamilyMenuItem(title: name, image: WorkspaceExternalOpen.applicationIcon(at: appURL), action: {
                 guard let current = currentTab(tab.id, model: model), let directory = externalDirectory(of: current) else { return }
+                if bundleID == "com.github.GitHubClient" {
+                    WorkspaceExternalOpen.openGitHubDesktop(directory: directory, app: appURL)
+                    return
+                }
                 NSWorkspace.shared.open([directory], withApplicationAt: appURL, configuration: .init()) { _, error in
                     if let error { DispatchQueue.main.async { AppNotifications.show(title: String(localized: "Unable to Open Application"), message: error.localizedDescription, level: .error) } }
                 }
@@ -72,7 +77,7 @@ enum TerminalPaneActions {
         }
         let editors = externalItems(tab: tab, model: model)
         if !editors.isEmpty {
-            items.append(FamilyMenuItem(title: String(localized: "Open In…"), children: editors))
+            items.append(FamilyMenuItem(title: String(localized: "External Tools"), children: editors))
         }
         items += [
             FamilyMenuItem(title: String(localized: "Open Files"), action: {

@@ -87,7 +87,7 @@ final class FamilyMenuPresenter {
 
     /// macOS 27 起 AppKit 会隐藏菜单图标；preferredImageVisibility 声明只在最新 SDK 里。
     /// 运行时探测 setter，编译期不引用符号，旧 Xcode 也能编译。
-    private static func forceMenuImageVisible(_ item: NSMenuItem) {
+    static func forceMenuImageVisible(_ item: NSMenuItem) {
         let selector = NSSelectorFromString("setPreferredImageVisibility:")
         guard item.responds(to: selector) else { return }
         let setter = unsafeBitCast(item.method(for: selector),
