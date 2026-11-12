@@ -10,18 +10,24 @@ import ObjectiveC
         NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         Task { @MainActor in
             do { try await run(); print("QuickCommandSidebarTests passed"); exit(0) }
-            catch { fputs("QuickCommandSidebarTests failed: \(error)\n", stderr); exit(1) }
+            catch { fputs("QuickCommandSidebarTests failed: \(error.localizedDescription)\n", stderr); exit(1) }
         }
         NSApp.run()
     }
 
     @MainActor static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-quick-command-sidebar."))
-        precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath() == URL(fileURLWithPath: home).resolvingSymlinksInPath())
+        if CommandLine.arguments.contains("--fail-assertion") {
+            try require(false, "验证断言失败正常退出")
+        }
+        if CommandLine.arguments.contains("--fail-missing-object") {
+            let _: NSView = try unwrap(nil, "验证缺失对象正常退出")
+        }
+        let home = try unwrap(ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"], "缺少隔离测试目录")
+        try require(home.hasPrefix("/private/tmp/oneagent-quick-command-sidebar."))
+        try require(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath() == URL(fileURLWithPath: home).resolvingSymlinksInPath())
         let suite = "oneagent.command-sidebar.\(UUID())"
-        let defaults = UserDefaults(suiteName: suite)!
-        let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
+        let defaults = try unwrap(UserDefaults(suiteName: suite), "无法创建隔离偏好设置")
+        let getter = try unwrap(class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults")))
         let previous = method_getImplementation(getter)
         let block: @convention(block) (AnyObject) -> UserDefaults = { _ in defaults }
         method_setImplementation(getter, imp_implementationWithBlock(block))
@@ -30,17 +36,17 @@ import ObjectiveC
         let model = AppModel(), state = model.mainWindow
         TerminalActivity.shared.model = model
         MainWindowManager.shared.show(state, model: model)
-        let native = MainWindowManager.shared.window(for: state)!
+        let native = try unwrap(MainWindowManager.shared.window(for: state), "测试主窗口未创建")
         native.contentViewController = nil
         native.contentView = NSView(frame: native.contentLayoutRect)
         defer { MainWindowManager.shared.close(state) }
-        verifyScrolledCursorRegions(in: native)
+        try verifyScrolledCursorRegions(in: native)
         // 只挂载真实侧栏，不创建终端视图；脚本另由已有隔离 PTY 检查覆盖。
         model.openLocalTerminal(at: home, placement: .newTab, beside: UUID(), in: state)
         try await eventually { model.tabs.count == 1 }
-        let original = model.tabs[0]
+        let original = try unwrap(model.tabs.first)
         let store = QuickCommandStore.shared
-        precondition(store.url.resolvingSymlinksInPath().path.hasPrefix(URL(fileURLWithPath: home).resolvingSymlinksInPath().path + "/"))
+        try require(store.url.resolvingSymlinksInPath().path.hasPrefix(URL(fileURLWithPath: home).resolvingSymlinksInPath().path + "/"))
         var item = QuickCommand(alias: "构建应用", command: "printf '%s\\n' 'sidebar fixture'", scope: .local)
         try store.save(item)
         let second = QuickCommand(alias: "第二条", command: "printf second", scope: .local)
@@ -53,64 +59,64 @@ import ObjectiveC
         }
         func capture(_ name: String) throws {
             guard let directory = ProcessInfo.processInfo.environment["ONEAGENT_COMMAND_SIDEBAR_QA_DIR"] else { return }
-            let view = native.contentView!
+            let view = try unwrap(native.contentView)
             view.layoutSubtreeIfNeeded()
-            let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+            let bitmap = try unwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
             view.cacheDisplay(in: view.bounds, to: bitmap)
-            try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
+            try unwrap(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
         }
         mount()
         native.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         try await eventually { element("quickCommand." + item.id.uuidString, in: native) != nil }
-        precondition(element("quickCommands.toolbox.search", in: native) == nil)
-        precondition(!descendants(native.contentView!).contains { $0 is NSSearchField }, "快捷命令栏没有搜索")
+        try require(element("quickCommands.toolbox.search", in: native) == nil)
+        try require(!descendants(try unwrap(native.contentView)).contains { $0 is NSSearchField }, "快捷命令栏没有搜索")
         for id in ["quickCommands.new", "quickCommands.actions", "quickCommands.edit." + item.id.uuidString] {
-            precondition(element(id, in: native) == nil, "快捷命令栏不提供维护入口")
+            try require(element(id, in: native) == nil, "快捷命令栏不提供维护入口")
         }
-        precondition(!descendants(native.contentView!).contains { $0 is QuickCommandReorderTargetView }, "指令栏不提供拖动排序")
+        try require(!descendants(try unwrap(native.contentView)).contains { $0 is QuickCommandReorderTargetView }, "指令栏不提供拖动排序")
         try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) != nil }
-        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "首次打开自动选中第一条指令")
+        try require(model.commandSidebars[original.id]?.selectedCommandID == item.id, "首次打开自动选中第一条指令")
         let rowID = "quickCommand." + item.id.uuidString
         let secondRowID = "quickCommand." + second.id.uuidString
-        let initialRowHeight = accessibilityFrame(element(rowID, in: native)!).height
-        let initialSecondFrame = accessibilityFrame(element(secondRowID, in: native)!)
-        precondition(press(element(secondRowID, in: native)!))
+        let initialRowHeight = try accessibilityFrame(try requiredElement(rowID, in: native)).height
+        let initialSecondFrame = try accessibilityFrame(try requiredElement(secondRowID, in: native))
+        try require(press(try requiredElement(secondRowID, in: native)))
         mount()
         try await eventually { element("quickCommands.code." + second.id.uuidString, in: native) != nil }
-        precondition(model.commandSidebars[original.id]?.selectedCommandID == second.id, "重新打开保留已选指令")
-        precondition(press(element(rowID, in: native)!))
+        try require(model.commandSidebars[original.id]?.selectedCommandID == second.id, "重新打开保留已选指令")
+        try require(press(try requiredElement(rowID, in: native)))
         try await eventually { element("quickCommands.code." + item.id.uuidString, in: native) != nil }
-        precondition(!descendants(native.contentView!).contains { $0 is QuickCommandPreviewAnchorView }, "完整命令在底部，不打开悬浮窗")
-        precondition(accessibilityFrame(element(rowID, in: native)!).height == initialRowHeight, "选择命令不改变行高")
-        precondition(accessibilityFrame(element(secondRowID, in: native)!) == initialSecondFrame, "选择命令不推动其他行")
-        precondition(element("quickCommands.quickCopy." + item.id.uuidString, in: native) == nil, "列表不重复提供拷贝入口")
-        precondition(element("quickCommands.quickRun." + item.id.uuidString, in: native) == nil, "列表不重复提供执行入口")
+        try require(!descendants(try unwrap(native.contentView)).contains { $0 is QuickCommandPreviewAnchorView }, "完整命令在底部，不打开悬浮窗")
+        try require(try accessibilityFrame(try requiredElement(rowID, in: native)).height == initialRowHeight, "选择命令不改变行高")
+        try require(try accessibilityFrame(try requiredElement(secondRowID, in: native)) == initialSecondFrame, "选择命令不推动其他行")
+        try require(element("quickCommands.quickCopy." + item.id.uuidString, in: native) == nil, "列表不重复提供拷贝入口")
+        try require(element("quickCommands.quickRun." + item.id.uuidString, in: native) == nil, "列表不重复提供执行入口")
         try await verifySidebarDrag(item.id, sessionID: original.sessionID, in: native)
         try capture("fixture-light")
-        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id)
-        precondition(model.tabs.count == 1 && state.quickCommandConfirmation == nil)
+        try require(model.commandSidebars[original.id]?.selectedCommandID == item.id)
+        try require(model.tabs.count == 1 && state.quickCommandConfirmation == nil)
         let shortCommand = item.command
         let codeID = "quickCommands.code." + item.id.uuidString
-        let shortHeight = accessibilityFrame(element(codeID, in: native)!).height
+        let shortHeight = try accessibilityFrame(try requiredElement(codeID, in: native)).height
         item.command = "printf '%s\\n' '" + String(repeating: "long-command-argument-", count: 12) + "'"
         try store.save(item)
         native.setContentSize(NSSize(width: 230, height: 700))
         try await eventually {
             guard let code = element(codeID, in: native) else { return false }
-            return accessibilityFrame(code).height > shortHeight * 3
+            return try accessibilityFrame(code).height > shortHeight * 3
         }
-        let wrappedFrame = accessibilityFrame(element(codeID, in: native)!)
-        precondition(wrappedFrame.width <= 230, "长命令换行后不能溢出侧栏")
-        let runFrame = accessibilityFrame(element("quickCommands.run." + item.id.uuidString, in: native)!)
-        let previewFrame = accessibilityFrame(element("quickCommands.preview." + original.id.uuidString, in: native)!)
-        precondition(runFrame.maxY <= previewFrame.minY, "执行按钮固定在滚动预览下方，不能被长命令挤走")
-        precondition(accessibilityFrame(element(rowID, in: native)!).height == initialRowHeight, "长命令不撑开列表")
+        let wrappedFrame = try accessibilityFrame(try requiredElement(codeID, in: native))
+        try require(wrappedFrame.width <= 230, "长命令换行后不能溢出侧栏")
+        let runFrame = try accessibilityFrame(try requiredElement("quickCommands.run." + item.id.uuidString, in: native))
+        let previewFrame = try accessibilityFrame(try requiredElement("quickCommands.preview." + original.id.uuidString, in: native))
+        try require(runFrame.maxY <= previewFrame.minY, "执行按钮固定在滚动预览下方，不能被长命令挤走")
+        try require(try accessibilityFrame(try requiredElement(rowID, in: native)).height == initialRowHeight, "长命令不撑开列表")
         item.command += "\nprintf 'second line'\nprintf 'third line'"
         try store.save(item)
         try await eventually {
             guard let code = element(codeID, in: native) else { return false }
-            return accessibilityFrame(code).height > wrappedFrame.height
+            return try accessibilityFrame(code).height > wrappedFrame.height
         }
         try capture("fixture-narrow-long")
         mount(isDark: true)
@@ -120,18 +126,18 @@ import ObjectiveC
         item.command = shortCommand
         try store.save(item)
         native.setContentSize(NSSize(width: 260, height: 700))
-        try await eventually { accessibilityFrame(element(codeID, in: native)!).height <= shortHeight + 1 }
+        try await eventually { try accessibilityFrame(try requiredElement(codeID, in: native)).height <= shortHeight + 1 }
         print("PASS fixed command rows, stable selection, wrapped and scrollable preview with pinned actions")
         model.commandSidebars[original.id]?.isExpanded = true
         try await eventually { element("quickCommand." + second.id.uuidString, in: native) != nil }
         let terminal = SSHTerminalNSView(frame: .zero)
         terminal.sessionID = original.sessionID
-        native.contentView!.addSubview(terminal)
+        (try unwrap(native.contentView)).addSubview(terminal)
         native.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         native.makeFirstResponder(terminal)
         try await eventually { native.isKeyWindow && native.firstResponder === terminal }
-        func key(_ code: UInt16, repeatKey: Bool = false) {
+        func key(_ code: UInt16, repeatKey: Bool = false) throws {
             let character: String
             switch code {
             case 36, 76: character = "\r"
@@ -140,50 +146,50 @@ import ObjectiveC
             case 53: character = "\u{1b}"
             default: character = ""
             }
-            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            let event = try unwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                 windowNumber: native.windowNumber, context: nil, characters: character, charactersIgnoringModifiers: character,
-                isARepeat: repeatKey, keyCode: code)!
+                isARepeat: repeatKey, keyCode: code))
             NSApp.sendEvent(event)
         }
-        key(36)
+        try key(36)
         guard !model.commandExecution(for: original.id).isSubmitting else {
             throw NSError(domain: "QuickCommandSidebarTests", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: "终端持有焦点时，Enter 被命令侧栏截获并触发了执行"])
         }
-        key(76)
-        key(125)
-        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "终端下方向键不切换侧栏命令")
-        key(126)
-        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "终端上方向键不切换侧栏命令")
-        key(53)
-        precondition(!model.commandExecution(for: original.id).isSubmitting, "终端回车不执行侧栏命令")
-        precondition(model.commandSidebars[original.id]?.isExpanded == true, "终端 Esc 不收起侧栏")
-        precondition(native.firstResponder === terminal, "侧栏展开不能抢走终端焦点")
-        precondition(press(element(rowID, in: native)!))
+        try key(76)
+        try key(125)
+        try require(model.commandSidebars[original.id]?.selectedCommandID == item.id, "终端下方向键不切换侧栏命令")
+        try key(126)
+        try require(model.commandSidebars[original.id]?.selectedCommandID == item.id, "终端上方向键不切换侧栏命令")
+        try key(53)
+        try require(!model.commandExecution(for: original.id).isSubmitting, "终端回车不执行侧栏命令")
+        try require(model.commandSidebars[original.id]?.isExpanded == true, "终端 Esc 不收起侧栏")
+        try require(native.firstResponder === terminal, "侧栏展开不能抢走终端焦点")
+        try require(press(try requiredElement(rowID, in: native)))
         try await eventually { native.firstResponder !== terminal }
-        key(125)
+        try key(125)
         try await eventually { model.commandSidebars[original.id]?.selectedCommandID == second.id }
-        key(126)
+        try key(126)
         try await eventually { model.commandSidebars[original.id]?.selectedCommandID == item.id }
-        key(126)
-        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "首项向上不越界")
+        try key(126)
+        try require(model.commandSidebars[original.id]?.selectedCommandID == item.id, "首项向上不越界")
         let keyboardExecution = model.commandExecution(for: original.id)
-        key(36, repeatKey: true)
-        precondition(!keyboardExecution.isSubmitting, "长按回车不执行")
-        key(36)
-        precondition(!keyboardExecution.isSubmitting, "选中侧栏命令后回车也不执行")
-        key(76)
-        precondition(!keyboardExecution.isSubmitting, "侧栏小键盘回车不执行")
-        key(36)
-        precondition(!keyboardExecution.isSubmitting && keyboardExecution.error == nil, "连续回车不发起侧栏命令")
-        key(53)
-        precondition(model.commandSidebars[original.id]?.isExpanded == false, "Esc 收起当前终端的命令栏")
+        try key(36, repeatKey: true)
+        try require(!keyboardExecution.isSubmitting, "长按回车不执行")
+        try key(36)
+        try require(!keyboardExecution.isSubmitting, "选中侧栏命令后回车也不执行")
+        try key(76)
+        try require(!keyboardExecution.isSubmitting, "侧栏小键盘回车不执行")
+        try key(36)
+        try require(!keyboardExecution.isSubmitting && keyboardExecution.error == nil, "连续回车不发起侧栏命令")
+        try key(53)
+        try require(model.commandSidebars[original.id]?.isExpanded == false, "Esc 收起当前终端的命令栏")
         model.commandSidebars[original.id]?.isExpanded = true
-        let editor = NSTextView(frame: native.contentView!.bounds)
-        native.contentView!.addSubview(editor)
+        let editor = NSTextView(frame: (try unwrap(native.contentView)).bounds)
+        (try unwrap(native.contentView)).addSubview(editor)
         native.makeFirstResponder(editor)
-        key(125)
-        precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id, "文本编辑器不被拦截")
+        try key(125)
+        try require(model.commandSidebars[original.id]?.selectedCommandID == item.id, "文本编辑器不被拦截")
         editor.removeFromSuperview()
         terminal.removeFromSuperview()
         try store.remove(second.id)
@@ -201,28 +207,28 @@ import ObjectiveC
                 return item
             })
         }
-        precondition(press(element("quickCommands.copy." + item.id.uuidString, in: native)!))
-        precondition(pasteboard.string(forType: .string) == item.command)
+        try require(press(try requiredElement("quickCommands.copy." + item.id.uuidString, in: native)))
+        try require(pasteboard.string(forType: .string) == item.command)
         mount()
         try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) != nil }
         print("PASS no search, footer preview, a single copy entry and selection survives remount")
 
         model.openLocalTerminal(at: "/private/tmp", placement: .newTab, beside: original.id, in: state)
         try await eventually { model.tabs.count == 2 }
-        let sibling = model.tabs.first { $0.id != original.id }!
+        let sibling = try unwrap(model.tabs.first { $0.id != original.id })
         model.selectOnly(sibling.id, in: state, focusTerminal: false)
         let originalExecution = model.commandExecution(for: original.id)
-        precondition(press(element("quickCommands.run." + item.id.uuidString, in: native)!))
-        precondition(originalExecution.isSubmitting)
-        precondition(!model.commandExecution(for: sibling.id).isSubmitting, "兄弟终端不显示执行状态")
-        precondition(!press(element("quickCommands.run." + item.id.uuidString, in: native)!), "提交期间执行入口禁用")
-        precondition(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id), "按钮与拖拽共享同一终端的提交守卫")
+        try require(press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)))
+        try require(originalExecution.isSubmitting)
+        try require(!model.commandExecution(for: sibling.id).isSubmitting, "兄弟终端不显示执行状态")
+        try require(!press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)), "提交期间执行入口禁用")
+        try require(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id), "按钮与拖拽共享同一终端的提交守卫")
         try await eventually { !originalExecution.isSubmitting }
-        precondition(originalExecution.error != nil, "没有 shell 的目标必须明确报错")
+        try require(originalExecution.error != nil, "没有 shell 的目标必须明确报错")
         try await eventually { element("quickCommands.error." + original.id.uuidString, in: native) != nil }
-        precondition(state.selectedTabID == sibling.id && model.tabs.count == 2, "失败不能切到其他终端或新建终端")
-        try await eventually { press(element("quickCommands.run." + item.id.uuidString, in: native)!) }
-        precondition(originalExecution.isSubmitting)
+        try require(state.selectedTabID == sibling.id && model.tabs.count == 2, "失败不能切到其他终端或新建终端")
+        try await eventually { press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)) }
+        try require(originalExecution.isSubmitting)
         try await eventually { !originalExecution.isSubmitting }
         print("PASS per-terminal execution guard, failure feedback and explicit retry")
 
@@ -235,36 +241,36 @@ import ObjectiveC
             .environment(\.windowChrome, WindowChrome(isDark: false)))
         try await eventually { element("quickCommands.library.edit", in: native) != nil }
         try await verifyLibraryKeyboard(item: item, state: state, in: native)
-        precondition(press(element("quickCommands.library.edit", in: native)!))
+        try require(press(try requiredElement("quickCommands.library.edit", in: native)))
         try await eventually { element("quickCommand.script", in: native) != nil }
-        precondition(native.attachedSheet == nil, "在命令工作区内编辑")
-        let script = element("quickCommand.script", in: native) as! NSTextView
+        try require(native.attachedSheet == nil, "在命令工作区内编辑")
+        let script = try unwrap(element("quickCommand.script", in: native) as? NSTextView, "脚本编辑器不存在")
         native.makeFirstResponder(script)
-        key(125)
-        precondition(state.commandLibrarySelection == item.id, "编辑指令时方向键不切换列表")
+        try key(125)
+        try require(state.commandLibrarySelection == item.id, "编辑指令时方向键不切换列表")
         script.string = "printf edited"
         script.didChangeText()
-        precondition(press(element("quickCommand.save", in: native)!))
+        try require(press(try requiredElement("quickCommand.save", in: native)))
         try await eventually { state.commandLibraryDraft == nil && store.commands.first { $0.id == item.id }?.command == "printf edited" }
         try await eventually { element("quickCommands.library.edit", in: native) != nil }
-        precondition(press(element("quickCommands.library.edit", in: native)!))
+        try require(press(try requiredElement("quickCommands.library.edit", in: native)))
         try await eventually { element("quickCommand.cancel", in: native) != nil }
-        precondition(press(element("quickCommand.cancel", in: native)!))
+        try require(press(try requiredElement("quickCommand.cancel", in: native)))
         try await eventually { state.commandLibraryDraft == nil }
         state.section = .terminals
         native.setContentSize(NSSize(width: 260, height: 700))
         mount()
         try await eventually { element("quickCommands.code." + item.id.uuidString, in: native) != nil }
-        precondition(element("quickCommands.edit." + item.id.uuidString, in: native) == nil)
-        precondition(press(element("quickCommands.copy." + item.id.uuidString, in: native)!))
-        precondition(pasteboard.string(forType: .string) == "printf edited", "命令管理保存后使用栏显示新内容")
+        try require(element("quickCommands.edit." + item.id.uuidString, in: native) == nil)
+        try require(press(try requiredElement("quickCommands.copy." + item.id.uuidString, in: native)))
+        try require(pasteboard.string(forType: .string) == "printf edited", "命令管理保存后使用栏显示新内容")
         let reviewedContext = model.commandContext(in: state, targetTabID: original.id)
-        precondition(!model.runSidebarQuickCommand(item.id, in: state, expectedContext: reviewedContext,
+        try require(!model.runSidebarQuickCommand(item.id, in: state, expectedContext: reviewedContext,
                                                  expectedItem: item, targetTabID: original.id), "编辑后旧命令快照被拒绝")
-        item = store.commands.first { $0.id == item.id }!
+        item = try unwrap(store.commands.first { $0.id == item.id })
         try store.remove(item.id)
         try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) == nil }
-        precondition(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id))
+        try require(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id))
         print("PASS management-page editing, live sidebar refresh, stale content and deleted-command rejection")
 
         let execution = QuickCommandSidebarExecution()
@@ -277,12 +283,12 @@ import ObjectiveC
         })
         execution.run(request, perform: { _ in deliveries += 1 })
         try await Task.sleep(for: .milliseconds(550))
-        precondition(execution.isSubmitting && deliveries == 1, "Slow operations remain guarded beyond double-click interval")
+        try require(execution.isSubmitting && deliveries == 1, "Slow operations remain guarded beyond double-click interval")
         try await eventually { !execution.isSubmitting }
-        precondition(execution.error != nil)
+        try require(execution.error != nil)
         execution.run(request, perform: { _ in deliveries += 1 })
         try await eventually { !execution.isSubmitting }
-        precondition(deliveries == 2 && execution.error == nil)
+        try require(deliveries == 2 && execution.error == nil)
         print("PASS slow submission guard, failure feedback and recovery")
     }
 
@@ -295,56 +301,58 @@ import ObjectiveC
         }
         for command in additions { try store.save(command) }
         let ordered = store.commands.filter { $0.scope == .local }.sorted(by: QuickCommand.displayOrder)
-        func arrow(_ isDown: Bool, modifiers: NSEvent.ModifierFlags = []) {
+        try require(ordered.count >= 2, "键盘测试至少需要两条命令")
+        func arrow(_ isDown: Bool, modifiers: NSEvent.ModifierFlags = []) throws {
             let character = isDown ? "\u{f701}" : "\u{f700}"
-            NSApp.sendEvent(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+            NSApp.sendEvent(try unwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
                 windowNumber: window.windowNumber, context: nil, characters: character, charactersIgnoringModifiers: character,
-                isARepeat: false, keyCode: isDown ? 125 : 126)!)
+                isARepeat: false, keyCode: isDown ? 125 : 126)))
         }
-        precondition(press(element("quickCommand." + item.id.uuidString, in: window)!))
+        try require(press(try requiredElement("quickCommand." + item.id.uuidString, in: window)))
         try await Task.sleep(for: .milliseconds(100))
-        arrow(true)
+        try arrow(true)
         try await eventually { state.commandLibrarySelection == ordered[1].id }
         try await eventually {
             guard let copy = element("quickCommands.library.copy", in: window), press(copy) else { return false }
             return NSPasteboard.general.string(forType: .string) == ordered[1].command
         }
-        arrow(false)
+        try arrow(false)
         try await eventually { state.commandLibrarySelection == item.id }
-        arrow(false)
-        precondition(state.commandLibrarySelection == item.id, "首项向上停住")
+        try arrow(false)
+        try require(state.commandLibrarySelection == item.id, "首项向上停住")
         for command in ordered.dropFirst() {
-            arrow(true)
+            try arrow(true)
             try await eventually { state.commandLibrarySelection == command.id }
         }
-        arrow(true)
-        precondition(state.commandLibrarySelection == ordered.last!.id, "末项向下停住")
+        try arrow(true)
+        try require(state.commandLibrarySelection == (try unwrap(ordered.last)).id, "末项向下停住")
         try await eventually {
-            guard let row = element("quickCommand." + ordered.last!.id.uuidString, in: window) else { return false }
-            return window.convertToScreen(window.contentLayoutRect).contains(accessibilityFrame(row))
+            guard let row = element("quickCommand." + (try unwrap(ordered.last)).id.uuidString, in: window) else { return false }
+            return window.convertToScreen(window.contentLayoutRect).contains(try accessibilityFrame(row))
         }
-        let search = descendants(window.contentView!).compactMap { $0 as? NSSearchField }.first!
+        let search = try unwrap(descendants(try unwrap(window.contentView)).compactMap { $0 as? NSSearchField }.first)
         search.selectText(nil)
-        let editor = search.currentEditor() as! NSTextView
+        let editor = try unwrap(search.currentEditor() as? NSTextView, "搜索编辑器不存在")
         func searchFor(_ query: String) {
             editor.insertText(query, replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
         }
         searchFor("keyboard-1")
         let filtered = ordered.filter { $0.matchesSearch("keyboard-1") }
+        try require(filtered.count >= 2, "搜索测试至少需要两个结果")
         try await eventually { state.commandLibrarySelection == filtered.last?.id }
-        arrow(false)
+        try arrow(false)
         try await eventually { state.commandLibrarySelection == filtered[filtered.count - 2].id }
-        precondition(window.firstResponder === editor, "搜索框用方向键选择后仍可继续输入")
+        try require(window.firstResponder === editor, "搜索框用方向键选择后仍可继续输入")
         let beforeMarkedText = state.commandLibrarySelection
         editor.setMarkedText("拼", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
         let handled = search.delegate?.control?(search, textView: editor, doCommandBy: #selector(NSResponder.moveDown(_:)))
-        precondition(handled != true && state.commandLibrarySelection == beforeMarkedText, "中文输入法组词时不切换指令")
+        try require(handled != true && state.commandLibrarySelection == beforeMarkedText, "中文输入法组词时不切换指令")
         editor.unmarkText()
         searchFor("no-matching-command")
         try await eventually { state.commandLibrarySelection == nil }
-        arrow(true)
-        arrow(false)
-        precondition(state.commandLibrarySelection == nil, "空结果不产生选择")
+        try arrow(true)
+        try arrow(false)
+        try require(state.commandLibrarySelection == nil, "空结果不产生选择")
         searchFor("")
         try await eventually { state.commandLibrarySelection == item.id }
         for command in additions { try store.remove(command.id) }
@@ -352,63 +360,88 @@ import ObjectiveC
     }
 
     @MainActor static func verifySidebarDrag(_ commandID: UUID, sessionID: String, in window: NSWindow) async throws {
-        let handle = descendants(window.contentView!).compactMap { $0 as? QuickCommandDragHandleView }
-            .first { $0.commandID == commandID }!
-        let destinationWindow = NSPanel(contentRect: NSRect(x: 100, y: 100, width: 260, height: 150),
-                                        styleMask: [.titled], backing: .buffered, defer: false)
+        let visibleFrame = try unwrap(window.screen ?? NSScreen.main, "没有可用屏幕").visibleFrame
+        let destinationWindow = NSPanel(contentRect: NSRect(x: visibleFrame.maxX - 280, y: visibleFrame.minY + 40, width: 260, height: 150),
+                                        styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         destinationWindow.isReleasedWhenClosed = false
         destinationWindow.level = .floating
+        // 合成事件不需要键盘焦点；切换到其他应用也不能让拖拽目标消失。
+        destinationWindow.hidesOnDeactivate = false
         let terminal = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 260, height: 150))
         terminal.sessionID = sessionID
-        var deliveries = 0
+        var deliveries: [UUID] = []
         terminal.canDropQuickCommand = { $0 == commandID }
         terminal.onQuickCommandDrop = { id in
-            precondition(id == commandID)
-            deliveries += 1
+            if !CommandLine.arguments.contains("--fail-drag-delivery") { deliveries.append(id) }
             return true
         }
         destinationWindow.contentView = terminal
-        NSApp.activate(ignoringOtherApps: true)
-        destinationWindow.makeKeyAndOrderFront(nil)
         defer {
             destinationWindow.close()
+            NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
         }
+        if CommandLine.arguments.contains("--background-drag") {
+            try await eventually("测试应用尚未完成初始激活") { NSApp.isActive }
+            let finder = try unwrap(NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.finder" },
+                                    "后台拖拽回归测试需要 Finder 正在运行")
+            try require(finder.activate(), "无法将焦点切换到 Finder")
+            try await eventually("后台拖拽回归测试未进入非激活状态") { !NSApp.isActive }
+        }
+        destinationWindow.orderFrontRegardless()
         let screenPoint = destinationWindow.convertPoint(toScreen: NSPoint(x: 80, y: 50))
-        try await eventually {
-            NSApp.isActive && destinationWindow.isKeyWindow
+        try await eventually("拖拽目标未命中：visible=\(destinationWindow.isVisible)，active=\(NSApp.isActive)，落点窗口=\(String(describing: QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window))") {
+            destinationWindow.isVisible
                 && QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === destinationWindow
         }
-        precondition(terminal.acceptsQuickCommand(commandID), "拖拽目标必须是可见终端")
-        let start = handle.convert(NSPoint(x: handle.bounds.midX, y: handle.bounds.midY), to: nil)
-        let hitPoint = window.contentView!.superview?.convert(start, from: nil) ?? start
-        let hit = window.contentView!.hitTest(hitPoint)
-        precondition(hit === handle, "指令行鼠标命中拖拽层，实际命中：\(String(describing: hit))")
-        let destination = window.convertPoint(fromScreen: screenPoint)
-        precondition(QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === destinationWindow)
-        func mouse(_ type: NSEvent.EventType, at point: NSPoint) -> NSEvent {
-            NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                              windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        try require(terminal.acceptsQuickCommand(commandID), "拖拽目标必须是可见终端")
+        let content = try unwrap(window.contentView)
+        var start = NSPoint.zero
+        var dragHandle: QuickCommandDragHandleView?
+        // AX 元素存在不代表 SwiftUI 的原生覆盖层已完成布局，等待真实命中而非固定延迟。
+        try await eventually("指令行布局或拖拽层未就绪，命令=\(commandID)") {
+            content.layoutSubtreeIfNeeded()
+            guard let handle = descendants(content).compactMap({ $0 as? QuickCommandDragHandleView })
+                .first(where: { $0.commandID == commandID }) else { return false }
+            let visible = handle.bounds.intersection(handle.visibleRect)
+            guard !visible.isEmpty, handle.window === window else { return false }
+            start = handle.convert(NSPoint(x: visible.midX, y: visible.midY), to: nil)
+            let hitPoint = content.superview?.convert(start, from: nil) ?? start
+            guard content.hitTest(hitPoint) === handle else { return false }
+            dragHandle = handle
+            return true
         }
-        NSApp.postEvent(mouse(.leftMouseUp, at: destination), atStart: true)
-        NSApp.postEvent(mouse(.leftMouseDragged, at: destination), atStart: true)
-        handle.mouseDown(with: mouse(.leftMouseDown, at: start))
-        precondition(deliveries == 1, "真实指令行拖入终端只投递一次")
-        let escape = NSEvent.keyEvent(with: .keyDown, location: destination, modifierFlags: [], timestamp: 0,
+        let handle = try unwrap(dragHandle, "指令拖拽层不存在")
+        let destination = window.convertPoint(fromScreen: screenPoint)
+        try require(QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === destinationWindow,
+                    "拖拽开始前目标窗口被遮挡")
+        func mouse(_ type: NSEvent.EventType, at point: NSPoint) throws -> NSEvent {
+            try unwrap(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                              windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        }
+        NSApp.postEvent(try mouse(.leftMouseUp, at: destination), atStart: true)
+        NSApp.postEvent(try mouse(.leftMouseDragged, at: destination), atStart: true)
+        handle.mouseDown(with: try mouse(.leftMouseDown, at: start))
+        try require(deliveries == [commandID], "真实指令行拖入终端只投递一次")
+        let escape = try unwrap(NSEvent.keyEvent(with: .keyDown, location: destination, modifierFlags: [], timestamp: 0,
                                      windowNumber: window.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "",
-                                     isARepeat: false, keyCode: 53)!
+                                     isARepeat: false, keyCode: 53))
         NSApp.postEvent(escape, atStart: true)
-        NSApp.postEvent(mouse(.leftMouseDragged, at: destination), atStart: true)
-        handle.mouseDown(with: mouse(.leftMouseDown, at: start))
-        precondition(deliveries == 1, "Esc 取消拖拽不执行")
+        NSApp.postEvent(try mouse(.leftMouseDragged, at: destination), atStart: true)
+        handle.mouseDown(with: try mouse(.leftMouseDown, at: start))
+        try require(deliveries == [commandID], "Esc 取消拖拽不执行")
+        if CommandLine.arguments.contains("--background-drag") {
+            try require(!NSApp.isActive && !destinationWindow.isKeyWindow, "后台拖拽不依赖激活应用或键盘焦点")
+            print("PASS background drag without application activation or key window")
+        }
         print("PASS production sidebar drag delivery and Escape cancellation")
     }
 
-    @MainActor static func verifyScrolledCursorRegions(in window: NSWindow) {
+    @MainActor static func verifyScrolledCursorRegions(in window: NSWindow) throws {
         let clip = NSClipView(frame: NSRect(x: 0, y: 0, width: 260, height: 60))
         let document = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 400))
         clip.documentView = document
-        window.contentView!.addSubview(clip)
+        (try unwrap(window.contentView)).addSubview(clip)
         defer { clip.removeFromSuperview() }
         let controls: [NSView] = [TabDragHandleView(), QuickCommandDragHandleView(),
             FileTabHandleView(), PinnedLocationDragHandleView(), ClickableCursorView(), FamilyNativeButton()]
@@ -419,7 +452,7 @@ import ObjectiveC
         for origin in [NSPoint(x: 0, y: 200), .zero, NSPoint(x: 0, y: 200)] {
             clip.scroll(to: origin)
             for control in controls {
-                precondition(control.bounds.intersection(control.visibleRect).isEmpty == (origin.y > 0))
+                try require(control.bounds.intersection(control.visibleRect).isEmpty == (origin.y > 0))
                 // 直接调用真实 AppKit 路径；回归时无效矩形会抛异常并使测试进程退出。
                 control.resetCursorRects()
             }
@@ -444,8 +477,9 @@ import ObjectiveC
         }
         return find(root)
     }
-    @MainActor static func accessibilityFrame(_ object: NSObject) -> CGRect {
+    @MainActor static func accessibilityFrame(_ object: NSObject) throws -> CGRect {
         let selector = NSSelectorFromString("accessibilityFrame")
+        try require(object.responds(to: selector), "界面元素不支持 accessibilityFrame")
         typealias Frame = @convention(c) (AnyObject, Selector) -> CGRect
         return unsafeBitCast(object.method(for: selector), to: Frame.self)(object, selector)
     }
@@ -455,11 +489,33 @@ import ObjectiveC
         typealias Press = @convention(c) (AnyObject, Selector) -> Bool
         return unsafeBitCast(object.method(for: selector), to: Press.self)(object, selector)
     }
-    @MainActor static func eventually(line: Int = #line, _ condition: () -> Bool) async throws {
+    static func unwrap<T>(_ value: T?, _ message: String = "缺少测试所需对象",
+                          file: StaticString = #filePath, line: UInt = #line) throws -> T {
+        guard let value else {
+            throw NSError(domain: "QuickCommandSidebarTests", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "\(file):\(line): \(message)"])
+        }
+        return value
+    }
+
+    @MainActor static func requiredElement(_ id: String, in root: NSObject,
+                                           file: StaticString = #filePath, line: UInt = #line) throws -> NSObject {
+        try unwrap(element(id, in: root), "找不到界面元素 \(id)", file: file, line: line)
+    }
+
+    static func require(_ condition: @autoclosure () throws -> Bool, _ message: String = "测试条件不成立",
+                        file: StaticString = #filePath, line: UInt = #line) throws {
+        guard try condition() else {
+            throw NSError(domain: "QuickCommandSidebarTests", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "\(file):\(line): \(message)"])
+        }
+    }
+
+    @MainActor static func eventually(_ message: @autoclosure () -> String = "等待测试状态超时", line: Int = #line, _ condition: () throws -> Bool) async throws {
         for _ in 0..<150 {
-            if condition() { return }
+            if try condition() { return }
             try await Task.sleep(for: .milliseconds(20))
         }
-        throw NSError(domain: "QuickCommandSidebarTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for fixture state at line \(line)"])
+        throw NSError(domain: "QuickCommandSidebarTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "\(#filePath):\(line): \(message())"])
     }
 }
