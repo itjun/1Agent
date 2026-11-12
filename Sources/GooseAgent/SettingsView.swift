@@ -120,7 +120,7 @@ struct SettingsView: View {
     // 全局设置不继承最后一个会话的本机／远程配色。
     private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark) }
     private var sidebarChrome: WindowChrome { chrome }
-    private var settingsBackground: Color { isShellTransparent ? .clear : chrome.background }
+    private var settingsBackground: Color { chrome.background }
     private let onRestart: () -> Void
 
     init(onRestart: @escaping () -> Void) {
@@ -148,6 +148,7 @@ struct SettingsView: View {
                     .frame(height: isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight)
                 settingsNavigation
             }
+                .background(SidebarMaterial(isDark: colorScheme == .dark).ignoresSafeArea())
                 .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
                 .environment(\.isShellTransparent, isShellTransparent)
@@ -253,7 +254,7 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(settingsBackground.ignoresSafeArea())
+        .background(Color.clear)
     }
 
     private var settingsContent: some View {
