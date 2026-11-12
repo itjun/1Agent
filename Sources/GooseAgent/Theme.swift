@@ -86,7 +86,6 @@ enum Theme {
         static let iconFont = SwiftUI.Font.system(size: 13, weight: .medium)
         /// 右侧工具组前预留终端边界的留白，分支不能占用侧栏顶部。
         static let sectionInset = Space.l
-        static let branchMaxWidth: CGFloat = 240
     }
 
     /// Geometry of the title bar and status banner above each terminal pane.
