@@ -86,6 +86,7 @@ import ObjectiveC
         precondition(accessibilityFrame(element(secondRowID, in: native)!) == initialSecondFrame, "选择命令不推动其他行")
         precondition(element("quickCommands.quickCopy." + item.id.uuidString, in: native) == nil, "列表不重复提供拷贝入口")
         precondition(element("quickCommands.quickRun." + item.id.uuidString, in: native) == nil, "列表不重复提供执行入口")
+        try await verifySidebarDrag(item.id, sessionID: original.sessionID, in: native)
         try capture("fixture-light")
         precondition(model.commandSidebars[original.id]?.selectedCommandID == item.id)
         precondition(model.tabs.count == 1 && state.quickCommandConfirmation == nil)
@@ -282,6 +283,59 @@ import ObjectiveC
         try await eventually { !execution.isSubmitting }
         precondition(deliveries == 2 && execution.error == nil)
         print("PASS slow submission guard, failure feedback and recovery")
+    }
+
+    @MainActor static func verifySidebarDrag(_ commandID: UUID, sessionID: String, in window: NSWindow) async throws {
+        let handle = descendants(window.contentView!).compactMap { $0 as? QuickCommandDragHandleView }
+            .first { $0.commandID == commandID }!
+        let destinationWindow = NSPanel(contentRect: NSRect(x: 100, y: 100, width: 260, height: 150),
+                                        styleMask: [.titled], backing: .buffered, defer: false)
+        destinationWindow.isReleasedWhenClosed = false
+        destinationWindow.level = .floating
+        let terminal = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 260, height: 150))
+        terminal.sessionID = sessionID
+        var deliveries = 0
+        terminal.canDropQuickCommand = { $0 == commandID }
+        terminal.onQuickCommandDrop = { id in
+            precondition(id == commandID)
+            deliveries += 1
+            return true
+        }
+        destinationWindow.contentView = terminal
+        NSApp.activate(ignoringOtherApps: true)
+        destinationWindow.makeKeyAndOrderFront(nil)
+        defer {
+            destinationWindow.close()
+            window.makeKeyAndOrderFront(nil)
+        }
+        let screenPoint = destinationWindow.convertPoint(toScreen: NSPoint(x: 80, y: 50))
+        try await eventually {
+            NSApp.isActive && destinationWindow.isKeyWindow
+                && QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === destinationWindow
+        }
+        precondition(terminal.acceptsQuickCommand(commandID), "拖拽目标必须是可见终端")
+        let start = handle.convert(NSPoint(x: handle.bounds.midX, y: handle.bounds.midY), to: nil)
+        let hitPoint = window.contentView!.superview?.convert(start, from: nil) ?? start
+        let hit = window.contentView!.hitTest(hitPoint)
+        precondition(hit === handle, "指令行鼠标命中拖拽层，实际命中：\(String(describing: hit))")
+        let destination = window.convertPoint(fromScreen: screenPoint)
+        precondition(QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === destinationWindow)
+        func mouse(_ type: NSEvent.EventType, at point: NSPoint) -> NSEvent {
+            NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                              windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        }
+        NSApp.postEvent(mouse(.leftMouseUp, at: destination), atStart: true)
+        NSApp.postEvent(mouse(.leftMouseDragged, at: destination), atStart: true)
+        handle.mouseDown(with: mouse(.leftMouseDown, at: start))
+        precondition(deliveries == 1, "真实指令行拖入终端只投递一次")
+        let escape = NSEvent.keyEvent(with: .keyDown, location: destination, modifierFlags: [], timestamp: 0,
+                                     windowNumber: window.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "",
+                                     isARepeat: false, keyCode: 53)!
+        NSApp.postEvent(escape, atStart: true)
+        NSApp.postEvent(mouse(.leftMouseDragged, at: destination), atStart: true)
+        handle.mouseDown(with: mouse(.leftMouseDown, at: start))
+        precondition(deliveries == 1, "Esc 取消拖拽不执行")
+        print("PASS production sidebar drag delivery and Escape cancellation")
     }
 
     @MainActor static func verifyScrolledCursorRegions(in window: NSWindow) {
