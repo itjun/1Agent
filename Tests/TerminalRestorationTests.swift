@@ -328,6 +328,12 @@ enum TerminalRestorationTests {
             expect(text.range(of: "──")!.lowerBound < text.range(of: "RESTORATION_INPUT_OK")!.lowerBound,
                    "The notice must precede process output")
         }
+        host.cancelConnectionAttempt()
+        host.startWhenReady()
+        expect(host.process.shellPid == 0, "Cancel stops the local process without restarting on focus")
+        host.session.waitForPendingOutput()
+        expect(host.session.readScreenText()?.text.contains("RESTORATION_INPUT_OK") == true,
+               "Cancel keeps terminal output available")
         let processIdentity = host.process.identity
         host.restart(notice: "TEST_RECONNECT")
         expect(host.process.identity != processIdentity, "Reconnect must invalidate confirmed quick-command targets even when the terminal surface is retained")
