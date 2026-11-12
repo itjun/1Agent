@@ -434,12 +434,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showExitPreparationError() {
-        let alert = FamilyAlert()
-        alert.alertStyle = .warning
-        alert.messageText = String(localized: "Could not save terminal logs")
-        alert.informativeText = String(localized: "The app is still open to preserve your logs. Check free disk space and folder permissions, then try quitting again.")
-        alert.addButton(withTitle: String(localized: "OK"))
-        alert.runModal()
+        model.revealForReopen()
+        AppNotifications.show(title: String(localized: "Could not save terminal logs"),
+            message: String(localized: "The app is still open to preserve your logs. Check free disk space and folder permissions, then try quitting again."),
+            level: .error, in: MainWindowManager.shared.window(for: model.mainWindow))
     }
 
     func applicationWillTerminate(_ notification: Notification) {
