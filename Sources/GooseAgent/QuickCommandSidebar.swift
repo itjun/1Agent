@@ -331,11 +331,12 @@ struct CommandTextField: View {
     let placeholder: String
     var identifier = "quickCommands.field"
     var symbol: String?
+    var onMoveSelection: ((Int) -> Void)?
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
     var body: some View {
         if symbol == "magnifyingglass" {
-            NativeSearchField(text: $text, placeholder: placeholder, identifier: identifier)
+            NativeSearchField(text: $text, placeholder: placeholder, identifier: identifier, onMoveSelection: onMoveSelection)
         } else {
             CommandLiteralField(text: $text, placeholder: placeholder, textColor: .labelColor,
                 backgroundColor: .textBackgroundColor, identifier: identifier,

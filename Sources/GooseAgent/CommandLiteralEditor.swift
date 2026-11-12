@@ -223,6 +223,7 @@ struct NativeSearchField: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String
     var identifier: String
+    var onMoveSelection: ((Int) -> Void)?
     @Environment(\.isEnabled) private var isEnabled
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
     func makeNSView(context: Context) -> NSSearchField {
@@ -234,13 +235,24 @@ struct NativeSearchField: NSViewRepresentable {
     }
     func updateNSView(_ field: NSSearchField, context: Context) {
         context.coordinator.text = $text
+        context.coordinator.onMoveSelection = onMoveSelection
         if field.stringValue != text { field.stringValue = text }
         field.placeholderString = placeholder
         field.isEnabled = isEnabled
     }
     final class Coordinator: NSObject, NSSearchFieldDelegate {
         var text: Binding<String>
+        var onMoveSelection: ((Int) -> Void)?
         init(text: Binding<String>) { self.text = text }
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            guard !textView.hasMarkedText(), let onMoveSelection else { return false }
+            switch commandSelector {
+            case #selector(NSResponder.moveUp(_:)): onMoveSelection(-1)
+            case #selector(NSResponder.moveDown(_:)): onMoveSelection(1)
+            default: return false
+            }
+            return true
+        }
         func controlTextDidChange(_ notification: Notification) {
             guard let field = notification.object as? NSSearchField,
                   (field.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }

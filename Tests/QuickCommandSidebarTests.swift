@@ -234,6 +234,7 @@ import ObjectiveC
         native.contentView = NSHostingView(rootView: QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
             .environment(\.windowChrome, WindowChrome(isDark: false)))
         try await eventually { element("quickCommands.library.edit", in: native) != nil }
+        try await verifyLibraryKeyboard(item: item, state: state, in: native)
         precondition(press(element("quickCommands.library.edit", in: native)!))
         try await eventually { element("quickCommand.script", in: native) != nil }
         precondition(native.attachedSheet == nil, "在命令工作区内编辑")
@@ -283,6 +284,71 @@ import ObjectiveC
         try await eventually { !execution.isSubmitting }
         precondition(deliveries == 2 && execution.error == nil)
         print("PASS slow submission guard, failure feedback and recovery")
+    }
+
+    @MainActor static func verifyLibraryKeyboard(item: QuickCommand, state: WindowState, in window: NSWindow) async throws {
+        let store = QuickCommandStore.shared
+        let additions = (0..<15).map { index in
+            var command = QuickCommand(alias: "键盘候选 \(index)", command: "printf keyboard-\(index)", scope: .local)
+            command.order = 100 + index
+            return command
+        }
+        for command in additions { try store.save(command) }
+        let ordered = store.commands.filter { $0.scope == .local }.sorted(by: QuickCommand.displayOrder)
+        func arrow(_ isDown: Bool, modifiers: NSEvent.ModifierFlags = []) {
+            let character = isDown ? "\u{f701}" : "\u{f700}"
+            NSApp.sendEvent(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: character, charactersIgnoringModifiers: character,
+                isARepeat: false, keyCode: isDown ? 125 : 126)!)
+        }
+        precondition(press(element("quickCommand." + item.id.uuidString, in: window)!))
+        try await Task.sleep(for: .milliseconds(100))
+        arrow(true)
+        try await eventually { state.commandLibrarySelection == ordered[1].id }
+        try await eventually {
+            guard let copy = element("quickCommands.library.copy", in: window), press(copy) else { return false }
+            return NSPasteboard.general.string(forType: .string) == ordered[1].command
+        }
+        arrow(false)
+        try await eventually { state.commandLibrarySelection == item.id }
+        arrow(false)
+        precondition(state.commandLibrarySelection == item.id, "首项向上停住")
+        for command in ordered.dropFirst() {
+            arrow(true)
+            try await eventually { state.commandLibrarySelection == command.id }
+        }
+        arrow(true)
+        precondition(state.commandLibrarySelection == ordered.last!.id, "末项向下停住")
+        try await eventually {
+            guard let row = element("quickCommand." + ordered.last!.id.uuidString, in: window) else { return false }
+            return window.convertToScreen(window.contentLayoutRect).contains(accessibilityFrame(row))
+        }
+        let search = descendants(window.contentView!).compactMap { $0 as? NSSearchField }.first!
+        search.selectText(nil)
+        let editor = search.currentEditor() as! NSTextView
+        func searchFor(_ query: String) {
+            editor.insertText(query, replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+        }
+        searchFor("keyboard-1")
+        let filtered = ordered.filter { $0.matchesSearch("keyboard-1") }
+        try await eventually { state.commandLibrarySelection == filtered.last?.id }
+        arrow(false)
+        try await eventually { state.commandLibrarySelection == filtered[filtered.count - 2].id }
+        precondition(window.firstResponder === editor, "搜索框用方向键选择后仍可继续输入")
+        let beforeMarkedText = state.commandLibrarySelection
+        editor.setMarkedText("拼", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+        let handled = search.delegate?.control?(search, textView: editor, doCommandBy: #selector(NSResponder.moveDown(_:)))
+        precondition(handled != true && state.commandLibrarySelection == beforeMarkedText, "中文输入法组词时不切换指令")
+        editor.unmarkText()
+        searchFor("no-matching-command")
+        try await eventually { state.commandLibrarySelection == nil }
+        arrow(true)
+        arrow(false)
+        precondition(state.commandLibrarySelection == nil, "空结果不产生选择")
+        searchFor("")
+        try await eventually { state.commandLibrarySelection == item.id }
+        for command in additions { try store.remove(command.id) }
+        print("PASS library arrow selection, preview synchronization, boundaries, scrolling, filtered search and IME isolation")
     }
 
     @MainActor static func verifySidebarDrag(_ commandID: UUID, sessionID: String, in window: NSWindow) async throws {
