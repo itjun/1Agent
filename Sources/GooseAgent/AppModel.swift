@@ -942,16 +942,11 @@ final class AppModel: ObservableObject {
     }
 
     private func reportUnknownHosts(_ aliases: [String]) {
-        let alert = FamilyAlert()
-        alert.messageText = String(localized: "Some hosts are not in your SSH config")
-        alert.informativeText = String(
-            format: String(localized: "Not opened: %@. Add them to ~/.ssh/config (or config.d) first."),
-            aliases.joined(separator: ", ")
-        )
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(localized: "OK"))
-        NSApp.activate()
-        alert.runModal()
+        activate(mainWindow)
+        AppNotifications.show(title: String(localized: "Some hosts are not in your SSH config"),
+            message: String(format: String(localized: "Not opened: %@. Add them to ~/.ssh/config (or config.d) first."),
+                            aliases.joined(separator: ", ")), level: .warning,
+            in: MainWindowManager.shared.window(for: mainWindow))
     }
 
     /// Multiple hosts share workspace membership, with independent panels unless a layout was requested.
@@ -1054,13 +1049,9 @@ final class AppModel: ObservableObject {
     }
 
     private func reportInvalidDirectory(_ path: String) {
-        let alert = FamilyAlert()
-        alert.messageText = String(localized: "Cannot open this directory")
-        alert.informativeText = path
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(localized: "OK"))
-        NSApp.activate()
-        alert.runModal()
+        activate(mainWindow)
+        AppNotifications.show(title: String(localized: "Cannot open this directory"), message: path, level: .error,
+                              in: MainWindowManager.shared.window(for: mainWindow))
     }
 
     /// Finder "Open in 1Agent", `open` of a folder or script, and `-e` from the command line.
