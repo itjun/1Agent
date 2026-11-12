@@ -186,9 +186,13 @@ import SwiftUI
     }
 
     @MainActor static func checkCommandPreview(_ item: QuickCommand, model: AppModel) async throws {
-        let state = WindowState()
+        let state = model.mainWindow
+        model.openLocalTerminal(at: NSHomeDirectory(), placement: .newTab, beside: UUID(), in: state)
+        try await until { model.selectedTab(in: state) != nil }
+        let tab = model.selectedTab(in: state)!
+        defer { model.closeTab(tab.id) }
         let owner = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1100, height: 800), styleMask: [.titled], backing: .buffered, defer: false)
-        let host = NSHostingView(rootView: AnyView(QuickCommandSidebar(model: model, window: state).frame(width: 260)
+        let host = NSHostingView(rootView: AnyView(QuickCommandSidebar(model: model, window: state, tabID: tab.id).frame(width: 260)
             .environment(\.windowChrome, WindowChrome(isDark: true))))
         owner.contentView = host
         owner.makeKeyAndOrderFront(nil)
@@ -202,19 +206,20 @@ import SwiftUI
                 && $0.responds(to: NSSelectorFromString("accessibilityPerformPress")) }
         }
         let row = button("quickCommand." + item.id.uuidString)
-        expect(row != nil && invoke(row!, "accessibilityPerformPress"), "single click opens command preview popover")
+        expect(row != nil && invoke(row!, "accessibilityPerformPress"), "single click selects the terminal command details")
         await settle()
-        expect(button("quickCommands.preview.copy") != nil, "command preview popover offers copying")
+        expect(button("quickCommands.copy." + item.id.uuidString) != nil, "terminal command details offer copying")
+        expect(model.commandSidebars[tab.id]?.selectedCommandID == item.id, "selection belongs to the displayed terminal")
+        expect(owner.childWindows?.isEmpty != false, "command details stay inside the terminal sidebar")
         expect(!state.isToolPreviewOpen && state.section == .terminals, "selection does not open a separate card or leave the terminal")
         expect(state.quickCommandConfirmation == nil, "preview never asks to execute")
         let sidebarText = previewElements().flatMap { object in
             ["accessibilityValue", "accessibilityLabel"].compactMap { value(object, $0) as? String }
         }.joined(separator: " ")
         expect(sidebarText.contains(item.command), "sidebar preview shows complete literal command")
-        expect(invoke(button("quickCommands.new")!, "accessibilityPerformPress"), "sidebar add routes to command management")
-        expect(state.section == .commands && state.commandLibraryDraft != nil, "new command opens the main command page")
-        expect(owner.attachedSheet == nil, "sidebar add does not open a modal")
-        state.commandLibraryDraft = nil
+        expect(button("quickCommands.new") == nil, "terminal sidebar leaves maintenance to the Commands page")
+        model.showSection(.commands, in: state)
+        expect(state.section == .commands && owner.attachedSheet == nil, "command management opens as a page")
         state.commandLibraryCollection = QuickCommandCollection.owner(of: item)
         state.commandLibrarySelection = item.id
         host.rootView = AnyView(QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
