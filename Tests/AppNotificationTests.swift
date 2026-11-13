@@ -51,7 +51,7 @@ import SwiftUI
         model.noteWorkingDirectory("/tmp", forSession: model.tabs.first!.sessionID)
         expect(model.tabs.first!.connectionNotice == .recovered, "confirmed shell becomes green")
         model.markClosed(tabID, lived: 0)
-        expect(model.tabs.first!.connectionNotice == .failed(1), "failed retry becomes red with attempt count")
+        expect(model.tabs.first!.connectionNotice == .waiting(1), "brief retry failure waits for the next attempt")
         model.closeTab(tabID)
 
         let owner = NSWindow(contentRect: CGRect(x: 100, y: 100, width: 900, height: 600),
