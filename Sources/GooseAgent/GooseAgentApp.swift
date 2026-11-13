@@ -329,11 +329,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return AppDelegate.toggleFullScreenOfKeyWindow()
     }
 
-    /// View → Toggle Full Screen and its shortcut. Sheets stay as they are.
+    /// View → Toggle Full Screen and its shortcut. Sheets and settings stay as they are.
     @discardableResult
     static func toggleFullScreenOfKeyWindow() -> Bool {
         guard let window = NSApp.keyWindow,
-              window.sheetParent == nil else { return false }
+              window.sheetParent == nil,
+              !window.collectionBehavior.contains(.fullScreenNone) else { return false }
         window.toggleFullScreen(nil)
         return true
     }

@@ -532,6 +532,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         settings.titleVisibility = .hidden
         settings.titlebarSeparatorStyle = .none
         settings.tabbingMode = .disallowed
+        settings.collectionBehavior.insert(.fullScreenNone)
+        settings.standardWindowButton(.zoomButton)?.isEnabled = false
+        settings.standardWindowButton(.zoomButton)?.isHidden = true
         settings.isRestorable = false
         settings.isReleasedWhenClosed = false
         settings.delegate = self
