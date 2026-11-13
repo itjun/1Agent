@@ -24,7 +24,7 @@ enum TerminalFontSettings {
     static let familyKey = TerminalSettings.fontFamilyKey
     static let sizeKey = TerminalSettings.fontSizeKey
 
-    /// Preferred families shown first when installed (Ghostty resolves SF Mono even if NSFont cannot).
+    /// 已安装的常用字体优先展示。
     private static let preferredFamilies = [
         "SF Mono",
         "Menlo",
@@ -46,6 +46,10 @@ enum TerminalFontSettings {
         TerminalSettings.load().fontFamily
     }
 
+    static func previewFont(family: String, size: CGFloat) -> NSFont? {
+        NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: size)
+    }
+
     /// Monospace-ish families for the settings picker, preferred names first.
     static func availableFamilies() -> [String] {
         let installed = Set(NSFontManager.shared.availableFontFamilies)
@@ -54,12 +58,7 @@ enum TerminalFontSettings {
 
         func append(_ name: String) {
             guard !seen.contains(name) else { return }
-            // Always keep the current / default choice, even if NSFont cannot resolve SF Mono.
-            let keepAlways = name == family
-                || name == TerminalDefaults.defaultFontFamily
-                || preferredFamilies.contains(name)
-            let present = installed.contains(name) || keepAlways
-            guard present else { return }
+            guard installed.contains(name), previewFont(family: name, size: 14) != nil else { return }
             if name == TerminalDefaults.symbolFallbackFamily { return }
             seen.insert(name)
             result.append(name)

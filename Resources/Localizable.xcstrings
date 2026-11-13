@@ -1,6 +1,38 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "This font is not installed. The terminal is using a fallback font. Choose an installed font to preview it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This font is not installed. The terminal is using a fallback font. Choose an installed font to preview it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此字体未安装，终端正在使用后备字体。请选择已安装的字体进行预览。"
+          }
+        }
+      }
+    },
+    "%@ (Not installed)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (Not installed)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（未安装）"
+          }
+        }
+      }
+    },
     "Unable to Open Application" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Unable to Open Application"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法打开应用"}}}},
     "In Progress" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "In Progress"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "进行中"}}}},
     "Dismiss Notification" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dismiss Notification"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "关闭通知"}}}},

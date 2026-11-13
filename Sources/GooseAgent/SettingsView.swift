@@ -135,6 +135,14 @@ struct SettingsView: View {
         TerminalFontSettings.availableFamilies()
     }
 
+    private var fontFamilyOptions: [(String, String)] {
+        var options = fontFamilies.map { ($0, $0) }
+        if !fontFamilies.contains(fontFamily) {
+            options.append((fontFamily, String(format: String(localized: "%@ (Not installed)"), fontFamily)))
+        }
+        return options
+    }
+
     var body: some View {
         NativeSidebarSplit(
             isDividerHidden: isShellTransparent,
@@ -188,9 +196,6 @@ struct SettingsView: View {
         }
 
         .onAppear {
-            if !fontFamilies.contains(fontFamily) {
-                fontFamily = TerminalDefaults.defaultFontFamily
-            }
             GhosttyRuntime.applyTerminalSettings()
         }
         .onChange(of: selectedPage) { old, new in
@@ -344,7 +349,7 @@ struct SettingsView: View {
         SettingsCard("Terminal Font") {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
                 SettingsRow("Font", showsSeparator: true) {
-                    FamilyPicker(value: $fontFamily, options: fontFamilies.map { ($0, $0) })
+                    FamilyPicker(value: $fontFamily, options: fontFamilyOptions)
                 }
 
                 SettingsRow("Size") {
@@ -387,18 +392,16 @@ struct SettingsView: View {
     /// Sample text in the chosen font, drawn with the terminal's own colors: plain text, then
     /// prompt-like tokens in accent / success / warning / danger.
     private var fontPreview: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            Text("Ghostty 你好 abc 0123456789 -> =>")
-                .foregroundStyle(chrome.text)
-            HStack(spacing: 0) {
-                Text(verbatim: "developer@mac ~").foregroundStyle(chrome.accent)
-                Text(verbatim: "  ✔ 200").foregroundStyle(chrome.success)
-                Text(verbatim: "  ⚠ 302").foregroundStyle(chrome.warning)
-                Text(verbatim: "  ✘ 500").foregroundStyle(chrome.danger)
+        Group {
+            if let font = TerminalFontSettings.previewFont(family: fontFamily, size: CGFloat(fontSize)) {
+                fontPreviewText.font(Font(font))
+            } else {
+                Text("This font is not installed. The terminal is using a fallback font. Choose an installed font to preview it.")
+                    .font(Theme.Font.body)
+                    .foregroundStyle(chrome.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .font(.custom(fontFamily, size: CGFloat(fontSize)))
-        .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: SettingsLayout.fontPreviewHeight, alignment: .leading)
         .padding(.horizontal, Theme.Space.m)
@@ -410,6 +413,20 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                 .stroke(chrome.hairline, lineWidth: 1)
         )
+    }
+
+    private var fontPreviewText: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            Text("Ghostty 你好 abc 0123456789 -> =>")
+                .foregroundStyle(chrome.text)
+            HStack(spacing: 0) {
+                Text(verbatim: "developer@mac ~").foregroundStyle(chrome.accent)
+                Text(verbatim: "  ✔ 200").foregroundStyle(chrome.success)
+                Text(verbatim: "  ⚠ 302").foregroundStyle(chrome.warning)
+                Text(verbatim: "  ✘ 500").foregroundStyle(chrome.danger)
+            }
+        }
+        .lineLimit(1)
     }
 
     /// Follow System / Light / Dark as one segmented control. Picking a segment applies at once, as before.

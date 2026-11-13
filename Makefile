@@ -142,6 +142,10 @@ test: test-ssh-configuration test-command-transparency test-system-integration t
 test-modal-appearance:
 	bash scripts/test-modal-appearance.sh
 
+.PHONY: test-terminal-font
+test-terminal-font:
+	bash scripts/test-terminal-font.sh
+
 test-appearance:
 	bash scripts/test-family-appearance.sh
 
