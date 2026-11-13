@@ -138,9 +138,6 @@ final class AppModel: ObservableObject {
     /// Backoff before automatic attempt 1, 2, 3.
     private static let autoReconnectDelays: [TimeInterval] = [1, 3, 8]
     private static let stableConnectionNanoseconds: UInt64 = 5_000_000_000
-    /// A connection that dies faster than this never really worked (auth, config, refused).
-    /// Retrying would only repeat the password prompt, so it is left to the user.
-    static let shortLivedConnectionSeconds: TimeInterval = 3
     private var configWatcher: SSHConfigWatcher?
 
     // MARK: - Windows
@@ -1357,6 +1354,7 @@ final class AppModel: ObservableObject {
         if !tabs[index].isLocal, !tabs[index].exited,
            case .connecting = tabs[index].connectionNotice {
             tabs[index].connectionNotice = .recovered
+            scheduleStableConnection(tabs[index].id)
         }
         guard tabs[index].isLocal else {
             if tabs[index].remoteDirectory != path {
@@ -1389,8 +1387,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// SSH transport ended. A link that held for a while is retried with growing delays, up to three
-    /// times. One that died right away is not: that is an auth or config problem, not the network.
+    /// SSH 传输失败最多重试三次。快速断开也可能是网络故障，不能据此提前停止。
     func markClosed(_ tabID: UUID, lived: TimeInterval) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         cancelStableConnection(tabID)
@@ -1401,8 +1398,7 @@ final class AppModel: ObservableObject {
             tabs[index].connectionNotice = .disconnected
             return
         }
-        let shortLived = lived < Self.shortLivedConnectionSeconds
-        if !shortLived, tabs[index].reconnectAttempts < Self.maxAutoReconnectAttempts {
+        if tabs[index].reconnectAttempts < Self.maxAutoReconnectAttempts {
             scheduleAutoReconnect(tabID)
         } else {
             tabs[index].reconnecting = false
@@ -1442,7 +1438,6 @@ final class AppModel: ObservableObject {
             SSHTerminalRegistry.destroy(tabs[index].sessionID)
             tabs[index].generation += 1
         }
-        scheduleStableConnection(tabID)
     }
 
     private func scheduleAutoReconnect(_ tabID: UUID) {

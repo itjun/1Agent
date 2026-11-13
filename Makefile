@@ -189,3 +189,8 @@ test-host-information:
 test-ssh-configuration:
 	swiftc -parse-as-library Sources/GooseAgent/SSHConfigurationResolver.swift Tests/SSHConfigurationResolverTests.swift -o /tmp/oneagent-ssh-resolution-tests
 	/tmp/oneagent-ssh-resolution-tests
+
+# Production reconnect model and network recovery, isolated from user sessions.
+.PHONY: test-terminal-reconnect
+test-terminal-reconnect:
+	bash scripts/test-terminal-reconnect.sh

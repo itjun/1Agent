@@ -83,9 +83,14 @@ enum TerminalPaneActionsTests {
         let tabID = model.tabs.first!.id
         defer { model.closeTab(tabID) }
         model.markClosed(tabID, lived: 0)
+        expect(model.tabs.first!.reconnecting, "brief transport failures still schedule automatic recovery")
+        model.reconnect(tabID)
+        model.cancelReconnect(tabID)
         let tab = model.tabs.first { $0.id == tabID }!
         let notification = tab.connectionNotice!.notification(for: tab, model: model)
-        expect(notification.level == .error, "short-lived connection failure uses an error notification")
+        expect(notification.level == .warning, "cancelled connection retains a recovery notification")
+        expect(TerminalConnectionNotice.failed(3).notification(for: tab, model: model).level == .error,
+               "exhausted reconnect attempts use an error notification")
         notification.action?()
         let generation = model.tabs.first!.generation
         notification.action?()
