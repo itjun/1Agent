@@ -156,7 +156,7 @@ struct SettingsView: View {
                     .frame(height: isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight)
                 settingsNavigation
             }
-                .background(SidebarMaterial(isDark: colorScheme == .dark).ignoresSafeArea())
+                .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
                 .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
                 .environment(\.isShellTransparent, isShellTransparent)
