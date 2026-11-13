@@ -527,7 +527,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let settings = NSWindow(contentViewController: host)
         settings.identifier = Self.windowID
         settings.title = String(localized: "Settings")
-        settings.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        settings.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
         settings.titlebarAppearsTransparent = true
         settings.titleVisibility = .hidden
         settings.titlebarSeparatorStyle = .none
@@ -535,6 +535,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         settings.collectionBehavior.insert(.fullScreenNone)
         settings.standardWindowButton(.zoomButton)?.isEnabled = false
         settings.standardWindowButton(.zoomButton)?.isHidden = true
+        settings.standardWindowButton(.miniaturizeButton)?.isHidden = true
         settings.isRestorable = false
         settings.isReleasedWhenClosed = false
         settings.delegate = self
