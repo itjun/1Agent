@@ -69,12 +69,12 @@ enum TerminalPaneActionsTests {
         sidebarState(defaults: defaults)
         titleNavigation()
         remoteTitleStatus()
-        connectionNotificationRecovery()
+        connectionMenuRecovery()
         print("ok: merged terminal menu dispatch, directory ownership, split shortcuts, stale target safety, sidebar state preservation and remote title status")
     }
 
-    @MainActor private static func connectionNotificationRecovery() {
-        // 顶部横条已移除；恢复动作现在由右下角通知持有，终端菜单继续在原位置提供。
+    @MainActor private static func connectionMenuRecovery() {
+        // 连接状态由侧栏显示，终端菜单继续提供重连入口。
         let model = AppModel()
         let state = model.mainWindow
         model.openRemoteTerminal("notification-fixture", at: "/tmp", placement: .newTab, beside: UUID(), in: state)
@@ -87,15 +87,15 @@ enum TerminalPaneActionsTests {
         model.reconnect(tabID)
         model.cancelReconnect(tabID)
         let tab = model.tabs.first { $0.id == tabID }!
-        let notification = tab.connectionNotice!.notification(for: tab, model: model)
-        expect(notification.level == .warning, "cancelled connection retains a recovery notification")
-        expect(TerminalConnectionNotice.failed(3).notification(for: tab, model: model).level == .error,
-               "exhausted reconnect attempts use an error notification")
-        notification.action?()
+        expect(tab.connectionNotice == .disconnected, "cancelled connection retains its disconnected state")
+        let reconnect = TerminalPaneActions.items(tab: tab, model: model, window: state)
+            .first { $0.title == String(localized: "Reconnect") }!
+        expect(reconnect.enabled, "disconnected terminal offers reconnect in its context menu")
+        reconnect.action()
         let generation = model.tabs.first!.generation
-        notification.action?()
+        reconnect.action()
         expect(model.tabs.first!.generation == generation, "queued double click cannot restart a live reconnect")
-        expect(model.tabs.first!.connectionNotice == .connecting(0), "manual reconnect keeps a progress notification")
+        expect(model.tabs.first!.connectionNotice == .connecting(0), "manual reconnect keeps its connecting state")
         model.cancelReconnect(tabID)
         expect(model.tabs.first!.showsDisconnected, "cancel keeps the exited pane available for recovery")
         let commands = TerminalPaneActions.items(tab: model.tabs.first!, model: model, window: state)
@@ -104,7 +104,7 @@ enum TerminalPaneActionsTests {
         model.reconnect(tabID)
         model.noteWorkingDirectory("/tmp", forSession: model.tabs.first!.sessionID)
         expect(model.tabs.first!.connectionNotice == .recovered, "only a remote shell report confirms restoration")
-        print("ok: notification recovery, double click guard, cancellation and shell-confirmed success")
+        print("ok: context menu recovery, double click guard, cancellation and shell-confirmed success")
     }
 
     @MainActor private static func remoteTitleStatus() {

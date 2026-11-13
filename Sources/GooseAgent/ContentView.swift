@@ -113,9 +113,6 @@ struct RootView: View {
             appearanceDriver.reapply()
         }
         .background(WorkspaceToolbar(model: model, state: window, visibility: toolbarVisibility))
-        .background(AppNotificationAnchor(model: model, tabs: model.tabs.filter {
-            model.sidebarOrder(in: window).contains($0.id)
-        }).frame(width: 0, height: 0).accessibilityHidden(true))
         .background(ToolbarHoverTracking(onHover: toolbarVisibility.setHovered))
         .modifier(HostInformationPresentation(model: model, window: window))
         .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {

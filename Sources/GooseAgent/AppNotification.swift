@@ -157,7 +157,6 @@ final class AppNotificationPresenter: NSObject {
     private weak var parent: NSWindow?
     private var panel: NSPanel?
     private var observation: AnyCancellable?
-    private var connectionStates: [UUID: TerminalConnectionNotice] = [:]
 
     init(window: NSWindow) {
         parent = window
@@ -196,7 +195,6 @@ final class AppNotificationPresenter: NSObject {
 
     @objc private func close() {
         store.reset()
-        connectionStates.removeAll()
         if let panel { parent?.removeChildWindow(panel); panel.orderOut(nil) }
     }
 
@@ -212,23 +210,6 @@ final class AppNotificationPresenter: NSObject {
         return panel
     }
 
-    func syncConnections(_ tabs: [TerminalTab], model: AppModel) {
-        let ids = Set(tabs.map(\.id))
-        for id in Array(connectionStates.keys) where !ids.contains(id) {
-            store.remove("connection-\(id)")
-            connectionStates[id] = nil
-        }
-        for tab in tabs {
-            guard let state = tab.connectionNotice else {
-                if connectionStates.removeValue(forKey: tab.id) != nil { store.remove("connection-\(tab.id)") }
-                continue
-            }
-            guard connectionStates[tab.id] != state else { continue }
-            connectionStates[tab.id] = state
-            let item = state.notification(for: tab, model: model)
-            store.show(item, expiresAfter: state == .recovered ? AppNotificationLayout.lingerSeconds : nil)
-        }
-    }
 }
 
 private final class AppNotificationPanel: NSPanel {
@@ -265,25 +246,5 @@ enum AppNotifications {
         let presenter = AppNotificationPresenter(window: window)
         presenters.setObject(presenter, forKey: window)
         return presenter
-    }
-}
-
-/// 主窗口绑定连接通知；切换页面、分屏或移动会话后仍由所属窗口负责。
-struct AppNotificationAnchor: NSViewRepresentable {
-    let model: AppModel
-    let tabs: [TerminalTab]
-
-    func makeNSView(context: Context) -> Anchor { Anchor() }
-    func updateNSView(_ view: Anchor, context: Context) {
-        view.sync = { window in AppNotifications.presenter(for: window).syncConnections(tabs, model: model) }
-        if let window = view.window { view.sync?(window) }
-    }
-
-    final class Anchor: NSView {
-        var sync: ((NSWindow) -> Void)?
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            if let window { sync?(window) }
-        }
     }
 }
