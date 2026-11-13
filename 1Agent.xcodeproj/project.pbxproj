@@ -23,6 +23,7 @@
 		18A189327865FCF2D40049CC /* TerminalPaneActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCAAED59E9C50365E87D453 /* TerminalPaneActions.swift */; };
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
 		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
+		1E5B961465BD513D985BBFB7 /* NetworkRecoveryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9175FA90CC9BD9A4C4296D87 /* NetworkRecoveryMonitor.swift */; };
 		1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */; };
 		23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */; };
 		24E81C4DF5F6CC9264A76503 /* WorkspaceGit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D2FBA844EBB4E5D753255BB /* WorkspaceGit.swift */; };
@@ -246,6 +247,7 @@
 		8BC1D5B9C575BDA04C5CBF4C /* FamilyAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyAlert.swift; sourceTree = "<group>"; };
 		8D2D4F359DED4EE48472F7F2 /* goose-agent-icon.svg */ = {isa = PBXFileReference; path = "goose-agent-icon.svg"; sourceTree = "<group>"; };
 		906AFAE30A9BC239EE0FB97B /* FileWorkspaceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkspaceState.swift; sourceTree = "<group>"; };
+		9175FA90CC9BD9A4C4296D87 /* NetworkRecoveryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkRecoveryMonitor.swift; sourceTree = "<group>"; };
 		9287816E82C9C005D220C098 /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
 		97958BC6F31945F5729782D0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9A0A67DF707D942BDE9CEA6A /* NativeFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFolderPicker.swift; sourceTree = "<group>"; };
@@ -458,6 +460,7 @@
 				4593F1AFD8A1C705239302B9 /* LocalCommandBridge.swift */,
 				BED0B51E0FCA4FC3770DD30D /* MainWindowFrame.swift */,
 				ED3132BEC8FB229F1C9721D5 /* NativeSidebarSplit.swift */,
+				9175FA90CC9BD9A4C4296D87 /* NetworkRecoveryMonitor.swift */,
 				BDE57A906C28533A3F2F90D9 /* OneAgentIcon.icon */,
 				E513AE207C91AAB81A8D5279 /* PaneContent.swift */,
 				5A7EE823807020FCAC7AB30D /* PaneLayout.swift */,
@@ -719,6 +722,7 @@
 				F2B72DD9495C7D05C33CEE95 /* NativeFolderPicker.swift in Sources */,
 				E429B1E8C4918A76629EEF91 /* NativeSidebarSplit.swift in Sources */,
 				53BB79DFD89397C0F9A670CA /* NativeTextPreview.swift in Sources */,
+				1E5B961465BD513D985BBFB7 /* NetworkRecoveryMonitor.swift in Sources */,
 				3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */,
 				6167B218E94CB198975D0316 /* PaneLayout.swift in Sources */,
 				97C3688158EFEBC432C8F3AE /* PinnedLocationDrag.swift in Sources */,

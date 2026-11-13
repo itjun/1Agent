@@ -131,6 +131,8 @@ final class AppModel: ObservableObject {
     private var autoReconnectTasks: [UUID: Task<Void, Never>] = [:]
     /// Clears the reconnect counter once a session has stayed up briefly.
     private var stableConnectionTasks: [UUID: Task<Void, Never>] = [:]
+    private var networkRecoveryMonitor: NetworkRecoveryMonitor?
+    private var connectionsAwaitingNetworkRecovery = Set<UUID>()
     /// Reserve a cwd synchronously while its shell environment is loading.
     private var pendingLocalOpens = Set<String>()
 
@@ -1168,6 +1170,11 @@ final class AppModel: ObservableObject {
     /// Reopens the main window and the terminals that were on screen when the app last quit.
     /// The window appears at once; terminals follow as soon as the login environment is known.
     func restoreLastSession() {
+        if networkRecoveryMonitor == nil {
+            let monitor = NetworkRecoveryMonitor { [weak self] in self?.networkDidRecover() }
+            networkRecoveryMonitor = monitor
+            monitor.start()
+        }
         let snapshot = SessionSnapshot.load()
         if let snapshot { restoreWindowStates(snapshot) }
         guard let snapshot, !snapshot.tabs.isEmpty else {
@@ -1296,6 +1303,27 @@ final class AppModel: ObservableObject {
 
     // MARK: - Reconnect
 
+    /// 网络恢复或切换后，给失败的连接一轮新的重试；手动取消与正常连接不受影响。
+    func networkDidRecover() {
+        guard !isQuitting else { return }
+        for index in tabs.indices {
+            guard tabs[index].hasTerminal, !tabs[index].isLocal else { continue }
+            if !tabs[index].exited {
+                // 旧网络上的连接尝试可能尚未超时；不并发启动 SSH，失败后再用新网络重试。
+                if case .connecting = tabs[index].connectionNotice {
+                    connectionsAwaitingNetworkRecovery.insert(tabs[index].id)
+                }
+                continue
+            }
+            switch tabs[index].connectionNotice {
+            case .failed, .waiting:
+                tabs[index].reconnectAttempts = 0
+                scheduleAutoReconnect(tabs[index].id)
+            default: break
+            }
+        }
+    }
+
     /// Reopen an exited local shell in place, preserving the panel and its current directory.
     func reopenLocalTerminal(_ tabID: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }),
@@ -1326,6 +1354,7 @@ final class AppModel: ObservableObject {
               case .connecting = tabs[index].connectionNotice else { return }
         cancelAutoReconnect(tabID)
         cancelStableConnection(tabID)
+        connectionsAwaitingNetworkRecovery.remove(tabID)
         SSHTerminalRegistry.cancelConnectionAttempt(tabs[index].sessionID)
         tabs[index].exited = true
         tabs[index].reconnecting = false
@@ -1354,6 +1383,7 @@ final class AppModel: ObservableObject {
         if !tabs[index].isLocal, !tabs[index].exited,
            case .connecting = tabs[index].connectionNotice {
             tabs[index].connectionNotice = .recovered
+            connectionsAwaitingNetworkRecovery.remove(tabs[index].id)
             scheduleStableConnection(tabs[index].id)
         }
         guard tabs[index].isLocal else {
@@ -1392,6 +1422,9 @@ final class AppModel: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         cancelStableConnection(tabID)
         tabs[index].exited = true
+        if connectionsAwaitingNetworkRecovery.remove(tabID) != nil {
+            tabs[index].reconnectAttempts = 0
+        }
         if tabs[index].isLocal {
             tabs[index].reconnecting = false
             cancelAutoReconnect(tabID)
@@ -1426,6 +1459,7 @@ final class AppModel: ObservableObject {
             )
         } else {
             cancelAutoReconnect(tabID)
+            connectionsAwaitingNetworkRecovery.remove(tabID)
             tabs[index].reconnectAttempts = 0
             notice = String(localized: "Reconnecting")
         }
@@ -1530,6 +1564,7 @@ final class AppModel: ObservableObject {
         }
         cancelAutoReconnect(id)
         cancelStableConnection(id)
+        connectionsAwaitingNetworkRecovery.remove(id)
         pendingInitialInput[id] = nil
         pendingRemoteStartupCommands[id] = nil
         pendingLocalStartupCommands[id] = nil
