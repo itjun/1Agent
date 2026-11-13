@@ -24,7 +24,7 @@ enum TerminalSettingsTests {
             "cursor-style = block",
             "cursor-style-blink = true",
             "font-thicken = false",
-            "font-family = SF Mono",
+            "font-family = Menlo",
             "macos-option-as-alt = true",
             "keybind = super+c=unbind",
             "keybind = super+shift+l=unbind",
@@ -93,7 +93,7 @@ enum TerminalSettingsTests {
         store.set(99.0, forKey: "appearance.terminalFontSize")
         store.set("wide", forKey: "terminal.cursorStyle")
         let fallback = TerminalSettings.load(from: store)
-        expect(fallback.fontFamily == "SF Mono", "blank family falls back")
+        expect(fallback.fontFamily == "Menlo", "blank family falls back")
         expect(fallback.fontSize == 28, "size clamps to the maximum")
         expect(fallback.cursorStyle == .block, "unknown cursor style falls back")
 

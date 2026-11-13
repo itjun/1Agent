@@ -209,7 +209,7 @@ enum GhosttyConfigImporterTests {
 
         let changes = plan.settingsChanges.map { "\($0.key)|\($0.oldValue)|\($0.newValue)" }
         expect(changes == [
-            "font-family|SF Mono|Maple Mono NF CN",
+            "font-family|Menlo|Maple Mono NF CN",
             "font-size|14|14",
             "cursor-style|block|bar",
             "window-padding-x|8|18",

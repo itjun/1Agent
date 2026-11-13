@@ -163,7 +163,7 @@ struct TerminalSettings: Equatable {
     static let ghosttyDefaultScrollbackLimitMB = 50
 
     static let defaults = TerminalSettings(
-        fontFamily: "SF Mono",
+        fontFamily: "Menlo",
         fontSize: 14,
         fontThicken: false,
         fontThickenStrength: TerminalSettings.ghosttyDefaultFontThickenStrength,
