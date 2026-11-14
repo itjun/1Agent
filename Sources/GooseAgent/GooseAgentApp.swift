@@ -101,6 +101,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.handleShortcut(event)
             }
         }
+        FamilyMenuPresenter.shared.applicationShortcut = { [weak self] in
+            self?.contextMenuCloseItem()
+        }
     }
 
     /// Dock icon / `open` without arguments. Always bring the terminal window forward: AppKit may
@@ -137,9 +140,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Duplicate right/down and Close Terminal follow their `AppShortcuts` bindings (⌘D, ⇧⌘D, ⌘W by default).
     /// Close Terminal closes the selected terminal so the window stays open. Ctrl+D is left for the shell.
     /// Everything acts on the key window.
-    private func handleShortcut(_ event: NSEvent) -> NSEvent? {
-        // A transient menu owns navigation and its commands before app-wide shortcuts.
-        if FamilyMenuPresenter.shared.activeMenu != nil { return event }
+    func handleShortcut(_ event: NSEvent) -> NSEvent? {
+        if FamilyMenuPresenter.shared.activeMenu != nil {
+            // 关闭快捷键始终属于当前选中的终端，不能执行右键菜单捕获的其他会话。
+            guard KeyChord.from(event: event) == AppShortcuts.chord(for: .closeTab),
+                  let command = contextMenuCloseItem() else { return event }
+            FamilyMenuPresenter.shared.dismiss()
+            command.action()
+            return nil
+        }
         if let modal = NSApp.keyWindow as? FamilyModalWindow {
             if let chord = KeyChord.from(event: event) {
                 if chord == AppShortcuts.chord(for: .closeTab) { modal.cancelOperation(nil); return nil }
@@ -266,6 +275,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         model.closeSelectedTab(in: window)
         return nil
+    }
+
+    func contextMenuCloseItem() -> FamilyMenuItem? {
+        guard !ShortcutRecorder.isRecording,
+              NSApp.keyWindow?.identifier == MainWindowManager.windowID,
+              let window = model.keyWindow, window.section == .terminals, !window.hostPickerPresented else { return nil }
+        let chord = AppShortcuts.chord(for: .closeTab)
+        return FamilyMenuItem(title: AppShortcutID.closeTab.title, key: chord.key, modifiers: chord.menuModifierMask) { [weak self, weak window] in
+            guard let self, let window else { return }
+            self.model.closeSelectedTab(in: window)
+        }
     }
 
     /// ⌘+ (keypad plus, or ⇧⌘= on a US layout) also enlarges the text, like Ghostty's `super+plus`.

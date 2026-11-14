@@ -52,8 +52,24 @@ struct FamilyMenuItem {
 final class FamilyMenuPresenter {
     static let shared = FamilyMenuPresenter()
     private(set) var activeMenu: NSMenu?
+    static let applicationShortcutID = NSUserInterfaceItemIdentifier("app.menu.closeSelectedTerminal")
+    var applicationShortcut: (() -> FamilyMenuItem?)?
+
+    /// 菜单跟踪会绕过应用按键监视器。优先匹配应用的关闭目标，鼠标动作仍属于菜单行。
+    private func prepareKeyEquivalent(in menu: NSMenu) {
+        for item in menu.items where item.identifier == Self.applicationShortcutID { menu.removeItem(item) }
+        guard let command = applicationShortcut?(), !command.key.isEmpty else { return }
+        let shortcuts = Self.menu([command])
+        let item = shortcuts.items[0]
+        shortcuts.removeItem(item)
+        item.identifier = Self.applicationShortcutID
+        item.isHidden = true
+        item.allowsKeyEquivalentWhenHidden = true
+        menu.insertItem(item, at: 0)
+    }
 
     func show(_ menu: NSMenu, with event: NSEvent, for view: NSView) {
+        prepareKeyEquivalent(in: menu)
         activeMenu = menu
         NSMenu.popUpContextMenu(menu, with: event, for: view)
         activeMenu = nil
@@ -66,6 +82,7 @@ final class FamilyMenuPresenter {
     func show(_ items: [FamilyMenuItem], below view: NSView, selection: Bool = false,
               onDismiss: @escaping () -> Void = {}) {
         let menu = Self.menu(items)
+        prepareKeyEquivalent(in: menu)
         activeMenu = menu
         let point = NSPoint(x: view.bounds.minX, y: view.isFlipped ? view.bounds.maxY : view.bounds.minY)
         menu.popUp(positioning: selection ? menu.items.first { $0.state == .on } : nil, at: point, in: view)
@@ -80,6 +97,7 @@ final class FamilyMenuPresenter {
     func show(_ items: [FamilyMenuItem], at point: NSPoint, owner: NSWindow,
               minWidth: CGFloat = 180, maxHeight: CGFloat = 640, above: CGFloat? = nil, centered: Bool = false) {
         let menu = Self.menu(items)
+        prepareKeyEquivalent(in: menu)
         activeMenu = menu
         menu.popUp(positioning: nil, at: point, in: nil)
         activeMenu = nil

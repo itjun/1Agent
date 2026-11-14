@@ -1841,7 +1841,7 @@ extension SSHTerminalNSView: QLPreviewPanelDataSource {
 /// AppKit appends AutoFill to any text-input view's context menu; a terminal has no use for it.
 extension SSHTerminalNSView: NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
-        for item in menu.items where !item.isSeparatorItem && item.target !== self {
+        for item in menu.items where !item.isSeparatorItem && item.target !== self && item.identifier != FamilyMenuPresenter.applicationShortcutID {
             menu.removeItem(item)
         }
         while menu.items.last?.isSeparatorItem == true {

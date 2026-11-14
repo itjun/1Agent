@@ -177,6 +177,10 @@ test-sidebar-panel-drop:
 test-terminal-pane-drag:
 	bash scripts/test-terminal-pane-drag.sh
 
+.PHONY: test-close-terminal-shortcut
+test-close-terminal-shortcut:
+	bash scripts/test-close-terminal-shortcut.sh
+
 clean:
 	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj
 
