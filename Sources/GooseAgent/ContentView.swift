@@ -33,6 +33,11 @@ struct RootView: View {
     // 导航、会话选中态与终端共用当前主题，包括冷暖变化。
     private var sidebarChrome: WindowChrome { chrome }
 
+    private var sidebarHoverFill: Color {
+        Color(nsColor: NSColor(sidebarChrome.sidebarBackground).blended(
+            withFraction: 0.08, of: sidebarChrome.isDark ? .white : .black)!)
+    }
+
 
     var body: some View {
         let _ = shortcutsRevision
@@ -334,7 +339,7 @@ struct RootView: View {
         }
         .buttonStyle(FamilyButtonStyle())
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
-            .fill(isHovered ? sidebarChrome.hoverFill : Color.clear))
+            .fill(isHovered ? sidebarHoverFill : Color.clear))
         .accessibilityIdentifier("sidebar.group.\(group.rawValue)")
         .accessibilityLabel(Text(String(format: String(localized: "Toggle %@ Group"), group.title)))
         .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
@@ -710,7 +715,7 @@ struct RootView: View {
         .padding(.horizontal, Theme.Space.s)
         .frame(height: SidebarLayout.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
-            .fill(isHovered ? sidebarChrome.hoverFill : Color.clear))
+            .fill(isHovered ? sidebarHoverFill : Color.clear))
         }
     }
 
@@ -737,7 +742,7 @@ struct RootView: View {
             return sidebarChrome.accentFill
         }
         if hovered {
-            return sidebarChrome.hoverFill
+            return sidebarHoverFill
         }
         return Color.clear
     }
