@@ -202,7 +202,7 @@ struct SettingsPendingNote: View {
     }
 }
 
-/// "Restore Page Defaults" at the bottom right of a settings page.
+/// "Restore Defaults" at the bottom right of a settings page.
 struct RestorePageDefaultsButton: View {
     @Environment(\.windowChrome) private var chrome
     let action: () -> Void
@@ -211,7 +211,7 @@ struct RestorePageDefaultsButton: View {
         HStack {
             Spacer(minLength: 0)
             Button(action: action) {
-                Text("Restore Page Defaults")
+                Text("Restore Defaults")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(chrome.accent)
                     .contentShape(Rectangle())

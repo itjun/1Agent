@@ -2124,13 +2124,6 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "终端" } }
       }
     },
-    "Restore Page Defaults" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore Page Defaults" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复本页默认" } }
-      }
-    },
     "Cursor" : {
       "extractionState" : "manual",
       "localizations" : {
