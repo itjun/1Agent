@@ -1207,7 +1207,7 @@ final class AppModel: ObservableObject {
                     return nil
                 }
                 if let alias = item.alias?.trimmingCharacters(in: .whitespacesAndNewlines), !alias.isEmpty {
-                    return TerminalTab(id: item.id, alias: alias, generation: 0, exited: false,
+                    return TerminalTab(id: item.id, alias: alias, generation: item.generation ?? 0, exited: false,
                                        remoteDirectory: item.remoteDirectory,
                                        restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id))
                 }
@@ -1216,7 +1216,7 @@ final class AppModel: ObservableObject {
                         id: item.id,
                         alias: nil,
                         directory: LocalTerminal.launchDirectory(directory),
-                        generation: 0,
+                        generation: item.generation ?? 0,
                         exited: false,
                         restoration: TerminalRestoration(departedAt: snapshot.departedAt, outputID: item.id)
                     )
@@ -2460,10 +2460,10 @@ final class AppModel: ObservableObject {
                     return SessionSnapshot.Tab(id: tab.id, alias: nil, preview: path)
                 }
                 if let alias = tab.alias, !alias.isEmpty {
-                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory)
+                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory, generation: tab.generation)
                 }
                 guard let directory = tab.directory, !directory.isEmpty else { return nil }
-                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory)
+                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory, generation: tab.generation)
             },
             workspaces: workspaces,
             windows: windows.map { window in
@@ -2505,6 +2505,7 @@ struct SessionSnapshot: Codable {
         var alias: String?
         var directory: String? = nil
         var remoteDirectory: String? = nil
+        var generation: Int? = nil
         var preview: String? = nil
         /// File panes of an earlier build; such tabs are dropped at launch.
         var files: FileBrowserTarget? = nil

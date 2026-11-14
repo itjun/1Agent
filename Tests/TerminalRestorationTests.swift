@@ -84,17 +84,17 @@ enum TerminalRestorationTests {
         let ids = (1...2).map { UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", $0))! }
         let windowID = UUID(uuidString: "00000000-0000-0000-0000-000000000099")!
         if saving {
-            let initial = SessionSnapshot(tabs: ids.map { .init(id: $0, directory: home) }, workspaces: [], windows: [
+            let initial = SessionSnapshot(tabs: ids.map { .init(id: $0, directory: home, generation: 3) }, workspaces: [], windows: [
                 .init(id: windowID, blocks: [.localGroup, .ungrouped], localGroup: ids, ungrouped: [], selected: ids[0])
             ], keyWindow: windowID)
             defaults.set(try JSONEncoder().encode(initial), forKey: SessionSnapshot.storageKey)
         } else { defaults.set(try Data(contentsOf: snapshotURL), forKey: SessionSnapshot.storageKey) }
         var views: [UUID: SSHTerminalNSView] = [:]
         for id in ids {
-            views[id] = SSHTerminalRegistry.view(for: "\(id.uuidString)#0") {
+            views[id] = SSHTerminalRegistry.view(for: "\(id.uuidString)#3") {
                 let host = TerminalProcessHost()
                 let view = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 900, height: 400))
-                view.sessionID = "\(id.uuidString)#0"
+                view.sessionID = "\(id.uuidString)#3"
                 view.processHost = host
                 view.eventRelay.terminal = view
                 view.delegate = view.eventRelay
@@ -108,10 +108,11 @@ enum TerminalRestorationTests {
         model.restoreLastSession()
         for _ in 0..<250 { if model.tabs.count == ids.count { break }; try await Task.sleep(for: .milliseconds(20)) }
         expect(model.tabs.count == ids.count, "All saved terminals must reopen")
+        expect(model.tabs.allSatisfy { $0.generation == 3 }, "Cold launch must keep each terminal's process generation")
         let state = model.window(for: windowID)!
         let native = MainWindowManager.shared.window(for: state)!
         native.setContentSize(NSSize(width: 1000, height: 600))
-        defer { for id in ids { SSHTerminalRegistry.destroy("\(id.uuidString)#0") }; native.orderOut(nil) }
+        defer { for id in ids { SSHTerminalRegistry.destroy("\(id.uuidString)#3") }; native.orderOut(nil) }
         for id in ids {
             let host = views[id]!.processHost!
             host.start(TerminalLaunch(executable: "/bin/cat", args: [], environment: ["PATH=/usr/bin:/bin"], directory: home),
