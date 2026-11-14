@@ -4,7 +4,7 @@
 
 `scripts/build-libghostty.sh` 校验官方源码压缩包 SHA-256，然后按 `Patches/series` 应用补丁；缓存同时包含补丁内容与顺序。生成的 framework 不入库。补丁基于第三方封装 `2.2.2026102101` 的 host-managed I/O 和渲染修改，再适配 Ghostty v1.4.0 / Zig 0.17.x；各项用途与删除条件见 [补丁说明](Patches/README.md)。
 
-1Agent 保留 `GhosttyTerminal`、`GhosttyKit`、`MSDisplayLink`。未使用的 `ShellCraftKit` 以及不再参与系统配色的 `GhosttyTheme` 已移除。终端颜色直接由应用的系统颜色和现有 ANSI 调色板生成。
+1Agent 保留 `GhosttyTerminal`、`GhosttyKit`、`MSDisplayLink`。未使用的 `ShellCraftKit` 以及不再参与系统配色的 `GhosttyTheme` 已移除。默认终端颜色由应用的系统颜色和现有 ANSI 调色板生成；独立主题使用引擎锁定版本的离线主题包，来源见 `Resources/GhosttyThemes/SOURCE.md`。
 
 `TerminalController.applyTheme(_:colorScheme:)` 在验证成功后一起更新主题与明暗状态，再刷新所有已保留 surface；不变的选择也视为成功，失败保留之前状态。
 

@@ -27,6 +27,10 @@ targets:
           - Localizable.xcstrings
           - shell-integration/**
           - ApplicationIcons/**
+          - GhosttyThemes/**
+      - path: Resources/GhosttyThemes
+        type: folder
+        buildPhase: resources
       - path: Resources/ApplicationIcons
         type: folder
         buildPhase: resources

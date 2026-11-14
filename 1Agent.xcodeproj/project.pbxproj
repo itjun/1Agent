@@ -40,6 +40,7 @@
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
+		403CEA9A63B7BC92D18F4597 /* GhosttyThemes in Resources */ = {isa = PBXBuildFile; fileRef = 2FCE655C95F09FFBD446F8C2 /* GhosttyThemes */; };
 		44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */; };
 		454601CCC7894A948CE872FC /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */; };
 		469C2A9F9A8D0FFAC417BED2 /* shell-integration in Resources */ = {isa = PBXBuildFile; fileRef = 11B7BE5E018ED46FA154243C /* shell-integration */; };
@@ -121,6 +122,7 @@
 		CE9BAA9C56AD1861C94DC747 /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2CD6E31FBDD9F0D04F8F70 /* WorkspaceBoard.swift */; };
 		CF4B6D7911791ED91EAC823F /* FileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B9E55BFC942871BBD992B /* FileTransfer.swift */; };
 		D1161882F61AD568037387C4 /* QuickCommandPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E603284DC48745C1935660 /* QuickCommandPreview.swift */; };
+		D4229F23C588A10842483F83 /* TerminalThemeCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6ECA53DED0E8085B0AFEBF0 /* TerminalThemeCatalog.swift */; };
 		D49D076D9C4FFAB99C86BC8C /* RemoteShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4085933113D9936B6D98C8FC /* RemoteShell.swift */; };
 		D5BE2E38FD6348292FDC0F17 /* FileTabDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = A73E8CF0BB02A346B770159B /* FileTabDrag.swift */; };
 		D77456A7DBB9E12229EADFD3 /* SheetLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF91141EEC0B753F9445733B /* SheetLayout.swift */; };
@@ -183,6 +185,7 @@
 		245BCA49FE2CE7BD3EAD7671 /* WorkspaceToolSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceToolSidebar.swift; sourceTree = "<group>"; };
 		2531C1F0F126671D179FC3FC /* PreviewSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSyntax.swift; sourceTree = "<group>"; };
 		2D9AEEBA3127742A92294782 /* ApplicationIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationIcon.swift; sourceTree = "<group>"; };
+		2FCE655C95F09FFBD446F8C2 /* GhosttyThemes */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GhosttyThemes; path = Resources/GhosttyThemes; sourceTree = SOURCE_ROOT; };
 		32D91EB1556003521E0650B7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		32E75555FCC89483D29787D4 /* WindowAtmosphere.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = WindowAtmosphere.png; sourceTree = "<group>"; };
 		336B3B833BC99258B0345988 /* QuickCommandSidebarExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandSidebarExecution.swift; sourceTree = "<group>"; };
@@ -277,6 +280,7 @@
 		C36041202B1F13D1D047AB72 /* GhosttyConfigImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImporter.swift; sourceTree = "<group>"; };
 		C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
 		C5E10203568D61260319007F /* macaron-original-mark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "macaron-original-mark.png"; sourceTree = "<group>"; };
+		C6ECA53DED0E8085B0AFEBF0 /* TerminalThemeCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalThemeCatalog.swift; sourceTree = "<group>"; };
 		C9913CB31A48D7D7573940C7 /* SystemIntegrationSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemIntegrationSettingsPage.swift; sourceTree = "<group>"; };
 		CDE68855BD120DF7421F24EE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-NOTICE.txt"; sourceTree = "<group>"; };
@@ -383,6 +387,7 @@
 			isa = PBXGroup;
 			children = (
 				FBE87DE2ED5872092C13985A /* ApplicationIcons */,
+				2FCE655C95F09FFBD446F8C2 /* GhosttyThemes */,
 				11B7BE5E018ED46FA154243C /* shell-integration */,
 				F1E27CE49E718666CA49744C /* GooseAgent */,
 				D22B8F3C47B763C575003683 /* Packages */,
@@ -510,6 +515,7 @@
 				6430239EACF7C834A7F4F250 /* TerminalRestoration.swift */,
 				C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */,
 				76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */,
+				C6ECA53DED0E8085B0AFEBF0 /* TerminalThemeCatalog.swift */,
 				361A21A864C230DE8DF8A323 /* TerminalThemes.swift */,
 				7DC2AB74FE4D721374A45471 /* TerminalView.swift */,
 				FC199BA5503EE914D1E884FD /* Theme.swift */,
@@ -607,6 +613,7 @@
 				44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */,
 				1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */,
 				8F03ADD0081CD35647AFFFB3 /* FileIcons.xcassets in Resources */,
+				403CEA9A63B7BC92D18F4597 /* GhosttyThemes in Resources */,
 				5E9BC7364B06F681F71BADDB /* Localizable.xcstrings in Resources */,
 				C215E83C21F6D6741AF863C4 /* OneAgentIcon.icon in Resources */,
 				15EE643104E39D97BAEDC26A /* PreviewSyntax.LICENSE.txt in Resources */,
@@ -775,6 +782,7 @@
 				556106C260924FD51CB34EB9 /* TerminalRestoration.swift in Sources */,
 				E3CA332263834B7BDAF1871D /* TerminalSettings.swift in Sources */,
 				FC241887E9142971AEC50108 /* TerminalSettingsPage.swift in Sources */,
+				D4229F23C588A10842483F83 /* TerminalThemeCatalog.swift in Sources */,
 				E894648382EF9EEBEB3E0882 /* TerminalThemes.swift in Sources */,
 				837075A95F60DAEF5F9564E0 /* TerminalView.swift in Sources */,
 				983049074A7D2DF8A76E5085 /* TextFile.swift in Sources */,

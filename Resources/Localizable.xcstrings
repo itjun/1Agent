@@ -1,6 +1,54 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Default": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Default"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "默认"
+        }
+      }
+    }
+  },
+  "All": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "All"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "全部"
+        }
+      }
+    }
+  },
+  "Could not load theme %@.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Could not load theme %@."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法加载主题 %@。"
+        }
+      }
+    }
+  },
     "This font is not installed. The terminal is using a fallback font. Choose an installed font to preview it.": {
       "localizations": {
         "en": {
