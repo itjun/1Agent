@@ -44,6 +44,9 @@ import Foundation
                                                   environment: [], resources: resources, socket: "/tmp/fixture-socket", token: token)
         precondition(launch?.arguments.contains("-L") == true)
         precondition(launch?.cancelArguments.contains("cancel") == true)
+        precondition(launch?.cancelArguments == RemoteShellIntegration.cancellationArguments(
+            arguments: ["-F", "/dev/null", "--", "fixture", "printf test"], socket: "/tmp/fixture-socket", token: token),
+            "reattach must cancel the same forwarding without rerunning the bootstrap")
         precondition(launch?.arguments.last?.contains("ZDOTDIR") == true)
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("remote-config-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

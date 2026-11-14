@@ -23,6 +23,13 @@ enum RemoteShellIntegration {
                         forwarding: forward, cancelArguments: prefix + ["-O", "cancel"] + forwards + ["--", alias])
     }
 
+    /// 接回后台 SSH 后恢复关闭时的清理操作，不重新连接或执行远程启动脚本。
+    static func cancellationArguments(arguments: [String], socket: String, token: String) -> [String]? {
+        guard let separator = arguments.firstIndex(of: "--"), arguments.count > separator + 1 else { return nil }
+        let forward = socket + ":" + remoteFolder(token: token) + "/s"
+        return Array(arguments[..<separator]) + ["-O", "cancel", "-L", forward, "--", arguments[separator + 1]]
+    }
+
     static func remoteFolder(token: String) -> String { "/tmp/1a-remote-" + token }
 
     static func bootstrap(resources: String, token: String, startupCommand: String?) -> String? {

@@ -507,7 +507,12 @@ final class TerminalProcessHost {
             }
         }
         if let persistentSessionID, TerminalSessionConnection.hasSession(persistentSessionID) {
-            if launch.integratesRemoteShell { commandBridge = LocalCommandBridge(remote: true, sessionID: persistentSessionID) }
+            if launch.integratesRemoteShell, let bridge = LocalCommandBridge(remote: true, sessionID: persistentSessionID) {
+                commandBridge = bridge
+                if let arguments = RemoteShellIntegration.cancellationArguments(arguments: launch.args, socket: bridge.socketPath, token: bridge.token) {
+                    restoreForwardingCancellation(arguments)
+                }
+            }
             spawn(process, launch: launch, arguments: launch.args, environment: environment)
             return
         }
@@ -521,20 +526,24 @@ final class TerminalProcessHost {
                 guard !Task.isCancelled, let self, let process, self.process === process, !self.terminated else { return }
                 if let prepared {
                     self.commandBridge = bridge
-                    self.cancelForwarding = {
-                        DispatchQueue.global().async {
-                            let cancel = Process()
-                            cancel.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
-                            cancel.arguments = prepared.cancelArguments
-                            cancel.standardInput = FileHandle.nullDevice
-                            cancel.standardOutput = FileHandle.nullDevice; cancel.standardError = FileHandle.nullDevice
-                            try? cancel.run()
-                        }
-                    }
+                    self.restoreForwardingCancellation(prepared.cancelArguments)
                 }
                 self.spawn(process, launch: launch, arguments: prepared?.arguments ?? launch.args, environment: childEnvironment)
             }
         } else { spawn(process, launch: launch, arguments: launch.args, environment: environment) }
+    }
+
+    private func restoreForwardingCancellation(_ arguments: [String]) {
+        cancelForwarding = {
+            DispatchQueue.global().async {
+                let cancel = Process()
+                cancel.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+                cancel.arguments = arguments
+                cancel.standardInput = FileHandle.nullDevice
+                cancel.standardOutput = FileHandle.nullDevice; cancel.standardError = FileHandle.nullDevice
+                try? cancel.run()
+            }
+        }
     }
 
     private func spawn(_ process: TerminalProcess, launch: TerminalLaunch, arguments: [String], environment: [String]) {
