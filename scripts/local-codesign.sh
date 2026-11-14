@@ -41,6 +41,10 @@ fi
 
 "$(dirname "$0")/sign-sparkle.sh" "$APP" "$hash"
 
+if [[ -f "$APP/Contents/Helpers/1AgentSessionHost" ]]; then
+  codesign --force --sign "$hash" --timestamp=none "$APP/Contents/Helpers/1AgentSessionHost"
+fi
+
 for dylib in "$APP"/Contents/MacOS/*.dylib; do
   [[ -e "$dylib" ]] && codesign --force --sign "$hash" --timestamp=none "$dylib"
 done

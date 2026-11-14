@@ -105,6 +105,9 @@ targets:
         basedOnDependencyAnalysis: false
         script: '"${SRCROOT}/scripts/validate-release-signing.sh"'
     postBuildScripts:
+      - name: Build terminal session host
+        basedOnDependencyAnalysis: false
+        script: 'bash "${SRCROOT}/scripts/build-session-host.sh" "${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/1AgentSessionHost"'
       - name: Install readable fallback icon
         basedOnDependencyAnalysis: false
         script: |

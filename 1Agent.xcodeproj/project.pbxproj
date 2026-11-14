@@ -41,6 +41,7 @@
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
 		403CEA9A63B7BC92D18F4597 /* GhosttyThemes in Resources */ = {isa = PBXBuildFile; fileRef = 2FCE655C95F09FFBD446F8C2 /* GhosttyThemes */; };
+		4101ECBB1952ECBB6AC2F67A /* TerminalSessionConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D84BF527819C4957D655C71 /* TerminalSessionConnection.swift */; };
 		44DF34BC6D779773CDBC2834 /* FileIcons-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = CEDCA2D04DD106A9C7109AB3 /* FileIcons-NOTICE.txt */; };
 		454601CCC7894A948CE872FC /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = AF1B8FEDD19347C62BA9DA51 /* ghostty-source.png */; };
 		469C2A9F9A8D0FFAC417BED2 /* shell-integration in Resources */ = {isa = PBXBuildFile; fileRef = 11B7BE5E018ED46FA154243C /* shell-integration */; };
@@ -256,6 +257,7 @@
 		9287816E82C9C005D220C098 /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
 		97958BC6F31945F5729782D0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9A0A67DF707D942BDE9CEA6A /* NativeFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFolderPicker.swift; sourceTree = "<group>"; };
+		9D84BF527819C4957D655C71 /* TerminalSessionConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionConnection.swift; sourceTree = "<group>"; };
 		A1C999BC313B502D20BE43B0 /* NativeTextPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTextPreview.swift; sourceTree = "<group>"; };
 		A45AD7D0F7FA526D2F48C837 /* SidebarMenus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMenus.swift; sourceTree = "<group>"; };
 		A4A765B8F209AFF3FB2D170F /* DropZones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZones.swift; sourceTree = "<group>"; };
@@ -515,6 +517,7 @@
 				79B2AC002F79151B30238F91 /* TerminalPlatformIntegration.swift */,
 				22680FE638056AFBBDA0F764 /* TerminalProcess.swift */,
 				6430239EACF7C834A7F4F250 /* TerminalRestoration.swift */,
+				9D84BF527819C4957D655C71 /* TerminalSessionConnection.swift */,
 				C4913CF1C94FDA043F8CE1A9 /* TerminalSettings.swift */,
 				76EA918729E8029D3F6DA052 /* TerminalSettingsPage.swift */,
 				C6ECA53DED0E8085B0AFEBF0 /* TerminalThemeCatalog.swift */,
@@ -549,6 +552,7 @@
 				5A8316C63BDF238B209E5696 /* Sources */,
 				5AE29F9C2F01172D1FAAEEA2 /* Resources */,
 				CAB0B723CEEB01D8A20A4321 /* Frameworks */,
+				D8938A5AE383413BF7D99752 /* Build terminal session host */,
 				60AE8236B2BDEF8275CA330E /* Install readable fallback icon */,
 			);
 			buildRules = (
@@ -678,6 +682,25 @@
 			shellPath = /bin/sh;
 			shellScript = "# 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。\n# 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。\ncp \"${SRCROOT}/Resources/ApplicationIcons/Original.icns\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/OneAgentIcon.icns\"\n";
 		};
+		D8938A5AE383413BF7D99752 /* Build terminal session host */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build terminal session host";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash \"${SRCROOT}/scripts/build-session-host.sh\" \"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/1AgentSessionHost\"";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -783,6 +806,7 @@
 				74B09B24A21C58B67ABB214A /* TerminalPlatformIntegration.swift in Sources */,
 				292AB5A4181A3FFD8AC040B4 /* TerminalProcess.swift in Sources */,
 				556106C260924FD51CB34EB9 /* TerminalRestoration.swift in Sources */,
+				4101ECBB1952ECBB6AC2F67A /* TerminalSessionConnection.swift in Sources */,
 				E3CA332263834B7BDAF1871D /* TerminalSettings.swift in Sources */,
 				FC241887E9142971AEC50108 /* TerminalSettingsPage.swift in Sources */,
 				D4229F23C588A10842483F83 /* TerminalThemeCatalog.swift in Sources */,

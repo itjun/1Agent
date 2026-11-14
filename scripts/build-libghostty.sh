@@ -30,7 +30,7 @@ patch_sha="$( { cat "$series"; for patch in "${patches[@]}"; do shasum -a 256 "$
 source_stamp="$revision $archive_sha $patch_sha"
 script_sha="$(shasum -a 256 "$0" | awk '{print $1}')"
 build_stamp="$(printf '%s\n%s\n%s\n%s\n' "$source_stamp" "$script_sha" "$zig_version" "$(xcodebuild -version)" | shasum -a 256 | awk '{print $1}')"
-if [[ -d "$framework" && -f "$work/framework-stamp" && "$(cat "$work/framework-stamp")" == "$build_stamp" ]]; then
+if [[ -d "$framework" && -f "$work/libghostty-vt.a" && -f "$work/framework-stamp" && "$(cat "$work/framework-stamp")" == "$build_stamp" ]]; then
     echo "→ libghostty v1.4.0 is already built"
     exit 0
 fi
@@ -81,6 +81,7 @@ for arch in arm64 x86_64; do
         -Dsentry=false -Dcustom-shaders=false -Dinspector=false -Di18n=false \
         -Dtarget="$target-macos")
     cp "$source_dir/zig-out/lib/libghostty.a" "$work/$arch/libghostty.a"
+    cp "$source_dir/zig-out/lib/libghostty-vt.a" "$work/$arch/libghostty-vt.a"
 done
 
 cp "$source_dir/include/ghostty.h" "$work/headers/libghostty/ghostty.h"
@@ -91,6 +92,7 @@ module libghostty {
 }
 MAP
 lipo -create "$work/arm64/libghostty.a" "$work/x86_64/libghostty.a" -output "$work/libghostty.a"
+lipo -create "$work/arm64/libghostty-vt.a" "$work/x86_64/libghostty-vt.a" -output "$work/libghostty-vt.a"
 mkdir -p "$(dirname "$framework")"
 staging="$work/framework-staging"
 rm -rf "$staging"

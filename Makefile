@@ -202,3 +202,8 @@ test-ssh-configuration:
 .PHONY: test-terminal-reconnect
 test-terminal-reconnect:
 	bash scripts/test-terminal-reconnect.sh
+
+.PHONY: test-session-host
+test-session-host:
+	bash scripts/build-session-host.sh build/1AgentSessionHost
+	python3 scripts/test-session-host.py
