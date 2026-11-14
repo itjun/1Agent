@@ -468,9 +468,21 @@ private struct FilesWorkspaceRoutingTests {
         guard let native = handle(host) else {
             throw TestFailure(description: "The real file tab must expose its native handle")
         }
-        try require(!native.menuItems.contains(where: { $0.title == String(localized: "Close Tab") }),
-                    "The file tab context menu must not offer Close Tab")
-        try require(native.menuItems.last?.isSeparator == false, "The menu must not end with a separator")
+        let menuProbe = NativeMenuProbe()
+        defer { menuProbe.stop() }
+        let event = NSEvent.mouseEvent(with: .rightMouseDown,
+            location: native.convert(NSPoint(x: native.bounds.midX, y: native.bounds.midY), to: nil),
+            modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+            context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        _ = native.menu(for: event)
+        guard let menu = menuProbe.menu,
+              let closeIndex = menu.items.firstIndex(where: { $0.title == String(localized: "Close Connection") }) else {
+            throw TestFailure(description: "The file tab context menu must offer Close Connection")
+        }
+        try require(closeIndex == menu.items.count - 1 && menu.items[closeIndex - 1].isSeparatorItem,
+                    "Close Connection must be separated at the bottom of the menu")
+        try require(menu.items[closeIndex].attributedTitle?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == .systemRed,
+                    "Close Connection must use a red native menu title")
         guard let open = native.menuItems.first(where: { $0.title == String(localized: "Open in Terminal") }),
               let model = files.model, let state = files.windowState else {
             throw TestFailure(description: "File tabs must expose their own directory action")
@@ -492,7 +504,7 @@ private struct FilesWorkspaceRoutingTests {
                     "Right-clicking an inactive file tab must open that host and folder")
         model.closeTab(created.id)
         model.selectFilesLayout(.sideBySide, in: state)
-        native.requestClose()
+        menu.performActionForItem(at: closeIndex)
         try await eventually("file tab close confirmation") { window.attachedSheet != nil }
         try require(files.allTabs.contains(where: { $0 === column }), "Requesting close must leave the tab open")
         let cancelledSheet = window.attachedSheet!
@@ -511,7 +523,8 @@ private struct FilesWorkspaceRoutingTests {
         try await eventually("close confirmed file tab") { !files.allTabs.contains(where: { $0 === column }) }
         try require(!files.allTabs.contains(where: { $0 === column }) && files.remoteTabs.count == 2,
                     "Confirming close must close only the requested file tab")
-        print("ok: file tab close button requires confirmation; Cancel preserves the tab; context menu has no close action")
+        try require(Set(model.tabs.map(\.id)) == oldSessions, "Closing a file connection must preserve terminal sessions")
+        print("ok: red Close Connection menu targets the clicked file tab; menu and close button share confirmation; Cancel and terminal sessions are preserved")
     }
 
     @MainActor

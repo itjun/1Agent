@@ -217,6 +217,12 @@ final class FileTabHandleView: NSView {
             item.isEnabled = entry.enabled
             menu.addItem(item)
         }
+        menu.addItem(.separator())
+        menu.addItem(TerminalCloseMenu.item(
+            title: String(localized: "Close Connection"),
+            action: #selector(requestClose),
+            target: self
+        ))
         FamilyMenuPresenter.shared.show(menu, with: event, for: self)
         return nil
     }
@@ -226,7 +232,7 @@ final class FileTabHandleView: NSView {
         menuItems[item.tag].action()
     }
 
-    func requestClose() {
+    @objc func requestClose() {
         guard let window, window.attachedSheet == nil && !(NSApp.keyWindow is FamilyModalWindow) else { return }
         let alert = FamilyAlert()
         alert.messageText = String(localized: "Close")

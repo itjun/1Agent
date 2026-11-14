@@ -3792,6 +3792,13 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭文件标签“%@”？" } }
       }
     },
+    "Close Connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close Connection" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭链接" } }
+      }
+    },
     "Close Tab" : {
       "extractionState" : "manual",
       "localizations" : {
