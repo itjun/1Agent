@@ -14,7 +14,7 @@
 | SSH | 列表轻量枚举；主机信息按需运行 `/usr/bin/ssh -G -- alias`，使用连接环境、参数数组、5 秒/1 MiB 限制、合并并发请求及取消 |
 | 其他依赖 | 删除 GhosttyTheme、ShellCraftKit；保留 MSDisplayLink、highlight.js、Quick Look、系统 OpenSSH |
 
-## Sparkle 发布配置
+## Sparkle 发布配置（2026-11-14 更新）
 
 新客户端只读取 `https://github.com/itjun/1Agent/releases/latest/download/appcast.xml`。启用 `SURequireSignedFeed` 和 `SUVerifyUpdateBeforeExtraction`；自动检查与自动下载安装分开，后两者关闭，安装由用户在 Sparkle 标准窗口触发。
 
@@ -22,15 +22,14 @@
 
 更新安装回调先完成会话保存，再允许 Sparkle 继续。普通退出复用同一次保存，实际退出才停止终端进程。失败保留运行中的应用并显示现有日志保存错误；Sparkle 委托否决可能以 nil error 结束，因此同时处理 update cycle 结束以允许重试。Sparkle 重启期间不执行普通重启的 shell；普通“重启应用”仍走原流程。
 
-发布前须在 GitHub Actions 配置以下 Secrets（本次没有创建或上传）：
+发布前须在 GitHub Actions 配置以下 Secrets：
 
 - `SPARKLE_PUBLIC_KEY`、`SPARKLE_PRIVATE_KEY`：独立的 Sparkle Ed25519 密钥，使用固定版本包中的 `bin/generate_keys` 生成/导出并安全保管；不要复用旧 updater 密钥。
-- `DEVELOPER_ID_CERTIFICATE`：Developer ID Application 的 p12 文件 Base64；以及 `DEVELOPER_ID_PASSWORD`、`DEVELOPER_ID_NAME`、`APPLE_TEAM_ID`。
 - `UPDATE_SIGN_KEY`：保留原旧客户端签名种子；对应公钥原样迁至 `release/legacy-update-public-key.txt`，不能轮换，否则老客户端无法迁移。
 
-Release 预构建检查缺少有效 Developer ID 或公钥就失败。先签 Sparkle helper/XPC/framework，再签主应用并执行 deep/strict 验签。使用官方 `generate_appcast` 生成签名源，再用 `sign_update` 校验源和 DMG 的签名；另外用 Apple CryptoKit 和客户端公钥校验 DMG，阻止公私钥配置不匹配的发布。`latest.json`、`latest.json.sig` 与 DMG 继续一起生成；新客户端不运行旧更新器。Debug 的 Library Validation 兼容 entitlement 仅配置在 Debug，Release 不使用。Sparkle 官方许可证随应用资源分发。
+当前发布工作流采用 ad-hoc 签名，不需要 Apple 开发者账号，也未经过 Apple 公证。首次安装请遵循官网安装指南，在 macOS 中手动允许打开。Release 预构建检查要求有效的 Sparkle 公钥和代码签名；支持 ad-hoc 与 Developer ID，拒绝完全不签名。ad-hoc 发布使用 `Resources/AdHoc.entitlements` 允许加载 Sparkle，保留 Hardened Runtime。先签 Sparkle helper/XPC/framework，再签主应用并执行 deep/strict 验签。使用官方 `generate_appcast` 生成签名源，再用 `sign_update` 校验源和 DMG 的签名；另外用 Apple CryptoKit 和客户端公钥校验 DMG，阻止公私钥配置不匹配的发布。`latest.json`、`latest.json.sig` 与 DMG 继续一起生成；新客户端不运行旧更新器。Debug 与 ad-hoc Release 分别使用对应的 Library Validation 兼容 entitlement；Developer ID 构建不需要该例外。Sparkle 官方许可证随应用资源分发。
 
-构建编号由 release workflow 的运行编号递增。正式发布前仍须用已配置的发布证书和实际旧客户端走一轮分发验收；本次没有正式签名身份、生产 Sparkle 密钥或 Release，因此不把本地测试说成线上升级已验证。
+构建编号由 release workflow 的运行编号递增。Sparkle 私钥保存在本机钥匙串的独立账号 `com.itjun.1agent.sparkle`，并配置到 GitHub Actions Secrets；不能丢失或随意轮换，否则已有客户端无法验签。旧版签名密钥保持不变。发布时仍须检查真实安装包、更新源签名和旧版兼容清单；本地 fixture 不能替代实际客户端升级验收。
 
 ## 终端补丁与 Shell 来源
 

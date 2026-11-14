@@ -20,13 +20,21 @@ jobs:
     runs-on: macos-latest
     env:
       SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
-      DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7
 
       - name: Fetch tag message
         run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
+      - name: Validate update signing configuration
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          UPDATE_SIGN_KEY: ${{ secrets.UPDATE_SIGN_KEY }}
+        run: |
+          set -euo pipefail
+          for name in SPARKLE_PUBLIC_KEY SPARKLE_PRIVATE_KEY UPDATE_SIGN_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::缺少更新签名配置 $name"; exit 1; fi
+          done
 
       - uses: mlugg/setup-zig@v2
         with:
@@ -34,28 +42,6 @@ jobs:
 
       - name: Build libghostty
         run: ./scripts/build-libghostty.sh
-
-      - name: Import release signing identity
-        env:
-          CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE }}
-          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_PASSWORD }}
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          for name in CERTIFICATE CERTIFICATE_PASSWORD DEVELOPER_ID_NAME APPLE_TEAM_ID SPARKLE_PUBLIC_KEY SPARKLE_PRIVATE_KEY; do
-            if [ -z "${!name}" ]; then echo "::error::缺少发布签名配置 $name"; exit 1; fi
-          done
-          keychain="$RUNNER_TEMP/oneagent-release.keychain-db"
-          password="$(openssl rand -hex 32)"
-          echo "::add-mask::$password"
-          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
-          security create-keychain -p "$password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$password" "$keychain"
-          security import "$RUNNER_TEMP/developer-id.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
-          security list-keychains -d user -s "$keychain" login.keychain-db
-          rm "$RUNNER_TEMP/developer-id.p12"
 
       - name: Build
         run: |
@@ -69,8 +55,8 @@ jobs:
             build \
             ONLY_ACTIVE_ARCH=YES \
             ARCHS=arm64 \
-            CODE_SIGN_IDENTITY="$DEVELOPER_ID_NAME" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_ENTITLEMENTS="$GITHUB_WORKSPACE/Resources/AdHoc.entitlements" \
             SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" \
             MARKETING_VERSION="${GITHUB_REF_NAME#v}" \
             CURRENT_PROJECT_VERSION="$((1000 + GITHUB_RUN_NUMBER))" \
@@ -80,8 +66,8 @@ jobs:
       - name: Package
         run: |
           app="build/DerivedData.noindex/Build/Products/Release/1Agent.app"
-          ./scripts/sign-sparkle.sh "$app" "$DEVELOPER_ID_NAME"
-          codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_NAME" "$app"
+          ./scripts/sign-sparkle.sh "$app" -
+          codesign --force --options runtime --timestamp=none --sign - --entitlements Resources/AdHoc.entitlements "$app"
           codesign --verify --deep --strict "$app"
           stage="$(mktemp -d)"
           mkdir -p dist
@@ -159,9 +145,3 @@ jobs:
             fi
             gh "${args[@]}"
           fi
-
-      - name: Remove temporary signing identity
-        if: always()
-        run: |
-          security delete-keychain "$RUNNER_TEMP/oneagent-release.keychain-db" || true
-          rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/sparkle.key"

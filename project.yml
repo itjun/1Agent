@@ -25,6 +25,7 @@ targets:
         buildPhase: resources
         excludes:
           - Localizable.xcstrings
+          - AdHoc.entitlements
           - shell-integration/**
           - ApplicationIcons/**
           - GhosttyThemes/**

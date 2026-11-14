@@ -8,6 +8,10 @@
 .PHONY: test-app-update-controller
 .PHONY: test-app-update-restart
 .PHONY: prepare-libghostty
+.PHONY: test-release-signing
+
+test-release-signing:
+	python3 scripts/test-release-signing.py
 
 test-terminal-automation:
 	python3 scripts/test-terminal-automation.py
@@ -75,7 +79,7 @@ install:
 run: build
 	open "/Applications/$(APP_BUNDLE)"
 
-test: test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies
+test: test-release-signing test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies
 	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/GooseAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
 	/tmp/oneagent-terminal-output-store-tests
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Sources/GooseAgent/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift
