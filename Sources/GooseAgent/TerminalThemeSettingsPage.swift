@@ -5,11 +5,11 @@ struct TerminalThemeSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var preferences = TerminalThemePreferences.shared
     @State private var search = ""
-    @State private var isEditingDark = false
+    @State private var filter: TerminalThemeFilter = .all
     @FocusState private var focusedTheme: String?
 
     private var themes: [TerminalThemeDescriptor] {
-        TerminalThemeCatalog.shared.filtered(search: search, filter: isEditingDark ? .dark : .light)
+        TerminalThemeCatalog.shared.filtered(search: search, filter: filter)
     }
 
     var body: some View {
@@ -45,9 +45,10 @@ struct TerminalThemeSettingsPage: View {
                     .frame(height: SettingsLayout.shortcutSearchHeight)
                     .background(chrome.elevated, in: RoundedRectangle(cornerRadius: Theme.Radius.row))
                     .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row).strokeBorder(chrome.hairline))
-                    Picker("Theme Appearance", selection: $isEditingDark) {
-                        Text("Light").tag(false)
-                        Text("Dark").tag(true)
+                    Picker("Theme Appearance", selection: $filter) {
+                        ForEach(TerminalThemeFilter.allCases, id: \.self) { filter in
+                            Text(filter.title).tag(filter)
+                        }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -100,7 +101,7 @@ struct TerminalThemeSettingsPage: View {
                         focusedTheme = nil
                         if let first = themes.first { proxy.scrollTo(first.id, anchor: .top) }
                     }
-                    .onChange(of: isEditingDark) { _, _ in
+                    .onChange(of: filter) { _, _ in
                         focusedTheme = nil
                         if let first = themes.first { proxy.scrollTo(first.id, anchor: .top) }
                     }
@@ -110,8 +111,6 @@ struct TerminalThemeSettingsPage: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("themes.catalog")
-        .onAppear { isEditingDark = chrome.isDark }
-        .onChange(of: chrome.isDark) { _, isDark in isEditingDark = isDark }
     }
 
     private func themeSummary(isDark: Bool) -> some View {
@@ -136,7 +135,7 @@ struct TerminalThemeSettingsPage: View {
     }
 
     private func themeCard(_ theme: TerminalThemeDescriptor) -> some View {
-        let isDark = isEditingDark
+        let isDark = theme.isDark(interfaceIsDark: filter == .all ? chrome.isDark : filter == .dark)
         let selected = TerminalThemePreferences.selected(isDark: isDark).id == theme.id
         let selectedLabel: LocalizedStringKey = isDark == chrome.isDark ? "In Use" : "Selected"
         return Button {
