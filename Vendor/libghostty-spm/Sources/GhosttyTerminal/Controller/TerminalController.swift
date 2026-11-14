@@ -224,6 +224,20 @@ public final class TerminalController {
 
     // MARK: - Theme
 
+    /// Commits the palette and its native appearance together, preserving every surface.
+    /// An unchanged selection is a successful application.
+    @discardableResult
+    public func applyTheme(_ theme: TerminalTheme, colorScheme: TerminalColorScheme) -> Bool {
+        let resolved = resolveEffectiveConfig(theme: theme, colorScheme: colorScheme)
+        guard applyResolvedConfig(resolved, willChange: nil, applyState: {
+            self.theme = theme
+            self.effectiveColorScheme = colorScheme
+        }) else { return false }
+        if let app { ghostty_app_set_color_scheme(app, colorScheme.ghosttyValue) }
+        lastConfigurationIssue = nil
+        return true
+    }
+
     /// Updates the theme and reconfigures the terminal.
     @discardableResult
     public func setTheme(_ theme: TerminalTheme) -> Bool {

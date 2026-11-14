@@ -6,6 +6,8 @@
 
 1Agent 保留 `GhosttyTerminal`、`GhosttyKit`、`MSDisplayLink`。未使用的 `ShellCraftKit` 以及不再参与系统配色的 `GhosttyTheme` 已移除。终端颜色直接由应用的系统颜色和现有 ANSI 调色板生成。
 
+`TerminalController.applyTheme(_:colorScheme:)` 在验证成功后一起更新主题与明暗状态，再刷新所有已保留 surface；不变的选择也视为成功，失败保留之前状态。
+
 ## 历史保存与恢复
 
 1Agent 保存带样式文本并恢复显示：使用官方文本读取 API，以及 `select_all` / `copy_to_clipboard:vt` 彩色复制动作；`TerminalOutputStore` 限制行数和字节数，仅保留文本与允许的 SGR 样式，过滤屏幕操作、OSC 和其他控制序列。恢复先向 Ghostty 显示输出注入归档，再启动会话；归档不写入 PTY stdin，也不恢复原来的运行进程或交互式 TUI 状态。
