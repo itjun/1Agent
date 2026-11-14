@@ -16,7 +16,7 @@ sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path
     -module-cache-path "$test_dir/module-cache" \
     -F "$products_dir" -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/Frameworks" -I "$products_dir" -I "$products_dir/include/libghostty" \
     -Xlinker -rpath -Xlinker "$dylib_dir" \
-    "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/FamilyAppearanceTests.swift" \
+    "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/FamilyAppearanceTests.swift" "$repo_dir/Tests/TerminalThemeTests.swift" \
     -o "$test_executable"
 # No remote connections, shell or real user home access is needed by these in-memory surfaces.
 /usr/bin/sandbox-exec -p "(version 1) (allow default) (deny network*) (deny process-exec) (allow process-exec (literal \"/usr/bin/env\") (literal \"$test_executable\"))" \

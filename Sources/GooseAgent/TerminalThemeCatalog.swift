@@ -180,3 +180,83 @@ struct TerminalThemeCatalog {
         }
     }
 }
+
+@MainActor
+final class TerminalThemePreferences: ObservableObject {
+    static let shared = TerminalThemePreferences()
+    @Published private(set) var revision = 0
+    @Published private(set) var error: String?
+
+    static func storageKey(isDark: Bool) -> String {
+        "appearance.terminalTheme.shared." + (isDark ? "dark" : "light")
+    }
+
+    static func selected(isDark: Bool? = nil,
+                         defaults: UserDefaults = .standard) -> TerminalThemeDescriptor {
+        let isDark = isDark ?? TerminalAppearance.stored(defaults: defaults).resolvesDark()
+        func matchingTheme(_ id: String?) -> TerminalThemeDescriptor? {
+            guard let id, let theme = TerminalThemeCatalog.shared.theme(id: id),
+                  theme.isDefault || theme.isDark(interfaceIsDark: isDark) == isDark else { return nil }
+            return theme
+        }
+        // 共用配置一旦保存（包括默认），就不再读取旧的本地／远程选择。
+        if let id = defaults.string(forKey: TerminalThemePreferences.storageKey(isDark: isDark)) {
+            return matchingTheme(id) ?? .system
+        }
+        // 合并时优先沿用本地配置；没有匹配选择时再读取远程配置。
+        for target in ["local", "remote"] {
+            let key = "appearance.terminalTheme." + target
+            let savedID = defaults.string(forKey: key + (isDark ? ".dark" : ".light"))
+            // 更早版本保存的裸主题名不参与迁移，避免复活已废弃的选择。
+            let configuredID = savedID.flatMap { $0 == TerminalThemeDescriptor.defaultID || $0.hasPrefix("ghostty:") ? $0 : nil }
+            if let theme = matchingTheme(configuredID ?? defaults.string(forKey: key)) {
+                return theme
+            }
+        }
+        return .system
+    }
+
+    @discardableResult
+    func select(_ id: String, isDark: Bool? = nil) -> Bool {
+        let interfaceIsDark = TerminalAppearance.stored().resolvesDark()
+        let isDark = isDark ?? interfaceIsDark
+        guard let theme = TerminalThemeCatalog.shared.theme(id: id) else {
+            error = String(format: String(localized: "Could not load theme %@."), id)
+            return false
+        }
+        guard theme.isDefault || theme.isDark(interfaceIsDark: isDark) == isDark else {
+            error = String(localized: "Choose a theme matching this appearance.")
+            return false
+        }
+        // 配置另一种外观时只保存选择。
+        if isDark == interfaceIsDark,
+           let issue = GhosttyRuntime.applyTheme(theme, interfaceIsDark: isDark) {
+            error = issue
+            return false
+        }
+        UserDefaults.standard.set(theme.id, forKey: TerminalThemePreferences.storageKey(isDark: isDark))
+        error = nil
+        revision += 1
+        return true
+    }
+
+    @discardableResult
+    func reset() -> Bool {
+        if let issue = GhosttyRuntime.applyTheme(.system,
+                                                interfaceIsDark: TerminalAppearance.stored().resolvesDark()) {
+            error = issue
+            return false
+        }
+        for isDark in [false, true] {
+            UserDefaults.standard.set(TerminalThemeDescriptor.defaultID,
+                                      forKey: TerminalThemePreferences.storageKey(isDark: isDark))
+        }
+        error = nil
+        revision += 1
+        return true
+    }
+
+    func report(_ issue: String?) {
+        if error != issue { error = issue }
+    }
+}

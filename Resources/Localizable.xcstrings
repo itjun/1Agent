@@ -1,6 +1,27 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Light Theme": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Light Theme"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色主题"}}}},
+    "Dark Theme": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dark Theme"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "深色主题"}}}},
+    "Themes switch automatically with appearance.": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Themes switch automatically with appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色和深色主题随外观自动切换。"}}}},
+    "Choose a theme matching this appearance.": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose a theme matching this appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "请选择与当前配置的外观明暗一致的主题。"}}}},
+    "Selected" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Selected"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已选择"}}}},
+  "Local": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Local"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "本地"
+        }
+      }
+    }
+  },
   "Default": {
     "localizations": {
       "en": {
@@ -33,6 +54,70 @@
       }
     }
   },
+  "In Use": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "In Use"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "使用中"
+        }
+      }
+    }
+  },
+  "Search Ghostty Themes": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Search Ghostty Themes"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "搜索 Ghostty 主题"
+        }
+      }
+    }
+  },
+  "Clear Search": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Clear Search"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "清空搜索"
+        }
+      }
+    }
+  },
+  "Theme Appearance": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Theme Appearance"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "主题明暗"
+        }
+      }
+    }
+  },
   "Could not load theme %@.": {
     "localizations": {
       "en": {
@@ -45,6 +130,22 @@
         "stringUnit": {
           "state": "translated",
           "value": "无法加载主题 %@。"
+        }
+      }
+    }
+  },
+  "Could not apply theme. Your previous theme is still in use.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Could not apply theme. Your previous theme is still in use."
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法应用主题，已保留原来的主题。"
         }
       }
     }

@@ -97,7 +97,7 @@ final class AppearanceDriver: ObservableObject {
         return .light
     }
 
-    /// 外观模式同时切换窗口与所有本机／远程终端。
+    /// 外观模式同时切换窗口和该外观下保存的终端主题。
     func reapply() {
         // 强调色变化不一定伴随浅深色切换，仍需刷新读取系统语义色的窗口。
         if preset == .system { objectWillChange.send() }
@@ -109,7 +109,6 @@ final class AppearanceDriver: ObservableObject {
         let dark = mode.resolvesDark()
         let terminalDark = dark
         TerminalAppearance.applyAppKit(isDark: dark)
-        GhosttyRuntime.applySelectedThemes()
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
         GhosttyRuntime.applyColorSchemes(isDark: dark)
@@ -166,28 +165,12 @@ private final class SystemThemeWatcher: NSObject {
 }
 
 
-enum TerminalThemeTarget: String, CaseIterable {
-    case local
-    case remote
-}
-
 extension AppTheme {
     static func terminalName(isDark: Bool) -> String {
         AppTheme.id + (isDark ? "-dark" : "-light")
     }
 
     static func terminalConfiguration(isDark: Bool) -> TerminalConfiguration {
-        let colors = AppTheme.colors(isDark: isDark)
-        return TerminalConfiguration { builder in
-            builder.withBackground("#" + colors.background)
-            builder.withForeground("#" + colors.foreground)
-            builder.withCursorColor("#" + colors.accent)
-            builder.withCursorText("#" + colors.background)
-            builder.withSelectionBackground("#" + colors.selection)
-            builder.withSelectionForeground("#" + SystemTheme.hex(.selectedTextColor, isDark: isDark, over: .selectedTextBackgroundColor))
-            for (index, color) in colors.ansi.enumerated() {
-                builder.withPalette(index, color: "#" + color)
-            }
-        }
+        TerminalThemeColors.system(isDark: isDark).configuration
     }
 }

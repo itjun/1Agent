@@ -8,6 +8,7 @@ struct TerminalCanvas: View {
     @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
+    @ObservedObject private var themePreferences = TerminalThemePreferences.shared
     @ObservedObject private var find = TerminalFind.shared
     var dropRelay: CanvasDropRelay
     var dark: Bool
@@ -47,6 +48,7 @@ struct TerminalCanvas: View {
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
                     let isSelected = window.selectedTabID == tab.id && window.section == .terminals
+                    let theme = TerminalThemePreferences.selected(isDark: dark)
                     let cardHeader = paneHeaderHeight + findBarInset(tab)
                     SSHTerminalView(
                         sessionID: tab.sessionID,
@@ -54,7 +56,7 @@ struct TerminalCanvas: View {
                         directory: tab.isLocal ? tab.directory : nil,
                         remoteDirectory: tab.remoteDirectory,
                         environment: ShellIntegrationEnvironment.merged(model.launchEnvironment, overrides: tab.creationEnvironment),
-                        dark: terminalIsDark,
+                        dark: theme.isDark(interfaceIsDark: dark),
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
                         isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace
@@ -88,7 +90,7 @@ struct TerminalCanvas: View {
                     )
                     .padding(.top, cardHeader)
                     .background {
-                        AppTheme.terminalPaneBackground(isDark: terminalIsDark, isFocused: isSelected).color
+                        theme.colors(interfaceIsDark: dark).paneBackground(isFocused: isSelected).color
                     }
                     .modifier(FloatingContentSurface())
                     .environment(\.windowChrome, chrome)
@@ -149,10 +151,6 @@ struct TerminalCanvas: View {
                 lastContentFrame = lastContentFrame.filter { ids.contains($0.key) }
             }
         }
-    }
-
-    private var terminalIsDark: Bool {
-        dark
     }
 
     private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {
@@ -249,7 +247,7 @@ struct TerminalCanvas: View {
             let height = max(1, frame.height)
             let dividerX = frame.maxX - sidebarWidth
             QuickCommandSidebar(model: model, window: window, tabID: tab.id)
-                .environment(\.windowChrome, WindowChrome(isDark: terminalIsDark))
+                .environment(\.windowChrome, WindowChrome(isDark: dark))
                 .frame(width: sidebarWidth, height: height)
                 .clipped()
                 .position(x: frame.maxX - sidebarWidth / 2, y: frame.midY)

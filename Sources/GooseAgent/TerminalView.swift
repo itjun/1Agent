@@ -99,21 +99,10 @@ enum TerminalFontSettings {
 
 @MainActor
 enum GhosttyRuntime {
-    private static let localController = TerminalController(
+    static let controller = TerminalController(
         configSource: appearanceConfigSource,
-        theme: selectedThemes()
+        theme: TerminalThemePreferences.selected().configuration
     )
-    private static let remoteController = TerminalController(
-        configSource: appearanceConfigSource,
-        theme: selectedThemes()
-    )
-
-    /// Common settings remain inspectable through the original entry point.
-    static var controller: TerminalController { localController }
-
-    static func controller(for target: TerminalThemeTarget) -> TerminalController {
-        target == .local ? localController : remoteController
-    }
 
     /// The two marker files make Ghostty treat light and dark as distinct themes, so the
     /// appearance switch reloads colors. The colors themselves come from `TerminalTheme`.
@@ -135,13 +124,10 @@ enum GhosttyRuntime {
         // would also block every settings change. Lines it refuses are dropped one by one.
         let fit = TerminalSnippetFit.fit(custom.entries) { entries in
             let configuration = terminalConfiguration(settings: settings, snippet: entries)
-            for target in TerminalThemeTarget.allCases {
-                let runtime = controller(for: target)
-                runtime.setTerminalConfiguration(configuration)
-                // False can mean unchanged; the committed configuration is the acceptance check.
-                if runtime.terminalConfiguration != configuration {
-                    return runtime.lastConfigurationIssue ?? String(localized: "Ghostty gave no reason")
-                }
+            controller.setTerminalConfiguration(configuration)
+            // False can mean unchanged; the committed configuration is the acceptance check.
+            if controller.terminalConfiguration != configuration {
+                return controller.lastConfigurationIssue ?? String(localized: "Ghostty gave no reason")
             }
             return nil
         }
@@ -180,27 +166,24 @@ enum GhosttyRuntime {
         return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
     }
 
-    /// Light and night slots are chosen independently; Ghostty switches with the appearance.
     static func applySelectedThemes() {
-        let themes = selectedThemes()
-        for target in TerminalThemeTarget.allCases {
-            controller(for: target).setTheme(themes)
-        }
+        applyColorSchemes(isDark: TerminalAppearance.stored().resolvesDark())
     }
 
     static func applyColorSchemes(isDark: Bool) {
-        for target in TerminalThemeTarget.allCases {
-            let dark = isDark
-            controller(for: target).setColorScheme(dark ? .dark : .light)
-        }
-        SSHTerminalRegistry.applyAppearances(isDark: isDark)
+        let theme = TerminalThemePreferences.selected(isDark: isDark)
+        let issue = GhosttyRuntime.applyTheme(theme, interfaceIsDark: isDark)
+        TerminalThemePreferences.shared.report(issue)
     }
 
-    private static func selectedThemes() -> TerminalTheme {
-        return TerminalTheme(
-            light: AppTheme.terminalConfiguration(isDark: false),
-            dark: AppTheme.terminalConfiguration(isDark: true)
-        )
+    /// Validation precedes preference/UI changes; no surface or process is recreated.
+    static func applyTheme(_ theme: TerminalThemeDescriptor, interfaceIsDark: Bool) -> String? {
+        let dark = theme.isDark(interfaceIsDark: interfaceIsDark)
+        guard controller.applyTheme(theme.configuration, colorScheme: dark ? .dark : .light) else {
+            return String(localized: "Could not apply theme. Your previous theme is still in use.")
+        }
+        SSHTerminalRegistry.applyAppearances(isDark: dark)
+        return nil
     }
 
     /// Settings first, then the advanced snippet, so a snippet line wins over the same setting.
@@ -511,8 +494,7 @@ enum SSHTerminalRegistry {
 
     static func applyAppearances(isDark: Bool) {
         for view in views.values {
-            let dark = isDark
-            view.applyTerminalAppearance(dark: dark)
+            view.applyTerminalAppearance(dark: isDark)
         }
     }
     private static var directoryTimer: Timer?
@@ -743,7 +725,6 @@ final class SSHTerminalNSView: AppTerminalView {
     var onQuickCommandDrop: (UUID) -> Bool = { _ in false }
     /// The session runs over ssh: the transfer circle uploads instead of copying.
     var dropIsRemote = false
-    var themeTarget: TerminalThemeTarget = .local
     var appliedDarkAppearance: Int?
     weak var attachedSurface: TerminalSurface? {
         didSet { if attachedSurface != nil { processHost?.startWhenReady() } }
@@ -1760,8 +1741,7 @@ struct SSHTerminalView: NSViewRepresentable {
         host.onRemoteCommand = { [weak view] event in view?.eventRelay.terminalDidReportRemoteCommand(event) }
         view.delegate = view.eventRelay
         view.registerForDraggedTypes(SSHTerminalNSView.dropTypes)
-        view.themeTarget = alias.isEmpty ? .local : .remote
-        view.controller = GhosttyRuntime.controller(for: view.themeTarget)
+        view.controller = GhosttyRuntime.controller
         view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session), fontSize: initialFontSize)
         let launch = Self.launch(alias: alias, directory: directory, environment: environment, remoteDirectory: remoteDirectory)
         var initialLaunch: TerminalLaunch?
@@ -1811,7 +1791,8 @@ struct SSHTerminalView: NSViewRepresentable {
     }
 
     private func applyAppearance(_ view: SSHTerminalNSView, dark: Bool) {
-        let resolvedDark = AppearanceDriver.shared.interfaceIsDark
+        let resolvedDark = TerminalThemePreferences.selected(isDark: AppearanceDriver.shared.interfaceIsDark)
+            .isDark(interfaceIsDark: AppearanceDriver.shared.interfaceIsDark)
         view.applyTerminalAppearance(dark: resolvedDark)
     }
 

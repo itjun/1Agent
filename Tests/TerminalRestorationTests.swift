@@ -72,6 +72,14 @@ enum TerminalRestorationTests {
         let old = method_setImplementation(getter, imp_implementationWithBlock({ _ in defaults } as @convention(block) (AnyObject) -> UserDefaults))
         defer { method_setImplementation(getter, old) }
         let saving = CommandLine.arguments.contains("--save-output")
+        if saving {
+            expect(TerminalThemePreferences.shared.select("ghostty:TokyoNight", isDark: true), "persist shared dark theme")
+            expect(TerminalThemePreferences.shared.select("ghostty:Ayu Light", isDark: false), "persist shared light theme")
+        } else {
+            expect(TerminalThemePreferences.selected(isDark: true).id == "ghostty:TokyoNight", "cold launch restores shared dark theme")
+            expect(TerminalThemePreferences.selected(isDark: false).id == "ghostty:Ayu Light", "cold launch restores shared light theme")
+        }
+        AppearanceDriver.shared.reapply()
         let snapshotURL = URL(fileURLWithPath: home).appendingPathComponent("snapshot.json")
         let ids = (1...2).map { UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", $0))! }
         let windowID = UUID(uuidString: "00000000-0000-0000-0000-000000000099")!
@@ -168,6 +176,23 @@ enum TerminalRestorationTests {
         let pid = host.process.shellPid
         let identity = host.process.identity
         let terminalSize = terminal.bounds.size
+        let previousOutput = host.session.readScreenText()?.text
+        let previousAppearance = TerminalAppearance.stored()
+        let previousLightTheme = TerminalThemePreferences.selected(isDark: false)
+        let previousDarkTheme = TerminalThemePreferences.selected(isDark: true)
+        for theme in ["ghostty:GitHub Light Default", "ghostty:Dracula", "ghostty:TokyoNight"] {
+            let isDark = TerminalThemeCatalog.shared.theme(id: theme)!.palette!.isDark
+            UserDefaults.standard.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
+            AppearanceDriver.shared.reapply()
+            expect(TerminalThemePreferences.shared.select(theme), "switch live PTY theme")
+            expect(terminal.processHost === host && host.process.shellPid == pid && host.process.identity == identity,
+                   "theme change keeps the running process and PTY")
+            expect(host.session.readScreenText()?.text == previousOutput, "theme change keeps the terminal screen")
+        }
+        expect(TerminalThemePreferences.shared.select(previousLightTheme.id, isDark: false), "restore fixture light theme")
+        expect(TerminalThemePreferences.shared.select(previousDarkTheme.id, isDark: true), "restore fixture dark theme")
+        UserDefaults.standard.set(previousAppearance.rawValue, forKey: TerminalAppearance.storageKey)
+        AppearanceDriver.shared.reapply()
         let workspace = model.fileWorkspace(for: state)
         model.showFiles(for: state.selectedTabID, in: state)
         let column = workspace.localColumn

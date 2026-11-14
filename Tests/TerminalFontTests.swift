@@ -40,14 +40,14 @@ import GhosttyTerminal
         expect(TerminalFontSettings.previewFont(family: "Menlo", size: 24)?.pointSize == 24, "Preview must honor the selected size")
 
         // 已挂载的本机与远程终端都应立即重载字体，测试不启动 shell 或 SSH。
-        for target in TerminalThemeTarget.allCases {
+        for target in ["local", "remote"] {
             let metrics = Metrics()
             let session = InMemoryTerminalSession(write: { _ in }, resize: { metrics.set($0) })
             UserDefaults.standard.set("Menlo", forKey: TerminalFontSettings.familyKey)
             UserDefaults.standard.set(14, forKey: TerminalFontSettings.sizeKey)
             GhosttyRuntime.applyTerminalSettings()
             let view = AppTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 400))
-            view.controller = GhosttyRuntime.controller(for: target)
+            view.controller = GhosttyRuntime.controller
             view.configuration = TerminalSurfaceOptions(backend: .inMemory(session))
             let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false

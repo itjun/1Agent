@@ -29,16 +29,15 @@ enum FamilyAppearanceTests {
         var windows: [NSWindow] = []
         var views: [SSHTerminalNSView] = []
         var sessions: [InMemoryTerminalSession] = []
-        let sessionIDs = TerminalThemeTarget.allCases.map { "family-\($0.rawValue)-\(UUID().uuidString)" }
+        let sessionIDs = ["local", "remote"].map { "family-\($0)-\(UUID().uuidString)" }
         defer { sessionIDs.forEach { SSHTerminalRegistry.destroy($0) } }
-        for (index, target) in TerminalThemeTarget.allCases.enumerated() {
+        for index in sessionIDs.indices {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
                                   styleMask: [.titled], backing: .buffered, defer: false)
             let session = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
             let view = SSHTerminalRegistry.view(for: sessionIDs[index]) { SSHTerminalNSView(frame: window.contentView!.bounds) }!
             view.sessionID = sessionIDs[index]
-            view.themeTarget = target
-            view.controller = GhosttyRuntime.controller(for: target)
+            view.controller = GhosttyRuntime.controller
             view.configuration = TerminalSurfaceOptions(backend: .inMemory(session))
             view.applyTerminalAppearance(dark: driver.terminalIsDark)
             window.contentView = view
@@ -57,12 +56,12 @@ enum FamilyAppearanceTests {
             expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == terminalDark, context + ": driver states")
             let expectedChrome = WindowChrome(isDark: uiDark, preset: AppTheme.stored())
             expect(WindowChrome.resolve(isDark: uiDark) == expectedChrome, context + ": selected preset palette")
-            for (index, target) in TerminalThemeTarget.allCases.enumerated() {
-                let runtime = GhosttyRuntime.controller(for: target)
+            for (index, target) in ["local", "remote"].enumerated() {
+                let runtime = GhosttyRuntime.controller
                 let definition = AppTheme.colors(isDark: terminalDark)
                 let value = Int(definition.background, radix: 16)!
                 let expectedBackground = TerminalColor(red: UInt8((value >> 16) & 255), green: UInt8((value >> 8) & 255), blue: UInt8(value & 255))
-                expect(runtime.backgroundColor == expectedBackground, context + ": actual engine background for " + target.rawValue)
+                expect(runtime.backgroundColor == expectedBackground, context + ": actual engine background for " + target)
                 let rendered = (terminalDark ? runtime.theme.dark : runtime.theme.light).rendered
                 let colors = AppTheme.colors(isDark: terminalDark)
                 expect(rendered.contains("selection-background = #" + colors.selection),
@@ -77,7 +76,7 @@ enum FamilyAppearanceTests {
             }
         }
         check(false, false, "light preset applies to both existing surfaces")
-        expect(GhosttyRuntime.controller(for: .local) !== GhosttyRuntime.controller(for: .remote), "connection types retain separate controllers")
+        expect(views.allSatisfy { $0.controller === GhosttyRuntime.controller }, "all terminals share one theme controller")
         let legacyKeys = [TerminalAppearance.lightThemeKey, TerminalAppearance.darkThemeKey, TerminalAppearance.legacyThemeKey]
         let legacyValues = legacyKeys.map { defaults.string(forKey: $0) }
         for isDark in [true, false, true] {
@@ -107,13 +106,16 @@ enum FamilyAppearanceTests {
         defaults.set("background = #ff0000\nforeground = #000000\npalette = 2=#0000ff\ncursor-color = #ff0000\nselection-background = #ff0000\ntheme = Dracula\nfont-feature = ss01\n", forKey: TerminalSettings.customConfigKey)
         defaults.set(17.0, forKey: TerminalSettings.fontSizeKey)
         GhosttyRuntime.applyTerminalSettings()
-        for target in TerminalThemeTarget.allCases {
-            let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
-            expect(rendered.contains("font-size = 17") && rendered.contains("font-feature = ss01"), "non-color custom settings still apply")
-            expect(!rendered.contains("#ff0000") && !rendered.contains("Dracula") && !rendered.contains("2=#0000ff"), "custom colors never reach either engine")
+        do {
+            let rendered = GhosttyRuntime.controller.terminalConfiguration.rendered
+            expect(rendered.contains("font-size = 17"), "font settings still apply")
+            expect(!rendered.contains("#ff0000") && !rendered.contains("Dracula") && !rendered.contains("2=#0000ff"), "custom colors never reach the shared engine")
         }
-        expect(TerminalConfigDiagnostics.shared.skippedLines.count == 6, "advanced page reports every ignored color line")
+        let parsedSnippet = TerminalSettings.parseCustomConfig(defaults.string(forKey: TerminalSettings.customConfigKey)!)
+        expect(parsedSnippet.skippedLines.count == 6 && parsedSnippet.entries.contains { $0.key == "font-feature" },
+               "snippet parser protects theme colors while retaining non-color entries")
         check(true, true, "blocked custom colors preserve preset and buffer")
+        TerminalThemeTests.run(defaults: defaults, views: views, sessions: sessions)
         let settingsModel = AppModel()
         let state = settingsModel.mainWindow
         state.section = .files
@@ -185,12 +187,12 @@ enum FamilyAppearanceTests {
             driver.reapply()
             let isTransparent = !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
             expect(driver.isShellTransparent == isTransparent, "legacy style cannot disable the material")
-            for target in TerminalThemeTarget.allCases {
-                let rendered = GhosttyRuntime.controller(for: target).terminalConfiguration.rendered
+            do {
+                let rendered = GhosttyRuntime.controller.terminalConfiguration.rendered
                 // Metal 透明仅用于露出应用自己的实色底板，不代表窗口透出桌面。
                 let opacityLines = rendered.split(separator: "\n").filter { $0.hasPrefix("background-opacity =") }
                 expect(opacityLines == ["background-opacity = 0"],
-                       "both engines expose the app-owned reading background without duplicate opacity overrides")
+                       "the shared engine expose the app-owned reading background without duplicate opacity overrides")
             }
             check(true, true, "legacy style preserves sessions")
         }
@@ -324,8 +326,8 @@ enum FamilyAppearanceTests {
     }
 
     @MainActor static func checkSettingsPages(in window: NSWindow) {
-        let pages = ["appearance", "font", "terminal", "shortcuts", "systemIntegration", "advanced", "about"]
-        for size in [SettingsLayout.windowMinimumSize, CGSize(width: 1200, height: 800), CGSize(width: 1800, height: 1000)] {
+        let pages = ["appearance", "font", "terminal", "shortcuts", "systemIntegration", "about"]
+        for size in [SettingsLayout.windowMinimumSize, SettingsLayout.windowDefaultSize, CGSize(width: 1800, height: 1000)] {
             window.setContentSize(size)
             for page in pages {
                 for _ in 0..<5 { drain() }
@@ -345,12 +347,31 @@ enum FamilyAppearanceTests {
                        "only the selected page heading is exposed: " + page)
                 expect(Set(identifiers.filter { $0.hasPrefix("settings.content.") }) == ["settings.content." + page],
                        "only the selected page scroll area is exposed: " + page)
-                expect(!accessibilityElements(window).contains {
-                    accessibilityValue($0, "accessibilityRole") as? String == "AXScrollBar"
-                }, "settings pages and sidebar expose no scrollbars: " + page)
+                if page == "appearance" {
+                    expect(TerminalThemePreferences.shared.select("ghostty:TokyoNight", isDark: true),
+                           "select a theme outside the first visible catalog rows")
+                    for _ in 0..<5 { drain() }
+                    for appearance in ["light", "dark"] {
+                        let id = "themes.summary." + appearance
+                        expect(identifiers.contains(id), "saved theme remains visible above the catalog: " + id)
+                        if appearance == "dark" {
+                            let summary = accessibilityElements(window).first {
+                                accessibilityValue($0, "accessibilityIdentifier") as? String == id
+                            }
+                            expect(summary.map { (accessibilityValue($0, "accessibilityValue") as? String)?.contains("TokyoNight") == true } == true,
+                                   "summary names the selected theme even when its card is off-screen")
+                        }
+                    }
+                    expect(TerminalThemePreferences.shared.reset(), "restore theme after settings check")
+                }
+                if page != "appearance" {
+                    expect(!accessibilityElements(window).contains {
+                        accessibilityValue($0, "accessibilityRole") as? String == "AXScrollBar"
+                    }, "form pages and sidebar expose no scrollbars: " + page)
+                }
                 if page == "appearance" {
                     expect(!identifiers.contains(where: { $0.hasPrefix("settings.preset.") }),
-                           "appearance has no theme or colored icon picker")
+                           "appearance has no obsolete preset or colored icon picker")
                     expect(!identifiers.contains("settings.navigation.appIcon"), "no separate icon settings remain")
                 }
 
@@ -365,7 +386,7 @@ enum FamilyAppearanceTests {
                 }
             }
         }
-        print("CHECKED: all seven independent settings pages at minimum, common and large window sizes; hidden pages excluded from accessibility; preset appearance retained")
+        print("CHECKED: all six independent settings pages at minimum, common and large window sizes; hidden pages excluded from accessibility; preset appearance retained")
     }
 
     @MainActor static func accessibilityValue(_ object: NSObject, _ name: String) -> Any? {

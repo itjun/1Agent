@@ -42,6 +42,13 @@ enum SettingsLayout {
     static let integrationHeaderHeight: CGFloat = 38
     static let integrationRowHeight: CGFloat = 58
     static let integrationIconSize: CGFloat = 22
+    static let themeGridSpacing: CGFloat = 16
+    static let themeMinimumWidth: CGFloat = 205
+    static let themePreviewHeight: CGFloat = 132
+    static let themeFilterWidth: CGFloat = 210
+    static func themeColumnCount(width: CGFloat) -> Int {
+        min(4, max(1, Int((width - 2 * Theme.Space.xl + themeGridSpacing) / (themeMinimumWidth + themeGridSpacing))))
+    }
 }
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
@@ -117,7 +124,7 @@ struct SettingsView: View {
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
 
-    // 全局设置不继承最后一个会话的本机／远程配色。
+    // 全局设置保持应用外观，不继承终端主题配色。
     private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark) }
     private var sidebarChrome: WindowChrome { chrome }
     private var settingsBackground: Color { chrome.background }
@@ -164,16 +171,24 @@ struct SettingsView: View {
                     .tint(chrome.accent).font(Theme.Font.body)
         } detail: {
             VStack(spacing: 0) {
-                Text(selectedPage.title)
-                    .font(.system(size: SettingsLayout.pageTitleSize, weight: .semibold))
-                    .foregroundStyle(chrome.text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, pageContentBounds[selectedPage]?.minX ?? Theme.Space.xl)
-                    .padding(.trailing, Theme.Space.xl)
-                    .frame(height: SettingsLayout.pageHeaderHeight)
-                    .background(WindowDragArea())
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("settings.section.\(selectedPage.rawValue)")
+                HStack {
+                    Text(selectedPage.title)
+                        .font(.system(size: SettingsLayout.pageTitleSize, weight: .semibold))
+                        .foregroundStyle(chrome.text)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("settings.section.\(selectedPage.rawValue)")
+                    Spacer()
+                    if selectedPage == .appearance {
+                        RestorePageDefaultsButton {
+                            restoreAppearancePageDefaults()
+                        }
+                        .accessibilityIdentifier("themes.reset")
+                    }
+                }
+                .padding(.leading, pageContentBounds[selectedPage]?.minX ?? Theme.Space.xl)
+                .padding(.trailing, Theme.Space.xl)
+                .frame(height: SettingsLayout.pageHeaderHeight)
+                .background(WindowDragArea())
                 Rectangle().fill(chrome.hairline).frame(height: 0.5)
                 settingsContent
             }
@@ -266,24 +281,32 @@ struct SettingsView: View {
         // 分类只显示当前页；稳定保留其他页，切换不会清空搜索、配置草稿或预览。
         ZStack(alignment: .topLeading) {
             ForEach(SettingsPage.allCases) { page in
-                ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
-                        settingsPage(page)
-                            .frame(maxWidth: SettingsLayout.contentMaxWidth, alignment: .leading)
-                            .onGeometryChange(for: CGRect.self) { geometry in
-                                let frame = geometry.frame(in: .named("settings.detail"))
-                                return CGRect(x: frame.minX, y: 0, width: frame.width, height: 0)
-                            } action: { bounds in
-                                // 标题与操作栏跟随表单的真实边界。
-                                pageContentBounds[page] = bounds
+                Group {
+                    if page == .appearance {
+                        appearancePage
+                            .accessibilityElement(children: .contain)
+                            .accessibilityIdentifier("settings.content.appearance")
+                    } else {
+                        ScrollViewReader { proxy in
+                            ScrollView(showsIndicators: false) {
+                                settingsPage(page)
+                                    .frame(maxWidth: SettingsLayout.contentMaxWidth, alignment: .leading)
+                                    .onGeometryChange(for: CGRect.self) { geometry in
+                                        let frame = geometry.frame(in: .named("settings.detail"))
+                                        return CGRect(x: frame.minX, y: 0, width: frame.width, height: 0)
+                                    } action: { bounds in
+                                        // 标题与操作栏跟随表单的真实边界。
+                                        pageContentBounds[page] = bounds
+                                    }
+                                    .padding(Theme.Space.xl)
+                                    .frame(maxWidth: .infinity)
+                                    .id(page)
                             }
-                            .padding(Theme.Space.xl)
-                            .frame(maxWidth: .infinity)
-                            .id(page)
-                    }
-                    .accessibilityIdentifier("settings.content.\(page.rawValue)")
-                    .onChange(of: selectedPage) { _, selected in
-                        if selected == page { proxy.scrollTo(page, anchor: .top) }
+                            .accessibilityIdentifier("settings.content.\(page.rawValue)")
+                            .onChange(of: selectedPage) { _, selected in
+                                if selected == page { proxy.scrollTo(page, anchor: .top) }
+                            }
+                        }
                     }
                 }
                 .opacity(selectedPage == page ? 1 : 0)
@@ -318,19 +341,19 @@ struct SettingsView: View {
     }
 
     private var appearancePage: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xl) {
+        VStack(alignment: .leading, spacing: 0) {
             SettingsCard("Appearance Mode") {
                 appearanceModeControl
             }
+            .padding(.horizontal, Theme.Space.xl)
+            .padding(.top, Theme.Space.xl)
 
-            RestorePageDefaultsButton {
-                restoreAppearancePageDefaults()
-            }
+            TerminalThemeSettingsPage()
         }
     }
 
-    /// 外观模式与可读性设置立即应用，旧主题偏好保留但不再参与取色。
     private func restoreAppearancePageDefaults() {
+        guard TerminalThemePreferences.shared.reset() else { return }
         appearanceRaw = TerminalAppearance.system.rawValue
         AppearanceDriver.shared.selectPreset(AppTheme.defaultPreset)
         GhosttyRuntime.applyTerminalSettings()
