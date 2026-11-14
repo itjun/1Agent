@@ -6,6 +6,7 @@ enum CommandFinishedPolicyTests {
         durations()
         fallback()
         configured()
+        failures()
         print("ok")
     }
 
@@ -23,35 +24,56 @@ enum CommandFinishedPolicyTests {
     static func fallback() {
         let policy = CommandFinishedPolicy.from([])
         expect(policy == .fallback, "no snippet keys means the fallback")
-        expect(policy.actions(duration: 12, attended: false) == (true, false), "long command in a hidden session notifies")
-        expect(policy.actions(duration: 12, attended: true) == (false, false), "the user is looking at it")
-        expect(policy.actions(duration: 9, attended: false) == (false, false), "short commands stay quiet")
+        expect(policy.actions(exitCode: 0, duration: 12, attended: false) == (true, false), "long command in a hidden session notifies")
+        expect(policy.actions(exitCode: 0, duration: 12, attended: true) == (false, false), "the user is looking at it")
+        expect(policy.actions(exitCode: 0, duration: 9, attended: false) == (false, false), "short commands stay quiet")
+        expect(policy.actions(exitCode: nil, duration: 0, attended: false) == (false, false), "unknown status is not a failure")
     }
 
     static func configured() {
         let bellOnly = CommandFinishedPolicy.from([entry("notify-on-command-finish", "always")])
-        expect(bellOnly.actions(duration: 6, attended: true) == (false, true), "Ghostty's default action is only the bell")
-        expect(bellOnly.actions(duration: 4, attended: true) == (false, false), "Ghostty's default threshold is 5s")
+        expect(bellOnly.actions(exitCode: 0, duration: 6, attended: true) == (false, true), "Ghostty's default action is only the bell")
+        expect(bellOnly.actions(exitCode: 0, duration: 4, attended: true) == (false, false), "Ghostty's default threshold is 5s")
 
         let notify = CommandFinishedPolicy.from([
             entry("notify-on-command-finish", "unfocused"),
             entry("notify-on-command-finish-action", "no-bell,notify"),
             entry("notify-on-command-finish-after", "2s"),
         ])
-        expect(notify.actions(duration: 3, attended: false) == (true, false), "configured action and threshold")
-        expect(notify.actions(duration: 3, attended: true) == (false, false), "unfocused skips an attended session")
+        expect(notify.actions(exitCode: 0, duration: 3, attended: false) == (true, false), "configured action and threshold")
+        expect(notify.actions(exitCode: 0, duration: 3, attended: true) == (false, false), "unfocused skips an attended session")
 
         let never = CommandFinishedPolicy.from([
             entry("notify-on-command-finish", "always"),
             entry("notify-on-command-finish", "never"),
         ])
-        expect(never.actions(duration: 100, attended: false) == (false, false), "the last line wins")
+        expect(never.actions(exitCode: 0, duration: 100, attended: false) == (false, false), "the last line wins")
 
         let badValue = CommandFinishedPolicy.from([
             entry("notify-on-command-finish", "always"),
             entry("notify-on-command-finish-after", "soon"),
         ])
         expect(badValue.threshold == CommandFinishedPolicy.ghosttyDefaultThreshold, "an unreadable duration is ignored")
+    }
+
+    static func failures() {
+        let disabledCompletion = CommandFinishedPolicy.from([
+            entry("notify-on-command-finish", "never"),
+            entry("notify-on-command-finish-action", "no-bell,no-notify"),
+            entry("notify-on-command-finish-after", "1h"),
+        ])
+        for policy in [CommandFinishedPolicy.fallback, disabledCompletion] {
+            for attended in [false, true] {
+                for duration in [0.01, 51.3] {
+                    for exitCode in [1, 2, 126, 127, 130] {
+                        expect(policy.actions(exitCode: exitCode, duration: duration, attended: attended) == (true, false),
+                               "every failure notifies regardless of duration, visibility or ordinary completion settings")
+                    }
+                }
+            }
+        }
+        let bellOnly = CommandFinishedPolicy.from([entry("notify-on-command-finish", "always")])
+        expect(bellOnly.actions(exitCode: 2, duration: 6, attended: true) == (true, true), "failure notification preserves a configured bell")
     }
 
     static func entry(_ key: String, _ value: String) -> TerminalConfigEntry {

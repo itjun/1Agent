@@ -10,8 +10,7 @@ struct CommandFinishedPolicy: Equatable {
         case always
     }
 
-    /// Without `notify-on-command-finish` in the snippet: notify for a command at least this long
-    /// in a session the user is not looking at.
+    /// 成功或状态未知时，仅提醒后台长任务；失败通知不受耗时和前后台限制。
     static let fallbackThreshold: TimeInterval = 10
     /// Ghostty's default for `notify-on-command-finish-after`.
     static let ghosttyDefaultThreshold: TimeInterval = 5
@@ -74,17 +73,18 @@ struct CommandFinishedPolicy: Equatable {
     }
 
     /// `attended`: the app is frontmost and the session is on screen.
-    func actions(duration: TimeInterval, attended: Bool) -> (notify: Bool, bell: Bool) {
+    func actions(exitCode: Int?, duration: TimeInterval, attended: Bool) -> (notify: Bool, bell: Bool) {
+        let isFailure = exitCode.map { $0 != 0 } ?? false
         if mode == .never {
-            return (false, false)
+            return (isFailure, false)
         }
         if mode == .unfocused && attended {
-            return (false, false)
+            return (isFailure, false)
         }
         if duration < threshold {
-            return (false, false)
+            return (isFailure, false)
         }
-        return (notify, bell)
+        return (isFailure || notify, bell)
     }
 
     /// Ghostty duration syntax: numbers with units, summed, e.g. `1h30m`, `45s`, `500ms`.

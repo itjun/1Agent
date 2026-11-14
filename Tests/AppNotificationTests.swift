@@ -4,7 +4,17 @@ import SwiftUI
 @testable import GooseAgent
 
 @main enum AppNotificationTests {
-    @MainActor static func main() async {
+    @MainActor static func main() {
+        _ = NSApplication.shared
+        NSApp.setActivationPolicy(.regular)
+        Task { @MainActor in
+            await run()
+            exit(0)
+        }
+        NSApp.run()
+    }
+
+    @MainActor static func run() async {
         let suite = "oneagent.notifications.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(["zh-Hans"], forKey: "AppleLanguages")
@@ -13,8 +23,6 @@ import SwiftUI
         let block: @convention(block) (AnyObject) -> UserDefaults = { _ in defaults }
         method_setImplementation(getter, imp_implementationWithBlock(block))
         defer { method_setImplementation(getter, previous); defaults.removePersistentDomain(forName: suite) }
-        _ = NSApplication.shared
-        NSApp.setActivationPolicy(.accessory)
         let store = AppNotificationStore()
         let progress = AppNotificationItem(id: "upload", title: "文件", message: "上传中", level: .progress)
         store.show(progress)
@@ -36,12 +44,38 @@ import SwiftUI
         expect(store.current?.id == "upload", "dismissing current reveals pending notification")
 
         let model = AppModel()
+        MainWindowManager.shared.show(model.mainWindow, model: model)
+        let commandWindow = MainWindowManager.shared.window(for: model.mainWindow)!
+        // 隔离终端进程，只从生产事件入口验证通知投递。
+        commandWindow.contentView = NSView()
+        TerminalActivity.shared.model = model
+        NSApp.activate(ignoringOtherApps: true)
+        for _ in 0..<100 {
+            if NSApp.isActive { break }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        expect(NSApp.isActive, "command notification fixture is foreground")
         model.openRemoteTerminal("notification-fixture", at: "/tmp", placement: .newTab, beside: UUID(), in: model.mainWindow)
         for _ in 0..<100 {
             if !model.tabs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(20))
         }
         let tabID = model.tabs.first!.id
+        let terminal = SSHTerminalNSView(frame: .zero)
+        terminal.sessionID = model.tabs.first!.sessionID
+        terminal.eventRelay.terminal = terminal
+        let commandStore = AppNotifications.presenter(for: commandWindow).store
+        expect(TerminalActivity.shared.isAttended(model.tabs.first!), "failed build fixture is on screen")
+        terminal.eventRelay.terminalDidFinishCommand(exitCode: 1, durationNanos: 51_300_000_000)
+        expect(commandStore.current?.level == .error, "foreground build failure must show an error notification")
+        commandStore.dismiss(commandStore.current!.id)
+        terminal.eventRelay.terminalDidFinishCommand(exitCode: 127, durationNanos: 10_000_000)
+        expect(commandStore.current?.level == .error, "immediate command-not-found failure must notify")
+        expect(commandStore.current!.message.contains("127"), "failure notification includes the exit code")
+        commandStore.dismiss(commandStore.current!.id)
+        terminal.eventRelay.terminalDidFinishCommand(exitCode: 0, durationNanos: 10_000_000)
+        terminal.eventRelay.terminalDidFinishCommand(exitCode: nil, durationNanos: 10_000_000)
+        expect(commandStore.current == nil, "short successful or unknown results stay quiet")
         model.markClosed(tabID, lived: 10)
         expect(model.tabs.first!.connectionNotice == .waiting(0), "transport loss waits in orange before automatic retry")
         try? await Task.sleep(for: .milliseconds(1200))
@@ -53,6 +87,8 @@ import SwiftUI
         model.markClosed(tabID, lived: 0)
         expect(model.tabs.first!.connectionNotice == .waiting(1), "brief retry failure waits for the next attempt")
         model.closeTab(tabID)
+        commandWindow.close()
+        TerminalActivity.shared.model = nil
 
         let owner = NSWindow(contentRect: CGRect(x: 100, y: 100, width: 900, height: 600),
                              styleMask: [.titled, .resizable], backing: .buffered, defer: false)

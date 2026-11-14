@@ -437,7 +437,7 @@ final class TerminalActivity: ObservableObject {
         let entries = TerminalSettings.parseCustomConfig(TerminalSettings.load().customConfig).entries
         let policy = CommandFinishedPolicy.from(entries)
         let duration = TimeInterval(durationNanos) / 1_000_000_000
-        let actions = policy.actions(duration: duration, attended: isAttended(tab))
+        let actions = policy.actions(exitCode: exitCode, duration: duration, attended: isAttended(tab))
         if actions.bell {
             ringBell(sessionID: sessionID, terminal: terminal)
         }
