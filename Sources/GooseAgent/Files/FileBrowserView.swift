@@ -710,6 +710,11 @@ private struct FileColumnActions {
         let window = NSApp.keyWindow ?? NSApp.mainWindow
         let available = !column.directory.isEmpty && !column.loading
         return [
+            FamilyMenuItem(title: String(localized: "Back to Terminals"), action: {
+                guard let model = workspace.model, let window = workspace.windowState else { return }
+                model.hideFiles(in: window)
+            }),
+            .separator,
             FamilyMenuItem(title: String(localized: "New Folder"), enabled: available, action: {
                 workspace.focus(column)
                 workspace.create(folder: true, in: column, window: window)
