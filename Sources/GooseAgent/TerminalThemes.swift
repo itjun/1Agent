@@ -84,7 +84,8 @@ final class AppearanceDriver: ObservableObject {
     private init() {
         let mode = TerminalAppearance.stored()
         interfaceIsDark = mode.resolvesDark()
-        terminalIsDark = mode.resolvesDark()
+        terminalIsDark = TerminalThemePreferences.selected(isDark: mode.resolvesDark())
+            .isDark(interfaceIsDark: mode.resolvesDark())
         isShellTransparent = ShellStyle.isTransparent
         preset = AppTheme.stored()
         themeWatcher.start()
@@ -97,7 +98,7 @@ final class AppearanceDriver: ObservableObject {
         return .light
     }
 
-    /// 外观模式同时切换窗口和该外观下保存的终端主题。
+    /// 窗口使用所选外观，所有终端使用该外观下保存的主题，明暗可以不同。
     func reapply() {
         // 强调色变化不一定伴随浅深色切换，仍需刷新读取系统语义色的窗口。
         if preset == .system { objectWillChange.send() }
@@ -107,7 +108,7 @@ final class AppearanceDriver: ObservableObject {
         }
         let mode = TerminalAppearance.stored()
         let dark = mode.resolvesDark()
-        let terminalDark = dark
+        let terminalDark = TerminalThemePreferences.selected(isDark: dark).isDark(interfaceIsDark: dark)
         TerminalAppearance.applyAppKit(isDark: dark)
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }

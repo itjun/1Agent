@@ -1,11 +1,10 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Light Theme": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Light Theme"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色主题"}}}},
-    "Dark Theme": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Dark Theme"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "深色主题"}}}},
-    "Themes switch automatically with appearance.": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Themes switch automatically with appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色和深色主题随外观自动切换。"}}}},
-    "Choose a theme matching this appearance.": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose a theme matching this appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "请选择与当前配置的外观明暗一致的主题。"}}}},
+    "Theme for Light Appearance" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Theme for Light Appearance"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色外观下的主题"}}}},
+    "Theme for Dark Appearance" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Theme for Dark Appearance"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "深色外观下的主题"}}}},
     "Selected" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Selected"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已选择"}}}},
+    "Each appearance remembers its own theme." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Each appearance remembers its own theme."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色和深色外观分别记住所选主题。"}}}},
   "Local": {
     "localizations": {
       "en": {

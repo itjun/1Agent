@@ -223,7 +223,7 @@ final class TerminalThemePreferences: ObservableObject {
         }
         // 共用配置一旦保存（包括默认），就不再读取旧的本地／远程选择。
         if let id = defaults.string(forKey: TerminalThemePreferences.storageKey(isDark: isDark)) {
-            return matchingTheme(id) ?? .system
+            return TerminalThemeCatalog.shared.theme(id: id) ?? .system
         }
         // 合并时优先沿用本地配置；没有匹配选择时再读取远程配置。
         for target in ["local", "remote"] {
@@ -246,17 +246,16 @@ final class TerminalThemePreferences: ObservableObject {
             error = String(format: String(localized: "Could not load theme %@."), id)
             return false
         }
-        guard theme.isDefault || theme.isDark(interfaceIsDark: isDark) == isDark else {
-            error = String(localized: "Choose a theme matching this appearance.")
-            return false
-        }
-        // 配置另一种外观时只保存选择。
+        // 外观决定保存位置，主题明暗由配色决定；配置另一种外观时只保存选择。
         if isDark == interfaceIsDark,
            let issue = GhosttyRuntime.applyTheme(theme, interfaceIsDark: isDark) {
             error = issue
             return false
         }
         UserDefaults.standard.set(theme.id, forKey: TerminalThemePreferences.storageKey(isDark: isDark))
+        if isDark == interfaceIsDark {
+            AppearanceDriver.shared.reapply()
+        }
         error = nil
         revision += 1
         return true
@@ -273,6 +272,7 @@ final class TerminalThemePreferences: ObservableObject {
             UserDefaults.standard.set(TerminalThemeDescriptor.defaultID,
                                       forKey: TerminalThemePreferences.storageKey(isDark: isDark))
         }
+        AppearanceDriver.shared.reapply()
         error = nil
         revision += 1
         return true

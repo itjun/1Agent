@@ -21,7 +21,7 @@ struct TerminalThemeSettingsPage: View {
                         themeSummary(isDark: false)
                         themeSummary(isDark: true)
                     }
-                    Text("Themes switch automatically with appearance.")
+                    Text("Each appearance remembers its own theme.")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -117,7 +117,7 @@ struct TerminalThemeSettingsPage: View {
         let theme = TerminalThemePreferences.selected(isDark: isDark)
         return VStack(alignment: .leading, spacing: Theme.Space.xs) {
             HStack(spacing: Theme.Space.s) {
-                Text(isDark ? "Dark Theme" : "Light Theme")
+                Text(isDark ? "Theme for Dark Appearance" : "Theme for Light Appearance")
                     .foregroundStyle(chrome.secondary)
                 if chrome.isDark == isDark {
                     Text("In Use").foregroundStyle(chrome.accent)
@@ -135,14 +135,14 @@ struct TerminalThemeSettingsPage: View {
     }
 
     private func themeCard(_ theme: TerminalThemeDescriptor) -> some View {
-        let isDark = theme.isDark(interfaceIsDark: filter == .all ? chrome.isDark : filter == .dark)
-        let selected = TerminalThemePreferences.selected(isDark: isDark).id == theme.id
-        let selectedLabel: LocalizedStringKey = isDark == chrome.isDark ? "In Use" : "Selected"
+        let isInUse = TerminalThemePreferences.selected(isDark: chrome.isDark).id == theme.id
+        let selected = isInUse || TerminalThemePreferences.selected(isDark: !chrome.isDark).id == theme.id
+        let selectedLabel: LocalizedStringKey = isInUse ? "In Use" : "Selected"
         return Button {
-            preferences.select(theme.id, isDark: isDark)
+            preferences.select(theme.id)
         } label: {
             VStack(alignment: .leading, spacing: Theme.Space.s) {
-                TerminalThemePreview(colors: theme.colors(interfaceIsDark: isDark))
+                TerminalThemePreview(colors: theme.colors(interfaceIsDark: chrome.isDark))
                     .overlay {
                         RoundedRectangle(cornerRadius: SettingsLayout.cardRadius)
                             .strokeBorder(selected ? chrome.accent : chrome.hairline, lineWidth: selected ? 2 : 1)
@@ -177,7 +177,7 @@ struct TerminalThemeSettingsPage: View {
                 .padding(-3).allowsHitTesting(false)
         }
         .onKeyPress(keys: [.space, .return]) { _ in
-            preferences.select(theme.id, isDark: isDark)
+            preferences.select(theme.id)
             return .handled
         }
         .help(theme.displayName)

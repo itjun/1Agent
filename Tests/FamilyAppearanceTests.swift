@@ -348,6 +348,30 @@ enum FamilyAppearanceTests {
                 expect(Set(identifiers.filter { $0.hasPrefix("settings.content.") }) == ["settings.content." + page],
                        "only the selected page scroll area is exposed: " + page)
                 if page == "appearance" {
+                    if size == SettingsLayout.windowDefaultSize {
+                        UserDefaults.standard.set("light", forKey: TerminalAppearance.storageKey)
+                        AppearanceDriver.shared.reapply()
+                        for themeID in ["ghostty:0x96f", "ghostty:3024 Day"] {
+                            for _ in 0..<5 { drain() }
+                            guard let card = accessibilityElements(window).first(where: {
+                                accessibilityValue($0, "accessibilityIdentifier") as? String == "themes.card." + themeID
+                            }) else { expect(false, "theme card is visible: " + themeID); return }
+                            expect(unsafeBitCast(card.method(for: selector), to: Press.self)(card, selector),
+                                   "theme card activates: " + themeID)
+                            for _ in 0..<5 { drain() }
+                            expect(TerminalThemePreferences.selected(isDark: false).id == themeID,
+                                   "theme card saves to the current appearance")
+                            expect(TerminalAppearance.stored() == .light
+                                   && window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua,
+                                   "selecting either theme brightness keeps the settings window light")
+                            let theme = TerminalThemeCatalog.shared.theme(id: themeID)!
+                            expect(GhosttyRuntime.controller.theme == theme.configuration
+                                   && (GhosttyRuntime.controller.effectiveColorScheme == .dark) == theme.palette!.isDark,
+                                   "theme card updates the running engine independently of the window")
+                        }
+                        UserDefaults.standard.set("dark", forKey: TerminalAppearance.storageKey)
+                        AppearanceDriver.shared.reapply()
+                    }
                     expect(TerminalThemePreferences.shared.select("ghostty:TokyoNight", isDark: true),
                            "select a theme outside the first visible catalog rows")
                     for _ in 0..<5 { drain() }

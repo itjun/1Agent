@@ -760,7 +760,7 @@ struct RootView: View {
                 model: model,
                 window: window,
                 dropRelay: dropRelay,
-                dark: appearanceDriver.terminalIsDark
+                interfaceIsDark: appearanceDriver.interfaceIsDark
             )
             if model.selectedTab(in: window) == nil {
                 Text("Terminal").font(Theme.Font.emptyTitle).foregroundStyle(chrome.tertiary)

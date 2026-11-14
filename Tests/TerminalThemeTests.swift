@@ -66,11 +66,15 @@ enum TerminalThemeTests {
                "remote choice is preserved if local choice is absent")
         for isDark in [false, true] {
             let key = TerminalThemePreferences.storageKey(isDark: isDark)
-            for id in [TerminalThemeDescriptor.defaultID, "ghostty:missing", (isDark ? light : dark).id] {
+            for id in [TerminalThemeDescriptor.defaultID, "ghostty:missing"] {
                 defaults.set(id, forKey: key)
                 expect(TerminalThemePreferences.selected(isDark: isDark).isDefault,
                        "shared default or invalid choice cannot revive legacy settings")
             }
+            let oppositeTheme = isDark ? light : dark
+            defaults.set(oppositeTheme.id, forKey: key)
+            expect(TerminalThemePreferences.selected(isDark: isDark).id == oppositeTheme.id,
+                   "saved themes can have a different brightness from their appearance slot")
             defaults.removeObject(forKey: key)
             for target in ["local", "remote"] {
                 defaults.removeObject(forKey: "appearance.terminalTheme." + target + (isDark ? ".dark" : ".light"))
@@ -150,6 +154,9 @@ enum TerminalThemeTests {
             }
             try Data("blocked".utf8).write(to: directory)
             expect(!prefs.select(otherDark.id, isDark: true), "engine write failure is reported")
+            expect(!prefs.select(otherLight.id), "opposite-brightness theme write failure is reported")
+            expect(TerminalAppearance.stored() == .dark && AppearanceDriver.shared.interfaceIsDark,
+                   "failed activation preserves the saved and visible appearance")
             expect(!prefs.reset(), "failed reset leaves both selections intact")
             expect(runtime.theme == previousTheme && runtime.effectiveColorScheme == previousScheme,
                    "failed transaction preserves engine palette and scheme")
@@ -173,6 +180,31 @@ enum TerminalThemeTests {
         expect(TerminalThemePreferences.selected(isDark: false).id == otherLight.id
                && TerminalThemePreferences.selected(isDark: true).id == dark.id,
                "config import and undo preserve the shared theme pair")
+        for mode in [TerminalAppearance.light, .dark, .system] {
+            defaults.set(mode.rawValue, forKey: TerminalAppearance.storageKey)
+            AppearanceDriver.shared.reapply()
+            let isDark = mode.resolvesDark()
+            for theme in [dark, light, otherLight, otherDark] {
+                let inactiveID = TerminalThemePreferences.selected(isDark: !isDark).id
+                expect(prefs.select(theme.id), "any theme can be selected for the current appearance")
+                expect(TerminalAppearance.stored() == mode, "theme selection preserves light, dark and follow system modes")
+                expect(TerminalThemePreferences.selected(isDark: !isDark).id == inactiveID,
+                       "theme selection preserves the other appearance's theme")
+                AppearanceDriver.shared.reapply()
+                check(theme, uiDark: isDark)
+            }
+        }
+        switchAppearance(false)
+        expect(prefs.select(dark.id), "dark theme can be saved for light appearance")
+        switchAppearance(true)
+        expect(prefs.select(light.id), "light theme can be saved for dark appearance")
+        for isDark in [false, true, false] {
+            switchAppearance(isDark)
+            check(isDark ? light : dark, uiDark: isDark)
+        }
+        expect(prefs.select(TerminalThemeDescriptor.defaultID), "default restores the current appearance's palette")
+        expect(TerminalAppearance.stored() == .light, "default preserves the current appearance")
+        check(.system, uiDark: false)
         defaults.set(dark.id, forKey: "appearance.terminalTheme.local")
         expect(prefs.reset(), "reset both shared appearances")
         for isDark in [false, true] {

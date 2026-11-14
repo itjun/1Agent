@@ -11,7 +11,7 @@ struct TerminalCanvas: View {
     @ObservedObject private var themePreferences = TerminalThemePreferences.shared
     @ObservedObject private var find = TerminalFind.shared
     var dropRelay: CanvasDropRelay
-    var dark: Bool
+    var interfaceIsDark: Bool
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
     @State private var commandWidthDrag: (id: UUID, start: CGFloat)?
     @State private var ratioDrag: (id: UUID, split: UUID, start: CGFloat)?
@@ -48,7 +48,7 @@ struct TerminalCanvas: View {
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
                     let isSelected = window.selectedTabID == tab.id && window.section == .terminals
-                    let theme = TerminalThemePreferences.selected(isDark: dark)
+                    let theme = TerminalThemePreferences.selected(isDark: interfaceIsDark)
                     let cardHeader = paneHeaderHeight + findBarInset(tab)
                     SSHTerminalView(
                         sessionID: tab.sessionID,
@@ -56,7 +56,7 @@ struct TerminalCanvas: View {
                         directory: tab.isLocal ? tab.directory : nil,
                         remoteDirectory: tab.remoteDirectory,
                         environment: ShellIntegrationEnvironment.merged(model.launchEnvironment, overrides: tab.creationEnvironment),
-                        dark: theme.isDark(interfaceIsDark: dark),
+                        dark: theme.isDark(interfaceIsDark: interfaceIsDark),
                         initialFontSize: tab.creationFontSize,
                         restoration: tab.restoration,
                         isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace
@@ -89,7 +89,7 @@ struct TerminalCanvas: View {
                         height: max(drawn.height, 1)
                     )
                     .background {
-                        theme.colors(interfaceIsDark: dark).paneBackground(isFocused: isSelected).color
+                        theme.colors(interfaceIsDark: interfaceIsDark).paneBackground(isFocused: isSelected).color
                     }
                     .padding(.top, cardHeader)
                     .modifier(FloatingContentSurface())
@@ -236,8 +236,8 @@ struct TerminalCanvas: View {
         let sidebarWidth = commandSidebarWidth(tab, in: frame)
         let terminalWidth = max(1, frame.width - sidebarWidth)
         let isSelected = window.selectedTabID == tab.id && window.section == .terminals
-        let theme = TerminalThemePreferences.selected(isDark: dark)
-        let paneChrome = theme.colors(interfaceIsDark: dark).paneChrome(isFocused: isSelected)
+        let theme = TerminalThemePreferences.selected(isDark: interfaceIsDark)
+        let paneChrome = theme.colors(interfaceIsDark: interfaceIsDark).paneChrome(isFocused: isSelected)
         if tab.hasTerminal && headerHeight > 0 {
             terminalHeader(tab, chrome: paneChrome)
                 .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
