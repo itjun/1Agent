@@ -76,8 +76,7 @@ struct QuickCommandSidebar: View {
         }
         }
         .foregroundStyle(chrome.text)
-        .background(AppTheme.terminalPaneBackground(isDark: chrome.isDark,
-                    isFocused: window.selectedTabID == tabID).color)
+        .background(chrome.background)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("quickCommands.pane." + tabID.uuidString)
         .onChange(of: commands.map(\.id), initial: true) { _, ids in

@@ -39,6 +39,28 @@ struct TerminalThemeColors: Equatable {
         return base.mixed(with: neutral, amount: isDark ? 0.06 : 0.05)
     }
 
+    /// 标题、搜索和命令栏跟随各自终端，左侧导航仍使用窗口外观。
+    func paneChrome(isFocused: Bool) -> WindowChrome {
+        var chrome = WindowChrome(isDark: isDark)
+        let base = paneBackground(isFocused: isFocused)
+        let themeText = RGBColor(ghosttyHex: foreground)!
+        let black = RGBColor(red: 0, green: 0, blue: 0)
+        let white = RGBColor(red: 1, green: 1, blue: 1)
+        let contrastTarget = black.contrastRatio(with: base) > white.contrastRatio(with: base) ? black : white
+        let text = RGBColor.ensureContrast(themeText, against: base, toward: contrastTarget, minimum: 4.5)
+        chrome.background = base.color
+        chrome.sidebarBackground = base.color
+        chrome.panelHeader = base.color
+        chrome.text = text.color
+        chrome.secondary = RGBColor.ensureContrast(text.mixed(with: base, amount: 0.35),
+                                                   against: base, toward: contrastTarget, minimum: 4.5).color
+        chrome.tertiary = chrome.secondary
+        chrome.elevated = base.mixed(with: text, amount: 0.08).color
+        chrome.hairline = base.mixed(with: text, amount: 0.15).color
+        chrome.lineStrong = text.color
+        return chrome
+    }
+
     static func system(isDark: Bool) -> TerminalThemeColors {
         let colors = AppTheme.colors(isDark: isDark)
         return TerminalThemeColors(

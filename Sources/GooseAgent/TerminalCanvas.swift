@@ -88,10 +88,10 @@ struct TerminalCanvas: View {
                         width: max(drawn.width, 1),
                         height: max(drawn.height, 1)
                     )
-                    .padding(.top, cardHeader)
                     .background {
                         theme.colors(interfaceIsDark: dark).paneBackground(isFocused: isSelected).color
                     }
+                    .padding(.top, cardHeader)
                     .modifier(FloatingContentSurface())
                     .environment(\.windowChrome, chrome)
                     .position(
@@ -235,11 +235,17 @@ struct TerminalCanvas: View {
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
         let sidebarWidth = commandSidebarWidth(tab, in: frame)
         let terminalWidth = max(1, frame.width - sidebarWidth)
+        let isSelected = window.selectedTabID == tab.id && window.section == .terminals
+        let theme = TerminalThemePreferences.selected(isDark: dark)
+        let paneChrome = theme.colors(interfaceIsDark: dark).paneChrome(isFocused: isSelected)
         if tab.hasTerminal && headerHeight > 0 {
-            terminalHeader(tab)
+            terminalHeader(tab, chrome: paneChrome)
                 .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
                 .frame(width: terminalWidth, height: headerHeight)
                 .background(WindowDragArea().accessibilityHidden(true))
+                .background(paneChrome.background)
+                .environment(\.windowChrome, paneChrome)
+                .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
                 .position(x: frame.minX + terminalWidth / 2, y: frame.minY + headerHeight / 2)
                 .zIndex(4)
         }
@@ -247,7 +253,8 @@ struct TerminalCanvas: View {
             let height = max(1, frame.height)
             let dividerX = frame.maxX - sidebarWidth
             QuickCommandSidebar(model: model, window: window, tabID: tab.id)
-                .environment(\.windowChrome, WindowChrome(isDark: dark))
+                .environment(\.windowChrome, paneChrome)
+                .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
                 .frame(width: sidebarWidth, height: height)
                 .clipped()
                 .position(x: frame.maxX - sidebarWidth / 2, y: frame.midY)
@@ -269,13 +276,15 @@ struct TerminalCanvas: View {
         if let findState = find.states[tab.sessionID] {
             let findTop = frame.minY + headerHeight
             TerminalFindBar(state: findState, onFocus: { model.notePaneFocused(tab.id, in: window) })
+                .environment(\.windowChrome, paneChrome)
+                .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
                 .frame(width: terminalWidth, height: Theme.PaneStyle.findBarHeight)
                 .position(x: frame.minX + terminalWidth / 2, y: findTop + Theme.PaneStyle.findBarHeight / 2)
                 .zIndex(4)
         }
     }
 
-    private func terminalHeader(_ tab: TerminalTab) -> some View {
+    private func terminalHeader(_ tab: TerminalTab, chrome: WindowChrome) -> some View {
         let isSelected = window.selectedTabID == tab.id && window.section == .terminals
         return HStack(spacing: Theme.Space.s) {
             HStack(spacing: Theme.Space.s) {
