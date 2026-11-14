@@ -52,6 +52,7 @@ struct RootView: View {
                     }
                 ) {
                     sidebar
+                        .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
