@@ -413,7 +413,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             do {
                 try await prepareForTermination()
-                await SSHTerminalRegistry.killProcessesForApplicationExit()
+                SSHTerminalRegistry.detachProcessesForApplicationExit()
                 sender.reply(toApplicationShouldTerminate: true)
             }
             catch {
@@ -431,7 +431,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             TerminalSecureInput.shared.stop()
             model.persistSessionIfReady()
             FileTransferQueue.shared.interruptForTermination()
-            do { try await model.prepareForApplicationExit(stopProcesses: false) }
+            do { try await model.prepareForApplicationExit(detachProcesses: false) }
             catch {
                 model.isQuitting = false
                 model.isRestarting = false
@@ -458,7 +458,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         model.persistSessionIfReady()
-        RemoteShell.closeSharedConnections()
+        // 后台终端仍在使用共享 SSH 连接；最后一个会话退出后由 ControlPersist 自动回收。
         if model.isRestarting && !AppUpdateController.shared.isSparkleRestart {
             // Waits for this process to exit, so the new copy does not hand its launch back to us.
             let relaunch = Process()

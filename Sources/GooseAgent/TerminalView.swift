@@ -267,6 +267,7 @@ final class TerminalProcessHost {
     }
 
     let session: InMemoryTerminalSession
+    private let persistentSessionID: String?
     private let box = ProcessBox()
     private var launch: TerminalLaunch?
     private var initialLaunch: TerminalLaunch?
@@ -292,7 +293,8 @@ final class TerminalProcessHost {
     /// Exit code and how long the process lived, in seconds.
     var onExit: ((Int32?, TimeInterval) -> Void)?
 
-    init() {
+    init(sessionID: String? = nil) {
+        persistentSessionID = sessionID
         let box = self.box
         session = InMemoryTerminalSession(
             write: { data in box.process.write(data) },
@@ -322,6 +324,12 @@ final class TerminalProcessHost {
     func startWhenReady() {
         guard !terminated, !isConnectionAttemptCancelled, session.hasAttachedSurface, !hasStarted, let launch else { return }
         hasStarted = true
+        if let persistentSessionID, TerminalSessionConnection.hasSession(persistentSessionID) {
+            pendingRestoration = nil
+            startProcess(launch)
+            initialLaunch = nil
+            return
+        }
         guard let restoration = pendingRestoration else {
             startProcess(initialLaunch ?? launch)
             initialLaunch = nil
@@ -382,9 +390,19 @@ final class TerminalProcessHost {
         guard let launch else { return }
         isConnectionAttemptCancelled = false
         hasStarted = true
-        process.terminate()
-        session.receive("\r\n\u{1b}[2m— \(notice) —\u{1b}[0m\r\n")
-        startProcess(launch)
+        guard process.isHosted else {
+            process.terminate()
+            session.receive("\r\n\u{1b}[2m— \(notice) —\u{1b}[0m\r\n")
+            startProcess(launch)
+            return
+        }
+        process.terminate { [weak self] in
+            Task { @MainActor in
+                guard let self, !self.terminated, !self.isConnectionAttemptCancelled else { return }
+                self.session.receive("\r\n\u{1b}[2m— \(notice) —\u{1b}[0m\r\n")
+                self.startProcess(launch)
+            }
+        }
     }
 
     func cancelConnectionAttempt() {
@@ -410,6 +428,27 @@ final class TerminalProcessHost {
         commandBridge = nil
     }
 
+    func updateHostedColors() {
+        let interfaceIsDark = TerminalAppearance.stored().resolvesDark()
+        let theme = TerminalThemePreferences.selected(isDark: interfaceIsDark)
+        let colors = theme.colors(interfaceIsDark: interfaceIsDark)
+        var data = Data([theme.isDark(interfaceIsDark: interfaceIsDark) ? 1 : 0])
+        for hex in [colors.foreground, colors.background, colors.cursor] + colors.ansi {
+            guard let color = RGBColor(ghosttyHex: hex) else { return }
+            data.append(contentsOf: [color.red, color.green, color.blue].map { UInt8(clamping: Int(($0 * 255).rounded())) })
+        }
+        process.setHostedColors(data)
+    }
+
+    func detachForApplicationExit() {
+        guard process.isHosted else { terminate(); return }
+        terminated = true
+        remotePreparation?.cancel()
+        commandBridge?.isPreserved = true
+        cancelForwarding = nil
+        process.detach()
+    }
+
     private func startProcess(_ launch: TerminalLaunch) {
         remotePreparation?.cancel()
         cancelForwarding?(); cancelForwarding = nil
@@ -433,6 +472,25 @@ final class TerminalProcessHost {
                 }
             }
         }
+        process.onSnapshot = { [weak self, weak process, session] data in
+            session.receive(data)
+            var snapshotTracker = RemoteDirectoryTracker()
+            for case .directory(let path) in snapshotTracker.receive(data) {
+                Task { @MainActor in
+                    guard let self, let process, self.process === process else { return }
+                    self.remoteWorkingDirectory = path
+                    self.onRemoteDirectory?(path)
+                }
+            }
+        }
+        if let persistentSessionID {
+            process.onCommandState = { [weak self, weak process] isRunning, command in
+                Task { @MainActor in
+                    guard let self, let process, self.process === process else { return }
+                    RemoteShellStatus.shared.synchronize(isRunning: isRunning, command: command, sessionID: persistentSessionID)
+                }
+            }
+        }
         process.onExit = { [weak self, weak process] code in
             guard let self, let process, process === self.box.process else { return }
             let lived = ProcessInfo.processInfo.systemUptime - self.startedAt
@@ -443,12 +501,17 @@ final class TerminalProcessHost {
         var environment = sshChildEnvironment(launch.environment)
         if !launch.shellIntegrationEnvironment.isEmpty {
             environment = ShellIntegrationEnvironment.merged(environment, overrides: launch.shellIntegrationEnvironment)
-            commandBridge = LocalCommandBridge()
+            commandBridge = LocalCommandBridge(sessionID: persistentSessionID)
             if let commandBridge {
                 environment = environment.filter { !$0.hasPrefix("ONEAGENT_QC_") } + commandBridge.environment
             }
         }
-        if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath, let bridge = LocalCommandBridge(remote: true) {
+        if let persistentSessionID, TerminalSessionConnection.hasSession(persistentSessionID) {
+            if launch.integratesRemoteShell { commandBridge = LocalCommandBridge(remote: true, sessionID: persistentSessionID) }
+            spawn(process, launch: launch, arguments: launch.args, environment: environment)
+            return
+        }
+        if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath, let bridge = LocalCommandBridge(remote: true, sessionID: persistentSessionID) {
             let childEnvironment = environment
             remotePreparation = Task { [weak self, weak process] in
                 let prepared = await Task.detached {
@@ -476,6 +539,27 @@ final class TerminalProcessHost {
 
     private func spawn(_ process: TerminalProcess, launch: TerminalLaunch, arguments: [String], environment: [String]) {
         let size = box.size()
+        if let persistentSessionID {
+            // 新 PTY 的历史只进入终端解析器，不进入 shell 输入；接回已有会话时忽略它。
+            session.waitForPendingOutput()
+            let history = TerminalOutputStore.displayText(session.readScreenStyledText() ?? "")
+                .replacingOccurrences(of: "\n", with: "\r\n")
+            process.startHosted(sessionID: persistentSessionID, executable: launch.executable, args: arguments,
+                environment: environment, directory: launch.directory, columns: size.columns, rows: size.rows,
+                initialOutput: Data(history.utf8), scrollbackBytes: TerminalSettings.load().scrollbackLimitMB * 1_000_000) { [weak self, weak process] isReady in
+                Task { @MainActor in
+                    guard let self, let process, self.process === process, !self.terminated else { return }
+                    if isReady {
+                        self.updateHostedColors()
+                        if let pending = self.pendingInitialInput { process.write(pending); self.pendingInitialInput = nil }
+                    } else {
+                        self.session.receive("\r\n" + String(localized: "Could not connect to the background terminal session.") + "\r\n")
+                        self.onExit?(nil, ProcessInfo.processInfo.systemUptime - self.startedAt)
+                    }
+                }
+            }
+            return
+        }
         process.start(executable: launch.executable, args: arguments, environment: environment, directory: launch.directory,
                       columns: size.columns, rows: size.rows)
         if let pendingInitialInput {
@@ -495,12 +579,24 @@ enum SSHTerminalRegistry {
     static func applyAppearances(isDark: Bool) {
         for view in views.values {
             view.applyTerminalAppearance(dark: isDark)
+            view.processHost?.updateHostedColors()
         }
     }
     private static var directoryTimer: Timer?
     /// Session IDs are never reused, so a closed one must never get a terminal again.
     private static var closedIDs: Set<String> = []
     private static var cancelledConnectionIDs: Set<String> = []
+
+    static func startMonitoring() {
+        if directoryTimer == nil {
+            directoryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                MainActor.assumeIsolated {
+                    TerminalActivity.shared.model?.refreshLocalWorkingDirectories()
+                }
+            }
+            directoryTimer?.tolerance = 0.2
+        }
+    }
 
     /// The terminal for this session, made on first use. Nil once the session was destroyed:
     /// SwiftUI still updates a view that is on its way out, and that must not start a new process.
@@ -514,14 +610,7 @@ enum SSHTerminalRegistry {
         let created = make()
         if cancelledConnectionIDs.remove(id) != nil { created.processHost?.cancelConnectionAttempt() }
         views[id] = created
-        if directoryTimer == nil {
-            directoryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-                MainActor.assumeIsolated {
-                    TerminalActivity.shared.model?.refreshLocalWorkingDirectories()
-                }
-            }
-            directoryTimer?.tolerance = 0.2
-        }
+        startMonitoring()
         return created
     }
 
@@ -530,10 +619,9 @@ enum SSHTerminalRegistry {
         cancelledConnectionIDs.remove(id)
         closedIDs.insert(id)
         TerminalSecureInput.shared.forget(id)
-        guard let view = views.removeValue(forKey: id) else { return }
-        if views.isEmpty {
-            directoryTimer?.invalidate()
-            directoryTimer = nil
+        guard let view = views.removeValue(forKey: id) else {
+            TerminalSessionConnection.terminateDetached(id)
+            return
         }
         view.processHost?.terminate()
         view.removeFromSuperview()
@@ -561,38 +649,8 @@ enum SSHTerminalRegistry {
         views[id]?.processHost?.process.identity
     }
 
-    /// ⌘Q ends every terminal's whole PTY session, including jobs that ignore the hang-up.
-    /// Runs after output and the snapshot are saved; the sessions are recreated at next launch.
-    static func killProcessesForApplicationExit() async {
-        var shells = Set<pid_t>()
-        for view in views.values {
-            if let pid = view.processHost?.process.shellPid, pid > 0 { shells.insert(pid) }
-        }
-        guard !shells.isEmpty else { return }
-        // forkpty makes each shell a session leader, so its session ID is its pid.
-        var members = Array(shells)
-        let capacity = Int(proc_listallpids(nil, 0)) + 64
-        var all = [pid_t](repeating: 0, count: capacity)
-        let count = Int(proc_listallpids(&all, Int32(capacity * MemoryLayout<pid_t>.size)))
-        for pid in all.prefix(max(0, count)) where pid > 0 && !shells.contains(pid) && shells.contains(getsid(pid)) {
-            members.append(pid)
-        }
-        // Silences exit reporting first, so the hang-up cannot close tabs in the saved session.
-        for view in views.values { view.processHost?.terminate() }
-        for pid in members { kill(pid, SIGHUP) }
-        let deadline = Date().addingTimeInterval(1)
-        while Date() < deadline, members.contains(where: { SSHTerminalRegistry.isRunning($0) }) {
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
-        for pid in members where SSHTerminalRegistry.isRunning(pid) { kill(pid, SIGKILL) }
-    }
-
-    /// A zombie child still answers `kill(pid, 0)` until it is reaped; it no longer runs.
-    private static func isRunning(_ pid: pid_t) -> Bool {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return false }
-        return info.pbi_status != UInt32(SZOMB)
+    static func detachProcessesForApplicationExit() {
+        for view in views.values { view.processHost?.detachForApplicationExit() }
     }
 
     static func saveOutputForApplicationExit(tabs: [TerminalTab], store: TerminalOutputStore = .shared) throws {
@@ -1732,7 +1790,7 @@ struct SSHTerminalView: NSViewRepresentable {
 
     /// A brand-new terminal with its own process. Only called once per session.
     private func makeTerminal() -> SSHTerminalNSView {
-        let host = TerminalProcessHost()
+        let host = TerminalProcessHost(sessionID: Bundle.main.bundleIdentifier == "com.itjun.1agent" ? sessionID : nil)
         let view = SSHTerminalNSView(frame: .zero)
         view.sessionID = sessionID
         view.processHost = host

@@ -8,27 +8,40 @@ import AppKit
 final class LocalCommandBridge: @unchecked Sendable {
     let folder: String
     let socketPath: String
-    let token = UUID().uuidString
+    let token: String
+    var isPreserved = false
     private var terminationObserver: NSObjectProtocol?
 
     private let remote: Bool
     private let clockLock = NSLock()
     private var remoteClockOffset: TimeInterval?
 
-    init?(remote: Bool = false) {
+    init?(remote: Bool = false, sessionID: String? = nil) {
         self.remote = remote
-        folder = "/tmp/1a-qc-\(getuid())-\(UUID().uuidString)"
+        if let sessionID, let sessionFolder = TerminalSessionConnection.prepareFolder(for: sessionID) {
+            folder = sessionFolder + "/bridge"
+        } else { folder = "/tmp/1a-qc-\(getuid())-\(UUID().uuidString)" }
         socketPath = folder + "/s"
-        do { try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700]) }
+        do { try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
         catch { return nil }
+        let tokenPath = folder + "/token"
+        if let saved = try? String(contentsOfFile: tokenPath, encoding: .utf8), UUID(uuidString: saved) != nil {
+            token = saved
+        } else {
+            token = UUID().uuidString
+            do {
+                try token.write(toFile: tokenPath, atomically: true, encoding: .utf8)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tokenPath)
+            } catch { return nil }
+        }
         terminationObserver = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
-            guard let self else { return }
+            guard let self, !self.isPreserved else { return }
             try? FileManager.default.removeItem(atPath: self.folder)
         }
     }
     deinit {
         if let terminationObserver { NotificationCenter.default.removeObserver(terminationObserver) }
-        try? FileManager.default.removeItem(atPath: folder)
+        if !isPreserved { try? FileManager.default.removeItem(atPath: folder) }
     }
     var environment: [String] { ["ONEAGENT_QC_SOCKET=\(socketPath)", "ONEAGENT_QC_TOKEN=\(token)"] }
 

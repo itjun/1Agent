@@ -62,12 +62,19 @@ final class TerminalProcess: @unchecked Sendable {
     private let stateLock = NSLock()
     private var exitReported = false
     private var inputRevision: UInt64 = 0
+    private var hosted: TerminalSessionConnection?
+    private var hostedForeground: pid_t = 0
+    private var hostedPasswordInput = false
+    var onSnapshot: ((Data) -> Void)?
+    var onCommandState: ((Bool, String?) -> Void)?
+    var isHosted: Bool { stateLock.lock(); defer { stateLock.unlock() }; return hosted != nil }
 
     var commandInputRevision: UInt64 {
         stateLock.lock(); defer { stateLock.unlock() }; return inputRevision
     }
     var shellIsForeground: Bool {
         stateLock.lock(); defer { stateLock.unlock() }
+        if hosted != nil { return shellPid > 0 && hostedForeground == getpgid(shellPid) }
         guard masterFD >= 0, shellPid > 0 else { return false }
         let foreground = tcgetpgrp(masterFD)
         return foreground > 0 && foreground == getpgid(shellPid)
@@ -75,6 +82,7 @@ final class TerminalProcess: @unchecked Sendable {
 
     var isPasswordInput: Bool {
         stateLock.lock(); defer { stateLock.unlock() }
+        if hosted != nil { return hostedPasswordInput }
         guard masterFD >= 0 else { return false }
         var attributes = termios()
         guard tcgetattr(masterFD, &attributes) == 0 else { return false }
@@ -90,6 +98,49 @@ final class TerminalProcess: @unchecked Sendable {
     /// the real exit status (ssh transport failures exit 255); nil when the
     /// child died to a signal.
     var onExit: ((Int32?) -> Void)?
+
+    func startHosted(sessionID: String, executable: String, args: [String], environment: [String],
+                     directory: String?, columns: UInt16, rows: UInt16, initialOutput: Data = Data(),
+                     scrollbackBytes: Int = 128_000_000, completion: @escaping (Bool) -> Void) {
+        let connection = TerminalSessionConnection()
+        stateLock.lock(); hosted = connection; stateLock.unlock()
+        connection.onOutput = { [weak self] in self?.onOutput?($0) }
+        connection.onSnapshot = { [weak self] in self?.onSnapshot?($0) }
+        connection.onCommand = { [weak self] in self?.onCommandState?($0, $1) }
+        connection.onStatus = { [weak self, weak connection] pid, foreground, password in
+            guard let self, let connection else { return }
+            self.stateLock.lock()
+            guard self.hosted === connection else { self.stateLock.unlock(); return }
+            self.shellPid = pid; self.hostedForeground = foreground; self.hostedPasswordInput = password
+            self.stateLock.unlock()
+        }
+        connection.onExit = { [weak self, weak connection] code in
+            guard let self, let connection else { return }
+            self.stateLock.lock()
+            guard self.hosted === connection else { self.stateLock.unlock(); return }
+            self.shellPid = 0
+            let isReported = self.exitReported; self.exitReported = true; self.stateLock.unlock()
+            self.onOutputEnd?()
+            if !isReported { DispatchQueue.main.async { self.onExit?(code) } }
+        }
+        connection.start(sessionID: sessionID, executable: executable, args: args, environment: environment,
+            directory: directory, columns: columns, rows: rows, initialOutput: initialOutput,
+            scrollbackBytes: scrollbackBytes, completion: completion)
+    }
+
+    func setHostedColors(_ colors: Data) {
+        stateLock.lock(); let connection = hosted; stateLock.unlock()
+        connection?.send("C", payload: colors)
+    }
+
+    /// 应用退出只关闭显示连接，PTY、shell 及子进程继续由 helper 持有。
+    func detach() {
+        stateLock.lock()
+        exitReported = true
+        let connection = hosted; hosted = nil; shellPid = 0
+        stateLock.unlock()
+        connection?.disconnect()
+    }
 
     /// Forks a PTY and execs `executable` with the given (complete) environment.
     /// `directory` is `chdir`'d in the child before `execve`. The parent must
@@ -175,7 +226,8 @@ final class TerminalProcess: @unchecked Sendable {
 
     /// Queues bytes for the child. Never blocks the caller.
     func write(_ data: Data) {
-        stateLock.lock(); inputRevision &+= 1; stateLock.unlock()
+        stateLock.lock(); inputRevision &+= 1; let connection = hosted; stateLock.unlock()
+        if let connection { connection.send("I", payload: data); return }
         writeQueue.async { [weak self] in
             self?.writeSynchronously(data)
         }
@@ -204,8 +256,13 @@ final class TerminalProcess: @unchecked Sendable {
 
     func resize(columns: UInt16, rows: UInt16, widthPixels: UInt32, heightPixels: UInt32) {
         stateLock.lock()
+        let connection = hosted
         let fd = masterFD
         stateLock.unlock()
+        if let connection {
+            connection.send("W", payload: TerminalSessionConnection.size(columns: columns, rows: rows, width: widthPixels, height: heightPixels))
+            return
+        }
         guard fd >= 0 else { return }
         var size = winsize(
             ws_row: rows,
@@ -222,9 +279,14 @@ final class TerminalProcess: @unchecked Sendable {
     /// ignore SIGTERM, so this sends SIGHUP — the "terminal went away" signal
     /// shells exit on — and escalates to SIGKILL when a stuck foreground job
     /// holds the shell up.
-    func terminate() {
+    func terminate(completion: @escaping () -> Void = {}) {
         stateLock.lock()
         exitReported = true
+        if let connection = hosted {
+            hosted = nil; shellPid = 0; stateLock.unlock()
+            connection.terminate(completion: completion)
+            return
+        }
         let pid = shellPid
         shellPid = 0
         masterFD = -1
@@ -237,7 +299,7 @@ final class TerminalProcess: @unchecked Sendable {
         exitSource?.cancel()
         exitSource = nil
 
-        guard pid > 0 else { return }
+        guard pid > 0 else { completion(); return }
         kill(pid, SIGHUP)
         DispatchQueue.global(qos: .utility).async {
             var status: Int32 = 0
@@ -248,6 +310,7 @@ final class TerminalProcess: @unchecked Sendable {
             kill(pid, SIGKILL)
             waitpid(pid, &status, 0)
         }
+        completion()
     }
 
     private func drainOutput() {

@@ -1248,6 +1248,7 @@ final class AppModel: ObservableObject {
     }
 
     private func finishRestore() {
+        SSHTerminalRegistry.startMonitoring()
         sessionRestored = true
         let queued = openRequestsAwaitingRestore
         openRequestsAwaitingRestore = []
@@ -1270,10 +1271,10 @@ final class AppModel: ObservableObject {
 
     /// Flush the final output while native surfaces still exist, then commit
     /// the matching session metadata. No disk export runs during normal typing.
-    func prepareForApplicationExit(stopProcesses: Bool = true) async throws {
+    func prepareForApplicationExit(detachProcesses: Bool = true) async throws {
         try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
         persistSession()
-        if stopProcesses { await SSHTerminalRegistry.killProcessesForApplicationExit() }
+        if detachProcesses { SSHTerminalRegistry.detachProcessesForApplicationExit() }
     }
 
     func showSettings() {
@@ -1291,7 +1292,7 @@ final class AppModel: ObservableObject {
         guard !isQuitting, let window = parent else { return }
         let alert = FamilyAlert()
         alert.messageText = String(localized: "Restart 1Agent?")
-        alert.informativeText = String(localized: "Terminal sessions are saved and restored after the restart. Running commands will be interrupted.")
+        alert.informativeText = String(localized: "Terminal sessions keep running in the background and reconnect after the restart.")
         alert.addButton(withTitle: String(localized: "Restart"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         alert.beginSheetModal(for: window) { response in

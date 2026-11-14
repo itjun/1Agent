@@ -209,6 +209,14 @@ final class RemoteShellStatus: ObservableObject {
     private var started: [String: (date: Date, command: String?)] = [:]
     private var reveals: [String: DispatchWorkItem] = [:]
 
+    /// 后台进程接回时补齐状态；周期性同步不能重新开始计时。
+    func synchronize(isRunning: Bool, command: String?, sessionID: String) {
+        if isRunning {
+            if started[sessionID] == nil { report(.commandStarted(command), sessionID: sessionID) }
+            else if let command, started[sessionID]?.command != command { report(.commandNamed(command), sessionID: sessionID) }
+        } else if started[sessionID] != nil { report(.commandFinished(exitCode: nil), sessionID: sessionID) }
+    }
+
     func report(_ event: RemoteShellEvent, sessionID: String) {
         switch event {
         case .directory:
