@@ -203,7 +203,11 @@ test-ssh-configuration:
 test-terminal-reconnect:
 	bash scripts/test-terminal-reconnect.sh
 
-.PHONY: test-session-host test-hosted-terminal
+.PHONY: test-terminal-program test-session-host test-hosted-terminal
+test-terminal-program:
+	swiftc -parse-as-library Sources/GooseAgent/TerminalProgram.swift Tests/TerminalProgramTests.swift -o /tmp/oneagent-program-tests
+	/tmp/oneagent-program-tests
+
 test-session-host:
 	bash scripts/build-session-host.sh build/1AgentSessionHost
 	python3 scripts/test-session-host.py

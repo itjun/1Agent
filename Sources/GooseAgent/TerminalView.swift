@@ -459,7 +459,6 @@ final class TerminalProcessHost {
         var tracker = RemoteDirectoryTracker()
         process.onOutput = { [weak self, weak process, session] data in
             session.receive(data)
-            guard launch.integratesRemoteShell else { return }
             for event in tracker.receive(data) {
                 Task { @MainActor [weak self, weak process] in
                     guard let self, let process, self.process === process else { return }
@@ -488,6 +487,7 @@ final class TerminalProcessHost {
                 Task { @MainActor in
                     guard let self, let process, self.process === process else { return }
                     RemoteShellStatus.shared.synchronize(isRunning: isRunning, command: command, sessionID: persistentSessionID)
+                    if self.isRemote { TerminalProgramStatus.shared.update(nil, sessionID: persistentSessionID) }
                 }
             }
         }
@@ -601,6 +601,7 @@ enum SSHTerminalRegistry {
             directoryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
                 MainActor.assumeIsolated {
                     TerminalActivity.shared.model?.refreshLocalWorkingDirectories()
+                    SSHTerminalRegistry.refreshPrograms()
                 }
             }
             directoryTimer?.tolerance = 0.2
@@ -633,6 +634,7 @@ enum SSHTerminalRegistry {
             return
         }
         view.processHost?.terminate()
+        TerminalProgramStatus.shared.update(nil, sessionID: id)
         view.removeFromSuperview()
     }
 
@@ -656,6 +658,39 @@ enum SSHTerminalRegistry {
 
     static func processIdentity(for id: String) -> UUID? {
         views[id]?.processHost?.process.identity
+    }
+
+    private static var inspectingPrograms: Set<String> = []
+
+    private static func refreshPrograms() {
+        let processes = views.compactMap { id, view -> (String, TerminalProcess)? in
+            guard view.processHost?.isRemote == false, let process = view.processHost?.process else { return nil }
+            return (id, process)
+        }
+        for tab in TerminalActivity.shared.model?.tabs ?? [] where tab.hasTerminal && !tab.exited && views[tab.sessionID] == nil {
+            let id = tab.sessionID
+            guard !inspectingPrograms.contains(id), TerminalSessionConnection.hasSession(id) else { continue }
+            inspectingPrograms.insert(id)
+            let inspector = TerminalSessionConnection()
+            inspector.inspect(sessionID: id) { foreground, command in
+                let reported = command.flatMap { TerminalProgram.identify(command: $0) }
+                let local = tab.isLocal ? TerminalProgram.identify(arguments: TerminalProcess.arguments(of: foreground)) : nil
+                let program = reported?.kind != .command && reported != nil ? reported : (local ?? reported)
+                Task { @MainActor in
+                    inspectingPrograms.remove(id)
+                    guard views[id] == nil, !closedIDs.contains(id) else { return }
+                    TerminalProgramStatus.shared.update(program, sessionID: id)
+                }
+            }
+        }
+        Task.detached(priority: .utility) {
+            let programs = processes.map { ($0.0, $0.1.identity, $0.1.foregroundProgram) }
+            await MainActor.run {
+                for (id, identity, program) in programs where views[id]?.processHost?.process.identity == identity {
+                    TerminalProgramStatus.shared.update(program, sessionID: id)
+                }
+            }
+        }
     }
 
     static func detachProcessesForApplicationExit() {

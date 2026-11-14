@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Current program: %@" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current program: %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前程序：%@"}}}},
     "Could not connect to the background terminal session." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Could not connect to the background terminal session."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法连接后台终端会话。"}}}},
     "Terminal sessions keep running in the background and reconnect after the restart." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Terminal sessions keep running in the background and reconnect after the restart."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "终端会话会在后台继续运行，重启后自动接回。"}}}},
     "Theme for Light Appearance" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Theme for Light Appearance"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色外观下的主题"}}}},

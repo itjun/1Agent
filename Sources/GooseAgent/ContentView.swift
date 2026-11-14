@@ -496,6 +496,8 @@ struct RootView: View {
                     SidebarFolderIcon(color: folderColor)
                         .font(.system(size: 15)).frame(width: 20)
                         .accessibilityHidden(true)
+                } else if tab.hasTerminal {
+                    TerminalProgramIcon(tab: tab).environment(\.windowChrome, rowChrome)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     if renamingPanelID == row.panelID {
@@ -573,6 +575,7 @@ struct RootView: View {
         let rowChrome = sidebarChrome.sessionRowChrome(isSelected: isSelected,
             isActive: controlActiveState != .inactive)
         return HStack(spacing: 9) {
+            if tab.hasTerminal { TerminalProgramIcon(tab: tab).environment(\.windowChrome, rowChrome) }
             VStack(alignment: .leading, spacing: 3) {
                 Text(verbatim: numberedSessionTitle(tab))
                     .font(.system(size: 14, weight: isSelected ? .semibold : .regular))

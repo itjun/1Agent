@@ -69,6 +69,37 @@ final class TerminalProcess: @unchecked Sendable {
     var onCommandState: ((Bool, String?) -> Void)?
     var isHosted: Bool { stateLock.lock(); defer { stateLock.unlock() }; return hosted != nil }
 
+    var foregroundProgram: TerminalProgram? {
+        stateLock.lock()
+        let pid = shellPid
+        let foreground = hosted != nil ? hostedForeground : (masterFD >= 0 ? tcgetpgrp(masterFD) : 0)
+        stateLock.unlock()
+        guard pid > 0, foreground > 0 else { return nil }
+        return TerminalProgram.identify(arguments: TerminalProcess.arguments(of: foreground))
+    }
+
+    static func arguments(of pid: pid_t) -> [String] {
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+        var count = 0
+        guard sysctl(&mib, UInt32(mib.count), nil, &count, nil, 0) == 0, count > 4, count <= 1024 * 1024 else { return [] }
+        var bytes = [UInt8](repeating: 0, count: count)
+        guard sysctl(&mib, UInt32(mib.count), &bytes, &count, nil, 0) == 0 else { return [] }
+        let argc = bytes.withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
+        guard argc > 0, argc < 65536 else { return [] }
+        var index = 4
+        while index < count && bytes[index] != 0 { index += 1 }
+        while index < count && bytes[index] == 0 { index += 1 }
+        var result: [String] = []
+        // 只读 argv，不读取后面的环境变量；识别最多需要启动器和脚本路径。
+        for _ in 0..<min(Int(argc), 24) {
+            let start = index
+            while index < count && bytes[index] != 0 { index += 1 }
+            result.append(String(decoding: bytes[start..<index], as: UTF8.self)); index += 1
+            if index >= count { break }
+        }
+        return result
+    }
+
     var commandInputRevision: UInt64 {
         stateLock.lock(); defer { stateLock.unlock() }; return inputRevision
     }
