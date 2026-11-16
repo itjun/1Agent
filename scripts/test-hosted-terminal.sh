@@ -22,7 +22,8 @@ trap cleanup EXIT
 bundle="$test_dir/HostedTerminalTests.app/Contents"
 mkdir -p "$bundle/MacOS" "$test_dir/home"
 ln -s "$products_dir/1Agent.app/Contents/Resources" "$bundle/Resources"
-ln -s "$products_dir/1Agent.app/Contents/Helpers" "$bundle/Helpers"
+# 可指定旧 helper，验证升级时仍在运行的后台会话也能正确恢复。
+ln -s "${ONEAGENT_TEST_HELPERS:-$products_dir/1Agent.app/Contents/Helpers}" "$bundle/Helpers"
 developer_dir=/Applications/Xcode.app/Contents/Developer
 sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path)"
 "$developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc" -parse-as-library -target arm64-apple-macosx14.0 -sdk "$sdk_dir" \
@@ -31,6 +32,8 @@ sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path
     -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/MacOS" \
     "$products_dir/1Agent.app/Contents/MacOS/1Agent.debug.dylib" "$repo_dir/Tests/HostedTerminalTests.swift" \
     -o "$bundle/MacOS/tests"
-for phase in --save --restore --close; do
+phases=(--layout --save --restore --close)
+if [[ "${1:-}" == "--layout" ]]; then phases=(--layout); fi
+for phase in "${phases[@]}"; do
     CFFIXED_USER_HOME="$test_dir/home" "$bundle/MacOS/tests" "$phase" "$test_dir" "$session_id" "$repo_dir/Tests/session-host-fixture.py" "$(command -v python3)"
 done

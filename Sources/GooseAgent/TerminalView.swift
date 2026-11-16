@@ -260,9 +260,9 @@ final class TerminalProcessHost {
             return (viewport?.columns ?? 80, viewport?.rows ?? 24)
         }
         /// Nil until the pane has reported a real grid.
-        func reportedColumns() -> UInt16? {
+        func reportedViewport() -> InMemoryTerminalViewport? {
             lock.lock(); defer { lock.unlock() }
-            return viewport?.columns
+            return viewport
         }
     }
 
@@ -326,8 +326,17 @@ final class TerminalProcessHost {
         hasStarted = true
         if let persistentSessionID, TerminalSessionConnection.hasSession(persistentSessionID) {
             pendingRestoration = nil
-            startProcess(launch)
-            initialLaunch = nil
+            // 后台快照也必须等窗口布局完成，避免把原历史按临时窄网格导出。
+            // 升级前已运行的 helper 同样走这里，不需要重启它持有的 shell/SSH。
+            isAwaitingHistoryReplay = true
+            Task { @MainActor [weak self] in
+                await self?.waitForSettledViewport()
+                guard let self else { return }
+                self.isAwaitingHistoryReplay = false
+                guard !self.terminated, !self.isConnectionAttemptCancelled, self.process.shellPid == 0 else { return }
+                self.startProcess(launch)
+                self.initialLaunch = nil
+            }
             return
         }
         guard let restoration = pendingRestoration else {
@@ -346,7 +355,7 @@ final class TerminalProcessHost {
         // the later reflow keeps those background-filled wrap cells as stray bars.
         isAwaitingHistoryReplay = true
         Task { @MainActor [weak self] in
-            await self?.waitForSettledColumns()
+            await self?.waitForSettledViewport()
             guard let self else { return }
             self.isAwaitingHistoryReplay = false
             guard !self.terminated, !self.isConnectionAttemptCancelled, self.process.shellPid == 0 else { return }
@@ -357,20 +366,20 @@ final class TerminalProcessHost {
         }
     }
 
-    /// Returns once the reported column count has held for 200 ms, or after 1.5 s.
+    /// Returns once the reported grid has held for 200 ms, or after 1.5 s.
     /// Cancellation ends the wait early so the caller can still replay and start.
-    private func waitForSettledColumns() async {
-        var lastColumns: UInt16?
+    private func waitForSettledViewport() async {
+        var lastViewport: InMemoryTerminalViewport?
         var stablePolls = 0
         for _ in 0..<30 {
-            let columns = box.reportedColumns()
-            if columns != nil && columns == lastColumns {
+            let viewport = box.reportedViewport()
+            if let viewport, viewport.columns == lastViewport?.columns, viewport.rows == lastViewport?.rows {
                 stablePolls += 1
                 if stablePolls >= 4 { return }
             } else {
                 stablePolls = 0
             }
-            lastColumns = columns
+            lastViewport = viewport
             do {
                 try await Task.sleep(for: .milliseconds(50))
             } catch {
@@ -423,6 +432,10 @@ final class TerminalProcessHost {
     func terminate() {
         terminated = true
         remotePreparation?.cancel()
+        // 接回前仍是占位进程，关闭标签也必须结束原后台会话。
+        if !process.isHosted, let persistentSessionID {
+            TerminalSessionConnection.terminateDetached(persistentSessionID)
+        }
         process.terminate()
         cancelForwarding?(); cancelForwarding = nil
         commandBridge = nil
@@ -441,7 +454,8 @@ final class TerminalProcessHost {
     }
 
     func detachForApplicationExit() {
-        guard process.isHosted else { terminate(); return }
+        let isExistingSession = persistentSessionID.map { TerminalSessionConnection.hasSession($0) } ?? false
+        guard process.isHosted || isExistingSession else { terminate(); return }
         terminated = true
         remotePreparation?.cancel()
         commandBridge?.isPreserved = true

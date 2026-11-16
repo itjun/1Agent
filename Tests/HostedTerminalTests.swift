@@ -15,6 +15,12 @@ import GhosttyTerminal
 
     @MainActor static func run() async throws {
         let phase = CommandLine.arguments[1], folder = CommandLine.arguments[2]
+        if phase == "--layout" {
+            for action in [LayoutAction.resize, .close, .exit] {
+                try await reattachDuringLayout(folder: folder, python: CommandLine.arguments[5], action: action)
+            }
+            return
+        }
         let id = CommandLine.arguments[3] + "#3"
         let fixture = CommandLine.arguments[4], python = CommandLine.arguments[5]
         let log = folder + "/launches"
@@ -82,6 +88,73 @@ import GhosttyTerminal
         process.terminate()
         try await Task.sleep(for: .milliseconds(500))
         try await wait("close while starting") { !TerminalSessionConnection.hasSession(fastID) }
+    }
+
+    enum LayoutAction { case resize, close, exit }
+
+    @MainActor static func reattachDuringLayout(folder: String, python: String, action: LayoutAction) async throws {
+        let id = UUID().uuidString + "#0"
+        try recordSession(id, folder: folder)
+        let line = "HISTORY_BEGIN_0123456789_abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789_HISTORY_END"
+        let code = "import time; print('\\033[48;5;4m' + '\(line)' + '\\033[0m\\r\\nLAYOUT_READY', flush=True); time.sleep(60)"
+        let seed = TerminalProcess()
+        var isReady = false
+        var seedOutput = ""
+        let capture: (Data) -> Void = { data in Task { @MainActor in seedOutput += String(decoding: data, as: UTF8.self) } }
+        seed.onOutput = capture; seed.onSnapshot = capture
+        seed.startHosted(sessionID: id, executable: python, args: ["-c", code], environment: ["PATH=/usr/bin:/bin"],
+                         directory: folder, columns: 160, rows: 24) { value in Task { @MainActor in isReady = value } }
+        defer { seed.terminate(); TerminalSessionConnection.terminateDetached(id) }
+        try await wait("seed session") { isReady && seed.shellPid > 0 && seedOutput.contains("LAYOUT_READY") }
+        let pid = seed.shellPid
+        seed.detach()
+        try await Task.sleep(for: .milliseconds(100))
+
+        // 模拟重启：原生视图先以临时窄宽度挂载，随后窗口布局完成。
+        let host = TerminalProcessHost(sessionID: id)
+        let view = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 400, height: 400))
+        view.sessionID = id; view.processHost = host
+        view.eventRelay.terminal = view; view.delegate = view.eventRelay
+        view.controller = GhosttyRuntime.controller
+        view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
+        let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = view; window.orderFront(nil)
+        precondition(SSHTerminalRegistry.view(for: id, make: { view }) === view)
+        defer { SSHTerminalRegistry.destroy(id); window.close() }
+        host.start(TerminalLaunch(executable: "/bin/false", args: [], environment: [], directory: folder))
+        if action != .resize {
+            precondition(host.isAwaitingHistoryReplay && host.process.shellPid == 0)
+            if action == .close {
+                SSHTerminalRegistry.destroy(id)
+                try await wait("close while waiting for layout") {
+                    !TerminalSessionConnection.hasSession(id) && kill(pid, 0) != 0
+                }
+            } else {
+                host.detachForApplicationExit()
+                try await Task.sleep(for: .milliseconds(400))
+                precondition(TerminalSessionConnection.hasSession(id) && kill(pid, 0) == 0,
+                             "App exit during layout must preserve the existing session")
+                precondition(host.process.shellPid == 0, "App exit must cancel the pending reattach")
+            }
+            print("PASS: session lifecycle during layout: \(action)")
+            return
+        }
+        try await Task.sleep(for: .milliseconds(100))
+        window.setContentSize(NSSize(width: 1400, height: 400))
+        try await wait("restored history") {
+            host.session.waitForPendingOutput()
+            return host.session.readScreenText()?.text.contains("LAYOUT_READY") == true
+        }
+        try await Task.sleep(for: .milliseconds(100))
+        host.session.waitForPendingOutput()
+        let text = host.session.readScreenText()?.text ?? ""
+        guard text.contains(line) else {
+            throw NSError(domain: "HostedTerminalTests", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                "History stayed broken at the temporary launch width: \(text)"])
+        }
+        precondition(host.process.shellPid == pid, "Layout restoration must retain the original process")
+        precondition(host.process.commandInputRevision == 0, "Restoring history must not execute input")
+        print("PASS: reattach during layout preserves the full history line and original PID")
     }
 
     @MainActor static func quickCommandContinuity(folder: String) async throws {
