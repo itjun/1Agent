@@ -92,7 +92,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var configFailed = false
     @Published private(set) var tabs: [TerminalTab] = []
     /// 按终端保存，切换分屏或移动到其他窗口不会改变展开状态和选择。
-    @Published var commandSidebars: [UUID: TerminalCommandSidebarState] = [:]
+    @Published var commandSidebars: [UUID: TerminalCommandSidebarState] = [:] {
+        didSet {
+            if commandSidebars != oldValue { persistSessionIfReady() }
+        }
+    }
     private var commandExecutions: [UUID: QuickCommandSidebarExecution] = [:]
 
     func commandExecution(for tabID: UUID) -> QuickCommandSidebarExecution {
@@ -1224,6 +1228,11 @@ final class AppModel: ObservableObject {
                 return nil
             }
             let live = Set(tabs.map(\.id))
+            let terminals = Set(tabs.filter(\.hasTerminal).map(\.id))
+            commandSidebars = Dictionary(uniqueKeysWithValues: snapshot.tabs.compactMap { item in
+                guard terminals.contains(item.id), let state = item.commandSidebar else { return nil }
+                return (item.id, state)
+            })
             workspaces = Self.workspaces(snapshot.workspaces, keeping: live)
             syncBlocks()
             syncLooseMembers()
@@ -2461,10 +2470,12 @@ final class AppModel: ObservableObject {
                     return SessionSnapshot.Tab(id: tab.id, alias: nil, preview: path)
                 }
                 if let alias = tab.alias, !alias.isEmpty {
-                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory, generation: tab.generation)
+                    return SessionSnapshot.Tab(id: tab.id, alias: alias, directory: nil, remoteDirectory: tab.remoteDirectory,
+                                               generation: tab.generation, commandSidebar: commandSidebars[tab.id])
                 }
                 guard let directory = tab.directory, !directory.isEmpty else { return nil }
-                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory, generation: tab.generation)
+                return SessionSnapshot.Tab(id: tab.id, alias: nil, directory: directory, generation: tab.generation,
+                                           commandSidebar: commandSidebars[tab.id])
             },
             workspaces: workspaces,
             windows: windows.map { window in
@@ -2510,6 +2521,7 @@ struct SessionSnapshot: Codable {
         var preview: String? = nil
         /// File panes of an earlier build; such tabs are dropped at launch.
         var files: FileBrowserTarget? = nil
+        var commandSidebar: TerminalCommandSidebarState? = nil
     }
 
     struct Frame: Codable {

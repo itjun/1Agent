@@ -169,6 +169,10 @@ test-quick-command-drop:
 test-quick-command-sidebar:
 	bash scripts/test-quick-command-sidebar.sh
 
+.PHONY: test-command-sidebar-restoration
+test-command-sidebar-restoration:
+	bash scripts/test-command-sidebar-restoration.sh
+
 # Production model and persisted sidebar grouping, using isolated storage and no SSH/shells.
 test-sidebar-groups:
 	bash scripts/test-sidebar-groups.sh

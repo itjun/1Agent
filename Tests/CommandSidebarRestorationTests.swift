@@ -1,0 +1,96 @@
+import AppKit
+import ObjectiveC
+@testable import GooseAgent
+
+/// 使用真实保存和恢复入口；隔离偏好，不启动 Shell 或 SSH。
+@main enum CommandSidebarRestorationTests {
+    @MainActor static func main() {
+        _ = NSApplication.shared
+        Task { @MainActor in
+            do { try await run(); print("CommandSidebarRestorationTests passed"); exit(0) }
+            catch { fputs("CommandSidebarRestorationTests failed: \(error)\n", stderr); exit(1) }
+        }
+        NSApp.run()
+    }
+
+    struct Failure: Error { let message: String }
+    static func check(_ condition: @autoclosure () -> Bool, _ message: String) throws {
+        guard condition() else { throw Failure(message: message) }
+    }
+
+    @MainActor static func run() async throws {
+        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/oneagent-command-sidebar-restoration."))
+        precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
+                     == URL(fileURLWithPath: home).resolvingSymlinksInPath())
+        let suite = "oneagent.command-sidebar-restoration.\(UUID())"
+        let defaults = UserDefaults(suiteName: suite)!
+        let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
+        let previous = method_getImplementation(getter)
+        let block: @convention(block) (AnyObject) -> UserDefaults = { _ in defaults }
+        method_setImplementation(getter, imp_implementationWithBlock(block))
+        defer { method_setImplementation(getter, previous); defaults.removePersistentDomain(forName: suite) }
+
+        let id = UUID(), remoteID = UUID(), untouchedID = UUID()
+        let snapshot = SessionSnapshot(tabs: [
+            .init(id: id, directory: home), .init(id: remoteID, alias: "sidebar-fixture"),
+            .init(id: untouchedID, directory: "/private/tmp")
+        ], workspaces: [], windows: [
+            .init(id: UUID(), blocks: [.localGroup, .ungrouped], localGroup: [id, untouchedID],
+                  ungrouped: [remoteID], selected: id)
+        ], keyWindow: nil)
+        defaults.set(try JSONEncoder().encode(snapshot), forKey: SessionSnapshot.storageKey)
+        let model = try await restore(tabCount: 3)
+        try check(model.commandSidebars.isEmpty, "旧存档没有命令栏状态时默认收起")
+        model.toggleCommandSidebar(for: id, in: model.mainWindow)
+        model.toggleCommandSidebar(for: remoteID, in: model.mainWindow)
+        let localSelection = UUID(), remoteSelection = UUID()
+        model.commandSidebars[id]?.width = 310
+        model.commandSidebars[id]?.selectedCommandID = localSelection
+        model.commandSidebars[remoteID]?.width = 350
+        model.commandSidebars[remoteID]?.selectedCommandID = remoteSelection
+        try check(model.commandSidebars[id]?.isExpanded == true, "保存前命令栏已展开")
+        try check(SessionSnapshot.load()?.tabs.first { $0.id == id }?.commandSidebar == model.commandSidebars[id],
+                  "改变展开状态、宽度和选择后及时保存")
+        try await model.prepareForApplicationExit(detachProcesses: false)
+
+        let restored = try await restore(tabCount: 3)
+        try check(restored.commandSidebars[id]?.isExpanded == true, "重新启动后应恢复已展开的命令栏")
+        try check(restored.commandSidebars[id] == model.commandSidebars[id], "本地终端恢复宽度和选中命令")
+        try check(restored.commandSidebars[remoteID] == model.commandSidebars[remoteID], "SSH 终端恢复自己的命令栏状态")
+        try check(restored.commandSidebars[untouchedID] == nil, "未打开的命令栏仍保持默认收起")
+        try check(TerminalCanvas.commandSidebarWidth(restored.commandSidebars[id], paneWidth: 900) == 310,
+                  "恢复的命令栏在正常窗口宽度下可见")
+        try check(!restored.commandExecution(for: id).isSubmitting, "恢复界面不会恢复命令执行")
+        print("PASS local/SSH sidebar expansion, width, selection, legacy defaults and visible layout")
+
+        restored.commandSidebars[id]?.isExpanded = false
+        try check(SessionSnapshot.load()?.tabs.first { $0.id == id }?.commandSidebar?.isExpanded == false,
+                  "Esc 等直接收起命令栏的入口也及时保存")
+        try await restored.prepareForApplicationExit(detachProcesses: false)
+        let collapsed = try await restore(tabCount: 3)
+        try check(collapsed.commandSidebars[id]?.isExpanded == false, "主动收起后再次启动仍保持收起")
+        try check(collapsed.commandSidebars[id]?.width == 310 && collapsed.commandSidebars[id]?.selectedCommandID == localSelection,
+                  "收起不丢失宽度和选中命令")
+        try check(collapsed.commandSidebars[remoteID]?.isExpanded == true, "收起本地终端不影响 SSH 命令栏")
+        collapsed.closeTab(remoteID)
+        try await collapsed.prepareForApplicationExit(detachProcesses: false)
+        let closed = try await restore(tabCount: 2)
+        try check(closed.commandSidebars[remoteID] == nil, "已关闭终端不留下命令栏状态")
+        print("PASS collapsed state, independent terminals and closed terminal cleanup")
+    }
+
+    @MainActor static func restore(tabCount: Int) async throws -> AppModel {
+        let model = AppModel()
+        model.restoreLastSession()
+        let native = MainWindowManager.shared.window(for: model.mainWindow)!
+        native.contentViewController = nil
+        native.contentView = NSView(frame: native.contentLayoutRect)
+        let deadline = Date().addingTimeInterval(6)
+        while model.tabs.count != tabCount {
+            try check(Date() < deadline, "会话恢复超时")
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        return model
+    }
+}

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-struct TerminalCommandSidebarState: Equatable {
+struct TerminalCommandSidebarState: Codable, Equatable {
     var isExpanded = false
     var width = SheetLayout.terminalCommandSidebarWidth
     var selectedCommandID: UUID?
