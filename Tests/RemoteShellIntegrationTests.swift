@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 @main enum RemoteShellIntegrationTests {
     static func main() throws {
@@ -55,6 +56,57 @@ import Foundation
                                                    resources: resources, socket: "/tmp/fixture-socket", token: token) == nil,
                      "explicit SSH RemoteCommand must retain its behavior")
         precondition(launch?.arguments.last?.contains("GHOSTTY_SHELL_FEATURES=path,title") == true, "remote shells must report command titles")
+        try forwardingSocketRecovery(resources: resources)
         print("Remote shell integration: chunked cwd, Unicode, invalid frames, zsh/bash commands, launch forwarding and custom RemoteCommand passed")
+    }
+
+    private static func forwardingSocketRecovery(resources: String) throws {
+        let folder = "/tmp/1a-forward-" + UUID().uuidString
+        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true,
+                                               attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(atPath: folder) }
+        let path = folder + "/s"
+        let token = UUID().uuidString
+        func prepare() -> RemoteShellIntegration.Prepared? {
+            RemoteShellIntegration.prepare(arguments: ["-F", "/dev/null", "--", "fixture", "printf test"],
+                                           environment: [], resources: resources, socket: path, token: token)
+        }
+        func bindListener() -> Int32 {
+            let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+            precondition(fd >= 0)
+            var address = sockaddr_un()
+            address.sun_family = sa_family_t(AF_UNIX)
+            withUnsafeMutableBytes(of: &address.sun_path) { $0.copyBytes(from: Array(path.utf8) + [0]) }
+            let status = withUnsafePointer(to: &address) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+            }
+            precondition(status == 0, "SSH 转发必须能绑定原来的命令通道；errno=\(errno)")
+            precondition(listen(fd, 4) == 0)
+            return fd
+        }
+
+        // SSH 退出会留下 socket 文件；下一次连接仍使用同一会话路径。
+        close(bindListener())
+        precondition(prepare() != nil)
+        let active = bindListener()
+        defer { close(active) }
+        var before = stat(), after = stat()
+        precondition(lstat(path, &before) == 0)
+        precondition(prepare() != nil)
+        precondition(lstat(path, &after) == 0 && before.st_ino == after.st_ino,
+                     "已有转发仍在监听时不能移除 socket")
+        unlink(path)
+
+        try "keep".write(toFile: path, atomically: true, encoding: .utf8)
+        _ = prepare()
+        let preserved = try String(contentsOfFile: path, encoding: .utf8)
+        precondition(preserved == "keep", "不能删除同名普通文件")
+        unlink(path)
+        let target = folder + "/target"
+        try "keep".write(toFile: target, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: target)
+        _ = prepare()
+        precondition(lstat(path, &after) == 0 && after.st_mode & S_IFMT == S_IFLNK, "不能跟随或删除符号链接")
+        print("PASS stale SSH forwarding socket recovery, active listener preservation and unrelated path protection")
     }
 }

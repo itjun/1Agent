@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Session-only zsh integration, transported in SSH's authenticated command channel.
 /// The shell's rc files remain untouched. Unsupported/custom commands keep their launch behavior.
@@ -17,10 +18,37 @@ enum RemoteShellIntegration {
         // A custom RemoteCommand (e.g. a tmux attach) must not silently become a login shell.
         if explicit == nil && !hasOrdinaryShell(arguments: prefix + ["--", alias], environment: environment) { return nil }
         guard let command = bootstrap(resources: resources, token: token, startupCommand: explicit) else { return nil }
+        guard removeStaleForwardingSocket(socket) else { return nil }
         let forward = socket + ":" + remoteFolder(token: token) + "/s"
         let forwards = ["-L", forward]
         return Prepared(arguments: prefix + ["-o", "RemoteCommand=none"] + forwards + ["--", alias, command],
                         forwarding: forward, cancelArguments: prefix + ["-O", "cancel"] + forwards + ["--", alias])
+    }
+
+    /// SSH 退出后可能留下 socket 文件，导致下一次连接只恢复终端、没有命令转发。
+    /// 仅清理当前用户持有且确认无人监听的 socket，接回存活会话时保留原通道。
+    private static func removeStaleForwardingSocket(_ path: String) -> Bool {
+        var original = stat()
+        guard lstat(path, &original) == 0 else { return errno == ENOENT }
+        guard original.st_mode & S_IFMT == S_IFSOCK, original.st_uid == getuid() else { return false }
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        guard fcntl(fd, F_SETFL, O_NONBLOCK) == 0 else { return false }
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let bytes = Array(path.utf8) + [0]
+        guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { return false }
+        withUnsafeMutableBytes(of: &address.sun_path) { $0.copyBytes(from: bytes) }
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        }
+        if result == 0 || errno == EINPROGRESS || errno == EAGAIN { return true }
+        guard errno == ECONNREFUSED else { return errno == ENOENT }
+        var current = stat()
+        guard lstat(path, &current) == 0 else { return errno == ENOENT }
+        guard current.st_dev == original.st_dev, current.st_ino == original.st_ino else { return false }
+        return unlink(path) == 0 || errno == ENOENT
     }
 
     /// 接回后台 SSH 后恢复关闭时的清理操作，不重新连接或执行远程启动脚本。
