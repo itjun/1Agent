@@ -411,7 +411,7 @@ import ObjectiveC
             dragHandle = handle
             return true
         }
-        let handle = try unwrap(dragHandle, "指令拖拽层不存在")
+        _ = try unwrap(dragHandle, "指令拖拽层不存在")
         let destination = window.convertPoint(fromScreen: screenPoint)
         try require(QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === destinationWindow,
                     "拖拽开始前目标窗口被遮挡")
@@ -421,14 +421,14 @@ import ObjectiveC
         }
         NSApp.postEvent(try mouse(.leftMouseUp, at: destination), atStart: true)
         NSApp.postEvent(try mouse(.leftMouseDragged, at: destination), atStart: true)
-        handle.mouseDown(with: try mouse(.leftMouseDown, at: start))
+        NSApp.sendEvent(try mouse(.leftMouseDown, at: start))
         try require(deliveries == [commandID], "真实指令行拖入终端只投递一次")
         let escape = try unwrap(NSEvent.keyEvent(with: .keyDown, location: destination, modifierFlags: [], timestamp: 0,
                                      windowNumber: window.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "",
                                      isARepeat: false, keyCode: 53))
         NSApp.postEvent(escape, atStart: true)
         NSApp.postEvent(try mouse(.leftMouseDragged, at: destination), atStart: true)
-        handle.mouseDown(with: try mouse(.leftMouseDown, at: start))
+        NSApp.sendEvent(try mouse(.leftMouseDown, at: start))
         try require(deliveries == [commandID], "Esc 取消拖拽不执行")
         if CommandLine.arguments.contains("--background-drag") {
             try require(!NSApp.isActive && !destinationWindow.isKeyWindow, "后台拖拽不依赖激活应用或键盘焦点")

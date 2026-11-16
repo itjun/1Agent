@@ -53,6 +53,12 @@ final class QuickCommandDragHandleView: NSView {
     override func mouseEntered(with event: NSEvent) { NSCursor.pointingHand.set() }
     override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
 
+    /// 跟踪队列可能收到其他窗口的事件；无所属窗口时位置已经是屏幕坐标。
+    /// 预览、拖动阈值和释放落点必须使用同一坐标系，不能一直套用起始窗口。
+    static func screenLocation(of event: NSEvent) -> NSPoint {
+        event.window?.convertPoint(toScreen: event.locationInWindow) ?? event.locationInWindow
+    }
+
     /// 按屏幕上的最上层窗口命中，不能穿过工具箱或其他应用落到后台终端。
     static func dropDestination(at screenPoint: NSPoint) -> (window: NSWindow, point: NSPoint)? {
         var number = NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: 0)
@@ -94,7 +100,7 @@ final class QuickCommandDragHandleView: NSView {
         guard let window, let id = commandID else { return }
         let wasMovable = window.isMovable
         window.isMovable = false
-        let start = event.locationInWindow
+        let start = Self.screenLocation(of: event)
         let clickCount = event.clickCount
         var dragging = false
         var target: SSHTerminalNSView?
@@ -119,7 +125,7 @@ final class QuickCommandDragHandleView: NSView {
             if event.type == .leftMouseUp {
                 if dragging {
                     // Re-resolve at release; a pane or its command can change mid-drag.
-                    guard let drop = Self.dropDestination(at: window.convertPoint(toScreen: event.locationInWindow)) else {
+                    guard let drop = Self.dropDestination(at: Self.screenLocation(of: event)) else {
                         stop.pointee = true
                         return
                     }
@@ -138,7 +144,8 @@ final class QuickCommandDragHandleView: NSView {
                 stop.pointee = true
                 return
             }
-            if !dragging, hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) >= 6 {
+            let screen = Self.screenLocation(of: event)
+            if !dragging, hypot(screen.x - start.x, screen.y - start.y) >= 6 {
                 dragging = true
                 self.onDragStart() // 拖拽只更新选择，不能在拖动途中打开卡片并改变终端位置。
                 let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: min(self.bounds.width, 260), height: 42),
@@ -155,7 +162,6 @@ final class QuickCommandDragHandleView: NSView {
                 preview = panel
             }
             guard dragging else { return }
-            let screen = window.convertPoint(toScreen: event.locationInWindow)
             let drop = Self.dropDestination(at: screen)
             let destination = drop.flatMap { QuickCommandCopyTargetView.target(at: $0.point, in: $0.window, commandID: id) }
             if destination !== copyTarget { copyTarget?.isHighlighted = false; copyTarget = destination }

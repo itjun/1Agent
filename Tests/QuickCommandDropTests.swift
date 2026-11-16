@@ -119,6 +119,34 @@ import ObjectiveC
         terminal.onQuickCommandDrop = { dropped in precondition(dropped == item.id); deliveries += 1; return true }
         drag(to: dragWindow.convertPoint(fromScreen: screenPoint))
         precondition(deliveries == 1, "独立工具箱跨窗口拖动必须投递到实际终端一次")
+        // 留出真实布局时间，覆盖事件换窗及无所属窗口时的预览和释放落点。
+        func dragWithPreview(eventWindow: NSWindow?) {
+            func event(_ type: NSEvent.EventType) -> NSEvent {
+                let owner = type == .leftMouseDown ? dragWindow : eventWindow
+                let point = type == .leftMouseDown ? NSPoint(x: 80, y: 75)
+                    : owner?.convertPoint(fromScreen: screenPoint) ?? screenPoint
+                return NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                          windowNumber: owner?.windowNumber ?? 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            }
+            let inspectPreview = Timer(timeInterval: 0.15, repeats: false) { _ in
+                MainActor.assumeIsolated {
+                    let preview = NSApp.windows.first { $0.isVisible && $0.level == .popUpMenu && $0.ignoresMouseEvents }
+                    precondition(preview != nil, "拖动途中必须显示预览")
+                    let expected = NSPoint(x: screenPoint.x + 12, y: screenPoint.y - 36)
+                    precondition(hypot(preview!.frame.minX - expected.x, preview!.frame.minY - expected.y) < 2,
+                                 "预览必须跟随鼠标；实际 \(preview!.frame.origin)，期望 \(expected)")
+                    NSApp.postEvent(event(.leftMouseUp), atStart: true)
+                }
+            }
+            RunLoop.main.add(inspectPreview, forMode: .eventTracking)
+            NSApp.postEvent(event(.leftMouseDragged), atStart: true)
+            dragHandle.mouseDown(with: event(.leftMouseDown))
+        }
+        dragWithPreview(eventWindow: nativeWindow)
+        precondition(deliveries == 2, "后续事件换窗后必须在正确终端投递")
+        dragWithPreview(eventWindow: nil)
+        precondition(deliveries == 3, "屏幕坐标事件不能再次叠加起始窗口偏移")
+        print("PASS moving preview and release after event-window changes and screen-coordinate events")
         terminal.onQuickCommandDrop = originalDrop
         dragWindow.close()
         print("PASS native mouse-down/drag/up tracking for reorder and cross-window command delivery")

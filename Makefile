@@ -26,6 +26,10 @@ test-terminal-stress:
 test-terminal-windows:
 	bash scripts/test-terminal-windows.sh
 
+.PHONY: test-command-drag
+test-command-drag:
+	bash scripts/test-terminal-windows.sh "" --command-drag
+
 test-scripting-replies:
 	clang -fobjc-arc -framework Foundation -I Sources/GooseAgent Sources/GooseAgent/ScriptingReplyBridge.m Tests/ScriptingReplyBridgeTests.m -o /tmp/oneagent-scripting-reply-tests
 	/tmp/oneagent-scripting-reply-tests

@@ -31,7 +31,11 @@ import ObjectiveC
                     print("TerminalCompatibilityTests passed")
                 } else {
                     try await run()
-                    print("TerminalWindowsTests passed: saved windows merge into one, 24 terminals, 720 AppKit resizes, ownership, recovery and secure input lifecycle")
+                    if CommandLine.arguments.contains("--command-drag") {
+                        print("TerminalWindowsTests passed: repeated window switching and real command drag execution")
+                    } else {
+                        print("TerminalWindowsTests passed: saved windows merge into one, 24 terminals, 720 AppKit resizes, ownership, recovery and secure input lifecycle")
+                    }
                 }
                 exit(0)
             }
@@ -87,6 +91,11 @@ import ObjectiveC
         let native = MainWindowManager.shared.window(for: main)!
         let workspaceView = SSHTerminalRegistry.automationView("\(main.selectedTabID!.uuidString)#0")!
         let workspacePID = workspaceView.processHost!.process.shellPid
+        if CommandLine.arguments.contains("--command-drag") {
+            defer { model.closeTab(firstTab); model.closeTab(secondTab); native.close() }
+            try await commandDrag(model, home: home)
+            return
+        }
         // 覆盖当前版本支持的非终端页面，不依赖尚未合入的页面枚举。
         for section in ["files", "commands"].compactMap({ AppSection(rawValue: $0) }) {
             main.section = section
@@ -119,6 +128,108 @@ import ObjectiveC
         try check(saved.windows?.count == 1 && saved.tabs.count == 2, "The saved session has one window with the two original sessions")
         try await secureInput(model, home: home)
         native.orderOut(nil)
+    }
+
+    /// 完整工作区、真实 ZLE 通道和鼠标事件分发，不能用按钮执行或回调计数代替。
+    @MainActor static func commandDrag(_ model: AppModel, home: String) async throws {
+        TerminalActivity.shared.model = model
+        let state = model.mainWindow, id = state.selectedTabID!
+        let otherID = model.tabs.first { $0.id != id }!.id
+        let native = MainWindowManager.shared.window(for: state)!
+        let terminal = SSHTerminalRegistry.automationView("\(id.uuidString)#0")!
+        let host = terminal.processHost!
+        try "PS1='DRAG_READY> '\n".write(toFile: home + "/.zshrc", atomically: true, encoding: .utf8)
+        let environment = ["PATH=/usr/bin:/bin", "HOME=" + home, "ZDOTDIR=" + home, "TERM=xterm-256color"]
+        let integration = ShellIntegrationEnvironment.variables(settings: .defaults, shellPath: "/bin/zsh",
+            resourcesPath: Bundle.main.resourcePath, environment: environment)
+        host.updateLaunch(TerminalLaunch(executable: "/bin/zsh", args: ["-d", "-i"], environment: environment,
+            directory: home, shellIntegrationEnvironment: integration))
+        host.restart(notice: "拖拽验证")
+        let item = QuickCommand(alias: "切换窗口拖拽验证", command: "((ONEAGENT_DRAG_COUNT+=1)); printf '\\nDRAG_CHECK_%s\\n' \"$ONEAGENT_DRAG_COUNT\"", scope: .local)
+        try QuickCommandStore.shared.save(item)
+        model.commandSidebars[id, default: TerminalCommandSidebarState()].isExpanded = true
+        native.setContentSize(NSSize(width: 1100, height: 750))
+
+        func eventually(_ label: String, _ predicate: () async -> Bool) async throws {
+            for _ in 0..<200 {
+                if await predicate() { return }
+                try await Task.sleep(for: .milliseconds(25))
+            }
+            throw Failure(message: "\(label) (active=\(NSApp.isActive), key=\(NSApp.keyWindow?.title ?? "nil"), front=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "nil"))")
+        }
+        func bringFront() async throws {
+            NSApp.unhide(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            native.makeKeyAndOrderFront(nil)
+            try await eventually("测试窗口未前置") { NSApp.isActive && native.isKeyWindow }
+        }
+        func handle(in view: NSView) -> QuickCommandDragHandleView? {
+            if let row = view as? QuickCommandDragHandleView, row.commandID == item.id { return row }
+            return view.subviews.lazy.compactMap { handle(in: $0) }.first
+        }
+        func output() -> String {
+            host.session.waitForPendingOutput()
+            return host.session.readScreenText()?.text ?? ""
+        }
+        func drag() throws {
+            native.contentView?.layoutSubtreeIfNeeded()
+            guard let content = native.contentView, let row = handle(in: content) else { throw Failure(message: "真实指令行未挂载") }
+            let visible = row.bounds.intersection(row.visibleRect)
+            try check(!visible.isEmpty, "指令行不可见")
+            let start = row.convert(NSPoint(x: visible.midX, y: visible.midY), to: nil)
+            let end = terminal.convert(NSPoint(x: terminal.bounds.midX, y: terminal.bounds.midY), to: nil)
+            let hitPoint = content.superview?.convert(start, from: nil) ?? start
+            try check(content.hitTest(hitPoint) === row, "鼠标按下必须经过真实拖拽层")
+            let screenPoint = native.convertPoint(toScreen: end)
+            try check(terminal.acceptsQuickCommand(item.id), "真实终端必须接受本次命令")
+            try check(QuickCommandDragHandleView.dropDestination(at: screenPoint)?.window === native,
+                      "实际窗口仍被遮挡，不能把后台投递当作前台验证")
+            func event(_ type: NSEvent.EventType, at point: NSPoint) -> NSEvent {
+                NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: native.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            }
+            NSApp.postEvent(event(.leftMouseUp, at: end), atStart: true)
+            NSApp.postEvent(event(.leftMouseDragged, at: end), atStart: true)
+            NSApp.sendEvent(event(.leftMouseDown, at: start))
+        }
+
+        try await bringFront()
+        try await eventually("测试 shell 的命令通道未就绪") { await SSHTerminalRegistry.quickCommandReady(terminal.sessionID!) }
+        let processID = host.process.identity
+        let cover = NSWindow(contentRect: native.frame.insetBy(dx: 80, dy: 80), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        cover.isReleasedWhenClosed = false
+        cover.title = "窗口切换验证"
+        defer { cover.close() }
+        for iteration in 1...30 {
+            switch iteration % 3 {
+            case 0:
+                NSApp.hide(nil)
+                try await eventually("应用未切到后台") { NSApp.isHidden && !NSApp.isActive }
+            case 1:
+                try await bringFront()
+                cover.makeKeyAndOrderFront(nil)
+                try await eventually("辅助窗口未获得焦点") { cover.isKeyWindow }
+                cover.orderOut(nil)
+            default:
+                model.selectTab(otherID, in: state, focusTerminal: false)
+                try await Task.sleep(for: .milliseconds(50))
+                model.selectTab(id, in: state, focusTerminal: false)
+            }
+            try await bringFront()
+            try await eventually("切回后的终端未就绪") { await SSHTerminalRegistry.quickCommandReady(terminal.sessionID!) }
+            try drag()
+            let marker = "DRAG_CHECK_\(iteration)"
+            try await eventually("第 \(iteration) 次拖拽未执行；\(model.commandExecution(for: id).error ?? "无错误反馈")") {
+                output().split(separator: "\n").contains { $0.trimmingCharacters(in: .whitespaces) == marker }
+            }
+            try await eventually("执行状态未恢复") { !model.commandExecution(for: id).isSubmitting }
+            try await eventually("执行后的 shell 未回到空闲提示符") { await SSHTerminalRegistry.quickCommandReady(terminal.sessionID!) }
+            let counters = output().split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.hasPrefix("DRAG_CHECK_") }
+            try check(counters.last == marker, "每次拖拽只能执行一次，不能多投递命令")
+            try check(host.process.identity == processID, "窗口切换不能重建终端进程")
+        }
+        print("PASS 30 real drag executions after app/window/session switching, once-only counter and same shell process")
     }
 
     @MainActor static func secureInput(_ model: AppModel, home: String) async throws {

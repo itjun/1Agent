@@ -28,7 +28,7 @@ sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path
     -Xlinker -rpath -Xlinker "$dylib_dir" \
     "$dylib_dir/1Agent.debug.dylib" "$repo_dir/Tests/TerminalWindowsTests.swift" "$repo_dir/Tests/TerminalCompatibilityTests.swift" \
     -o "$test_executable"
-if [[ "${2:-}" == *compatibility ]]; then
+if [[ "${2:-}" == *compatibility || "${2:-}" == "--command-drag" ]]; then
     # Real shell runtimes use their system helpers. HOME/XDG are isolated; no network.
     /usr/bin/sandbox-exec -p '(version 1) (allow default) (deny network-outbound (remote ip "*:*")) (deny network-inbound (local ip "*:*")) (deny network-bind (local ip "*:*"))' \
         /usr/bin/env CFFIXED_USER_HOME="$test_dir/home" ONEAGENT_TEST_HOME="$test_dir/home" "$test_executable" "${@:2}"
