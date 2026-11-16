@@ -7,7 +7,7 @@ import Foundation
     static func main() async throws {
         for skew in [-3600.0, 3600.0] {
             let needsWakeup = skew > 0
-            let bridge = LocalCommandBridge(remote: true)!
+            let bridge = RemoteCommandBridge()!
             let listener = socket(AF_UNIX, SOCK_STREAM, 0)
             var address = sockaddr_un()
             address.sun_family = sa_family_t(AF_UNIX)

@@ -82,8 +82,10 @@ run: build
 test: test-release-signing test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies
 	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/GooseAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
 	/tmp/oneagent-terminal-output-store-tests
-	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/LocalCommandBridge.swift Sources/GooseAgent/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/CommandBridgeSocket.swift Sources/GooseAgent/RemoteCommandBridge.swift Sources/GooseAgent/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift
 	/tmp/oneagent-remote-bridge-tests
+	swiftc -parse-as-library -o /tmp/oneagent-local-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/CommandBridgeSocket.swift Sources/GooseAgent/LocalCommandBridge.swift Sources/GooseAgent/TerminalSessionConnection.swift Tests/LocalCommandBridgeTests.swift
+	/tmp/oneagent-local-bridge-tests
 	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
 	/tmp/oneagent-remote-shell-tests
 	python3 scripts/test-remote-shell-cleanup.py

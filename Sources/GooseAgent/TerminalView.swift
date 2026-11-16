@@ -278,7 +278,7 @@ final class TerminalProcessHost {
     /// The previous session's output is not on screen yet; its archive must not be overwritten.
     private(set) var isAwaitingHistoryReplay = false
     private var terminated = false
-    private(set) var commandBridge: LocalCommandBridge?
+    private(set) var commandBridge: (any TerminalCommandBridge)?
     private(set) var remoteWorkingDirectory: String?
     private(set) var isRemote = false
     var onRemoteDirectory: ((String) -> Void)?
@@ -501,13 +501,13 @@ final class TerminalProcessHost {
         var environment = sshChildEnvironment(launch.environment)
         if !launch.shellIntegrationEnvironment.isEmpty {
             environment = ShellIntegrationEnvironment.merged(environment, overrides: launch.shellIntegrationEnvironment)
-            commandBridge = LocalCommandBridge(sessionID: persistentSessionID)
-            if let commandBridge {
-                environment = environment.filter { !$0.hasPrefix("ONEAGENT_QC_") } + commandBridge.environment
+            if let bridge = LocalCommandBridge(sessionID: persistentSessionID) {
+                commandBridge = bridge
+                environment = environment.filter { !$0.hasPrefix("ONEAGENT_QC_") } + bridge.environment
             }
         }
         if let persistentSessionID, TerminalSessionConnection.hasSession(persistentSessionID) {
-            if launch.integratesRemoteShell, let bridge = LocalCommandBridge(remote: true, sessionID: persistentSessionID) {
+            if launch.integratesRemoteShell, let bridge = RemoteCommandBridge(sessionID: persistentSessionID) {
                 commandBridge = bridge
                 if let arguments = RemoteShellIntegration.cancellationArguments(arguments: launch.args, socket: bridge.socketPath, token: bridge.token) {
                     restoreForwardingCancellation(arguments)
@@ -516,7 +516,7 @@ final class TerminalProcessHost {
             spawn(process, launch: launch, arguments: launch.args, environment: environment)
             return
         }
-        if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath, let bridge = LocalCommandBridge(remote: true, sessionID: persistentSessionID) {
+        if launch.integratesRemoteShell, let resources = Bundle.main.resourcePath, let bridge = RemoteCommandBridge(sessionID: persistentSessionID) {
             let childEnvironment = environment
             remotePreparation = Task { [weak self, weak process] in
                 let prepared = await Task.detached {
