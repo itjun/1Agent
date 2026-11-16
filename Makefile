@@ -223,6 +223,7 @@ test-terminal-program:
 	/tmp/oneagent-program-tests
 
 test-session-host:
+	bash scripts/test-session-snapshot.sh
 	bash scripts/build-session-host.sh build/1AgentSessionHost
 	python3 scripts/test-session-host.py
 

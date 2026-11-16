@@ -95,8 +95,16 @@ static bool buffer_write(void *userdata, const uint8_t *bytes, size_t count) {
     return append(userdata, bytes, count);
 }
 static bool format_screen(GhosttyTerminal t, Buffer *buffer, bool modes) {
+    GhosttyTerminalModeConfig wrap = {.mode = GHOSTTY_MODE_WRAPAROUND};
+    if (ghostty_terminal_get(t, GHOSTTY_TERMINAL_DATA_MODE, &wrap) != GHOSTTY_SUCCESS) return false;
+    bool is_wrap_enabled = wrap.value;
+    // formatter 先写模式再写内容。即使当前 TUI 关闭了自动换行，恢复历史时也要先启用。
+    wrap.value = true;
+    if (ghostty_terminal_set(t, GHOSTTY_TERMINAL_OPT_MODE, &wrap) != GHOSTTY_SUCCESS) return false;
     GhosttyFormatterTerminalOptions options = GHOSTTY_INIT_SIZED(GhosttyFormatterTerminalOptions);
     options.emit = GHOSTTY_FORMATTER_FORMAT_VT;
+    // 让恢复端按原网格重新自动换行，保留以后随窗口宽度重排的能力。
+    options.unwrap = true;
     options.extra = (GhosttyFormatterTerminalExtra)GHOSTTY_INIT_SIZED(GhosttyFormatterTerminalExtra);
     options.extra.modes = modes;
     options.extra.scrolling_region = true;
@@ -115,7 +123,7 @@ static bool format_screen(GhosttyTerminal t, Buffer *buffer, bool modes) {
         GhosttyWriter writer = {.write = buffer_write, .userdata = buffer};
         bool ok = ghostty_formatter_format(formatter, writer) == GHOSTTY_SUCCESS;
         ghostty_formatter_free(formatter);
-        if (ok) return true;
+        if (ok) return !modes || is_wrap_enabled || append(buffer, "\x1b[?7l", 5);
         // 极长彩色历史超出传输上限时仍恢复完整活动屏幕，不让会话无法接回。
         buffer->count = original;
         uint16_t rows = 0, columns = 0;
