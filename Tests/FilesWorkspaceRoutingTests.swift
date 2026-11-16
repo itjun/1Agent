@@ -979,6 +979,34 @@ private struct FilesWorkspaceRoutingTests {
         try await settle()
         try require(local.selection == Set(local.shown.map(\.path)) && FamilyMenuPresenter.shared.activeMenu == nil,
                     "Native directory menu action selects all files and tracking ends")
+        let selectedTerminal = state.selectedTabID
+        for (index, column) in [local, remote].enumerated() {
+            workspace.focus(column === local ? remote : local)
+            let returnMenuProbe = NativeMenuProbe()
+            defer { returnMenuProbe.stop() }
+            try await click(NSPoint(x: toolbar[index].midX, y: toolbar[index].midY))
+            guard let menu = returnMenuProbe.menu,
+                  let action = menu.items.firstIndex(where: { $0.title == String(localized: "Back to Terminals") }) else {
+                throw TestFailure(description: "Each file pane must offer Back to Terminals")
+            }
+            let oldSessions = Set(model.tabs.map(\.id))
+            menu.performActionForItem(at: action)
+            try await eventually("return from files into the clicked pane's directory") {
+                model.tabs.contains { !oldSessions.contains($0.id) }
+            }
+            let created = model.tabs.first { !oldSessions.contains($0.id) }!
+            try require(state.section == .terminals && !state.presentation.filesVisible && state.selectedTabID == created.id,
+                        "Returning from files must select the terminal opened in the current directory")
+            try require(created.alias == column.fileSystem.host &&
+                        (created.isLocal ? created.directory : created.remoteDirectory) == column.directory,
+                        "Back to Terminals must use the clicked pane's host and directory, regardless of file selection or focus")
+            model.closeTab(created.id)
+            try require(Set(model.tabs.map(\.id)) == oldSessions, "Opening the directory must preserve existing sessions")
+            if let selectedTerminal { model.selectOnly(selectedTerminal, in: state) }
+            model.showSection(.files, in: state)
+            try await settle()
+        }
+        print("ok: Back to Terminals opens the clicked local or SSH directory and preserves existing sessions")
         local.selection = Set(local.shown.prefix(2).map(\.path))
         let multiple = local.selection
         try await settle()
