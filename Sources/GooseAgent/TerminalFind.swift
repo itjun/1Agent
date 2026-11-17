@@ -178,9 +178,6 @@ struct TerminalFindBar: View {
         let _ = shortcutsRevision
         if state.isOpen {
             HStack(spacing: Theme.Space.s) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: Theme.PaneStyle.findIconSize, weight: .medium))
-                    .foregroundStyle(chrome.secondary)
                 TerminalFindField(state: state, onFocus: onFocus)
                     .frame(maxWidth: Theme.PaneStyle.findFieldMaxWidth)
                     .frame(height: Theme.PaneStyle.findFieldHeight)
