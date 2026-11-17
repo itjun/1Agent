@@ -124,7 +124,7 @@ struct SettingsView: View {
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
 
-    private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearanceDriver.isDark) }
+    private var chrome: WindowChrome { WindowChrome.workspace(isDark: appearanceDriver.isDark) }
     private var sidebarChrome: WindowChrome { chrome }
     private var settingsBackground: Color { chrome.readingBackground }
     private let onRestart: () -> Void
@@ -151,7 +151,10 @@ struct SettingsView: View {
 
     var body: some View {
         NativeSidebarSplit(
-            isDividerHidden: isShellTransparent,
+            isDividerHidden: true,
+            dividerWidth: ShellLayout.workspaceInset,
+            sidebarCornerRadius: ShellLayout.contentRadius,
+            toolbarIdentifier: "settings.navigationSplit",
             width: CGFloat(savedSidebarWidth),
             minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
             defaultWidth: SidebarLayout.defaultWidth,
@@ -163,6 +166,7 @@ struct SettingsView: View {
                 settingsNavigation
             }
                 .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
+                .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                 .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
                 .environment(\.isShellTransparent, isShellTransparent)
@@ -193,6 +197,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .coordinateSpace(name: "settings.detail")
             .background(settingsBackground)
+            .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
             .ignoresSafeArea(edges: .top)
             // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
             .environment(\.windowChrome, chrome)
@@ -245,7 +250,7 @@ struct SettingsView: View {
                                 .frame(height: SettingsLayout.navRowHeight)
                                 .background(
                                     RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                        .fill(selected ? sidebarChrome.hairline : Color.clear)
+                                        .fill(selected ? sidebarChrome.rowSelection(active: true) : Color.clear)
                                 )
                                 .contentShape(Rectangle())
                         }

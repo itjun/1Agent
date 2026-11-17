@@ -2,6 +2,16 @@ import AppKit
 import GhosttyTerminal
 import SwiftUI
 
+extension WindowChrome {
+    /// 工作区与设置沿用聚焦终端的原色，渐变只用于岛之间的间隙。
+    @MainActor static func workspace(isDark: Bool) -> WindowChrome {
+        let colors = TerminalThemePreferences.selected(isDark: isDark).colors(interfaceIsDark: isDark)
+        var chrome = colors.paneChrome(isFocused: true)
+        chrome.gradientColors = colors.gradientColors.map(\.color)
+        return chrome
+    }
+}
+
 /// 预览与实际终端共用配色，避免两处各自猜测主题颜色。
 struct TerminalThemeColors: Equatable {
     let background: String
