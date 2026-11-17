@@ -27,6 +27,7 @@ struct QuickCommandLibraryView: View {
     @State private var error: String?
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
+    @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
 
     private var collections: [QuickCommandCollection] { QuickCommandCollection.available(in: store.commands) }
     private var commands: [QuickCommand] {
@@ -103,7 +104,8 @@ struct QuickCommandLibraryView: View {
             }.id(editing.id).frame(maxWidth: SheetLayout.commandEditor).frame(maxWidth: .infinity)
                 .padding(Theme.Space.xl)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .background(Color.clear)
+                .background(chrome.background)
+                .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                 .modifier(FloatingContentSurface(showsShadow: false))
         } else {
             VStack(alignment: .leading, spacing: ShellLayout.workspaceInset) {
@@ -116,12 +118,6 @@ struct QuickCommandLibraryView: View {
                         commandList.frame(width: listWidth)
                         Color.clear
                             .frame(width: ShellLayout.workspaceInset)
-                            .overlay {
-                                Rectangle()
-                                    .fill(Color(nsColor: .separatorColor))
-                                    .frame(width: Theme.PaneStyle.dividerLineWidth)
-                                    .allowsHitTesting(false)
-                            }
                             .overlay {
                                 PaneDividerHandle(vertical: true, onHover: { isDividerHovered = $0 }, onDragChanged: { delta in
                                     guard availableWidth > 0 else { return }
@@ -150,7 +146,13 @@ struct QuickCommandLibraryView: View {
 
     private var commandList: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
-            if !isWorkspace {
+            if isWorkspace {
+                Text(verbatim: collection.title).font(.headline).lineLimit(1)
+                    .padding(.leading, titlebarLeadingInset)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: ShellLayout.compactHeaderHeight)
+                    .background(WindowDragArea())
+            } else {
                 QuickCommandLibraryHeader(model: model, window: window)
                     .frame(height: ShellLayout.compactHeaderHeight)
             }
@@ -189,13 +191,22 @@ struct QuickCommandLibraryView: View {
                 return .handled
             }
         }
-        .padding(Theme.Space.m)
+        .padding(.horizontal, Theme.Space.m)
+        .padding(.top, isWorkspace ? 0 : Theme.Space.m)
+        .padding(.bottom, Theme.Space.m)
         .background(commandPaneBackground)
+        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : 0))
         .modifier(FloatingContentSurface())
     }
 
     private var commandPreview: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if isWorkspace {
+                QuickCommandLibraryHeader(model: model, window: window, showsTitle: false)
+                    .padding(.horizontal, Theme.Space.m)
+                    .frame(height: ShellLayout.compactHeaderHeight)
+                    .background(WindowDragArea())
+            }
             if let selected {
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
                     HStack(spacing: Theme.Space.s) {
@@ -240,10 +251,11 @@ struct QuickCommandLibraryView: View {
             }
         }
         .background(commandPaneBackground)
+        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : 0))
         .modifier(FloatingContentSurface())
     }
 
-    private var commandPaneBackground: Color { isWorkspace ? .clear : chrome.background }
+    private var commandPaneBackground: Color { chrome.background }
 
     private func libraryRow(_ item: QuickCommand) -> some View {
         HStack(spacing: 0) {
@@ -320,6 +332,7 @@ struct QuickCommandLibraryView: View {
 struct QuickCommandLibraryHeader: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
+    var showsTitle = true
     @ObservedObject private var store = QuickCommandStore.shared
     @Environment(\.windowChrome) private var chrome
     @State private var importing: QuickCommandLibrary?
@@ -334,7 +347,7 @@ struct QuickCommandLibraryHeader: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
-            Text(verbatim: collection.title).font(.headline).lineLimit(1)
+            if showsTitle { Text(verbatim: collection.title).font(.headline).lineLimit(1) }
             Spacer(minLength: 0)
             FamilyMenu("Actions", items: { libraryActions })
                 .font(Theme.Font.body).foregroundStyle(chrome.text)

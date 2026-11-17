@@ -1,42 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// 退出顶部后短暂保留入口，避免鼠标在通栏边缘移动时闪烁。
-@MainActor
-final class WorkspaceToolbarVisibility: ObservableObject {
-    @Published private(set) var isRevealed = false
-    private var pendingHide: DispatchWorkItem?
-    private var isHovered = false
-
-    func setHovered(_ hovered: Bool) {
-        guard hovered != isHovered else { return }
-        isHovered = hovered
-        pendingHide?.cancel()
-        pendingHide = nil
-        if hovered {
-            isRevealed = true
-        } else {
-            let work = DispatchWorkItem { [weak self] in
-                guard let self, !self.isHovered else { return }
-                self.isRevealed = false
-                self.pendingHide = nil
-            }
-            pendingHide = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
-        }
-    }
-
-    deinit { pendingHide?.cancel() }
-}
-
-/// 窗口只有一个原生工具栏，信息始终来自当前输入焦点。
+/// 维护原生窗口标题与红绿灯位置；各页操作区由各自的岛承载。
 struct WorkspaceToolbar: NSViewRepresentable {
     @ObservedObject var model: AppModel
     @ObservedObject var state: WindowState
-    var visibility: WorkspaceToolbarVisibility
     @ObservedObject private var appearance = AppearanceDriver.shared
 
-    func makeCoordinator() -> Coordinator { Coordinator(model: model, state: state, visibility: visibility) }
+    func makeCoordinator() -> Coordinator { Coordinator(model: model, state: state) }
 
     func makeNSView(context: Context) -> ToolbarAttachmentView {
         let view = ToolbarAttachmentView()
@@ -49,83 +20,44 @@ struct WorkspaceToolbar: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, NSToolbarDelegate {
+    final class Coordinator: NSObject {
         let model: AppModel
         let state: WindowState
-        let visibility: WorkspaceToolbarVisibility
         private weak var window: NSWindow?
-        private var toolbar: NSToolbar?
-        private var informationItem: NSToolbarItem?
-        private var informationView: NSHostingView<AnyView>?
-        private var informationWidth: NSLayoutConstraint?
-        private var isPageToolbar = false
-        private let navigationSeparator = NSToolbarItem.Identifier("workspace.navigationSeparator")
-        private let information = NSToolbarItem.Identifier("workspace.focusedInformation")
-        private let sidebar = NSToolbarItem.Identifier("workspace.sidebar")
 
-        init(model: AppModel, state: WindowState, visibility: WorkspaceToolbarVisibility) {
+        init(model: AppModel, state: WindowState) {
             self.model = model
             self.state = state
-            self.visibility = visibility
         }
 
         func attach(to window: NSWindow) {
             guard self.window !== window else { return }
             self.window = window
-            let toolbar = NSToolbar(identifier: "1Agent.workspace")
-            toolbar.delegate = self
-            toolbar.displayMode = .iconOnly
-            toolbar.allowsUserCustomization = false
-            self.toolbar = toolbar
-            window.toolbarStyle = .unifiedCompact
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isOpaque = true
-            window.backgroundColor = .windowBackgroundColor
             window.styleMask.insert(.fullSizeContentView)
-            window.toolbar = toolbar
+            window.toolbar = nil
             window.titlebarSeparatorStyle = .none
-            NotificationCenter.default.addObserver(self, selector: #selector(splitDidResize(_:)),
-                name: NSSplitView.didResizeSubviewsNotification, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(windowDidResize(_:)),
                 name: NSWindow.didResizeNotification, object: window)
             update()
         }
 
         func update() {
-            window?.backgroundColor = NSColor(WindowChrome.resolve(isDark: AppearanceDriver.shared.isDark).panelHeader)
-            let isTerminal = state.section == .terminals && !state.presentation.fullFilesWorkspace
+            window?.backgroundColor = NSColor(WindowChrome.workspace(isDark: AppearanceDriver.shared.isDark).background)
             let tab = model.selectedTab(in: state)
             window?.title = state.section == .commands ? String(localized: "Command Library")
                 : state.presentation.fullFilesWorkspace ? String(localized: "Files")
                 : tab.map { model.sessionTitle($0) } ?? String(localized: "1Agent")
-            isPageToolbar = !isTerminal
-            // 终端标题直接属于各自面板，原生通栏只供文件／命令库使用。
-            if isTerminal {
-                window?.toolbar = nil
-            } else if let toolbar {
-                if window?.toolbar !== toolbar { window?.toolbar = toolbar }
-                let desired = [sidebar, navigationSeparator, information]
-                for index in toolbar.items.indices.reversed() where !desired.contains(toolbar.items[index].itemIdentifier) {
-                    toolbar.removeItem(at: index)
-                }
-                for (index, id) in desired.enumerated() where !toolbar.items.contains(where: { $0.itemIdentifier == id }) {
-                    toolbar.insertItem(withItemIdentifier: id, at: min(index, toolbar.items.count))
-                }
-            }
-            if let window {
-                let height = max(0, window.frame.height - window.contentLayoutRect.maxY)
-                if abs(state.workspaceToolbarHeight - height) > 0.5 {
-                    DispatchQueue.main.async { [weak self] in self?.state.workspaceToolbarHeight = height }
-                }
-            }
-            updateInformation()
+            // 各页标题与操作属于各自的岛，不再切换原生通栏或改变内容高度。
+            window?.toolbar = nil
             DispatchQueue.main.async { [weak self] in self?.positionWindowButtons() }
             FocusedTerminal.shared.refreshSoon()
         }
 
         private func positionWindowButtons() {
-            guard !isPageToolbar, let window, !window.styleMask.contains(.fullScreen) else { return }
+            guard let window, !window.styleMask.contains(.fullScreen) else { return }
             // 原生红绿灯放在导航岛内部，与各岛的 32pt 标题共用中心线。
             // 使用窗口坐标，避免每次布局在已移动的位置上累计偏移。
             for (index, kind) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
@@ -137,102 +69,9 @@ struct WorkspaceToolbar: NSViewRepresentable {
             }
         }
 
-        private func updateInformation() {
-            guard let informationView, let informationItem else { return }
-            let width: CGFloat
-            var contentWidth: CGFloat = 0
-            var contentLeadingInset: CGFloat = 0
-            if isPageToolbar, let content = window?.contentView,
-               let split = findSplitView(in: content, identifier: "workspace.navigationSplit"),
-               let detail = split.arrangedSubviews.last {
-                // 收起侧栏后，红绿灯与侧栏按钮仍占用原生通栏左侧空间。
-                let isSidebarCollapsed = split.arrangedSubviews.first.map { split.isSubviewCollapsed($0) } ?? false
-                contentWidth = detail.frame.width
-                contentLeadingInset = max(0, informationView.convert(.zero, to: nil).x - detail.convert(.zero, to: nil).x)
-                width = max(120, detail.frame.width - (isSidebarCollapsed ? 160 : 32))
-            } else {
-                width = 0
-            }
-            if isPageToolbar {
-                informationView.sizingOptions = []
-                if informationWidth == nil {
-                    informationWidth = informationView.widthAnchor.constraint(equalToConstant: width)
-                }
-                informationWidth?.constant = width
-                informationWidth?.isActive = true
-                informationItem.minSize = NSSize(width: width, height: Theme.Toolbar.height)
-                informationItem.maxSize = NSSize(width: width, height: Theme.Toolbar.height)
-            } else {
-                informationWidth?.isActive = false
-                informationView.sizingOptions = [.intrinsicContentSize]
-                informationItem.minSize = NSSize(width: 120, height: Theme.Toolbar.height)
-                informationItem.maxSize = NSSize(width: 720, height: Theme.Toolbar.height)
-            }
-            informationView.rootView = AnyView(WorkspaceToolbarInformation(model: model, state: state,
-                contentWidth: contentWidth, contentLeadingInset: contentLeadingInset)
-                .frame(width: isPageToolbar ? width : nil, height: Theme.Toolbar.height))
-        }
-
         @objc private func windowDidResize(_ notification: Notification) { update() }
 
-        func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-            [sidebar, navigationSeparator, information]
-        }
-        func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-            toolbarDefaultItemIdentifiers(toolbar)
-        }
-        func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
-                     willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-            if id == navigationSeparator {
-                guard let content = window?.contentView,
-                      let splitView = findSplitView(in: content, identifier: "workspace.navigationSplit") else { return nil }
-                return NSTrackingSeparatorToolbarItem(identifier: id, splitView: splitView, dividerIndex: 0)
-            }
-            if id == information {
-                let item = NSToolbarItem(itemIdentifier: id)
-                let view = NSHostingView(rootView: AnyView(WorkspaceToolbarInformation(model: model, state: state)))
-                view.sizingOptions = [.intrinsicContentSize]
-                item.view = view
-                informationItem = item
-                informationView = view
-                item.minSize = NSSize(width: 120, height: Theme.Toolbar.height)
-                item.maxSize = NSSize(width: 720, height: Theme.Toolbar.height)
-                item.visibilityPriority = .high
-                if #available(macOS 26.0, *) { item.isBordered = false }
-                return item
-            }
-            let item = NSToolbarItem(itemIdentifier: id)
-            let title = AppShortcutID.toggleSidebar.title
-            let control = NSHostingView(rootView: WorkspaceSidebarToggle(shortcut: .toggleSidebar,
-                systemImage: "sidebar.left", identifier: "workspace.sidebar") { [weak self] in
-                    guard let self else { return }
-                    model.toggleSidebar(in: state)
-                })
-            control.sizingOptions = [.intrinsicContentSize]
-            item.view = control
-            item.autovalidates = false
-            item.label = title
-            item.toolTip = title + " (" + AppShortcuts.display(for: .toggleSidebar) + ")"
-            item.isBordered = false
-            return item
-        }
-        private func findSplitView(in view: NSView, identifier: String) -> NSSplitView? {
-            if let split = view as? NSSplitView, split.identifier?.rawValue == identifier { return split }
-            for child in view.subviews {
-                if let split = findSplitView(in: child, identifier: identifier) { return split }
-            }
-            return nil
-        }
-
         deinit { NotificationCenter.default.removeObserver(self) }
-
-        @objc private func splitDidResize(_ notification: Notification) {
-            guard let split = notification.object as? NSSplitView, split.window === window else { return }
-            DispatchQueue.main.async { [weak self] in
-                self?.updateInformation()
-            }
-        }
-
     }
 }
 
@@ -345,101 +184,5 @@ final class ToolbarAttachmentView: NSView {
                 self.onWindow?(window)
             }
         }
-    }
-}
-
-/// 跟踪整条通栏的悬停状态，供右侧展开按钮使用；点击继续交给原有控件。
-struct ToolbarHoverTracking: NSViewRepresentable {
-    var onHover: (Bool) -> Void = { _ in }
-    func makeNSView(context: Context) -> ToolbarHoverTrackingView {
-        let view = ToolbarHoverTrackingView()
-        view.onHover = onHover
-        return view
-    }
-    func updateNSView(_ view: ToolbarHoverTrackingView, context: Context) { view.onHover = onHover }
-}
-
-final class ToolbarHoverTrackingView: NSView {
-    var onHover: (Bool) -> Void = { _ in }
-    private(set) var isHovered = false
-    private var mouseMonitor: Any?
-    private weak var trackingView: NSView?
-    private var toolbarTrackingArea: NSTrackingArea?
-
-    deinit {
-        if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
-        if let toolbarTrackingArea { trackingView?.removeTrackingArea(toolbarTrackingArea) }
-    }
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    private var toolbarRect: NSRect {
-        guard let window, window.toolbar?.isVisible == true else { return .zero }
-        let bottom = window.contentLayoutRect.maxY
-        return NSRect(x: 0, y: bottom, width: window.frame.width,
-                      height: max(0, window.frame.height - bottom))
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        guard let host = window?.contentView?.superview else { return }
-        // 跟踪区域放到窗口视图，覆盖原生标题栏及两侧按钮。
-        let rect = host.convert(toolbarRect, from: nil)
-        if trackingView === host, toolbarTrackingArea?.rect == rect { return }
-        if let toolbarTrackingArea { trackingView?.removeTrackingArea(toolbarTrackingArea) }
-        let area = NSTrackingArea(rect: rect,
-            options: [.mouseEnteredAndExited, .activeAlways], owner: self)
-        trackingView = host
-        toolbarTrackingArea = area
-        host.addTrackingArea(area)
-        setHovered(toolbarRect.contains(window!.mouseLocationOutsideOfEventStream))
-    }
-    private func setHovered(_ hovered: Bool) {
-        guard isHovered != hovered else { return }
-        isHovered = hovered
-        // 跟踪区域可能在布局过程中刷新，延后发布，避免在 SwiftUI 更新中修改状态。
-        DispatchQueue.main.async { [weak self] in self?.onHover(hovered) }
-    }
-    override func mouseEntered(with event: NSEvent) { setHovered(true) }
-    override func mouseExited(with event: NSEvent) { setHovered(false) }
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor); self.mouseMonitor = nil }
-        if let toolbarTrackingArea { trackingView?.removeTrackingArea(toolbarTrackingArea) }
-        toolbarTrackingArea = nil
-        trackingView = nil
-        setHovered(false)
-        guard let window else { return }
-        window.acceptsMouseMovedEvents = true
-        updateTrackingAreas()
-        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .leftMouseDragged]) { [weak self] event in
-            guard let self else { return event }
-            setHovered(event.window === self.window && toolbarRect.contains(event.locationInWindow))
-            return event
-        }
-    }
-}
-
-private struct WorkspaceToolbarInformation: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject var state: WindowState
-    var contentWidth: CGFloat = 0
-    var contentLeadingInset: CGFloat = 0
-    @ObservedObject private var appearance = AppearanceDriver.shared
-
-    var body: some View {
-        Group {
-            if state.section == .commands {
-                QuickCommandLibraryHeader(model: model, window: state)
-            } else if state.presentation.fullFilesWorkspace {
-                FilesWorkspaceToolbar(workspace: model.fileWorkspace(for: state),
-                    contentWidth: contentWidth, contentLeadingInset: contentLeadingInset)
-            } else {
-                EmptyView()
-            }
-        }
-        .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
-        .preferredColorScheme(appearance.interfaceColorScheme)
-        .font(Theme.Font.body)
-        .foregroundStyle(WindowChrome.resolve(isDark: appearance.isDark).text)
     }
 }

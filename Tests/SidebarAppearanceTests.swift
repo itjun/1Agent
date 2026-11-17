@@ -47,14 +47,14 @@ import SwiftUI
                     SidebarAppearanceTests.expect(!materials.contains { $0.identifier?.rawValue == "workspace.sidebarMaterial" },
                         "主导航不叠加自绘材质背景")
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
-                        && split.splitView.dividerThickness == (section == .terminals ? 5 : 1),
+                        && split.splitView.dividerThickness == 5,
                         "navigation hides its separator while preserving the resize geometry: section=\(section), width=\(split.splitView.dividerThickness), alpha=\(split.splitView.dividerColor.alphaComponent)")
                     SidebarAppearanceTests.expect(SidebarAppearanceTests.navigationSplit(in: host.view,
                         identifier: "workspace.inspectorSplit") == nil, "旧右栏没有保留隐藏占位")
                     SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.count == 2,
                         "主窗口仅有导航和内容两列")
-                    if section == .terminals {
-                        SidebarAppearanceTests.expect(window.toolbar == nil, "终端标题不再使用重复通栏")
+                    do {
+                        SidebarAppearanceTests.expect(window.toolbar == nil, "各页标题与操作留在各自的岛内")
                         SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.first?.layer?.cornerRadius == 10
                             && split.splitView.arrangedSubviews.first?.layer?.masksToBounds == true,
                             "native sidebar material is clipped along with the island surface")
@@ -63,7 +63,7 @@ import SwiftUI
                         SidebarAppearanceTests.expect(abs(frame.minX) < 1 && abs(frame.minY) < 1
                             && abs(content.bounds.maxX - frame.maxX) < 1
                             && abs(content.bounds.maxY - frame.maxY) < 1,
-                            "terminal islands fill all four window edges without an outer frame")
+                            "all workspace islands fill all four window edges without an outer frame")
                     }
                 }
             }
@@ -71,7 +71,7 @@ import SwiftUI
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         driver.reapply()
         SidebarAppearanceTests.expect(driver.isDark == TerminalAppearance.systemIsDark, "follow system appearance")
-        print("SidebarAppearanceTests passed: native sidebar material, no right column, integrated terminal titles, light/dark and terminal/files/commands")
+        print("SidebarAppearanceTests passed: native sidebar material, no right column, integrated island titles, light/dark and terminal/files/commands")
     }
 
     @MainActor static func materials(in view: NSView) -> [NSVisualEffectView] {

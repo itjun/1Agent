@@ -93,7 +93,7 @@ struct FileColumnHeader<Endpoint: View>: View {
         .padding(.horizontal, isWindowToolbar ? Theme.Space.xs : Theme.Space.m)
         .padding(.leading, titlebarLeadingInset)
         .frame(height: isWindowToolbar ? 28 : FileBrowserLayout.tabStripHeight)
-        .background(Color.clear)
+        .background(WindowDragArea())
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {

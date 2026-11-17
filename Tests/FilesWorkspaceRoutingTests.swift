@@ -713,7 +713,7 @@ private struct FilesWorkspaceRoutingTests {
         }
         window.setContentSize(NSSize(width: 1440, height: 900))
         try await verifyCompactHeaderGeometry(model: model, state: state, window: window)
-        print("ok: single page entries, one shared title band, 1Panel file headers and recoverable narrow sidebar")
+        print("ok: single page entries, island file headers and recoverable narrow sidebar")
 
         model.hideFiles(in: state)
         guard let source = model.selectedTab(in: state) else {
@@ -882,10 +882,8 @@ private struct FilesWorkspaceRoutingTests {
         // Mount the production file page without leaving a second RootView alive to create
         // terminal surfaces when later routing checks switch the fixture back to Terminal mode.
         window.toolbar = nil
-        window.contentView = NSHostingView(rootView: VStack(spacing: 0) {
-            FilesWorkspaceToolbar(workspace: workspace, contentWidth: window.contentLayoutRect.width, contentLeadingInset: 0).frame(height: 28)
-            FilesWorkspaceView(model: model, window: state, relay: CanvasDropRelay())
-        })
+        window.contentView = NSHostingView(rootView:
+            FilesWorkspaceView(model: model, window: state, relay: CanvasDropRelay()))
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         local.selection = [localEntry.path]
@@ -1285,51 +1283,25 @@ private struct FilesWorkspaceRoutingTests {
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
         try verifyShortcutOnlyActions()
-        func hoverView(_ view: NSView) -> ToolbarHoverTrackingView? {
-            (view as? ToolbarHoverTrackingView) ?? view.subviews.compactMap(hoverView).first
-        }
-        guard let toolbarHover = hoverView(window.contentView!) else {
-            throw TestFailure(description: "Toolbar hover surface must remain attached")
-        }
-        toolbarHover.mouseExited(with: NSEvent())
-        try await settle()
-        func movePointer(to point: NSPoint, isHovered: Bool) async throws {
-            let event = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-                context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
-            // 同步检查事件结果；后续布局会根据真实鼠标位置刷新 tracking area。
-            NSApp.sendEvent(event)
-            try require(toolbarHover.isHovered == isHovered,
-                        "Toolbar controls must still follow hover across the whole title band at \(point)")
-            try await settle()
-            try require(window.titlebarSeparatorStyle == .none && toolbarHover.subviews.isEmpty,
-                        "Toolbar hover must not add a horizontal separator")
-        }
-        let toolbarY = (window.contentLayoutRect.maxY + window.frame.height) / 2
-        for x in [CGFloat(12), window.frame.width / 2, window.frame.width - 12] {
-            try await movePointer(to: NSPoint(x: x, y: toolbarY), isHovered: true)
-            try await movePointer(to: NSPoint(x: x, y: window.contentLayoutRect.maxY - 12),
-                                  isHovered: false)
-        }
-        toolbarHover.mouseExited(with: NSEvent())
-        try require(window.toolbar?.items.contains { $0.itemIdentifier.rawValue == "workspace.add" } == false,
-                    "New actions remain available through shortcuts without a toolbar plus button")
         let rootTop = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil)).maxY
-        guard window.toolbar != nil, let local = element("files.localLocation") else {
-            throw TestFailure(description: "Native toolbar and local title must be accessible")
+        guard window.toolbar == nil, let local = element("files.localLocation") else {
+            throw TestFailure(description: "The local file island must own its header without a native toolbar")
         }
-        try require(frame(local).maxY <= rootTop + 1, "Native toolbar stays above the file content")
+        try require(abs(rootTop - frame(local).midY - FileBrowserLayout.tabStripHeight / 2) < 2,
+                    "The file title must stay centered in its existing file island header")
+        if let zoom = window.standardWindowButton(.zoomButton) {
+            let zoomFrame = window.convertToScreen(zoom.convert(zoom.bounds, to: nil))
+            try require(frame(local).minX > zoomFrame.maxX,
+                        "Collapsed navigation must reserve space for the native window buttons")
+        }
         let collapsedFileY = frame(local).midY
         model.toggleSidebar(in: state)
         try await settle()
         window.contentView?.layoutSubtreeIfNeeded()
-        try require(window.toolbar != nil && !state.presentation.sidebarCollapsed,
-                    "Restoring the sidebar retains the same title band even in a narrow window")
-        // 侧栏恢复和原生工具栏重新排布异步完成，80 ms 可能仍处于溢出状态。
-        // 等待可观察的布局结果；标题始终隐藏或移入溢出菜单仍会使测试失败。
-        try await eventually("restored file toolbar is visible") {
-            window.toolbar?.visibleItems?.contains { $0.itemIdentifier.rawValue == "workspace.focusedInformation" } == true
-                && element("files.localLocation") != nil
+        try require(window.toolbar == nil && !state.presentation.sidebarCollapsed,
+                    "Restoring the sidebar keeps island headers even in a narrow window")
+        try await eventually("restored file island headers are visible") {
+            element("files.localLocation") != nil
                 && (model.fileWorkspace(for: state).remoteColumn == nil || element("files.remoteLocation") != nil)
         }
         guard let native = split(window.contentView!), let title = element("files.localLocation") else {
@@ -1341,7 +1313,7 @@ private struct FilesWorkspaceRoutingTests {
                     "Narrow recovery must preserve the saved sidebar width")
         try require(abs(frame(title).midY - collapsedFileY) < 1,
                     "Expanding the sidebar must not shift file headers vertically")
-        try require(window.toolbar?.isVisible == true, "Expanded and collapsed states retain the native toolbar")
+        try require(window.toolbar == nil, "Expanded and collapsed states retain island headers")
         try require(TerminalCanvas.headerHeight(for: .zero) == ShellLayout.compactHeaderHeight,
                     "Every terminal reserves one compact title of its own")
         window.setContentSize(NSSize(width: 1440, height: 900))
@@ -1368,34 +1340,24 @@ private struct FilesWorkspaceRoutingTests {
             model.toggleSidebar(in: state)
             try require(!state.presentation.sidebarCollapsed, "Shortcut actions must restore the sidebar repeatedly")
         }
-        let tracked = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
-        try require(tracked.count == 1, "File navigation keeps one titlebar separator")
-        let trackedSplits = tracked.map(\.splitView)
         let savedInspectorOpen = state.presentation.toolSidebarOpen
         state.presentation.toolSidebarOpen = true
-        // 原生命令页曾把右分栏重新挂载，触发 AppKit 的侧栏注册异常。
-        // 重复切换真实页面，验证跟踪对象、窗口归属与通顶几何始终稳定。
+        // Repeated real page switches must keep the same full-height native navigation split.
         for section: AppSection in [.terminals, .commands, .files, .terminals, .commands, .files] {
             model.showSection(section, in: state)
             try await settle()
             window.contentView?.layoutSubtreeIfNeeded()
-            if section == .terminals {
-                try require(window.toolbar == nil, "Terminals use their own headers without a global toolbar")
-                continue
-            }
-            let current = window.toolbar!.items.compactMap { $0 as? NSTrackingSeparatorToolbarItem }
-            try require(current.count == 1, "Files and commands retain the navigation separator")
-            for (index, item) in current.enumerated() {
-                try require(item.splitView === trackedSplits[index] && item.splitView.window === window,
-                            "Page changes must not detach or replace a tracked sidebar split")
-                let bounds = item.splitView.convert(item.splitView.bounds, to: nil)
-                try require(abs(bounds.maxY - window.contentView!.bounds.height) < 2,
-                            "The navigation sidebar split must extend through the titlebar")
-            }
+            try require(window.toolbar == nil && window.titlebarSeparatorStyle == .none,
+                        "All pages own their island headers without a global toolbar or separator")
+            try require(split(window.contentView!) === native && native.window === window,
+                        "Page changes must not detach or replace the navigation split")
+            let bounds = native.convert(native.bounds, to: nil)
+            try require(abs(bounds.maxY - window.contentView!.bounds.height) < 2,
+                        "The navigation split must extend through the titlebar")
         }
         state.presentation.toolSidebarOpen = savedInspectorOpen
         print("ok: full-height navigation survives terminal/command/file switching without a terminal toolbar")
-        print("ok: stable title band preserves content Y, geometry and actions across repeated collapse and restore")
+        print("ok: island headers preserve content Y, geometry and actions across repeated collapse and restore")
     }
 
     @MainActor

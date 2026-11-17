@@ -29,7 +29,6 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var commandLibrarySplitRatio: CGFloat = 0.5
     @Published var isToolPreviewExpanded = false
     @Published var toolPreviewFrame: CGRect = .zero
-    @Published var workspaceToolbarHeight: CGFloat = 44
     @Published var toolPreviewFindRequest = 0
     // 工具预览只在工具箱内部扩展，永远不遮挡主终端。
     var isToolReadingExpanded: Bool { false }

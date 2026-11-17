@@ -12,7 +12,6 @@ struct RootView: View {
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var isMotionReduced
-    @StateObject private var toolbarVisibility = WorkspaceToolbarVisibility()
     @StateObject private var dropRelay = CanvasDropRelay()
     @StateObject private var pinnedLocationDrag = PinnedLocationDragArea()
     @State private var renamingPanelID: UUID?
@@ -27,18 +26,13 @@ struct RootView: View {
 
     /// 本机与远程共用强调色，切换连接不会改变外壳。
     private var chrome: WindowChrome {
-        WindowChrome.resolve(isDark: appearanceDriver.isDark)
+        WindowChrome.workspace(isDark: appearanceDriver.isDark)
     }
 
     // 导航、会话选中态与终端共用当前主题，包括冷暖变化。
     private var sidebarChrome: WindowChrome {
-        isTerminalWorkspace
-            ? TerminalThemePreferences.selected(isDark: appearanceDriver.isDark)
-                .colors(interfaceIsDark: appearanceDriver.isDark).paneChrome(isFocused: true)
-            : chrome
+        chrome
     }
-
-    private var isTerminalWorkspace: Bool { !filesMode && !commandsMode }
 
     private var sidebarHoverFill: Color {
         Color(nsColor: NSColor(sidebarChrome.sidebarBackground).blended(
@@ -54,8 +48,8 @@ struct RootView: View {
             VStack(spacing: 0) {
                 NativeSidebarSplit(
                     collapsed: collapsed, isDividerHidden: true,
-                    dividerWidth: isTerminalWorkspace ? ShellLayout.workspaceInset : 1,
-                    sidebarCornerRadius: isTerminalWorkspace ? ShellLayout.contentRadius : 0,
+                    dividerWidth: ShellLayout.workspaceInset,
+                    sidebarCornerRadius: ShellLayout.contentRadius,
                     toolbarIdentifier: "workspace.navigationSplit",
                     extendsSidebarIntoTitlebar: true, width: shownSidebarWidth,
                     minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
@@ -66,9 +60,9 @@ struct RootView: View {
                     }
                 ) {
                     sidebar
-                        .padding(.top, isTerminalWorkspace ? ShellLayout.compactHeaderHeight : 0)
+                        .padding(.top, ShellLayout.compactHeaderHeight)
                         .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
-                        .clipShape(RoundedRectangle(cornerRadius: isTerminalWorkspace ? ShellLayout.contentRadius : 0))
+                        .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
@@ -88,14 +82,12 @@ struct RootView: View {
                 }
             }
             .overlay(alignment: .topLeading) {
-                if !filesMode && !commandsMode {
-                    WorkspaceSidebarToggle(shortcut: .toggleSidebar, systemImage: "sidebar.left",
+                WorkspaceSidebarToggle(shortcut: .toggleSidebar, systemImage: "sidebar.left",
                                            identifier: "workspace.sidebar") {
                         model.toggleSidebar(in: window)
                     }
                     .frame(height: ShellLayout.compactHeaderHeight)
                     .padding(.leading, collapsed ? 90 : max(90, shownSidebarWidth - Theme.Toolbar.height - 8))
-                }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
@@ -131,8 +123,7 @@ struct RootView: View {
             GhosttyRuntime.applySelectedThemes()
             appearanceDriver.reapply()
         }
-        .background(WorkspaceToolbar(model: model, state: window, visibility: toolbarVisibility))
-        .background(ToolbarHoverTracking(onHover: toolbarVisibility.setHovered))
+        .background(WorkspaceToolbar(model: model, state: window))
         .modifier(HostInformationPresentation(model: model, window: window))
         .familySheet(isPresented: optionalBinding($window.quickCommandConfirmation), width: SheetLayout.quickCommand, height: SheetLayout.quickCommandHeight) {
             if let confirmation = window.quickCommandConfirmation {
@@ -444,7 +435,6 @@ struct RootView: View {
                     .accessibilityIdentifier("workspace.commandLibrary")
             }
         }
-        .padding(.top, filesMode || commandsMode ? window.workspaceToolbarHeight : 0)
         .ignoresSafeArea(edges: .top)
     }
 
