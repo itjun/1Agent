@@ -7,11 +7,17 @@ import ObjectiveC
     @MainActor static func main() {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.regular)
-        Task { @MainActor in
-            await run()
-            print("CloseTerminalShortcutTests passed")
-            exit(0)
+        // 与焦点验收共用启动时序：应用启动完毕后才能可靠取得键盘焦点。
+        let launchObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didFinishLaunchingNotification, object: NSApp, queue: .main
+        ) { _ in
+            Task { @MainActor in
+                await run()
+                print("CloseTerminalShortcutTests passed")
+                exit(0)
+            }
         }
+        defer { NotificationCenter.default.removeObserver(launchObserver) }
         NSApp.run()
     }
 
