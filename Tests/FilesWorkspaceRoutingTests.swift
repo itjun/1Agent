@@ -1057,8 +1057,11 @@ private struct FilesWorkspaceRoutingTests {
         let editTargets = try elements("files.path.edit").map(frame).sorted { $0.minX < $1.minX }
         try require(editTargets.count == 2, "Each breadcrumb bar must retain a blank editing target")
         try await click(NSPoint(x: editTargets[1].midX, y: editTargets[1].midY))
-        try require(workspace.focusedColumn === remote && window.firstResponder is NSTextView,
-                    "Clicking the right path must focus the right pane and retain the native text editor")
+        // The breadcrumb swaps to a TextField, then requests focus on the next main-queue turn.
+        // Wait for that observable result instead of assuming one 80 ms layout interval is enough.
+        try await eventually("right path owns the native text editor after the breadcrumb click") {
+            workspace.focusedColumn === remote && window.firstResponder is NSTextView
+        }
 
         let localDirectory = local.directory, remoteDirectory = remote.directory
         if local.directory == local.home {
