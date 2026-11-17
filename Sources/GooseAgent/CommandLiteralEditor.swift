@@ -224,6 +224,8 @@ struct NativeSearchField: NSViewRepresentable {
     var placeholder: String
     var identifier: String
     var onMoveSelection: ((Int) -> Void)?
+    var textColor: NSColor = .labelColor
+    var backgroundColor: NSColor = .textBackgroundColor
     @Environment(\.isEnabled) private var isEnabled
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
     func makeNSView(context: Context) -> NSSearchField {
@@ -239,6 +241,8 @@ struct NativeSearchField: NSViewRepresentable {
         if field.stringValue != text { field.stringValue = text }
         field.placeholderString = placeholder
         field.isEnabled = isEnabled
+        field.textColor = textColor
+        field.backgroundColor = backgroundColor
     }
     final class Coordinator: NSObject, NSSearchFieldDelegate {
         var text: Binding<String>

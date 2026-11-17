@@ -51,6 +51,7 @@ enum TerminalFocusTests {
         }
         try require(UserDefaults.standard === defaults, "Preferences must use the isolated suite")
 
+        try await findFieldFocusBeforeTyping()
         try await delayedMountAndLayout()
         try await modalDismissal(ownerAlreadyKey: false)
         try await modalDismissal(ownerAlreadyKey: true)
@@ -490,6 +491,29 @@ enum TerminalFocusTests {
         // macOS may refuse a background test executable's request to reactivate
         // itself. Verify foreground return using the installed app, not a fake
         // activation notification while NSApp.isActive is still false.
+    }
+
+    @MainActor
+    private static func findFieldFocusBeforeTyping() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let state = TerminalFindState(sessionID: "focus-test")
+        let field = TerminalFindTextField(frame: NSRect(x: 20, y: 100, width: 280, height: 28))
+        field.findState = state
+        let coordinator = TerminalFindField.Coordinator()
+        field.delegate = coordinator
+        fixture.root.addSubview(field)
+        for query in ["", "existing query"] {
+            field.stringValue = query
+            try require(fixture.window.makeFirstResponder(field), "Find field must accept keyboard focus")
+            try require(field.currentEditor() != nil, "Find field must focus before the first keystroke")
+            fixture.window.makeFirstResponder(fixture.editor)
+            try require(field.currentEditor() == nil, "Leaving an unedited find field must release its editor")
+            field.selectText(nil)
+            try require(field.currentEditor() != nil, "Tab/selectText must focus an unedited find field")
+            fixture.window.makeFirstResponder(fixture.editor)
+            try require(field.currentEditor() == nil, "Tab/selectText focus must clear after leaving")
+        }
     }
 
     @MainActor

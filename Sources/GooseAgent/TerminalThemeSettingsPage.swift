@@ -26,25 +26,10 @@ struct TerminalThemeSettingsPage: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: Theme.Space.l) {
-                    HStack(spacing: Theme.Space.s) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(chrome.secondary)
-                            .accessibilityHidden(true)
-                        TextField("Search Ghostty Themes", text: $search)
-                            .textFieldStyle(.plain)
-                            .accessibilityIdentifier("themes.search")
-                        if !search.isEmpty {
-                            Button { search = "" } label: {
-                                Image(systemName: "xmark.circle.fill")
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(chrome.secondary)
-                            .accessibilityLabel(Text("Clear Search"))
-                        }
-                    }
-                    .padding(.horizontal, Theme.Space.m)
-                    .frame(height: SettingsLayout.shortcutSearchHeight)
-                    .background(chrome.elevated, in: RoundedRectangle(cornerRadius: Theme.Radius.row))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row).strokeBorder(chrome.hairline))
+                    NativeSearchField(text: $search, placeholder: String(localized: "Search Ghostty Themes"),
+                                      identifier: "themes.search", textColor: NSColor(chrome.text),
+                                      backgroundColor: NSColor(chrome.elevated))
+                        .frame(height: SettingsLayout.shortcutSearchHeight)
                     Picker("Theme Appearance", selection: $filter) {
                         ForEach(TerminalThemeFilter.allCases, id: \.self) { filter in
                             Text(filter.title).tag(filter)

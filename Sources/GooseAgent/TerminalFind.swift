@@ -6,7 +6,6 @@ import SwiftUI
 final class TerminalFindState: ObservableObject {
     let sessionID: String
     @Published var query = ""
-    @Published var fieldFocused = false
     /// Changed only through `TerminalFind`, which also keeps `openSessionIDs` in step.
     @Published fileprivate(set) var isOpen = false
     /// Ghostty refused `search:` for the current query.
@@ -93,7 +92,6 @@ final class TerminalFind: ObservableObject {
         setOpen(state, false)
         state.failed = false
         state.wantsFieldFocus = false
-        state.fieldFocused = false
         guard let terminal = state.terminal else { return }
         terminal.performBindingAction("end_search")
         terminal.window?.makeFirstResponder(terminal)
@@ -184,18 +182,8 @@ struct TerminalFindBar: View {
                     .font(.system(size: Theme.PaneStyle.findIconSize, weight: .medium))
                     .foregroundStyle(chrome.secondary)
                 TerminalFindField(state: state, onFocus: onFocus)
-                    .padding(.horizontal, Theme.Space.s)
                     .frame(maxWidth: Theme.PaneStyle.findFieldMaxWidth)
                     .frame(height: Theme.PaneStyle.findFieldHeight)
-                    .background {
-                        RoundedRectangle(cornerRadius: Theme.Radius.row)
-                            .fill(chrome.background)
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: Theme.Radius.row)
-                            .strokeBorder(state.failed ? chrome.danger : state.fieldFocused ? chrome.focus : chrome.hairline,
-                                          lineWidth: state.fieldFocused ? 2 : 1)
-                    }
                 // Ghostty's `navigate_search:next` starts at the bottom match and walks up into older
                 // output, so ↑ is Find Next and ↓ is Find Previous, as in Ghostty's own find bar.
                 button(
@@ -259,9 +247,11 @@ final class TerminalFindTextField: NSTextField {
         FocusedTerminal.shared.refreshSoon()
         return accepted
     }
+
 }
 
 struct TerminalFindField: NSViewRepresentable {
+    @Environment(\.windowChrome) private var chrome
     @ObservedObject var state: TerminalFindState
     var onFocus: () -> Void
 
@@ -269,9 +259,10 @@ struct TerminalFindField: NSViewRepresentable {
 
     func makeNSView(context: Context) -> TerminalFindTextField {
         let field = TerminalFindTextField()
-        field.isBordered = false
-        field.drawsBackground = false
-        field.focusRingType = .none
+        field.isBezeled = true
+        field.bezelStyle = .roundedBezel
+        field.drawsBackground = true
+        field.focusRingType = .default
         field.usesSingleLineMode = true
         field.cell?.isScrollable = true
         field.cell?.wraps = false
@@ -282,6 +273,8 @@ struct TerminalFindField: NSViewRepresentable {
     }
 
     func updateNSView(_ field: TerminalFindTextField, context: Context) {
+        field.textColor = NSColor(state.failed ? chrome.danger : chrome.text)
+        field.backgroundColor = NSColor(chrome.background)
         field.findState = state
         field.onFocus = onFocus
         if field.stringValue != state.query {
@@ -313,12 +306,7 @@ struct TerminalFindField: NSViewRepresentable {
             TerminalFind.shared.queryChanged(state)
         }
 
-        func controlTextDidBeginEditing(_ notification: Notification) {
-            (notification.object as? TerminalFindTextField)?.findState?.fieldFocused = true
-        }
-
         func controlTextDidEndEditing(_ notification: Notification) {
-            (notification.object as? TerminalFindTextField)?.findState?.fieldFocused = false
             FocusedTerminal.shared.refreshSoon()
         }
 

@@ -78,6 +78,7 @@ enum CommandLiteralEditorTests {
                     "saving locks native inputs and failure makes them editable again")
             require(nativeEditor.string == literal && nativeField.stringValue == literal, "disabling input preserves the command text")
         }
+        checkNativeSearch(in: window)
         window.close()
         print("ok")
     }
@@ -90,6 +91,30 @@ enum CommandLiteralEditorTests {
                                         characters: value, charactersIgnoringModifiers: value, isARepeat: false, keyCode: 0)!
             editor.keyDown(with: event)
         }
+    }
+
+    @MainActor static func checkNativeSearch(in window: NSWindow) {
+        window.contentView = NSHostingView(rootView: NativeSearchField(text: .constant("git"),
+            placeholder: "Search", identifier: "test.search", textColor: .systemGreen,
+            backgroundColor: .textBackgroundColor))
+        window.contentView!.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+        let search = descendants(window.contentView!).compactMap { $0 as? NSSearchField }.first!
+        let native = NSSearchField()
+        require(Swift.type(of: search.cell!) == Swift.type(of: native.cell!), "search keeps the system cell and its bezel rendering")
+        require(search.focusRingType == native.focusRingType, "search keeps the system focus ring")
+        require(search.intrinsicContentSize.height == native.intrinsicContentSize.height, "search keeps native control metrics")
+        window.makeFirstResponder(search)
+        let editor = search.currentEditor() as! NSTextView
+        require(editor.string == "git", "native search receives focus without changing the query")
+        search.textColor = .systemPurple
+        require(search.currentEditor() === editor && editor.string == "git", "color changes preserve query and focus")
+        window.makeFirstResponder(nil)
+        require(search.currentEditor() == nil, "native search releases focus without editing")
+        search.selectText(nil)
+        require(search.currentEditor() != nil, "native search supports keyboard selection")
+        window.makeFirstResponder(nil)
     }
 
     static func require(_ value: Bool, _ message: String) {

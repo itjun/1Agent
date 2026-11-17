@@ -335,7 +335,8 @@ struct CommandTextField: View {
     @Environment(\.isShellTransparent) private var isShellTransparent
     var body: some View {
         if symbol == "magnifyingglass" {
-            NativeSearchField(text: $text, placeholder: placeholder, identifier: identifier, onMoveSelection: onMoveSelection)
+            NativeSearchField(text: $text, placeholder: placeholder, identifier: identifier, onMoveSelection: onMoveSelection,
+                              textColor: NSColor(chrome.text), backgroundColor: NSColor(chrome.background))
         } else {
             CommandLiteralField(text: $text, placeholder: placeholder, textColor: .labelColor,
                 backgroundColor: .textBackgroundColor, identifier: identifier,
