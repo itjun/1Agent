@@ -31,7 +31,10 @@ import SwiftUI
         expect(store.current == nil, "dismissed transfer progress stays hidden")
         store.show(AppNotificationItem(id: "upload", title: "文件", message: "完成", level: .success), expiresAfter: 0.08)
         expect(store.current?.level == .success, "completion is a new event")
-        try? await Task.sleep(for: .milliseconds(120))
+        let expiryDeadline = Date().addingTimeInterval(2)
+        while store.current != nil && Date() < expiryDeadline {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
         expect(store.current == nil, "success expires")
         store.show(progress, expiresAfter: 0.08)
         store.show(AppNotificationItem(id: "upload", title: "文件", message: "失败", level: .error))

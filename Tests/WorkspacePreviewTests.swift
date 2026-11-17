@@ -159,8 +159,8 @@ import SwiftUI
             image.frame = NSRect(x: width + 7, y: 0, width: 2093 - width, height: 1000)
             container.layoutSubtreeIfNeeded()
             CATransaction.flush()
+            times.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
             try await Task.sleep(for: .milliseconds(2))
-            times.append((CFAbsoluteTimeGetCurrent() - start) * 1000 - 2)
             precondition(terminal.frame.size == initialSize, "divider drag must not rebuild the terminal grid for each pixel")
             verifyTerminalFillsHost(terminal, host: terminalHost)
         }
@@ -205,8 +205,9 @@ import SwiftUI
             host.setFrameSize(NSSize(width: width, height: 800))
             host.layoutSubtreeIfNeeded()
             host.displayIfNeeded()
+            // 计时覆盖实际布局和绘制；任务让出主线程后的调度延迟不属于本帧工作。
+            times.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
             try await Task.sleep(for: .milliseconds(2))
-            times.append((CFAbsoluteTimeGetCurrent() - start) * 1000 - 2)
         }
         let sorted = times.sorted()
         let p95 = sorted[Int(Double(sorted.count - 1) * 0.95)]
