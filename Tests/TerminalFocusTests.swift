@@ -10,20 +10,36 @@ enum TerminalFocusTests {
         let description: String
     }
 
+    struct FocusInterruption: Error, CustomStringConvertible {
+        let description: String
+    }
+
+    @MainActor private static var focusInterruption: FocusInterruption?
+    @MainActor private static var expectsDeactivation = false
+
     @MainActor
     static func main() {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.regular)
-        Task { @MainActor in
-            do {
-                try await run()
-                print("TerminalFocusTests passed: delayed mounting/layout, modal dismissal, current selection, hidden panes, keyboard focus preservation, explicit refocus and live input indicators")
-                exit(0)
-            } catch {
-                fputs("TerminalFocusTests failed: \(error)\n", stderr)
-                exit(1)
+        // NSApp.run() 的启动过程也会处理主队列任务，不能提前开始焦点测试。
+        let launchObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didFinishLaunchingNotification, object: NSApp, queue: .main
+        ) { _ in
+            Task { @MainActor in
+                do {
+                    try await run()
+                    print("TerminalFocusTests passed: delayed mounting/layout, modal dismissal, current selection, hidden panes, keyboard focus preservation, explicit refocus and live input indicators")
+                    exit(0)
+                } catch let interruption as FocusInterruption {
+                    fputs("TerminalFocusTests interrupted: \(interruption)\n", stderr)
+                    exit(75)
+                } catch {
+                    fputs("TerminalFocusTests failed: \(error)\n", stderr)
+                    exit(1)
+                }
             }
         }
+        defer { NotificationCenter.default.removeObserver(launchObserver) }
         // Use an actual application loop: key-window notifications and modal transitions
         // must run through AppKit instead of an async-main queue drain.
         NSApp.run()
@@ -31,6 +47,17 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func run() async throws {
+        let activationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: NSApp, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                guard !expectsDeactivation, focusInterruption == nil else { return }
+                let app = NSWorkspace.shared.frontmostApplication
+                focusInterruption = FocusInterruption(description:
+                    "测试期间前台应用变为 \(app?.localizedName ?? "未知应用")（\(app?.bundleIdentifier ?? "无包标识")）；本轮结果无效，必须完整重跑。")
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(activationObserver) }
         guard let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"],
               home.hasPrefix("/private/tmp/oneagent-terminal-focus."),
               URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
@@ -50,6 +77,20 @@ enum TerminalFocusTests {
             defaults.removePersistentDomain(forName: suite)
         }
         try require(UserDefaults.standard === defaults, "Preferences must use the isolated suite")
+
+        if CommandLine.arguments.contains("--test-activation-interruption") {
+            let fixture = try await Fixture()
+            defer { fixture.close() }
+            try await eventually("The interruption fixture must become active and key") {
+                NSApp.isActive && fixture.window.isKeyWindow
+            }
+            // 真实隐藏测试窗口、让其他应用接管输入，验证中断不会被报成通过。
+            NSApp.hide(nil)
+            try await eventually("Application deactivation must invalidate this test run") {
+                focusInterruption != nil
+            }
+            throw Failure(description: "An interrupted test run must never pass")
+        }
 
         try await findFieldFocusBeforeTyping()
         try await delayedMountAndLayout()
@@ -72,12 +113,15 @@ enum TerminalFocusTests {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 820, height: 520))
         let editor = NSTextView(frame: NSRect(x: 0, y: 0, width: 820, height: 60))
 
-        init() {
+        init() async throws {
             window.isReleasedWhenClosed = false
             window.contentView = root
             root.addSubview(editor)
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            try await eventually("The fixture must become active and key before testing focus") {
+                NSApp.isActive && window.isKeyWindow
+            }
             window.makeFirstResponder(editor)
         }
 
@@ -113,7 +157,7 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func rapidPresentationKeepsFocusAndGeometry() async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try await eventually("The fixture must become key") { fixture.window.isKeyWindow }
         let host = TerminalHostView(frame: .zero)
@@ -156,7 +200,7 @@ enum TerminalFocusTests {
         await settle()
         try require(terminal.window == nil, "The request must survive before a window exists")
 
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try await eventually("The fixture must become key") { fixture.window.isKeyWindow }
         fixture.mount(host, frame: .zero)
@@ -173,7 +217,7 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func modalDismissal(ownerAlreadyKey: Bool) async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try await eventually("The fixture must become key") { fixture.window.isKeyWindow }
         let modal = fixture.modal()
@@ -208,7 +252,7 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func staleSelection() async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try await eventually("The fixture must become key") { fixture.window.isKeyWindow }
         let modal = fixture.modal()
@@ -248,7 +292,7 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func hidingSelectedSplitPreservesDestination() async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try await eventually("The split-switch fixture must become key") { fixture.window.isKeyWindow }
         let firstHost = TerminalHostView(frame: .zero)
@@ -294,7 +338,7 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func modalDoesNotRestoreStalePane() async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         var currentSelection = "A"
         let firstHost = TerminalHostView(frame: .zero)
@@ -342,7 +386,7 @@ enum TerminalFocusTests {
     @MainActor
     private static func hiddenAndFilesCancellation() async throws {
         for filesSelection in [false, true] {
-            let fixture = Fixture()
+            let fixture = try await Fixture()
             defer { fixture.close() }
             try await eventually("The fixture must become key") { fixture.window.isKeyWindow }
             let modal = fixture.modal()
@@ -381,7 +425,7 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func successfulFocusIsConsumed() async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         let host = TerminalHostView(frame: .zero)
         let terminal = try makeTerminal()
@@ -411,10 +455,10 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func focusWhenWindowBecomesKey() async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try await eventually("The first fixture must become key") { fixture.window.isKeyWindow }
-        let other = Fixture()
+        let other = try await Fixture()
         defer { other.close() }
         try await eventually("The second fixture must become key") { other.window.isKeyWindow }
         let host = TerminalHostView(frame: .zero)
@@ -435,7 +479,7 @@ enum TerminalFocusTests {
     private static func inputIndicatorLifecycle() async throws {
         // Drain the previous fixture's deferred window-close notifications before activating again.
         await settle()
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try await eventually("The input-indicator fixture must become active and key") {
             NSApp.isActive && fixture.window.isKeyWindow
@@ -486,6 +530,8 @@ enum TerminalFocusTests {
         try await eventually("An open dialog must clear all terminal input markers") { focus.inputSessionID == nil }
         modal.close()
         try await eventually("Dismissing the dialog restores the actual input destination") { focus.receivesInput(secondTab, in: state) }
+        expectsDeactivation = true
+        defer { expectsDeactivation = false }
         NSApp.deactivate()
         try await eventually("Switching applications must clear the input marker") { focus.inputSessionID == nil }
         // macOS may refuse a background test executable's request to reactivate
@@ -495,7 +541,7 @@ enum TerminalFocusTests {
 
     @MainActor
     private static func findFieldFocusBeforeTyping() async throws {
-        let fixture = Fixture()
+        let fixture = try await Fixture()
         defer { fixture.close() }
         let state = TerminalFindState(sessionID: "focus-test")
         let field = TerminalFindTextField(frame: NSRect(x: 20, y: 100, width: 280, height: 28))
@@ -524,11 +570,16 @@ enum TerminalFocusTests {
     @MainActor
     private static func eventually(_ message: String, condition: () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(3)
-        while !condition(), Date() < deadline { await settle() }
+        while !condition(), Date() < deadline {
+            if let focusInterruption { throw focusInterruption }
+            await settle()
+        }
         try require(condition(), "\(message) [active=\(NSApp.isActive), key=\(String(describing: NSApp.keyWindow)), responder=\(String(describing: NSApp.keyWindow?.firstResponder)), input=\(String(describing: FocusedTerminal.shared.inputSessionID))]")
     }
 
+    @MainActor
     private static func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
+        if let focusInterruption { throw focusInterruption }
         if !condition() { throw Failure(description: message) }
     }
 }
