@@ -90,6 +90,12 @@ import ObjectiveC
         model.dissolveWorkspace(grouped.id)
         let native = MainWindowManager.shared.window(for: main)!
         let workspaceView = SSHTerminalRegistry.automationView("\(main.selectedTabID!.uuidString)#0")!
+        // 模型恢复早于异步 PTY 启动，必须等到真实进程就绪后再记录要保留的 PID。
+        for _ in 0..<500 {
+            if workspaceView.processHost!.process.shellPid > 0 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try check(workspaceView.processHost!.process.shellPid > 0, "Workspace terminal process must finish starting")
         let workspacePID = workspaceView.processHost!.process.shellPid
         if CommandLine.arguments.contains("--command-drag") {
             defer { model.closeTab(firstTab); model.closeTab(secondTab); native.close() }
@@ -106,7 +112,7 @@ import ObjectiveC
             try await Task.sleep(for: .milliseconds(300))
             try check((workspaceView.superview as? TerminalHostView)?.isHidden == false &&
                       workspaceView.processHost!.process.shellPid == workspacePID,
-                      "Returning from \(section.rawValue) must reveal the same terminal process")
+                      "Returning from \(section.rawValue) must reveal the same terminal process: hidden=\(String(describing: (workspaceView.superview as? TerminalHostView)?.isHidden)), pid=\(workspacePID) -> \(workspaceView.processHost!.process.shellPid)")
         }
         for iteration in 0..<24 {
             let config = try TerminalCreationConfiguration(record: ["workingDirectory": home])
