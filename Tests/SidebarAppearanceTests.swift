@@ -60,10 +60,11 @@ import SwiftUI
                             "native sidebar material is clipped along with the island surface")
                         let content = window.contentView!
                         let frame = split.splitView.convert(split.splitView.bounds, to: content)
-                        SidebarAppearanceTests.expect(abs(frame.minX) < 1 && abs(frame.minY) < 1
-                            && abs(content.bounds.maxX - frame.maxX) < 1
-                            && abs(content.bounds.maxY - frame.maxY) < 1,
-                            "all workspace islands fill all four window edges without an outer frame")
+                        SidebarAppearanceTests.expect(abs(frame.minX - content.bounds.minX - 5) < 1
+                            && abs(frame.minY - content.bounds.minY - 5) < 1
+                            && abs(content.bounds.maxX - frame.maxX - 5) < 1
+                            && abs(content.bounds.maxY - frame.maxY - 5) < 1,
+                            "terminal, files and commands keep the same 5pt gap on all four window edges")
                     }
                 }
             }

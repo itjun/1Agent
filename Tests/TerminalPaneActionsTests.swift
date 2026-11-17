@@ -290,6 +290,47 @@ enum TerminalPaneActionsTests {
                 expect(!model.sidebarIsCollapsed(in: window, totalWidth: 880), "explicit reveal overrides the narrow-window collapse")
             }
         }
+
+        // 窗口宽度刚好够用、扣除两侧留白后不足时，按钮须与实际布局使用同一宽度。
+        MainWindowManager.shared.show(window, model: model)
+        guard let native = MainWindowManager.shared.window(for: window) else { fatalError("missing sidebar fixture window") }
+        let savedFrame = native.frame
+        let savedPresentation = window.presentation
+        let savedRevealed = window.sidebarRevealed
+        let savedSidebarWidth = defaults.object(forKey: SidebarLayout.widthKey)
+        defer {
+            defaults.set(savedSidebarWidth, forKey: SidebarLayout.widthKey)
+            window.presentation = savedPresentation
+            window.sidebarRevealed = savedRevealed
+            native.setFrame(savedFrame, display: false)
+            native.orderOut(nil)
+        }
+        func navigationSplit(in view: NSView) -> NSSplitView? {
+            if let split = view as? NSSplitView,
+               split.identifier?.rawValue == "workspace.navigationSplit" { return split }
+            return view.subviews.lazy.compactMap { navigationSplit(in: $0) }.first
+        }
+        defaults.set(310.0, forKey: SidebarLayout.widthKey)
+        window.presentation.sidebarCollapsed = false
+        window.sidebarRevealed = false
+        native.setContentSize(NSSize(width: 920, height: native.contentView!.bounds.height))
+        for _ in 0..<5 { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+        native.contentView?.layoutSubtreeIfNeeded()
+        guard let split = navigationSplit(in: native.contentView!),
+              let sidebar = split.arrangedSubviews.first else { fatalError("missing production sidebar split") }
+        expect(abs(native.contentView!.bounds.width - 920) < 1 && abs(split.bounds.width - 910) < 1,
+               "the real 920pt window gives RootView 910pt after the two outer gaps")
+        expect(split.isSubviewCollapsed(sidebar), "the production files layout collapses at the outer-inset boundary")
+        expect(model.sidebarIsCollapsed(in: window)
+               && model.sidebarIsCollapsed(in: window, totalWidth: split.bounds.width),
+               "the sidebar action and RootView agree on the current collapsed state")
+        model.toggleSidebar(in: window)
+        for _ in 0..<5 { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+        native.contentView?.layoutSubtreeIfNeeded()
+        expect(window.sidebarRevealed && !window.presentation.sidebarCollapsed && !split.isSubviewCollapsed(sidebar),
+               "one toggle reveals the temporarily collapsed sidebar at the outer-inset boundary")
+        expect(defaults.double(forKey: SidebarLayout.widthKey) == 310,
+               "revealing the boundary-width sidebar preserves its saved expanded width")
     }
 
     @MainActor private static func titleNavigation() {

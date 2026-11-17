@@ -54,7 +54,7 @@ struct SidebarMaterial: NSViewRepresentable {
 
 enum ShellLayout {
     static let contentRadius: CGFloat = 10
-    /// 仅在内部卡片之间留出间距，窗口四边不留外框。
+    /// 面板之间与主窗口四边共用同一间距；外边距只由根布局添加一次。
     static let workspaceInset: CGFloat = 5
     static let inactivePaneDimming: Double = 0.08
     static let paneInset: CGFloat = 0
@@ -88,7 +88,7 @@ enum ShellLayout {
 
     static func paneFrames(of node: PaneNode, in bounds: CGRect, isFloating: Bool) -> [UUID: CGRect] {
         // 保留布局树的分隔中心和拖动比例，只在内部边缘各退半个间隙。
-        // 外沿不内缩，内容直接贴齐窗口边缘。
+        // 面板填满根布局已留好外边距的区域，不在这里重复内缩。
         let inset = (workspaceInset - 1) / 2
         return PaneLayout.frames(of: node, in: bounds).mapValues { frame in
             let left = frame.minX > bounds.minX ? inset : 0

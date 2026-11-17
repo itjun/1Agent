@@ -14,7 +14,8 @@ extension AppModel {
     }
 
     func sidebarIsCollapsed(in window: WindowState, totalWidth: CGFloat? = nil) -> Bool {
-        let width = totalWidth ?? MainWindowManager.shared.window(for: window)?.contentView?.bounds.width ?? 1100
+        let windowWidth = MainWindowManager.shared.window(for: window)?.contentView?.bounds.width ?? 1100
+        let width = totalWidth ?? max(0, windowWidth - ShellLayout.workspaceInset * 2)
         let savedWidth = UserDefaults.standard.object(forKey: SidebarLayout.widthKey) as? Double
             ?? SidebarLayout.defaultWidth
         return window.presentation.sidebarCollapsed || (!window.sidebarRevealed &&

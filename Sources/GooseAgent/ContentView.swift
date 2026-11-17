@@ -91,6 +91,7 @@ struct RootView: View {
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
+        .padding(ShellLayout.workspaceInset)
         .ignoresSafeArea(edges: .top)
         .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
         .background {

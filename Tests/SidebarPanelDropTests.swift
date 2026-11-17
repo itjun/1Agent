@@ -19,7 +19,7 @@ import SwiftUI
         guard condition() else { throw Failure(message: message) }
     }
 
-    @MainActor static func checkTitlebarHover(native: NSWindow,
+    @MainActor static func checkTitlebarHover(native: NSWindow, model: AppModel,
                                              window: WindowState, terminal: SSHTerminalNSView) async throws {
         NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         guard AppearanceDriver.shared.isShellTransparent else {
@@ -33,23 +33,26 @@ import SwiftUI
             try await Task.sleep(for: .milliseconds(80))
             native.contentView?.layoutSubtreeIfNeeded()
         }
-        func sidebarToggle(_ object: NSObject) -> NSObject? {
+        func accessibilityElement(_ object: NSObject, identifier: String) -> NSObject? {
             if object.responds(to: NSSelectorFromString("accessibilityIdentifier")),
-               object.value(forKey: "accessibilityIdentifier") as? String == "workspace.sidebar" { return object }
+               object.value(forKey: "accessibilityIdentifier") as? String == identifier { return object }
             guard object.responds(to: NSSelectorFromString("accessibilityChildren")),
                   let children = object.value(forKey: "accessibilityChildren") as? [NSObject] else { return nil }
-            return children.lazy.compactMap(sidebarToggle).first
+            return children.lazy.compactMap { accessibilityElement($0, identifier: identifier) }.first
         }
-        // 覆盖双侧栏、单侧栏及全屏内容，悬停不能调整终端尺寸或重建输入视图。
-        for (collapsed, toolsOpen) in [(false, false), (false, true), (true, true), (true, false)] {
+        guard let tabID = window.selectedTabID else { throw Failure(message: "The fixture selects a terminal") }
+        let commandState = model.commandSidebars[tabID]
+        let inset: CGFloat = 5
+        // 覆盖导航和当前终端命令栏的展开、收起，悬停不能调整终端尺寸或重建输入视图。
+        for (collapsed, commandsOpen) in [(false, false), (false, true), (true, true), (true, false)] {
             window.presentation.sidebarCollapsed = collapsed
-            window.presentation.toolSidebarOpen = toolsOpen
+            model.commandSidebars[tabID, default: TerminalCommandSidebarState()].isExpanded = commandsOpen
             try await Task.sleep(for: .milliseconds(150))
             native.contentView?.layoutSubtreeIfNeeded()
             let root = native.contentView!
             let bounds = root.convert(root.bounds, to: nil)
             try await movePointer(to: NSPoint(x: bounds.midX, y: bounds.midY))
-            guard let toggle = sidebarToggle(native),
+            guard let toggle = accessibilityElement(native, identifier: "workspace.sidebar"),
                   let screenFrame = (toggle.value(forKey: "accessibilityFrame") as? NSValue)?.rectValue else {
                 throw Failure(message: "The titlebar exposes its persistent sidebar toggle")
             }
@@ -58,34 +61,61 @@ import SwiftUI
                       "The sidebar toggle remains visible without hovering")
             let before = terminal.convert(terminal.bounds, to: nil)
             try check(terminal.window === native && before.width > 0, "The active terminal remains mounted")
-            try check(abs(bounds.maxY - before.maxY - ShellLayout.compactHeaderHeight) < 1,
-                      "The terminal keeps its own title above the reading surface")
-            try check(abs(before.minY - bounds.minY) < 1,
-                      "The reading surface reaches the bottom window edge")
+            try check(abs(bounds.maxY - before.maxY - inset - ShellLayout.compactHeaderHeight) < 1,
+                      "The terminal keeps a 5pt outer gap above its integrated title")
+            try check(abs(before.minY - bounds.minY - inset) < 1,
+                      "The reading surface keeps a 5pt bottom window gap")
+            let titleCenterY = before.maxY + ShellLayout.compactHeaderHeight / 2
+            try check(abs(toggleFrame.midY - titleCenterY) < 1,
+                      "The sidebar toggle aligns with the inset terminal title")
+            for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                guard let button = native.standardWindowButton(kind) else {
+                    throw Failure(message: "The window keeps its native traffic lights")
+                }
+                let buttonFrame = button.convert(button.bounds, to: nil)
+                try check(abs(buttonFrame.midY - titleCenterY) < 1 && buttonFrame.minX > bounds.minX + inset,
+                          "Native traffic lights stay inside the inset island and align with its title")
+            }
             if collapsed {
-                try check(abs(before.minX - bounds.minX) < 1,
-                          "Collapsing the sidebar reaches the left window edge")
+                try check(abs(before.minX - bounds.minX - inset) < 1,
+                          "Collapsing the sidebar keeps a 5pt left window gap")
             } else if let sidebar = window.relay?.sidebarAnchor {
                 let sidebarFrame = sidebar.convert(sidebar.bounds, to: nil)
+                try check(abs(sidebarFrame.minX - bounds.minX - inset) < 1
+                          && abs(sidebarFrame.minY - bounds.minY - inset) < 1,
+                          "The expanded navigation keeps 5pt left and bottom window gaps")
                 try check(abs(before.minX - sidebarFrame.maxX - ShellLayout.workspaceInset) < 1,
                           "An expanded sidebar keeps the internal island gap")
             }
-            if !toolsOpen {
-                try check(abs(bounds.maxX - before.maxX) < 1,
-                          "The reading surface reaches the right window edge")
+            if commandsOpen {
+                guard let commands = accessibilityElement(native, identifier: "quickCommands.pane." + tabID.uuidString),
+                      let commandsScreenFrame = (commands.value(forKey: "accessibilityFrame") as? NSValue)?.rectValue else {
+                    throw Failure(message: "The current terminal exposes its expanded command island")
+                }
+                let commandsFrame = native.convertFromScreen(commandsScreenFrame)
+                try check(abs(commandsFrame.minX - before.maxX - inset) < 1,
+                          "The terminal and its command island keep exactly one 5pt gap")
+                try check(abs(bounds.maxX - commandsFrame.maxX - inset) < 1
+                          && abs(bounds.maxY - commandsFrame.maxY - inset) < 1
+                          && abs(commandsFrame.minY - bounds.minY - inset) < 1,
+                          "The command island keeps 5pt top, right and bottom window gaps")
+            } else {
+                try check(abs(bounds.maxX - before.maxX - inset) < 1,
+                          "The reading surface keeps a 5pt right window gap")
             }
             let points = [NSPoint(x: toggleFrame.midX, y: toggleFrame.midY),
                           NSPoint(x: bounds.maxX - 20, y: bounds.maxY - 16),
                           NSPoint(x: bounds.midX, y: bounds.midY)]
             for point in points {
                 try await movePointer(to: point)
-                try check(sidebarToggle(native) != nil, "Pointer movement must not hide the sidebar toggle")
+                try check(accessibilityElement(native, identifier: "workspace.sidebar") != nil,
+                          "Pointer movement must not hide the sidebar toggle")
                 try check(terminal.window === native && terminal.convert(terminal.bounds, to: nil) == before,
                           "Showing and hiding either titlebar control must preserve terminal geometry and identity")
             }
         }
         window.presentation.sidebarCollapsed = false
-        window.presentation.toolSidebarOpen = false
+        model.commandSidebars[tabID] = commandState
         try await Task.sleep(for: .milliseconds(150))
         native.contentView?.layoutSubtreeIfNeeded()
     }
@@ -188,7 +218,7 @@ import SwiftUI
         native.contentView?.layoutSubtreeIfNeeded()
         let productionRelay = window.relay!
         let activeTerminal = terminalViews[model.tabs.firstIndex { $0.id == outsider }!]
-        try await checkTitlebarHover(native: native, window: window, terminal: activeTerminal)
+        try await checkTitlebarHover(native: native, model: model, window: window, terminal: activeTerminal)
         try check(productionRelay.paneRowAnchors[first]?.view?.window === native &&
                   productionRelay.paneRowAnchors[second]?.view?.window === native,
                   "Production sidebar registers both member rows as drop targets")

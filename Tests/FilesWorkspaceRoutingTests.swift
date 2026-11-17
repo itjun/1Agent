@@ -546,9 +546,9 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        let expectedTopInset = ShellLayout.compactHeaderHeight
+        let expectedTopInset = ShellLayout.workspaceInset + ShellLayout.compactHeaderHeight
         try require(abs(rootRect.maxY - terminalRect.maxY - expectedTopInset) < 1,
-                    "A single terminal starts below its own title without a duplicate global toolbar")
+                    "A single terminal starts below the outer gap and its own title without a duplicate global toolbar")
         try require(terminals.values.allSatisfy { terminal in
             !terminal.selectionContextMenu().items.contains { $0.title == String(localized: "History") }
         }, "No terminal context menu may expose the removed history feature")
@@ -1287,8 +1287,8 @@ private struct FilesWorkspaceRoutingTests {
         guard window.toolbar == nil, let local = element("files.localLocation") else {
             throw TestFailure(description: "The local file island must own its header without a native toolbar")
         }
-        try require(abs(rootTop - frame(local).midY - FileBrowserLayout.tabStripHeight / 2) < 2,
-                    "The file title must stay centered in its existing file island header")
+        try require(abs(rootTop - frame(local).midY - ShellLayout.workspaceInset - FileBrowserLayout.tabStripHeight / 2) < 2,
+                    "The file title stays centered in its island header below the outer gap")
         if let zoom = window.standardWindowButton(.zoomButton) {
             let zoomFrame = window.convertToScreen(zoom.convert(zoom.bounds, to: nil))
             try require(frame(local).minX > zoomFrame.maxX,
@@ -1352,8 +1352,8 @@ private struct FilesWorkspaceRoutingTests {
             try require(split(window.contentView!) === native && native.window === window,
                         "Page changes must not detach or replace the navigation split")
             let bounds = native.convert(native.bounds, to: nil)
-            try require(abs(bounds.maxY - window.contentView!.bounds.height) < 2,
-                        "The navigation split must extend through the titlebar")
+            try require(abs(bounds.maxY + ShellLayout.workspaceInset - window.contentView!.bounds.height) < 2,
+                        "The navigation split extends through the titlebar while preserving the outer gap")
         }
         state.presentation.toolSidebarOpen = savedInspectorOpen
         print("ok: full-height navigation survives terminal/command/file switching without a terminal toolbar")
