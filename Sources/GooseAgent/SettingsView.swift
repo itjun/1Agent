@@ -205,6 +205,7 @@ struct SettingsView: View {
             .preferredColorScheme(colorScheme)
                     .tint(chrome.accent).font(Theme.Font.body)
         }
+        .padding(ShellLayout.workspaceInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             ShellBackdrop(isTransparent: isShellTransparent, isDark: appearanceDriver.isDark,

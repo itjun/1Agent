@@ -158,6 +158,7 @@ enum FamilyAppearanceTests {
                 defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
                 driver.reapply()
                 for _ in 0..<5 { drain() }
+                FamilyAppearanceTests.checkSettingsIslandSpacing(in: settingsWindow)
                 let material = findBackdrop(in: settingsWindow.contentView!)
                 expect(material?.preset == preset && material?.isDark == isDark,
                        "settings refreshes its material for every selected preset and mode")
@@ -352,6 +353,44 @@ enum FamilyAppearanceTests {
         print("PASS diff reading: caret row, centered baseline, light/dark selection, focused-side search routing")
     }
 
+    @MainActor static func checkSettingsIslandSpacing(in window: NSWindow) {
+        func navigationSplit(in view: NSView) -> NSSplitView? {
+            if let split = view as? NSSplitView,
+               split.identifier?.rawValue == "settings.navigationSplit" { return split }
+            return view.subviews.lazy.compactMap { navigationSplit(in: $0) }.first
+        }
+        guard let content = window.contentView,
+              let split = navigationSplit(in: content), split.arrangedSubviews.count == 2 else {
+            FamilyAppearanceTests.expect(false, "settings keeps its production navigation and detail split")
+            return
+        }
+        content.layoutSubtreeIfNeeded()
+        let frame = split.convert(split.bounds, to: content)
+        FamilyAppearanceTests.expect(abs(frame.minX - content.bounds.minX - 5) < 1
+            && abs(frame.minY - content.bounds.minY - 5) < 1
+            && abs(content.bounds.maxX - frame.maxX - 5) < 1
+            && abs(content.bounds.maxY - frame.maxY - 5) < 1,
+            "settings keeps a 5pt gap on all four window edges")
+        let sidebar = split.arrangedSubviews[0]
+        let detail = split.arrangedSubviews[1]
+        let sidebarFrame = sidebar.convert(sidebar.bounds, to: content)
+        let detailFrame = detail.convert(detail.bounds, to: content)
+        FamilyAppearanceTests.expect(abs(detailFrame.minX - sidebarFrame.maxX - 5) < 1
+            && abs(sidebarFrame.minX - frame.minX) < 1 && abs(detailFrame.maxX - frame.maxX) < 1
+            && abs(sidebarFrame.minY - frame.minY) < 1 && abs(sidebarFrame.maxY - frame.maxY) < 1
+            && abs(detailFrame.minY - frame.minY) < 1 && abs(detailFrame.maxY - frame.maxY) < 1,
+            "settings navigation and detail fill their islands with exactly one 5pt internal gap")
+        guard let close = window.standardWindowButton(.closeButton) else {
+            FamilyAppearanceTests.expect(false, "settings keeps its native close button")
+            return
+        }
+        let navigationInWindow = sidebar.convert(sidebar.bounds, to: nil)
+        let closeInWindow = close.convert(close.bounds, to: nil)
+        FamilyAppearanceTests.expect(!close.isHidden && navigationInWindow.contains(closeInWindow)
+            && closeInWindow.midY > navigationInWindow.maxY - ShellLayout.compactTitlebarHeight,
+            "the native close button stays inside the settings navigation header")
+    }
+
     @MainActor static func checkSettingsPages(in window: NSWindow) {
         let pages = ["appearance", "font", "terminal", "shortcuts", "systemIntegration", "about"]
         for size in [SettingsLayout.windowMinimumSize, SettingsLayout.windowDefaultSize, CGSize(width: 1800, height: 1000)] {
@@ -367,6 +406,7 @@ enum FamilyAppearanceTests {
                 expect(unsafeBitCast(button.method(for: selector), to: Press.self)(button, selector),
                        "settings category activates: " + page)
                 for _ in 0..<5 { drain() }
+                FamilyAppearanceTests.checkSettingsIslandSpacing(in: window)
                 let identifiers = accessibilityElements(window).compactMap {
                     accessibilityValue($0, "accessibilityIdentifier") as? String
                 }
