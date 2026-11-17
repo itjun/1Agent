@@ -45,7 +45,6 @@ enum SettingsLayout {
     static let themeGridSpacing: CGFloat = 16
     static let themeMinimumWidth: CGFloat = 205
     static let themePreviewHeight: CGFloat = 132
-    static let themeFilterWidth: CGFloat = 210
     static func themeColumnCount(width: CGFloat) -> Int {
         min(4, max(1, Int((width - 2 * Theme.Space.xl + themeGridSpacing) / (themeMinimumWidth + themeGridSpacing))))
     }

@@ -7,7 +7,9 @@
     "Theme for Light Appearance" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Theme for Light Appearance"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色外观下的主题"}}}},
     "Theme for Dark Appearance" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Theme for Dark Appearance"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "深色外观下的主题"}}}},
     "Selected" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Selected"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已选择"}}}},
-    "Each appearance remembers its own theme." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Each appearance remembers its own theme."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色和深色外观分别记住所选主题。"}}}},
+    "Only matching themes are shown. Each appearance remembers its own theme." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Only matching themes are shown. Each appearance remembers its own theme."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "仅显示当前外观可用的主题，浅色和深色分别保存。"}}}},
+    "Choose a dark theme for Dark Appearance." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose a dark theme for Dark Appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "深色外观只能使用深色主题。"}}}},
+    "Choose a light theme for Light Appearance." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Choose a light theme for Light Appearance."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "浅色外观只能使用浅色主题。"}}}},
   "Local": {
     "localizations": {
       "en": {

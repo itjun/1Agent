@@ -4,12 +4,12 @@ import SwiftUI
 struct TerminalThemeSettingsPage: View {
     @Environment(\.windowChrome) private var chrome
     @ObservedObject private var preferences = TerminalThemePreferences.shared
+    @ObservedObject private var appearance = AppearanceDriver.shared
     @State private var search = ""
-    @State private var filter: TerminalThemeFilter = .all
     @FocusState private var focusedTheme: String?
 
     private var themes: [TerminalThemeDescriptor] {
-        TerminalThemeCatalog.shared.filtered(search: search, filter: filter)
+        TerminalThemeCatalog.shared.filtered(search: search, isDark: appearance.interfaceIsDark)
     }
 
     var body: some View {
@@ -21,25 +21,14 @@ struct TerminalThemeSettingsPage: View {
                         themeSummary(isDark: false)
                         themeSummary(isDark: true)
                     }
-                    Text("Each appearance remembers its own theme.")
+                    Text("Only matching themes are shown. Each appearance remembers its own theme.")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: Theme.Space.l) {
-                    NativeSearchField(text: $search, placeholder: String(localized: "Search Ghostty Themes"),
-                                      identifier: "themes.search", textColor: NSColor(chrome.text),
-                                      backgroundColor: NSColor(chrome.elevated))
-                        .frame(height: SettingsLayout.shortcutSearchHeight)
-                    Picker("Theme Appearance", selection: $filter) {
-                        ForEach(TerminalThemeFilter.allCases, id: \.self) { filter in
-                            Text(filter.title).tag(filter)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: SettingsLayout.themeFilterWidth)
-                    .accessibilityIdentifier("themes.filter")
-                }
+                NativeSearchField(text: $search, placeholder: String(localized: "Search Ghostty Themes"),
+                                  identifier: "themes.search", textColor: NSColor(chrome.text),
+                                  backgroundColor: NSColor(chrome.elevated))
+                    .frame(height: SettingsLayout.shortcutSearchHeight)
                 if let issue = preferences.error ?? TerminalThemeCatalog.shared.issue {
                     Text(verbatim: issue)
                         .foregroundStyle(chrome.warning)
@@ -86,7 +75,7 @@ struct TerminalThemeSettingsPage: View {
                         focusedTheme = nil
                         if let first = themes.first { proxy.scrollTo(first.id, anchor: .top) }
                     }
-                    .onChange(of: filter) { _, _ in
+                    .onChange(of: appearance.interfaceIsDark) { _, _ in
                         focusedTheme = nil
                         if let first = themes.first { proxy.scrollTo(first.id, anchor: .top) }
                     }
@@ -104,7 +93,7 @@ struct TerminalThemeSettingsPage: View {
             HStack(spacing: Theme.Space.s) {
                 Text(isDark ? "Theme for Dark Appearance" : "Theme for Light Appearance")
                     .foregroundStyle(chrome.secondary)
-                if chrome.isDark == isDark {
+                if appearance.interfaceIsDark == isDark {
                     Text("In Use").foregroundStyle(chrome.accent)
                 }
             }
@@ -120,9 +109,8 @@ struct TerminalThemeSettingsPage: View {
     }
 
     private func themeCard(_ theme: TerminalThemeDescriptor) -> some View {
-        let isInUse = TerminalThemePreferences.selected(isDark: chrome.isDark).id == theme.id
-        let selected = isInUse || TerminalThemePreferences.selected(isDark: !chrome.isDark).id == theme.id
-        let selectedLabel: LocalizedStringKey = isInUse ? "In Use" : "Selected"
+        let selected = TerminalThemePreferences.selected(isDark: appearance.interfaceIsDark).id == theme.id
+        let selectedLabel: LocalizedStringKey = "In Use"
         return Button {
             preferences.select(theme.id)
         } label: {

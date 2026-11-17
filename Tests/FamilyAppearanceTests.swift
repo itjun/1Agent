@@ -165,6 +165,8 @@ enum FamilyAppearanceTests {
         }
         for name in ["Springfield Resident", "Prismatica", "Nord"] {
             let theme = TerminalThemeCatalog.shared.theme(id: "ghostty:" + name)!
+            defaults.set(theme.palette!.isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
+            driver.reapply()
             expect(TerminalThemePreferences.shared.select(theme.id), "apply complete application theme: " + name)
             for _ in 0..<5 { drain() }
             let chrome = WindowChrome.resolve(isDark: driver.isDark)
@@ -369,23 +371,34 @@ enum FamilyAppearanceTests {
                        "only the selected page scroll area is exposed: " + page)
                 if page == "appearance" {
                     if size == SettingsLayout.windowDefaultSize {
-                        UserDefaults.standard.set("light", forKey: TerminalAppearance.storageKey)
-                        AppearanceDriver.shared.reapply()
                         for themeID in ["ghostty:0x96f", "ghostty:3024 Day"] {
+                            let theme = TerminalThemeCatalog.shared.theme(id: themeID)!
+                            let isDark = theme.palette!.isDark
+                            UserDefaults.standard.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
+                            AppearanceDriver.shared.reapply()
                             for _ in 0..<5 { drain() }
+                            let catalogIDs = accessibilityElements(window).compactMap {
+                                accessibilityValue($0, "accessibilityIdentifier") as? String
+                            }
+                            expect(!catalogIDs.contains("themes.filter"), "theme catalog has no independent brightness filter")
+                            let visibleThemeIDs = catalogIDs.filter { $0.hasPrefix("themes.card.") }
+                                .map { String($0.dropFirst("themes.card.".count)) }
+                            expect(!visibleThemeIDs.isEmpty && visibleThemeIDs.allSatisfy {
+                                let visible = TerminalThemeCatalog.shared.theme(id: $0)!
+                                return visible.isDefault || visible.palette!.isDark == isDark
+                            }, "every visible card matches the selected appearance")
                             guard let card = accessibilityElements(window).first(where: {
                                 accessibilityValue($0, "accessibilityIdentifier") as? String == "themes.card." + themeID
                             }) else { expect(false, "theme card is visible: " + themeID); return }
                             expect(unsafeBitCast(card.method(for: selector), to: Press.self)(card, selector),
                                    "theme card activates: " + themeID)
                             for _ in 0..<5 { drain() }
-                            expect(TerminalThemePreferences.selected(isDark: false).id == themeID,
+                            expect(TerminalThemePreferences.selected(isDark: isDark).id == themeID,
                                    "theme card saves to the current appearance")
-                            expect(TerminalAppearance.stored() == .light
+                            expect(TerminalAppearance.stored().resolvesDark() == isDark
                                    && (window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
-                                       == TerminalThemeCatalog.shared.theme(id: themeID)!.palette!.isDark,
-                                   "selecting a theme keeps the preference slot and updates native window brightness")
-                            let theme = TerminalThemeCatalog.shared.theme(id: themeID)!
+                                       == isDark,
+                                   "selecting a theme preserves the matching appearance and native window brightness")
                             expect(GhosttyRuntime.controller.theme == theme.configuration
                                    && (GhosttyRuntime.controller.effectiveColorScheme == .dark) == theme.palette!.isDark,
                                    "theme card updates the engine and window together")

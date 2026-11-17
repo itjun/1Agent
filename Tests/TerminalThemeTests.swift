@@ -28,12 +28,18 @@ enum TerminalThemeTests {
             }
             expect(chrome.isDark == colors.isDark, "native controls follow theme brightness: " + theme.name)
         }
-        expect(catalog.filtered(search: "", filter: .all).count == 820, "all includes both appearances and one default")
-        expect(catalog.filtered(search: "", filter: .light).count == 183, "182 light themes plus default")
-        expect(catalog.filtered(search: "", filter: .dark).count == 638, "637 dark themes plus default")
-        expect(catalog.filtered(search: "tOkYoNiGhT", filter: .all).contains { $0.name == "TokyoNight" }, "case insensitive search")
-        expect(catalog.filtered(search: "Default", filter: .dark).first?.isDefault == true, "default searches and ignores brightness filter")
-        expect(catalog.filtered(search: "not-a-theme-938723", filter: .all).isEmpty, "empty search results")
+        expect(catalog.filtered(search: "", isDark: false).count == 183, "182 light themes plus default")
+        expect(catalog.filtered(search: "", isDark: true).count == 638, "637 dark themes plus default")
+        for isDark in [false, true] {
+            expect(catalog.filtered(search: "", isDark: isDark).allSatisfy {
+                $0.isDefault || $0.palette!.isDark == isDark
+            }, "catalog never offers a theme from the opposite appearance")
+            expect(catalog.filtered(search: "Default", isDark: isDark).first?.isDefault == true,
+                   "adaptive default is available in both appearances")
+        }
+        expect(catalog.filtered(search: "tOkYoNiGhT", isDark: true).contains { $0.name == "TokyoNight" }, "case insensitive search")
+        expect(catalog.filtered(search: "Aardvark Ink", isDark: false).isEmpty, "search cannot bypass appearance matching")
+        expect(catalog.filtered(search: "not-a-theme-938723", isDark: true).isEmpty, "empty search results")
         do {
             _ = try TerminalThemeCatalog.parse(name: "invalid", text: "background = #FFFFFF")
             expect(false, "incomplete theme rejected")
@@ -83,8 +89,8 @@ enum TerminalThemeTests {
             }
             let oppositeTheme = isDark ? light : dark
             defaults.set(oppositeTheme.id, forKey: key)
-            expect(TerminalThemePreferences.selected(isDark: isDark).id == oppositeTheme.id,
-                   "saved themes can have a different brightness from their appearance slot")
+            expect(TerminalThemePreferences.selected(isDark: isDark).isDefault,
+                   "old mixed-brightness choices fall back to default without reviving legacy settings")
             defaults.removeObject(forKey: key)
             for target in ["local", "remote"] {
                 defaults.removeObject(forKey: "appearance.terminalTheme." + target + (isDark ? ".dark" : ".light"))
@@ -95,7 +101,8 @@ enum TerminalThemeTests {
             let terminalIsDark = theme.isDark(interfaceIsDark: uiDark)
             expect(AppearanceDriver.shared.interfaceIsDark == uiDark
                    && AppearanceDriver.shared.terminalIsDark == terminalIsDark,
-                   "theme slot is preserved while the complete window follows theme brightness")
+                   "appearance, theme and complete window have matching brightness")
+            expect(terminalIsDark == uiDark, "theme cannot override the selected appearance")
             let chrome = WindowChrome.resolve(isDark: uiDark)
             expect(chrome == (theme.palette?.applicationChrome() ?? WindowChrome(isDark: uiDark)),
                    "whole application refreshes for same-brightness theme switches")
@@ -167,7 +174,7 @@ enum TerminalThemeTests {
             }
             try Data("blocked".utf8).write(to: directory)
             expect(!prefs.select(otherDark.id, isDark: true), "engine write failure is reported")
-            expect(!prefs.select(otherLight.id), "opposite-brightness theme write failure is reported")
+            expect(!prefs.select(otherLight.id), "opposite-brightness theme is rejected before engine writes")
             expect(TerminalAppearance.stored() == .dark && AppearanceDriver.shared.interfaceIsDark,
                    "failed activation preserves the saved and visible appearance")
             expect(!prefs.reset(), "failed reset leaves both selections intact")
@@ -198,23 +205,30 @@ enum TerminalThemeTests {
             AppearanceDriver.shared.reapply()
             let isDark = mode.resolvesDark()
             for theme in [dark, light, otherLight, otherDark] {
+                let previous = TerminalThemePreferences.selected()
+                let previousRevision = prefs.revision
+                let previousConfiguration = GhosttyRuntime.controller.theme
                 let inactiveID = TerminalThemePreferences.selected(isDark: !isDark).id
-                expect(prefs.select(theme.id), "any theme can be selected for the current appearance")
+                let isMatching = theme.palette!.isDark == isDark
+                expect(prefs.select(theme.id) == isMatching, "only matching themes can be selected in every appearance mode")
+                if !isMatching {
+                    expect(prefs.error != nil && prefs.revision == previousRevision,
+                           "rejected choice reports an error without publishing a selection")
+                    expect(GhosttyRuntime.controller.theme == previousConfiguration,
+                           "rejected choice leaves the running engine unchanged")
+                }
                 expect(TerminalAppearance.stored() == mode, "theme selection preserves light, dark and follow system modes")
                 expect(TerminalThemePreferences.selected(isDark: !isDark).id == inactiveID,
                        "theme selection preserves the other appearance's theme")
                 AppearanceDriver.shared.reapply()
-                check(theme, uiDark: isDark)
+                check(isMatching ? theme : previous, uiDark: isDark)
             }
         }
         switchAppearance(false)
-        expect(prefs.select(dark.id), "dark theme can be saved for light appearance")
-        switchAppearance(true)
-        expect(prefs.select(light.id), "light theme can be saved for dark appearance")
-        for isDark in [false, true, false] {
-            switchAppearance(isDark)
-            check(isDark ? light : dark, uiDark: isDark)
-        }
+        let inactiveDarkID = TerminalThemePreferences.selected(isDark: true).id
+        expect(!prefs.select(light.id, isDark: true), "inactive dark appearance also rejects a light theme")
+        expect(TerminalThemePreferences.selected(isDark: true).id == inactiveDarkID,
+               "invalid inactive choice preserves its saved theme")
         expect(prefs.select(TerminalThemeDescriptor.defaultID), "default restores the current appearance's palette")
         expect(TerminalAppearance.stored() == .light, "default preserves the current appearance")
         check(.system, uiDark: false)

@@ -141,24 +141,16 @@ struct TerminalThemeDescriptor: Identifiable, Equatable {
         palette?.isDark ?? interfaceIsDark
     }
 
+    func matchesAppearance(isDark: Bool) -> Bool {
+        palette == nil || palette?.isDark == isDark
+    }
+
     var configuration: TerminalTheme {
         if let palette {
             return TerminalTheme(light: palette.configuration, dark: palette.configuration)
         }
         return TerminalTheme(light: TerminalThemeColors.system(isDark: false).configuration,
                              dark: TerminalThemeColors.system(isDark: true).configuration)
-    }
-}
-
-enum TerminalThemeFilter: String, CaseIterable {
-    case all, light, dark
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .all: "All"
-        case .light: "Light"
-        case .dark: "Dark"
-        }
     }
 }
 
@@ -197,14 +189,13 @@ struct TerminalThemeCatalog {
 
     func theme(id: String) -> TerminalThemeDescriptor? { byID[id] }
 
-    func filtered(search: String, filter: TerminalThemeFilter) -> [TerminalThemeDescriptor] {
+    func filtered(search: String, isDark: Bool) -> [TerminalThemeDescriptor] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         return themes.filter { theme in
             let isMatch = query.isEmpty || theme.displayName.localizedStandardContains(query)
                 || (theme.isDefault && "Default".localizedStandardContains(query))
             guard isMatch else { return false }
-            guard let palette = theme.palette else { return true }
-            return filter == .all || (filter == .dark && palette.isDark) || (filter == .light && !palette.isDark)
+            return theme.matchesAppearance(isDark: isDark)
         }
     }
 
@@ -268,12 +259,13 @@ final class TerminalThemePreferences: ObservableObject {
         let isDark = isDark ?? TerminalAppearance.stored(defaults: defaults).resolvesDark()
         func matchingTheme(_ id: String?) -> TerminalThemeDescriptor? {
             guard let id, let theme = TerminalThemeCatalog.shared.theme(id: id),
-                  theme.isDefault || theme.isDark(interfaceIsDark: isDark) == isDark else { return nil }
+                  theme.matchesAppearance(isDark: isDark) else { return nil }
             return theme
         }
         // 共用配置一旦保存（包括默认），就不再读取旧的本地／远程选择。
         if let id = defaults.string(forKey: TerminalThemePreferences.storageKey(isDark: isDark)) {
-            return TerminalThemeCatalog.shared.theme(id: id) ?? .system
+            // 旧版本允许混用；不匹配的选择回到该外观的默认主题。
+            return matchingTheme(id) ?? .system
         }
         // 合并时优先沿用本地配置；没有匹配选择时再读取远程配置。
         for target in ["local", "remote"] {
@@ -296,7 +288,13 @@ final class TerminalThemePreferences: ObservableObject {
             error = String(format: String(localized: "Could not load theme %@."), id)
             return false
         }
-        // 外观决定保存位置，主题明暗由配色决定；配置另一种外观时只保存选择。
+        guard theme.matchesAppearance(isDark: isDark) else {
+            error = isDark
+                ? String(localized: "Choose a dark theme for Dark Appearance.")
+                : String(localized: "Choose a light theme for Light Appearance.")
+            return false
+        }
+        // 主题必须匹配目标外观；配置另一种外观时只保存选择。
         if isDark == interfaceIsDark,
            let issue = GhosttyRuntime.applyTheme(theme, interfaceIsDark: isDark) {
             error = issue

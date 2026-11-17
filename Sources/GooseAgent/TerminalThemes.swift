@@ -106,7 +106,7 @@ final class AppearanceDriver: ObservableObject {
         }
     }
 
-    /// 外观决定主题槽位，窗口与终端共同采用该主题的实际明暗和配色。
+    /// 外观决定明暗，只应用与此外观匹配的主题配色。
     func reapply() {
         // 强调色变化不一定伴随浅深色切换，仍需刷新读取系统语义色的窗口。
         if preset == .system { objectWillChange.send() }
