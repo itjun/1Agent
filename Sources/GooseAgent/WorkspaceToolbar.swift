@@ -120,7 +120,21 @@ struct WorkspaceToolbar: NSViewRepresentable {
                 }
             }
             updateInformation()
+            DispatchQueue.main.async { [weak self] in self?.positionWindowButtons() }
             FocusedTerminal.shared.refreshSoon()
+        }
+
+        private func positionWindowButtons() {
+            guard !isPageToolbar, let window, !window.styleMask.contains(.fullScreen) else { return }
+            // 原生红绿灯放在导航岛内部，与各岛的 32pt 标题共用中心线。
+            // 使用窗口坐标，避免每次布局在已移动的位置上累计偏移。
+            for (index, kind) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
+                guard let button = window.standardWindowButton(kind), let parent = button.superview else { continue }
+                let center = parent.convert(NSPoint(x: 18 + CGFloat(index) * 20,
+                    y: window.frame.height - ShellLayout.compactHeaderHeight / 2), from: nil)
+                button.setFrameOrigin(NSPoint(x: center.x - button.frame.width / 2,
+                                              y: center.y - button.frame.height / 2))
+            }
         }
 
         private func updateInformation() {

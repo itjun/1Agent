@@ -35,6 +35,16 @@ struct QuickCommandSidebar: View {
     var body: some View {
         GeometryReader { geometry in
         VStack(alignment: .leading, spacing: 0) {
+            Text("Commands")
+                .font(Theme.Font.paneTitle).fontWeight(.semibold)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .frame(height: ShellLayout.compactHeaderHeight)
+                .background(WindowDragArea().accessibilityHidden(true))
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(chrome.hairline).frame(height: 0.5)
+                        .padding(.horizontal, 12).allowsHitTesting(false)
+                }
             if let message = execution.error ?? store.loadError {
                 Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger)
                     .fixedSize(horizontal: false, vertical: true).padding(12)
@@ -76,7 +86,7 @@ struct QuickCommandSidebar: View {
         }
         }
         .foregroundStyle(chrome.text)
-        .background(chrome.background)
+        .background(chrome.readingBackground)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("quickCommands.pane." + tabID.uuidString)
         .onChange(of: commands.map(\.id), initial: true) { _, ids in

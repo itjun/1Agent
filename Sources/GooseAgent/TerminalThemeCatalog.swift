@@ -32,11 +32,23 @@ struct TerminalThemeColors: Equatable {
         }
     }
 
+    /// 仅用于无正文的边框与间隙，取当前主题的蓝、紫、青槽位。
+    var gradientColors: [RGBColor] {
+        let base = RGBColor(ghosttyHex: background)!
+        func tint(_ index: Int, amount: Double) -> RGBColor {
+            let accent = RGBColor(ghosttyHex: ansi[index])!
+            return base.mixed(with: accent, amount: amount)
+        }
+        return [tint(4, amount: isDark ? 0.55 : 0.30),
+                tint(5, amount: isDark ? 0.35 : 0.18),
+                tint(5, amount: isDark ? 0.65 : 0.35),
+                tint(6, amount: isDark ? 0.55 : 0.30)]
+    }
+
     func paneBackground(isFocused: Bool) -> RGBColor {
         let base = RGBColor(ghosttyHex: background)!
         guard !isFocused else { return base }
-        let neutral = RGBColor(ghosttyHex: isDark ? "FFFFFF" : "000000")!
-        return base.mixed(with: neutral, amount: isDark ? 0.06 : 0.05)
+        return base.mixed(with: RGBColor(red: 0, green: 0, blue: 0), amount: ShellLayout.inactivePaneDimming)
     }
 
     /// 标题、搜索和命令栏保留终端原色。

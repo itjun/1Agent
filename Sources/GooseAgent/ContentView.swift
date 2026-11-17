@@ -31,7 +31,14 @@ struct RootView: View {
     }
 
     // 导航、会话选中态与终端共用当前主题，包括冷暖变化。
-    private var sidebarChrome: WindowChrome { chrome }
+    private var sidebarChrome: WindowChrome {
+        isTerminalWorkspace
+            ? TerminalThemePreferences.selected(isDark: appearanceDriver.isDark)
+                .colors(interfaceIsDark: appearanceDriver.isDark).paneChrome(isFocused: true)
+            : chrome
+    }
+
+    private var isTerminalWorkspace: Bool { !filesMode && !commandsMode }
 
     private var sidebarHoverFill: Color {
         Color(nsColor: NSColor(sidebarChrome.sidebarBackground).blended(
@@ -47,6 +54,8 @@ struct RootView: View {
             VStack(spacing: 0) {
                 NativeSidebarSplit(
                     collapsed: collapsed, isDividerHidden: true,
+                    dividerWidth: isTerminalWorkspace ? ShellLayout.workspaceInset : 1,
+                    sidebarCornerRadius: isTerminalWorkspace ? ShellLayout.contentRadius : 0,
                     toolbarIdentifier: "workspace.navigationSplit",
                     extendsSidebarIntoTitlebar: true, width: shownSidebarWidth,
                     minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
@@ -57,8 +66,9 @@ struct RootView: View {
                     }
                 ) {
                     sidebar
-                        .background(sidebarChrome.sidebarBackground
-                            .opacity(appearanceDriver.isShellTransparent ? 0.55 : 1).ignoresSafeArea())
+                        .padding(.top, isTerminalWorkspace ? ShellLayout.compactHeaderHeight : 0)
+                        .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
+                        .clipShape(RoundedRectangle(cornerRadius: isTerminalWorkspace ? ShellLayout.contentRadius : 0))
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
@@ -84,7 +94,7 @@ struct RootView: View {
                         model.toggleSidebar(in: window)
                     }
                     .frame(height: ShellLayout.compactHeaderHeight)
-                    .padding(.leading, 90)
+                    .padding(.leading, collapsed ? 90 : max(90, shownSidebarWidth - Theme.Toolbar.height - 8))
                 }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
@@ -99,6 +109,7 @@ struct RootView: View {
                     usesTerminalBackground: true,
                     chrome: chrome
                 )
+                .ignoresSafeArea()
 
             }
             .accessibilityHidden(true)
@@ -985,7 +996,7 @@ struct TerminalEmptyState: View {
         }
         .padding(Theme.Space.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background)
+        .background(chrome.readingBackground)
     }
 }
 

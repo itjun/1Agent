@@ -80,6 +80,8 @@ private final class WorkspaceDockDividerView: NSView {
 struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresentable {
     var collapsed: Bool = false
     var isDividerHidden: Bool = false
+    var dividerWidth: CGFloat = 1
+    var sidebarCornerRadius: CGFloat = 0
     var isTrailing: Bool = false
     var toolbarIdentifier: String?
     var extendsSidebarIntoTitlebar = true
@@ -107,7 +109,9 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
         controller.splitView.identifier = toolbarIdentifier.map { NSUserInterfaceItemIdentifier($0) }
         controller.configure(width: width, minimum: minimumWidth,
                              maximum: maximumWidth, defaultWidth: defaultWidth, collapsed: collapsed,
-                             isDividerHidden: isDividerHidden, extendsSidebarIntoTitlebar: extendsSidebarIntoTitlebar,
+                             isDividerHidden: isDividerHidden, dividerWidth: dividerWidth,
+                             sidebarCornerRadius: sidebarCornerRadius,
+                             extendsSidebarIntoTitlebar: extendsSidebarIntoTitlebar,
                              onWidthChange: onWidthChange)
     }
 }
@@ -175,11 +179,28 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
 
     func configure(width: CGFloat, minimum: CGFloat, maximum: CGFloat,
                    defaultWidth: CGFloat, collapsed: Bool = false, isDividerHidden: Bool = false,
+                   dividerWidth: CGFloat = 1,
+                   sidebarCornerRadius: CGFloat = 0,
                    extendsSidebarIntoTitlebar: Bool = true,
                    onWidthChange: @escaping (CGFloat) -> Void) {
         applying = true
         defer { applying = false }
         (splitView as? SidebarSplitView)?.isDividerHidden = isDividerHidden
+        if let split = splitView as? SidebarSplitView, split.customDividerWidth != dividerWidth {
+            split.customDividerWidth = dividerWidth
+            split.needsLayout = true
+        }
+        if #available(macOS 26.0, *) {
+            sidebarItem.automaticallyAdjustsSafeAreaInsets = dividerWidth == 1
+        }
+        (sidebarHost.view as? NSHostingView<Sidebar>)?.safeAreaRegions = dividerWidth > 1 ? [] : .all
+        // AppKit 在 hosting view 外另包了一层侧栏材质，也需裁切，避免圆角外露出方形底板。
+        if let sidebar = (isTrailing ? splitView.arrangedSubviews.last : splitView.arrangedSubviews.first) {
+            sidebar.wantsLayer = true
+            sidebar.layer?.cornerRadius = sidebarCornerRadius
+            sidebar.layer?.cornerCurve = .continuous
+            sidebar.layer?.masksToBounds = sidebarCornerRadius > 0
+        }
         widthChanged = onWidthChange
         self.defaultWidth = defaultWidth
         let desired = min(max(width, minimum), maximum)
@@ -251,6 +272,8 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
 }
 
 private final class SidebarSplitView: NSSplitView {
+    var customDividerWidth: CGFloat = 1
+    override var dividerThickness: CGFloat { customDividerWidth }
     var onResetWidth: () -> Void = {}
     var drawsDividerBelowTitlebar = false
     var isDividerHidden = false {

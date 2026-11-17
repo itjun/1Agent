@@ -34,7 +34,7 @@ import SwiftUI
             for preset in AppThemePreset.allCases {
                 driver.selectPreset(preset)
                 for section in [AppSection.terminals, .files, .commands] {
-                    state.section = section
+                    model.showSection(section, in: state)
                     for _ in 0..<5 { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
                     window.contentView?.layoutSubtreeIfNeeded()
                     guard let split = SidebarAppearanceTests.navigationSplit(in: host.view),
@@ -47,14 +47,23 @@ import SwiftUI
                     SidebarAppearanceTests.expect(!materials.contains { $0.identifier?.rawValue == "workspace.sidebarMaterial" },
                         "主导航不叠加自绘材质背景")
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
-                        && split.splitView.dividerThickness == 1,
-                        "navigation hides its separator while preserving the resize geometry")
+                        && split.splitView.dividerThickness == (section == .terminals ? 5 : 1),
+                        "navigation hides its separator while preserving the resize geometry: section=\(section), width=\(split.splitView.dividerThickness), alpha=\(split.splitView.dividerColor.alphaComponent)")
                     SidebarAppearanceTests.expect(SidebarAppearanceTests.navigationSplit(in: host.view,
                         identifier: "workspace.inspectorSplit") == nil, "旧右栏没有保留隐藏占位")
                     SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.count == 2,
                         "主窗口仅有导航和内容两列")
                     if section == .terminals {
                         SidebarAppearanceTests.expect(window.toolbar == nil, "终端标题不再使用重复通栏")
+                        SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.first?.layer?.cornerRadius == 10
+                            && split.splitView.arrangedSubviews.first?.layer?.masksToBounds == true,
+                            "native sidebar material is clipped along with the island surface")
+                        let content = window.contentView!
+                        let frame = split.splitView.convert(split.splitView.bounds, to: content)
+                        SidebarAppearanceTests.expect(abs(frame.minX) < 1 && abs(frame.minY) < 1
+                            && abs(content.bounds.maxX - frame.maxX) < 1
+                            && abs(content.bounds.maxY - frame.maxY) < 1,
+                            "terminal islands fill all four window edges without an outer frame")
                     }
                 }
             }

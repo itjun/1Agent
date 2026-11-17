@@ -21,6 +21,7 @@ import SwiftUI
 
     @MainActor static func checkTitlebarHover(native: NSWindow,
                                              window: WindowState, terminal: SSHTerminalNSView) async throws {
+        NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
         guard AppearanceDriver.shared.isShellTransparent else {
             throw Failure(message: "Hover fixture requires the transparent shell")
         }
@@ -32,8 +33,12 @@ import SwiftUI
             try await Task.sleep(for: .milliseconds(80))
             native.contentView?.layoutSubtreeIfNeeded()
         }
-        func trackers(_ view: NSView) -> [SidebarHoverTrackingView] {
-            (view as? SidebarHoverTrackingView).map { [$0] } ?? view.subviews.flatMap(trackers)
+        func sidebarToggle(_ object: NSObject) -> NSObject? {
+            if object.responds(to: NSSelectorFromString("accessibilityIdentifier")),
+               object.value(forKey: "accessibilityIdentifier") as? String == "workspace.sidebar" { return object }
+            guard object.responds(to: NSSelectorFromString("accessibilityChildren")),
+                  let children = object.value(forKey: "accessibilityChildren") as? [NSObject] else { return nil }
+            return children.lazy.compactMap(sidebarToggle).first
         }
         // 覆盖双侧栏、单侧栏及全屏内容，悬停不能调整终端尺寸或重建输入视图。
         for (collapsed, toolsOpen) in [(false, false), (false, true), (true, true), (true, false)] {
@@ -44,38 +49,37 @@ import SwiftUI
             let root = native.contentView!
             let bounds = root.convert(root.bounds, to: nil)
             try await movePointer(to: NSPoint(x: bounds.midX, y: bounds.midY))
-            let titleTrackers = trackers(root).filter { $0.bounds.height == 32 }
-            try check(titleTrackers.count == 2, "The titlebar has separate left and right hover regions")
-            try check(titleTrackers.allSatisfy { !$0.isHovered },
-                      "Both titlebar action groups are hidden while the pointer is in terminal content")
+            guard let toggle = sidebarToggle(native),
+                  let screenFrame = (toggle.value(forKey: "accessibilityFrame") as? NSValue)?.rectValue else {
+                throw Failure(message: "The titlebar exposes its persistent sidebar toggle")
+            }
+            let toggleFrame = native.convertFromScreen(screenFrame)
+            try check(toggleFrame.width > 0 && toggleFrame.height > 0,
+                      "The sidebar toggle remains visible without hovering")
             let before = terminal.convert(terminal.bounds, to: nil)
             try check(terminal.window === native && before.width > 0, "The active terminal remains mounted")
-            let inset = ShellLayout.workspaceInset
-            try check(abs(bounds.maxY - before.maxY - 32 - inset) < 1,
-                      "The terminal keeps its own title inside the floating workspace edge")
-            try check(abs(before.minY - bounds.minY - inset) < 1,
-                      "Top and bottom floating edges have equal width")
+            try check(abs(bounds.maxY - before.maxY - ShellLayout.compactHeaderHeight) < 1,
+                      "The terminal keeps its own title above the reading surface")
+            try check(abs(before.minY - bounds.minY) < 1,
+                      "The reading surface reaches the bottom window edge")
             if collapsed {
-                try check(abs(before.minX - bounds.minX - inset) < 1,
-                          "Collapsing the sidebar restores an equal left floating edge")
+                try check(abs(before.minX - bounds.minX) < 1,
+                          "Collapsing the sidebar reaches the left window edge")
             } else if let sidebar = window.relay?.sidebarAnchor {
                 let sidebarFrame = sidebar.convert(sidebar.bounds, to: nil)
-                try check(abs(before.minX - sidebarFrame.maxX - 1) < 1,
-                          "An expanded sidebar meets the floating content without an extra gutter")
+                try check(abs(before.minX - sidebarFrame.maxX - ShellLayout.workspaceInset) < 1,
+                          "An expanded sidebar keeps the internal island gap")
             }
             if !toolsOpen {
-                try check(abs(bounds.maxX - before.maxX - inset) < 1,
-                          "The right floating edge equals the top and bottom edges")
+                try check(abs(bounds.maxX - before.maxX) < 1,
+                          "The reading surface reaches the right window edge")
             }
-            let points = [NSPoint(x: collapsed ? 120 : 210, y: bounds.maxY - 16),
+            let points = [NSPoint(x: toggleFrame.midX, y: toggleFrame.midY),
                           NSPoint(x: bounds.maxX - 20, y: bounds.maxY - 16),
                           NSPoint(x: bounds.midX, y: bounds.midY)]
-            for (index, point) in points.enumerated() {
+            for point in points {
                 try await movePointer(to: point)
-                let hovered = titleTrackers.filter(\.isHovered)
-                try check(hovered.count == (index == 2 ? 0 : 1) &&
-                          hovered.allSatisfy { $0.convert($0.bounds, to: nil).contains(point) },
-                          "Each top corner reveals only its own actions and leaving it hides them")
+                try check(sidebarToggle(native) != nil, "Pointer movement must not hide the sidebar toggle")
                 try check(terminal.window === native && terminal.convert(terminal.bounds, to: nil) == before,
                           "Showing and hiding either titlebar control must preserve terminal geometry and identity")
             }

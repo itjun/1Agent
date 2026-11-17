@@ -62,8 +62,8 @@ struct TerminalCanvas: View {
                         isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace
 ,
                         isSelected: isSelected,
-                        contentCornerRadius: 0,
-                        isHeaderIntegrated: false,
+                        contentCornerRadius: ShellLayout.contentRadius,
+                        isHeaderIntegrated: true,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
                                 !window.presentation.fullFilesWorkspace
@@ -88,11 +88,9 @@ struct TerminalCanvas: View {
                         width: max(drawn.width, 1),
                         height: max(drawn.height, 1)
                     )
-                    .background {
-                        theme.colors(interfaceIsDark: interfaceIsDark).paneBackground(isFocused: isSelected).color
-                    }
                     .padding(.top, cardHeader)
-                    .modifier(FloatingContentSurface())
+                    .background(theme.colors(interfaceIsDark: interfaceIsDark).paneBackground(isFocused: true).color)
+                    .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                     .environment(\.windowChrome, chrome)
                     .position(
                         x: drawn.midX,
@@ -162,6 +160,7 @@ struct TerminalCanvas: View {
             .overlay {
                 Rectangle()
                     .fill(Color(nsColor: .separatorColor))
+                    .opacity(active ? 1 : 0)
                     .frame(
                         width: vertical ? lineWidth : divider.frame.width,
                         height: vertical ? divider.frame.height : lineWidth
@@ -234,16 +233,22 @@ struct TerminalCanvas: View {
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
         let sidebarWidth = commandSidebarWidth(tab, in: frame)
-        let terminalWidth = max(1, frame.width - sidebarWidth)
+        let terminalWidth = max(1, frame.width - sidebarWidth - (sidebarWidth > 0 ? ShellLayout.workspaceInset : 0))
         let isSelected = window.selectedTabID == tab.id && window.section == .terminals
         let theme = TerminalThemePreferences.selected(isDark: interfaceIsDark)
-        let paneChrome = theme.colors(interfaceIsDark: interfaceIsDark).paneChrome(isFocused: isSelected)
+        let paneChrome = themedPaneChrome(theme)
         if tab.hasTerminal && headerHeight > 0 {
             terminalHeader(tab, chrome: paneChrome)
                 .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
                 .frame(width: terminalWidth, height: headerHeight)
                 .background(WindowDragArea().accessibilityHidden(true))
-                .background(paneChrome.background)
+                .background(paneChrome.readingBackground)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(paneChrome.hairline).frame(height: 0.5)
+                        .padding(.horizontal, 12).allowsHitTesting(false)
+                }
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: ShellLayout.contentRadius,
+                                                 topTrailingRadius: ShellLayout.contentRadius))
                 .environment(\.windowChrome, paneChrome)
                 .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
                 .position(x: frame.minX + terminalWidth / 2, y: frame.minY + headerHeight / 2)
@@ -256,7 +261,11 @@ struct TerminalCanvas: View {
                 .environment(\.windowChrome, paneChrome)
                 .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
                 .frame(width: sidebarWidth, height: height)
-                .clipped()
+                .overlay {
+                    Color.black.opacity(isSelected ? 0 : ShellLayout.inactivePaneDimming)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                 .position(x: frame.maxX - sidebarWidth / 2, y: frame.midY)
                 .zIndex(3)
             PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
@@ -268,8 +277,8 @@ struct TerminalCanvas: View {
             }, onDragEnded: { commandWidthDrag = nil }, onDoubleClick: {
                 model.commandSidebars[tab.id, default: TerminalCommandSidebarState()].width = SheetLayout.terminalCommandSidebarWidth
             })
-            .frame(width: 6, height: height)
-            .position(x: dividerX, y: frame.midY)
+            .frame(width: ShellLayout.workspaceInset, height: height)
+            .position(x: dividerX - ShellLayout.workspaceInset / 2, y: frame.midY)
             .accessibilityLabel("Resize Quick Commands")
             .zIndex(5)
         }
@@ -282,15 +291,26 @@ struct TerminalCanvas: View {
                 .position(x: frame.minX + terminalWidth / 2, y: findTop + Theme.PaneStyle.findBarHeight / 2)
                 .zIndex(4)
         }
+        if tab.hasTerminal && !isSelected {
+            RoundedRectangle(cornerRadius: ShellLayout.contentRadius)
+                .fill(Color.black.opacity(ShellLayout.inactivePaneDimming))
+                .frame(width: terminalWidth, height: frame.height)
+                .position(x: frame.minX + terminalWidth / 2, y: frame.midY)
+                .allowsHitTesting(false).accessibilityHidden(true)
+                .zIndex(6)
+        }
+    }
+
+    private func themedPaneChrome(_ theme: TerminalThemeDescriptor) -> WindowChrome {
+        theme.colors(interfaceIsDark: interfaceIsDark).paneChrome(isFocused: true)
     }
 
     private func terminalHeader(_ tab: TerminalTab, chrome: WindowChrome) -> some View {
-        let isSelected = window.selectedTabID == tab.id && window.section == .terminals
         return HStack(spacing: Theme.Space.s) {
             HStack(spacing: Theme.Space.s) {
                 Text(verbatim: numberedPaneTitle(tab))
                     .font(Theme.Font.paneTitle)
-                    .fontWeight(isSelected ? .semibold : .medium)
+                    .fontWeight(.semibold)
                     .lineLimit(1).truncationMode(.middle)
                 if let path = TerminalPaneActions.workingDirectory(of: tab) {
                     Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
@@ -312,9 +332,9 @@ struct TerminalCanvas: View {
             }
 
         }
-        .foregroundStyle(isSelected ? chrome.text : chrome.secondary)
+        .foregroundStyle(chrome.text)
         .padding(.horizontal, Theme.Space.m)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     private func commandSidebarWidth(_ tab: TerminalTab, in frame: CGRect) -> CGFloat {
@@ -376,13 +396,13 @@ extension TerminalCanvas {
     static func terminalContentFrame(_ frame: CGRect, isFloating: Bool, accessoryHeight: CGFloat = 0, commandSidebarWidth: CGFloat = 0) -> CGRect {
         var content = Self.contentFrame(ShellLayout.contentFrame(frame, isFloating: isFloating),
                                        headerHeight: Self.headerHeight(for: frame, isFloating: isFloating) + accessoryHeight)
-        content.size.width = max(1, content.width - commandSidebarWidth)
+        content.size.width = max(1, content.width - commandSidebarWidth - (commandSidebarWidth > 0 ? ShellLayout.workspaceInset : 0))
         return content
     }
 
     static func commandSidebarWidth(_ state: TerminalCommandSidebarState?, paneWidth: CGFloat) -> CGFloat {
         guard let state, state.isExpanded else { return 0 }
-        let available = paneWidth - SheetLayout.terminalMinimumContentWidth
+        let available = paneWidth - SheetLayout.terminalMinimumContentWidth - ShellLayout.workspaceInset
         // 极窄分屏临时让出正文空间，放大后恢复，不改变终端自己的展开状态。
         guard available >= SheetLayout.terminalCommandSidebarMinimumWidth else { return 0 }
         return min(max(state.width, SheetLayout.terminalCommandSidebarMinimumWidth),

@@ -1,5 +1,6 @@
 import AppKit
 import GhosttyTerminal
+import QuartzCore
 @testable import GooseAgent
 
 @MainActor
@@ -27,6 +28,16 @@ enum TerminalThemeTests {
                        "application text stays readable on every surface: " + theme.name)
             }
             expect(chrome.isDark == colors.isDark, "native controls follow theme brightness: " + theme.name)
+            let base = GooseAgent.RGBColor(ghosttyHex: colors.background)!
+            expect(colors.gradientColors.count == 4, "theme supplies frame and corner colors")
+            let focused = colors.paneBackground(isFocused: true)
+            expect(focused.red == base.red && focused.green == base.green && focused.blue == base.blue,
+                   "focused terminal keeps the original theme background")
+            let inactive = colors.paneBackground(isFocused: false)
+            expect(abs(inactive.red - base.red * 0.92) < 0.0001
+                   && abs(inactive.green - base.green * 0.92) < 0.0001
+                   && abs(inactive.blue - base.blue * 0.92) < 0.0001,
+                   "inactive terminal dims every theme equally without a blue or white tint")
         }
         expect(catalog.filtered(search: "", isDark: false).count == 183, "182 light themes plus default")
         expect(catalog.filtered(search: "", isDark: true).count == 638, "637 dark themes plus default")
@@ -104,7 +115,9 @@ enum TerminalThemeTests {
                    "appearance, theme and complete window have matching brightness")
             expect(terminalIsDark == uiDark, "theme cannot override the selected appearance")
             let chrome = WindowChrome.resolve(isDark: uiDark)
-            expect(chrome == (theme.palette?.applicationChrome() ?? WindowChrome(isDark: uiDark)),
+            var expectedChrome = theme.palette?.applicationChrome() ?? WindowChrome(isDark: uiDark)
+            expectedChrome.gradientColors = theme.colors(interfaceIsDark: uiDark).gradientColors.map(\.color)
+            expect(chrome == expectedChrome,
                    "whole application refreshes for same-brightness theme switches")
             for index in views.indices {
                 let colors = theme.colors(interfaceIsDark: uiDark)
@@ -122,8 +135,8 @@ enum TerminalThemeTests {
                        "theme switching keeps existing buffer and surface")
                 expect(TerminalThemePreferences.selected().id == theme.id, "active selection follows appearance")
                 let background = colors.paneBackground(isFocused: false)
-                expect(abs(background.relativeLuminance - colors.paneBackground(isFocused: true).relativeLuminance) > 0.001,
-                       "inactive pane retains subtle separation")
+                expect(background.relativeLuminance <= colors.paneBackground(isFocused: true).relativeLuminance,
+                       "inactive pane never becomes brighter, including pure-black themes")
             }
         }
         func switchAppearance(_ isDark: Bool) {
@@ -244,6 +257,41 @@ enum TerminalThemeTests {
                "shared reset persists")
         switchAppearance(true)
         check(.system, uiDark: true)
+        defaults.set(false, forKey: "appearance.gradientEnabled")
+        defaults.synchronize()
+        AppearanceDriver.shared.reapply()
+        expect(WindowChrome.resolve(isDark: true).isGradientEnabled, "obsolete off preference cannot disable the default frame gradient")
+        let backdrop = ShellBackdropView(frame: CGRect(x: 0, y: 0, width: 800, height: 500))
+        backdrop.usesTerminalBackground = true
+        var previousGradient: [CGColor]?
+        for theme in [dark, otherDark, light, otherLight, .system] {
+            let isDark = theme.palette?.isDark ?? false
+            switchAppearance(isDark)
+            expect(prefs.select(theme.id), "gradient theme selection succeeds")
+            let chrome = WindowChrome.resolve(isDark: isDark)
+            expect(chrome.isGradientEnabled, "gradient remains enabled across appearance and theme switches")
+            backdrop.chrome = chrome
+            backdrop.applyStyle()
+            let layer = backdrop.subviews.first!.layer!.sublayers!.first as! CAGradientLayer
+            let colors = layer.colors as! [CGColor]
+            expect(!layer.isHidden && backdrop.isOpaque && colors.allSatisfy { $0.alpha == 1 },
+                   "frame shows an opaque theme gradient without exposing the desktop")
+            expect(chrome.readingBackground == chrome.background,
+                   "reading surfaces stay solid while the frame follows the theme")
+            if let previousGradient {
+                expect(colors != previousGradient, "switching themes updates the visible gradient")
+            }
+            previousGradient = colors
+            for index in sessions.indices {
+                expect(sessions[index].hasAttachedSurface && views[index].controller === runtime,
+                       "gradient switches retain the existing terminal surface")
+                expect(sessions[index].readScreenText()?.text.contains("family-session-marker") == true,
+                       "gradient switches retain existing terminal output")
+            }
+        }
+        defaults.removeObject(forKey: "appearance.gradientEnabled")
+        expect(prefs.reset(), "restore themes after gradient coverage")
+        switchAppearance(true)
         print("PASS terminal themes: 819 palettes, legacy preservation, shared appearance pair, live switching, retained buffers, failure and resets")
     }
 }

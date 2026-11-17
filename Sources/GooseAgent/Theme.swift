@@ -268,6 +268,10 @@ struct WindowChrome: Equatable {
     let isSystem: Bool
     var isThemeTinted = false
     var syntaxPalette: [String]?
+    /// 整窗共用一张主题渐变，仅从内部卡片之间的间隙露出。
+    var gradientColors: [Color]?
+    var isGradientEnabled: Bool { gradientColors != nil }
+    var readingBackground: Color { background }
     var background: Color
     var sidebarBackground: Color
     var elevated: Color

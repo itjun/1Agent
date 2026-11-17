@@ -126,7 +126,7 @@ struct SettingsView: View {
 
     private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearanceDriver.isDark) }
     private var sidebarChrome: WindowChrome { chrome }
-    private var settingsBackground: Color { chrome.background }
+    private var settingsBackground: Color { chrome.readingBackground }
     private let onRestart: () -> Void
 
     init(onRestart: @escaping () -> Void) {
@@ -162,7 +162,7 @@ struct SettingsView: View {
                     .frame(height: isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight)
                 settingsNavigation
             }
-                .background(sidebarChrome.sidebarBackground.opacity(isShellTransparent ? 0.55 : 1).ignoresSafeArea())
+                .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
                 .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
                 .environment(\.isShellTransparent, isShellTransparent)

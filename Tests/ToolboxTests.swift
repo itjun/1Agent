@@ -118,12 +118,12 @@ import ObjectiveC
         let before = TerminalCanvas.terminalContentFrame(frame, isFloating: false, accessoryHeight: 30)
         let after = TerminalCanvas.terminalContentFrame(frame, isFloating: false, accessoryHeight: 30, commandSidebarWidth: width)
         precondition(before.minX == after.minX && before.minY == after.minY && before.height == after.height)
-        precondition(before.width - after.width == width)
+        precondition(before.width - after.width == width + 5, "command island keeps the same 5pt gap as the internal splits")
         precondition(TerminalCanvas.commandSidebarWidth(nil, paneWidth: 900) == 0)
         precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(), paneWidth: 900) == 0)
         precondition(TerminalCanvas.commandSidebarWidth(expanded, paneWidth: 300) == 0)
         precondition(TerminalCanvas.commandSidebarWidth(expanded, paneWidth: 900) == width)
-        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(isExpanded: true, width: 2000), paneWidth: 500) == 320)
+        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(isExpanded: true, width: 2000), paneWidth: 500) == 315)
         print("PASS sidebar reserves terminal width without changing header/search geometry and restores after narrow layout")
     }
 

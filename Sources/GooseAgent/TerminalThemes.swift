@@ -101,8 +101,10 @@ final class AppearanceDriver: ObservableObject {
 
     private static func refreshWindowThemes() {
         for isDark in [false, true] {
-            WindowChrome.themeOverrides[isDark] = TerminalThemePreferences.selected(isDark: isDark)
-                .palette?.applicationChrome()
+            let theme = TerminalThemePreferences.selected(isDark: isDark)
+            var chrome = theme.palette?.applicationChrome() ?? WindowChrome(isDark: isDark)
+            chrome.gradientColors = theme.colors(interfaceIsDark: isDark).gradientColors.map(\.color)
+            WindowChrome.themeOverrides[isDark] = chrome
         }
     }
 

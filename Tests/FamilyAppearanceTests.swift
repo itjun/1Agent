@@ -54,7 +54,9 @@ enum FamilyAppearanceTests {
         func check(_ uiDark: Bool, _ terminalDark: Bool, _ context: String) {
             drain()
             expect(driver.interfaceIsDark == uiDark && driver.terminalIsDark == terminalDark, context + ": driver states")
-            let expectedChrome = WindowChrome(isDark: uiDark, preset: AppTheme.stored())
+            var expectedChrome = WindowChrome(isDark: uiDark, preset: AppTheme.stored())
+            expectedChrome.gradientColors = TerminalThemePreferences.selected(isDark: uiDark)
+                .colors(interfaceIsDark: uiDark).gradientColors.map(\.color)
             expect(WindowChrome.resolve(isDark: uiDark) == expectedChrome, context + ": selected preset palette")
             for (index, target) in ["local", "remote"].enumerated() {
                 let runtime = GhosttyRuntime.controller
@@ -249,8 +251,8 @@ enum FamilyAppearanceTests {
                                && abs(actual.greenComponent - expected.greenComponent) < 0.001
                                && abs(actual.blueComponent - expected.blueComponent) < 0.001,
                                "reading backing matches the terminal theme in light and dark appearances")
-                        expect(gradient.isHidden == usesTerminalBackground,
-                               "terminal and inspector reading surfaces stay solid instead of showing a gradient")
+                        expect(!gradient.isHidden,
+                               "the shared frame gradient stays enabled behind solid reading islands")
                     }
                 }
             }

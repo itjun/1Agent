@@ -53,9 +53,10 @@ struct SidebarMaterial: NSViewRepresentable {
 }
 
 enum ShellLayout {
-    static let contentRadius: CGFloat = 0
-    /// 工作区只为分隔线预留间距。
-    static let workspaceInset: CGFloat = 1
+    static let contentRadius: CGFloat = 10
+    /// 仅在内部卡片之间留出间距，窗口四边不留外框。
+    static let workspaceInset: CGFloat = 5
+    static let inactivePaneDimming: Double = 0.08
     static let paneInset: CGFloat = 0
     static let paneVerticalInset: CGFloat = 0
     static let compactTitlebarHeight: CGFloat = 32
@@ -70,7 +71,7 @@ enum ShellLayout {
     static let systemDarkBackdropOpacity: CGFloat = 0.58
     static let lightGlowOpacity: CGFloat = 0.10
     static let darkGlowOpacity: CGFloat = 0.04
-    // 整窗共用垂直渐变；同一高度的左右侧栏不因各自宽高或光晕产生色差。
+    // 整窗共用渐变色标，分屏不会重新起色。
     static let backdropLocations: [CGFloat] = [0, 0.55, 1]
     static let glowEndY: CGFloat = 0.55
     static let shadowRadius: CGFloat = 4
@@ -86,7 +87,18 @@ enum ShellLayout {
     }
 
     static func paneFrames(of node: PaneNode, in bounds: CGRect, isFloating: Bool) -> [UUID: CGRect] {
-        PaneLayout.frames(of: node, in: bounds)
+        // 保留布局树的分隔中心和拖动比例，只在内部边缘各退半个间隙。
+        // 外沿不内缩，内容直接贴齐窗口边缘。
+        let inset = (workspaceInset - 1) / 2
+        return PaneLayout.frames(of: node, in: bounds).mapValues { frame in
+            let left = frame.minX > bounds.minX ? inset : 0
+            let top = frame.minY > bounds.minY ? inset : 0
+            let right = frame.maxX < bounds.maxX ? inset : 0
+            let bottom = frame.maxY < bounds.maxY ? inset : 0
+            return CGRect(x: frame.minX + left, y: frame.minY + top,
+                          width: max(1, frame.width - left - right),
+                          height: max(1, frame.height - top - bottom))
+        }
     }
 
     static func contentFrame(_ frame: CGRect, isFloating: Bool) -> CGRect {
@@ -148,6 +160,7 @@ final class ShellBackdropView: NSView {
     var chrome: WindowChrome?
     private let washView = NSView()
     private let gradientLayer = CAGradientLayer()
+    private let tealLayer = CAGradientLayer()
     override var isOpaque: Bool { true }
 
     override init(frame frameRect: NSRect) {
@@ -158,6 +171,10 @@ final class ShellBackdropView: NSView {
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.locations = ShellLayout.backdropLocations.map { NSNumber(value: Double($0)) }
         washView.layer?.addSublayer(gradientLayer)
+        tealLayer.type = .radial
+        tealLayer.startPoint = CGPoint(x: 0, y: 0)
+        tealLayer.endPoint = CGPoint(x: 0.85, y: 0.85)
+        washView.layer?.addSublayer(tealLayer)
         washView.frame = bounds
         washView.autoresizingMask = [.width, .height]
         addSubview(washView)
@@ -175,6 +192,7 @@ final class ShellBackdropView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         gradientLayer.frame = washView.bounds
+        tealLayer.frame = washView.bounds
         CATransaction.commit()
     }
 
@@ -184,12 +202,26 @@ final class ShellBackdropView: NSView {
         appearance = SystemTheme.appearance(isDark: chrome.isDark)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        // 整窗只绘制一张不透明渐变；面板的透明度仅用于露出这张底板。
+        // 不透明渐变承载所有岛，面板之间的间隙露出同一张底板。
         // 不采样壁纸，主题配色不会随窗口位置或其他应用变化。
         layer?.backgroundColor = NSColor(chrome.background).cgColor
-        gradientLayer.isHidden = usesTerminalBackground
-        gradientLayer.colors = [chrome.sidebarBackground, chrome.background, chrome.background].map { NSColor($0).cgColor }
+        if let colors = chrome.gradientColors {
+            gradientLayer.isHidden = false
+            gradientLayer.startPoint = CGPoint(x: 0, y: 1)
+            gradientLayer.endPoint = CGPoint(x: 1, y: 0)
+            gradientLayer.colors = colors.prefix(3).map { NSColor($0).cgColor }
+            let teal = NSColor(colors[3])
+            tealLayer.colors = [teal.cgColor, teal.withAlphaComponent(0).cgColor]
+            tealLayer.isHidden = false
+        } else {
+            gradientLayer.isHidden = usesTerminalBackground
+            gradientLayer.startPoint = CGPoint(x: 0.5, y: 1)
+            gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
+            gradientLayer.colors = [chrome.sidebarBackground, chrome.background, chrome.background].map { NSColor($0).cgColor }
+            tealLayer.isHidden = true
+        }
         gradientLayer.frame = washView.bounds
+        tealLayer.frame = washView.bounds
         CATransaction.commit()
     }
 
