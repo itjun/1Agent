@@ -1494,7 +1494,8 @@ private struct FilesWorkspaceRoutingTests {
             throw TestFailure(description: "File drawer must mount the native code surface")
         }
         try await eventually("bundled Python highlighting") {
-            code.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == PreviewCodeStyle.color(0xF92672)
+            code.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+                == code.style.attributes(for: "keyword")[.foregroundColor] as? NSColor
         }
         try require(code.lineGutter != nil && code.enclosingScrollView!.frame.minX >= code.lineGutter!.frame.maxX,
                     "Code preview includes a native gutter outside the text scroll view")
