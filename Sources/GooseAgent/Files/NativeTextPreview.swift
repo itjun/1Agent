@@ -100,7 +100,7 @@ struct NativeTextPreview: NSViewRepresentable {
 /// Keep the gutter outside the scroll view. NSRulerView can float over text in a
 /// full-size-content native window; explicit sibling frames prevent any overlap.
 final class PreviewCodeContainer: NSView {
-    let scroll = NSScrollView()
+    let scroll = PreviewCodeScrollView()
     let code = PreviewTextView()
     private let gutter: PreviewLineGutter
     override var isFlipped: Bool { true }
@@ -150,6 +150,30 @@ final class PreviewCodeContainer: NSView {
         scroll.contentView.scroll(to: origin)
         scroll.reflectScrolledClipView(scroll.contentView)
         gutter.needsDisplay = true
+    }
+}
+
+final class PreviewCodeScrollView: NSScrollView {
+    override var findBarView: NSView? {
+        didSet {
+            if let findBarView { PreviewCodeScrollView.updateFindNavigation(in: findBarView) }
+        }
+    }
+
+    private static func updateFindNavigation(in view: NSView) {
+        // 只替换原生查找控件的图标，保留 AppKit 的操作、提示和布局。
+        if let control = view as? NSSegmentedControl {
+            for segment in 0..<control.segmentCount {
+                let symbol: String
+                switch control.tag(forSegment: segment) {
+                case NSTextFinder.Action.previousMatch.rawValue: symbol = "chevron.up"
+                case NSTextFinder.Action.nextMatch.rawValue: symbol = "chevron.down"
+                default: continue
+                }
+                control.setImage(NSImage(systemSymbolName: symbol, accessibilityDescription: nil), forSegment: segment)
+            }
+        }
+        for child in view.subviews { PreviewCodeScrollView.updateFindNavigation(in: child) }
     }
 }
 
