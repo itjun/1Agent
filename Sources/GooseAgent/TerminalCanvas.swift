@@ -21,7 +21,7 @@ struct TerminalCanvas: View {
     /// does not resize the PTY to 1×1 (which reflows scrollback and jumps the cursor).
     @State private var lastContentFrame: [UUID: CGRect] = [:]
 
-    /// 所有终端各有一条标题；搜索栏另行预留，通知浮在右下角。
+    /// 所有终端各有一条标题；搜索栏另行预留，通知浮在终端中央。
     static func headerHeight(for frame: CGRect, isFloating: Bool = false) -> CGFloat { ShellLayout.compactHeaderHeight }
 
     var body: some View {

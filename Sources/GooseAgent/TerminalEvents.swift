@@ -553,10 +553,11 @@ final class TerminalNotifications: NSObject, UNUserNotificationCenterDelegate {
            let window = MainWindowManager.shared.window(for: state) {
             AppNotifications.presenter(for: window).store.show(
                 AppNotificationItem(id: "terminal-\(tabID)", title: title,
-                                    message: [subtitle, body].filter { !$0.isEmpty }.joined(separator: "\n"), level: level),
-                expiresAfter: level == .error ? nil : AppNotificationLayout.lingerSeconds)
+                                    message: [subtitle, body].filter { !$0.isEmpty }.joined(separator: "\n"), level: level,
+                                    terminalSessionID: model.tabs.first(where: { $0.id == tabID })?.sessionID),
+                expiresAfter: AppNotificationLayout.lingerSeconds)
         }
-        // 应用内只显示右下角卡片；切到其他应用后仍保留系统通知，便于返回会话。
+        // 应用内在终端中央短暂提醒；切到其他应用后保留系统通知，便于返回会话。
         guard !NSApp.isActive else { return }
         let content = UNMutableNotificationContent()
         content.title = title

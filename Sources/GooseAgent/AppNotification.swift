@@ -36,14 +36,20 @@ struct AppNotificationItem: Identifiable {
     var actionTitle: String? = nil
     var actionHelp: String? = nil
     var action: (() -> Void)? = nil
+    var terminalSessionID: String? = nil
 }
 
 enum AppNotificationLayout {
     static let width: CGFloat = 340
-    static let height: CGFloat = 124
+    static let height: CGFloat = 96
+    static let footerHeight: CGFloat = 30
     static let inset: CGFloat = 20
-    static let cornerRadius: CGFloat = 10
+    static let cornerRadius: CGFloat = 6
     static let lingerSeconds: Double = 4
+
+    static func height(for item: AppNotificationItem) -> CGFloat {
+        height + (item.fraction != nil || (item.actionTitle != nil && item.action != nil) ? footerHeight : 0)
+    }
 }
 
 struct AppNotificationCard: View {
@@ -75,11 +81,11 @@ struct AppNotificationCard: View {
                 .help("Dismiss Notification").accessibilityLabel("Dismiss Notification")
             }
             Text(verbatim: item.message)
-                .font(.system(size: 14)).foregroundStyle(tint)
+                .font(.system(size: 14)).foregroundStyle(chrome.text)
                 .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
                 .help(item.message)
-            Spacer(minLength: 0)
-            HStack {
+            if item.fraction != nil || (item.actionTitle != nil && item.action != nil) {
+              HStack {
                 if let fraction = item.fraction {
                     ProgressView(value: min(1, max(0, fraction)))
                         .tint(tint).controlSize(.small)
@@ -92,11 +98,12 @@ struct AppNotificationCard: View {
                         .foregroundStyle(chrome.text)
                         .help(item.actionHelp ?? title)
                 }
+              }
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity)
-        .frame(height: AppNotificationLayout.height)
+        .frame(height: AppNotificationLayout.height(for: item))
         .background(chrome.notificationBackground, in: RoundedRectangle(cornerRadius: AppNotificationLayout.cornerRadius))
         .overlay {
             RoundedRectangle(cornerRadius: AppNotificationLayout.cornerRadius)
@@ -157,6 +164,9 @@ final class AppNotificationPresenter: NSObject {
     private weak var parent: NSWindow?
     private var panel: NSPanel?
     private var observation: AnyCancellable?
+    private var windowObservation: AnyCancellable?
+    private weak var anchor: NSView?
+    private var geometryObservers: [NSObjectProtocol] = []
 
     init(window: NSWindow) {
         parent = window
@@ -170,13 +180,20 @@ final class AppNotificationPresenter: NSObject {
         observation = store.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async { self?.layout() }
         }
+        windowObservation = MainWindowManager.shared.state(for: window)?.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async { self?.layout() }
+        }
     }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        geometryObservers.forEach(NotificationCenter.default.removeObserver)
+    }
 
     @objc func layout() {
-        guard let parent, store.current != nil else {
+        guard let parent, let item = store.current else {
             if let panel { parent?.removeChildWindow(panel); panel.orderOut(nil) }
+            observeGeometry(of: nil)
             return
         }
         guard parent.isVisible, !parent.isMiniaturized else {
@@ -184,17 +201,58 @@ final class AppNotificationPresenter: NSObject {
             return
         }
         let panel = panel ?? makePanel()
-        let bounds = parent.contentView.map { parent.convertToScreen($0.convert($0.bounds, to: nil)) } ?? parent.frame
+        let anchor = contentAnchor(in: parent, for: item)
+        observeGeometry(of: anchor)
+        let bounds = anchor.map { parent.convertToScreen($0.convert($0.visibleRect.intersection($0.bounds), to: nil)) } ?? parent.frame
         let width = min(AppNotificationLayout.width, max(1, bounds.width - 2 * AppNotificationLayout.inset))
-        panel.setFrame(CGRect(x: bounds.maxX - AppNotificationLayout.inset - width,
-                             y: bounds.minY + AppNotificationLayout.inset,
-                             width: width, height: AppNotificationLayout.height), display: true)
+        let height = AppNotificationLayout.height(for: item)
+        panel.setFrame(CGRect(x: bounds.midX - width / 2, y: bounds.midY - height / 2,
+                             width: width, height: height), display: true)
         if panel.parent !== parent { parent.addChildWindow(panel, ordered: .above) }
         panel.orderFront(nil)
     }
 
+    /// 提醒位于所属终端正文中央；后台会话的提醒落在当前可见终端，标题仍标明来源。
+    private func contentAnchor(in window: NSWindow, for item: AppNotificationItem) -> NSView? {
+        guard let content = window.contentView else { return nil }
+        func terminals(in view: NSView) -> [SSHTerminalNSView] {
+            guard !view.isHidden, !view.visibleRect.isEmpty else { return [] }
+            if let terminal = view as? SSHTerminalNSView { return [terminal] }
+            return view.subviews.flatMap { terminals(in: $0) }
+        }
+        let visible = terminals(in: content)
+        if let sessionID = item.terminalSessionID,
+           let source = visible.first(where: { $0.sessionID == sessionID }) { return source }
+        if let model = TerminalActivity.shared.model,
+           let state = MainWindowManager.shared.state(for: window),
+           let selected = model.selectedTab(in: state),
+           let terminal = visible.first(where: { $0.sessionID == selected.sessionID }) { return terminal }
+        if let focused = window.firstResponder as? SSHTerminalNSView, visible.contains(focused) { return focused }
+        return visible.first ?? content
+    }
+
+    /// 拖动侧栏或分屏时，跟随终端及其容器的位置，不依赖窗口大小发生变化。
+    private func observeGeometry(of view: NSView?) {
+        guard anchor !== view else { return }
+        geometryObservers.forEach(NotificationCenter.default.removeObserver)
+        geometryObservers.removeAll()
+        anchor = view
+        var current = view
+        while let observed = current {
+            observed.postsFrameChangedNotifications = true
+            observed.postsBoundsChangedNotifications = true
+            for name in [NSView.frameDidChangeNotification, NSView.boundsDidChangeNotification] {
+                geometryObservers.append(NotificationCenter.default.addObserver(forName: name, object: observed, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.layout() }
+                })
+            }
+            current = observed.superview
+        }
+    }
+
     @objc private func close() {
         store.reset()
+        observeGeometry(of: nil)
         if let panel { parent?.removeChildWindow(panel); panel.orderOut(nil) }
     }
 
@@ -202,7 +260,7 @@ final class AppNotificationPresenter: NSObject {
         let panel = AppNotificationPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.isReleasedWhenClosed = false
         panel.identifier = NSUserInterfaceItemIdentifier("app.notification")
         panel.contentView = NSHostingView(rootView: AppNotificationSurface(store: store))

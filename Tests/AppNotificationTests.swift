@@ -68,6 +68,7 @@ import SwiftUI
         expect(TerminalActivity.shared.isAttended(model.tabs.first!), "failed build fixture is on screen")
         terminal.eventRelay.terminalDidFinishCommand(exitCode: 1, durationNanos: 51_300_000_000)
         expect(commandStore.current?.level == .error, "foreground build failure must show an error notification")
+        expect(commandStore.current?.terminalSessionID == terminal.sessionID, "notification retains its originating terminal")
         commandStore.dismiss(commandStore.current!.id)
         terminal.eventRelay.terminalDidFinishCommand(exitCode: 127, durationNanos: 10_000_000)
         expect(commandStore.current?.level == .error, "immediate command-not-found failure must notify")
@@ -115,8 +116,9 @@ import SwiftUI
                 let panel = owner.childWindows!.first { $0.identifier?.rawValue == "app.notification" }!
                 expect(!panel.canBecomeKey && owner.firstResponder === editor, "notification never steals terminal focus")
                 let bounds = owner.convertToScreen(owner.contentView!.convert(owner.contentView!.bounds, to: nil))
-                expect(abs(panel.frame.maxX - (bounds.maxX - 20)) < 1 && abs(panel.frame.minY - (bounds.minY + 20)) < 1,
-                       "card anchors at bottom right")
+                expect(abs(panel.frame.midX - bounds.midX) < 1 && abs(panel.frame.midY - bounds.midY) < 1,
+                       "notification centers in the content area")
+                expect(!panel.hasShadow, "flat notification has no floating window shadow")
                 if let directory = screenshotDirectory, let view = panel.contentView,
                    let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                     view.cacheDisplay(in: view.bounds, to: bitmap)
@@ -125,6 +127,31 @@ import SwiftUI
                 }
             }
         }
+        // 模拟左右侧栏及两个分屏；通知只能对齐来源终端正文，不能对齐整个窗口。
+        let paneContainer = NSView(frame: CGRect(x: 160, y: 20, width: 560, height: 540))
+        editor.addSubview(paneContainer)
+        let firstTerminal = SSHTerminalNSView(frame: CGRect(x: 0, y: 0, width: 240, height: 540))
+        firstTerminal.sessionID = "notification-first"
+        let sourceTerminal = SSHTerminalNSView(frame: CGRect(x: 260, y: 0, width: 300, height: 540))
+        sourceTerminal.sessionID = "notification-source"
+        paneContainer.addSubview(firstTerminal)
+        paneContainer.addSubview(sourceTerminal)
+        presenter.store.show(AppNotificationItem(id: "terminal-fixture", title: "来源终端", message: "命令执行失败", level: .error,
+                                                terminalSessionID: sourceTerminal.sessionID))
+        presenter.layout()
+        let terminalPanel = owner.childWindows!.first!
+        func expectCentered(on view: NSView, _ message: String) {
+            let rect = owner.convertToScreen(view.convert(view.visibleRect.intersection(view.bounds), to: nil))
+            expect(abs(terminalPanel.frame.midX - rect.midX) < 1 && abs(terminalPanel.frame.midY - rect.midY) < 1, message)
+        }
+        expectCentered(on: sourceTerminal, "notification centers on its source split without including sidebars")
+        paneContainer.setFrameOrigin(CGPoint(x: 190, y: 30))
+        sourceTerminal.setFrameSize(CGSize(width: 270, height: 500))
+        expectCentered(on: sourceTerminal, "notification follows container movement and terminal resizing")
+        sourceTerminal.isHidden = true
+        presenter.layout()
+        expectCentered(on: firstTerminal, "hidden source falls back to a visible terminal")
+        paneContainer.removeFromSuperview()
         owner.setContentSize(CGSize(width: 300, height: 300))
         presenter.layout()
         let panel = owner.childWindows!.first!
