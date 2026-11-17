@@ -262,8 +262,12 @@ enum AppTheme {
 
 /// 所有窗口共用当前预设，终端读取同一组底色、文字和强调色。
 struct WindowChrome: Equatable {
+    /// 由外观驱动统一刷新；键表示浅／深色偏好槽位，值可有不同的实际明暗。
+    static var themeOverrides: [Bool: WindowChrome] = [:]
     let isDark: Bool
     let isSystem: Bool
+    var isThemeTinted = false
+    var syntaxPalette: [String]?
     var background: Color
     var sidebarBackground: Color
     var elevated: Color
@@ -292,19 +296,21 @@ struct WindowChrome: Equatable {
     var hoverFill: Color { elevated }
 
     func rowSelection(active: Bool) -> Color {
-        active ? accentFill : SystemTheme.color(.unemphasizedSelectedContentBackgroundColor, isDark: isDark)
+        if isThemeTinted { return active ? accentFill : elevated }
+        return active ? accentFill : SystemTheme.color(.unemphasizedSelectedContentBackgroundColor, isDark: isDark)
     }
 
     func sessionSelection(isActive: Bool) -> Color {
-        SystemTheme.color(isActive ? .selectedContentBackgroundColor : .unemphasizedSelectedContentBackgroundColor,
+        if isThemeTinted { return isActive ? accentFill : elevated }
+        return SystemTheme.color(isActive ? .selectedContentBackgroundColor : .unemphasizedSelectedContentBackgroundColor,
                           isDark: isDark)
     }
 
     func sessionRowChrome(isSelected: Bool, isActive: Bool) -> WindowChrome {
         guard isSelected else { return self }
         var row = self
-        row.text = SystemTheme.color(isActive ? .alternateSelectedControlTextColor : .unemphasizedSelectedTextColor,
-                                    isDark: isDark)
+        row.text = isThemeTinted ? text : SystemTheme.color(
+            isActive ? .alternateSelectedControlTextColor : .unemphasizedSelectedTextColor, isDark: isDark)
         row.secondary = row.text
         row.tertiary = row.text
         row.danger = row.text
@@ -325,7 +331,7 @@ struct WindowChrome: Equatable {
     }
 
     static func resolve(isDark: Bool) -> WindowChrome {
-        WindowChrome(isDark: isDark, preset: AppTheme.stored())
+        WindowChrome.themeOverrides[isDark] ?? WindowChrome(isDark: isDark, preset: AppTheme.stored())
     }
 
     init(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) {

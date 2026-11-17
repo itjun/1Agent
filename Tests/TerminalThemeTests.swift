@@ -17,6 +17,16 @@ enum TerminalThemeTests {
             let hexes = [colors.background, colors.foreground, colors.cursor, colors.cursorText, colors.selection, colors.selectionText] + colors.ansi
             expect(hexes.allSatisfy { $0.count == 6 && UInt32($0, radix: 16) != nil }, "complete palette: " + theme.name)
             expect(theme.configuration.light == theme.configuration.dark, "fixed theme independent of app appearance")
+            let chrome = colors.applicationChrome()
+            func rgb(_ color: NSColor) -> GooseAgent.RGBColor {
+                let value = color.usingColorSpace(.sRGB)!
+                return GooseAgent.RGBColor(red: value.redComponent, green: value.greenComponent, blue: value.blueComponent)
+            }
+            for surface in [chrome.background, chrome.sidebarBackground, chrome.elevated, chrome.accentFill] {
+                expect(rgb(NSColor(chrome.text)).contrastRatio(with: rgb(NSColor(surface))) >= 4.5,
+                       "application text stays readable on every surface: " + theme.name)
+            }
+            expect(chrome.isDark == colors.isDark, "native controls follow theme brightness: " + theme.name)
         }
         expect(catalog.filtered(search: "", filter: .all).count == 820, "all includes both appearances and one default")
         expect(catalog.filtered(search: "", filter: .light).count == 183, "182 light themes plus default")
@@ -85,7 +95,10 @@ enum TerminalThemeTests {
             let terminalIsDark = theme.isDark(interfaceIsDark: uiDark)
             expect(AppearanceDriver.shared.interfaceIsDark == uiDark
                    && AppearanceDriver.shared.terminalIsDark == terminalIsDark,
-                   "window and terminal brightness are resolved independently")
+                   "theme slot is preserved while the complete window follows theme brightness")
+            let chrome = WindowChrome.resolve(isDark: uiDark)
+            expect(chrome == (theme.palette?.applicationChrome() ?? WindowChrome(isDark: uiDark)),
+                   "whole application refreshes for same-brightness theme switches")
             for index in views.indices {
                 let colors = theme.colors(interfaceIsDark: uiDark)
                 let runtime = GhosttyRuntime.controller
@@ -95,8 +108,8 @@ enum TerminalThemeTests {
                 expect((runtime.effectiveColorScheme == .dark) == terminalIsDark, "engine follows selected theme brightness")
                 expect((views[index].effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == terminalIsDark,
                        "native terminal appearance follows selected theme brightness")
-                expect((views[index].window!.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == uiDark,
-                       "surrounding window retains the selected appearance")
+                expect((views[index].window!.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == terminalIsDark,
+                       "surrounding window follows the active theme brightness")
                 expect(runtime.theme == theme.configuration, "cursor, selection, foreground and ANSI share catalog data")
                 expect(sessions[index].readScreenText()?.text.contains("family-session-marker") == true,
                        "theme switching keeps existing buffer and surface")

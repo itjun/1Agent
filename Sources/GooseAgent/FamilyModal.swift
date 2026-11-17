@@ -155,7 +155,7 @@ private struct FamilySheetAnchor<Sheet: View>: NSViewRepresentable {
             .font(Theme.Font.body).tint(chrome.accent)
             .buttonStyle(FamilyButtonStyle(kind: .secondary))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: .windowBackgroundColor)))
+            .background(chrome.background))
         // Updating the binding or making a key window inside a SwiftUI update is reentrant.
         DispatchQueue.main.async { [weak view, weak coordinator] in
             guard let coordinator else { return }

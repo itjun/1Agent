@@ -88,17 +88,25 @@ final class AppearanceDriver: ObservableObject {
             .isDark(interfaceIsDark: mode.resolvesDark())
         isShellTransparent = ShellStyle.isTransparent
         preset = AppTheme.stored()
+        AppearanceDriver.refreshWindowThemes()
         themeWatcher.start()
     }
 
     var interfaceColorScheme: ColorScheme {
-        if isDark {
+        if terminalIsDark {
             return .dark
         }
         return .light
     }
 
-    /// 窗口使用所选外观，所有终端使用该外观下保存的主题，明暗可以不同。
+    private static func refreshWindowThemes() {
+        for isDark in [false, true] {
+            WindowChrome.themeOverrides[isDark] = TerminalThemePreferences.selected(isDark: isDark)
+                .palette?.applicationChrome()
+        }
+    }
+
+    /// 外观决定主题槽位，窗口与终端共同采用该主题的实际明暗和配色。
     func reapply() {
         // 强调色变化不一定伴随浅深色切换，仍需刷新读取系统语义色的窗口。
         if preset == .system { objectWillChange.send() }
@@ -109,7 +117,14 @@ final class AppearanceDriver: ObservableObject {
         let mode = TerminalAppearance.stored()
         let dark = mode.resolvesDark()
         let terminalDark = TerminalThemePreferences.selected(isDark: dark).isDark(interfaceIsDark: dark)
-        TerminalAppearance.applyAppKit(isDark: dark)
+        AppearanceDriver.refreshWindowThemes()
+        TerminalAppearance.applyAppKit(isDark: terminalDark)
+        let chrome = WindowChrome.resolve(isDark: dark)
+        for window in NSApp.windows where window.identifier == MainWindowManager.windowID
+            || window.identifier == SettingsWindowController.windowID
+            || window.identifier?.rawValue == "family.dialog" {
+            window.backgroundColor = NSColor(chrome.background)
+        }
         if dark != interfaceIsDark { interfaceIsDark = dark }
         if terminalDark != terminalIsDark { terminalIsDark = terminalDark }
         GhosttyRuntime.applyColorSchemes(isDark: dark)

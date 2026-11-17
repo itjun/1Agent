@@ -39,9 +39,9 @@ struct TerminalThemeColors: Equatable {
         return base.mixed(with: neutral, amount: isDark ? 0.06 : 0.05)
     }
 
-    /// 标题、搜索和命令栏跟随各自终端，左侧导航仍使用窗口外观。
+    /// 标题、搜索和命令栏保留终端原色。
     func paneChrome(isFocused: Bool) -> WindowChrome {
-        var chrome = WindowChrome(isDark: isDark)
+        var chrome = applicationChrome()
         let base = paneBackground(isFocused: isFocused)
         let themeText = RGBColor(ghosttyHex: foreground)!
         let black = RGBColor(red: 0, green: 0, blue: 0)
@@ -58,6 +58,56 @@ struct TerminalThemeColors: Equatable {
         chrome.elevated = base.mixed(with: text, amount: 0.08).color
         chrome.hairline = base.mixed(with: text, amount: 0.15).color
         chrome.lineStrong = text.color
+        return chrome
+    }
+
+    /// 正文保留主题色；导航与控件向中性色收敛，强饱和主题仍有清晰层次。
+    func applicationChrome() -> WindowChrome {
+        var chrome = WindowChrome(isDark: isDark)
+        chrome.isThemeTinted = true
+        chrome.syntaxPalette = ansi
+        let base = RGBColor(ghosttyHex: background)!
+        let neutral = RGBColor(ghosttyHex: isDark ? "18191C" : "F7F7F9")!
+        let surface = base.mixed(with: neutral, amount: isDark ? 0.18 : 0.72)
+        let sidebar = base.mixed(with: neutral, amount: isDark ? 0.30 : 0.82)
+        let black = RGBColor(red: 0, green: 0, blue: 0)
+        let white = RGBColor(red: 1, green: 1, blue: 1)
+        let target = black.contrastRatio(with: surface) > white.contrastRatio(with: surface) ? black : white
+        func readable(_ color: RGBColor, minimum: Double = 4.5) -> RGBColor {
+            var result = RGBColor.ensureContrast(color, against: surface, toward: target, minimum: minimum)
+            result = RGBColor.ensureContrast(result, against: sidebar, toward: target, minimum: minimum)
+            return result
+        }
+        let accent = readable(RGBColor(ghosttyHex: ansi[4])!)
+        let elevated = sidebar.mixed(with: target, amount: 0.06)
+        let selection = sidebar.mixed(with: accent, amount: isDark ? 0.18 : 0.12)
+        func readableOnControls(_ color: RGBColor) -> RGBColor {
+            var result = readable(color)
+            for background in [elevated, selection] {
+                result = RGBColor.ensureContrast(result, against: background, toward: target, minimum: 4.5)
+            }
+            return result
+        }
+        let text = readableOnControls(RGBColor(ghosttyHex: foreground)!)
+        chrome.background = surface.color
+        chrome.sidebarBackground = sidebar.color
+        chrome.panelHeader = sidebar.color
+        chrome.text = text.color
+        chrome.secondary = readableOnControls(text.mixed(with: surface, amount: 0.32)).color
+        chrome.tertiary = chrome.secondary
+        chrome.elevated = elevated.color
+        chrome.hairline = sidebar.mixed(with: text, amount: 0.18).color
+        chrome.accent = accent.color
+        chrome.accentFill = selection.color
+        chrome.selectionText = text.color
+        chrome.selection = chrome.accentFill
+        chrome.accentHover = chrome.accent.opacity(0.88)
+        chrome.accentActive = chrome.accent.opacity(0.76)
+        chrome.focus = chrome.accent
+        chrome.lineStrong = text.color
+        chrome.danger = readable(RGBColor(ghosttyHex: ansi[1])!).color
+        chrome.warning = readable(RGBColor(ghosttyHex: ansi[3])!).color
+        chrome.success = readable(RGBColor(ghosttyHex: ansi[2])!).color
         return chrome
     }
 

@@ -10,6 +10,25 @@ enum ShellStyle {
     }
 }
 
+/// 只用于操作区；正文保持不透明，系统减少透明度时也使用同一主题实色。
+struct ThemeGlassSurface: ViewModifier {
+    @Environment(\.windowChrome) private var chrome
+    @Environment(\.accessibilityReduceTransparency) private var isTransparencyReduced
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        if isTransparencyReduced || contrast == .increased {
+            content.background(chrome.sidebarBackground)
+        } else if #available(macOS 26.0, *) {
+            content.glassEffect(.regular.tint(chrome.sidebarBackground.opacity(0.55)),
+                                in: .rect(cornerRadius: 0))
+        } else {
+            content.background(chrome.sidebarBackground.opacity(0.65))
+                .background(.regularMaterial)
+        }
+    }
+}
+
 /// 导航与工具箱标题共用原生材质，正文始终由各自的不透明底板承载。
 struct SidebarMaterial: NSViewRepresentable {
     var isDark: Bool
@@ -105,6 +124,7 @@ struct ShellBackdrop: NSViewRepresentable {
     var isDark: Bool
     var usesTerminalBackground = false
     var preset: AppThemePreset = AppTheme.stored()
+    var chrome: WindowChrome?
 
     func makeNSView(context: Context) -> ShellBackdropView {
         ShellBackdropView()
@@ -115,6 +135,7 @@ struct ShellBackdrop: NSViewRepresentable {
         view.isDark = isDark
         view.usesTerminalBackground = usesTerminalBackground
         view.preset = preset
+        view.chrome = chrome
         view.applyStyle()
     }
 }
@@ -124,6 +145,7 @@ final class ShellBackdropView: NSView {
     var isDark = false
     var usesTerminalBackground = false
     var preset = AppTheme.stored()
+    var chrome: WindowChrome?
     private let washView = NSView()
     private let gradientLayer = CAGradientLayer()
     override var isOpaque: Bool { true }
@@ -158,15 +180,15 @@ final class ShellBackdropView: NSView {
 
     func applyStyle() {
         wantsLayer = true
-        appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        let colors = AppTheme.colors(isDark: isDark, preset: preset)
+        let chrome = chrome ?? WindowChrome.resolve(isDark: isDark)
+        appearance = SystemTheme.appearance(isDark: chrome.isDark)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         // 整窗只绘制一张不透明渐变；面板的透明度仅用于露出这张底板。
         // 不采样壁纸，主题配色不会随窗口位置或其他应用变化。
-        layer?.backgroundColor = NSColor(colors.color(colors.background)).cgColor
+        layer?.backgroundColor = NSColor(chrome.background).cgColor
         gradientLayer.isHidden = usesTerminalBackground
-        gradientLayer.colors = ShellLayout.backdropColors(isDark: isDark, preset: preset).map { NSColor($0).cgColor }
+        gradientLayer.colors = [chrome.sidebarBackground, chrome.background, chrome.background].map { NSColor($0).cgColor }
         gradientLayer.frame = washView.bounds
         CATransaction.commit()
     }

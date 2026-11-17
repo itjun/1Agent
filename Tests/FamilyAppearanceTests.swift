@@ -163,6 +163,26 @@ enum FamilyAppearanceTests {
                        "settings passes the underlying transparency policy into its material")
             }
         }
+        for name in ["Springfield Resident", "Prismatica", "Nord"] {
+            let theme = TerminalThemeCatalog.shared.theme(id: "ghostty:" + name)!
+            expect(TerminalThemePreferences.shared.select(theme.id), "apply complete application theme: " + name)
+            for _ in 0..<5 { drain() }
+            let chrome = WindowChrome.resolve(isDark: driver.isDark)
+            let backing = findBackdrop(in: settingsWindow.contentView!)?.layer?.backgroundColor
+            expect(backing == NSColor(chrome.background).cgColor, "open settings repaints with the active theme: " + name)
+            expect((settingsWindow.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == theme.palette!.isDark,
+                   "open settings native controls follow the palette: " + name)
+            if let output = ProcessInfo.processInfo.environment["ONEAGENT_SETTINGS_QA_DIR"],
+               let view = settingsWindow.contentView,
+               let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                view.cacheDisplay(in: view.bounds, to: bitmap)
+                let directory = URL(fileURLWithPath: output, isDirectory: true)
+                try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try! bitmap.representation(using: .png, properties: [:])!.write(
+                    to: directory.appendingPathComponent("theme-" + name + ".png"))
+            }
+        }
+        expect(TerminalThemePreferences.shared.reset(), "restore default after live application theme checks")
         checkSettingsPages(in: settingsWindow)
         expect(settingsOwner.isVisible && settingsOwner.frame == savedFrame,
                "resizing settings never resizes or hides the workspace: visible=\(settingsOwner.isVisible), before=\(savedFrame), after=\(settingsOwner.frame)")
@@ -362,12 +382,13 @@ enum FamilyAppearanceTests {
                             expect(TerminalThemePreferences.selected(isDark: false).id == themeID,
                                    "theme card saves to the current appearance")
                             expect(TerminalAppearance.stored() == .light
-                                   && window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua,
-                                   "selecting either theme brightness keeps the settings window light")
+                                   && (window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
+                                       == TerminalThemeCatalog.shared.theme(id: themeID)!.palette!.isDark,
+                                   "selecting a theme keeps the preference slot and updates native window brightness")
                             let theme = TerminalThemeCatalog.shared.theme(id: themeID)!
                             expect(GhosttyRuntime.controller.theme == theme.configuration
                                    && (GhosttyRuntime.controller.effectiveColorScheme == .dark) == theme.palette!.isDark,
-                                   "theme card updates the running engine independently of the window")
+                                   "theme card updates the engine and window together")
                         }
                         UserDefaults.standard.set("dark", forKey: TerminalAppearance.storageKey)
                         AppearanceDriver.shared.reapply()

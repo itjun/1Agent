@@ -75,12 +75,12 @@ struct PreviewSyntaxTests {
         let keywordTokens = await syntax.tokens(in: keywordSource, path: "test.py")
         view.load(keywordSource)
         view.apply(tokens: keywordTokens)
-        expect(view.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == PreviewCodeStyle.color(0xF92672), "native storage paints Python keywords")
+        expect(view.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == view.style.attributes(for: "keyword")[.foregroundColor] as? NSColor, "native storage paints Python keywords")
         view.setSelectedRange(NSRange(location: 8, length: 0))
         expect(view.occurrenceRanges.count == 2, "native selection notification updates symbol occurrences")
         let selected = NSRange(location: 7, length: 2)
         view.setSelectedRange(selected)
-        expect(view.selectedTextAttributes[.backgroundColor] as? NSColor == PreviewCodeStyle.selection, "native selected text uses visible blue")
+        expect(view.selectedTextAttributes[.backgroundColor] as? NSColor == view.style.selection, "native selected text uses the current theme")
         let board = NSPasteboard(name: NSPasteboard.Name("oneagent.preview-test.\(UUID())"))
         expect(view.selectedRange() == selected, "selection is established before native copy")
         expect(view.writeSelection(to: board, types: view.writablePasteboardTypes), "native copy writes selected text")
@@ -88,12 +88,24 @@ struct PreviewSyntaxTests {
         board.releaseGlobally()
         view.apply(tokens: keywordTokens)
         expect(view.selectedRange() == selected && !view.isEditable, "asynchronous syntax styling preserves selection and read-only state")
+        for name in ["Springfield Resident", "Prismatica", "Nord"] {
+            let chrome = TerminalThemeCatalog.shared.theme(id: "ghostty:" + name)!.palette!.applicationChrome()
+            view.applyTheme(chrome)
+            expect(view.string == keywordSource && view.selectedRange() == selected && !view.isEditable,
+                   "changing theme preserves file text, selection and read-only state")
+            expect(view.backgroundColor == NSColor(chrome.background)
+                   && view.selectedTextAttributes[.backgroundColor] as? NSColor == NSColor(chrome.selection),
+                   "file background and selection follow the same application palette")
+            expect(view.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+                   == view.style.attributes(for: "keyword")[.foregroundColor] as? NSColor,
+                   "existing syntax tokens repaint when only the theme changes")
+        }
         view.load(source)
         view.apply(tokens: tokens)
         view.setSelectedRange(NSRange(location: open, length: 0))
         expect(view.activeLine == 1 && view.matchedBrackets.count == 2, "native caret drives active line and brackets")
         let character = view.matchedBrackets.last!.location
-        expect(view.layoutManager?.temporaryAttribute(.backgroundColor, atCharacterIndex: character, effectiveRange: nil) as? NSColor == PreviewCodeStyle.bracket,
+        expect(view.layoutManager?.temporaryAttribute(.backgroundColor, atCharacterIndex: character, effectiveRange: nil) as? NSColor == view.style.bracket,
                "matched bracket decoration reaches TextKit")
         view.load("x")
         expect(view.string == "x" && view.occurrenceRanges.isEmpty && view.matchedBrackets.isEmpty,

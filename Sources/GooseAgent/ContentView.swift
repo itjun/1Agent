@@ -57,7 +57,8 @@ struct RootView: View {
                     }
                 ) {
                     sidebar
-                        .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
+                        .background(sidebarChrome.sidebarBackground
+                            .opacity(appearanceDriver.isShellTransparent ? 0.55 : 1).ignoresSafeArea())
                         .scrollIndicators(.never)
                         .environment(\.windowChrome, sidebarChrome)
                         .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
@@ -95,7 +96,8 @@ struct RootView: View {
                 ShellBackdrop(
                     isTransparent: appearanceDriver.isShellTransparent,
                     isDark: appearanceDriver.isDark,
-                    usesTerminalBackground: true
+                    usesTerminalBackground: true,
+                    chrome: chrome
                 )
 
             }

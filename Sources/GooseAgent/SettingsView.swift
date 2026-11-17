@@ -113,6 +113,7 @@ extension SettingsCard where Accessory == EmptyView {
 }
 
 struct SettingsView: View {
+    @ObservedObject private var appearanceDriver = AppearanceDriver.shared
     @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPage: SettingsPage = .appearance
@@ -124,8 +125,7 @@ struct SettingsView: View {
     @AppStorage(TerminalFontSettings.familyKey) private var fontFamily = TerminalDefaults.defaultFontFamily
     @AppStorage(TerminalFontSettings.sizeKey) private var fontSize = TerminalDefaults.defaultFontSize
 
-    // 全局设置保持应用外观，不继承终端主题配色。
-    private var chrome: WindowChrome { WindowChrome(isDark: colorScheme == .dark) }
+    private var chrome: WindowChrome { WindowChrome.resolve(isDark: appearanceDriver.isDark) }
     private var sidebarChrome: WindowChrome { chrome }
     private var settingsBackground: Color { chrome.background }
     private let onRestart: () -> Void
@@ -163,7 +163,7 @@ struct SettingsView: View {
                     .frame(height: isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight)
                 settingsNavigation
             }
-                .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
+                .background(sidebarChrome.sidebarBackground.opacity(isShellTransparent ? 0.55 : 1).ignoresSafeArea())
                 .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
                 .environment(\.isShellTransparent, isShellTransparent)
@@ -189,7 +189,6 @@ struct SettingsView: View {
                 .padding(.trailing, Theme.Space.xl)
                 .frame(height: SettingsLayout.pageHeaderHeight)
                 .background(WindowDragArea())
-                Rectangle().fill(chrome.hairline).frame(height: 0.5)
                 settingsContent
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -204,8 +203,8 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            ShellBackdrop(isTransparent: isShellTransparent, isDark: colorScheme == .dark,
-                          preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset)
+            ShellBackdrop(isTransparent: isShellTransparent, isDark: appearanceDriver.isDark,
+                          preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset, chrome: chrome)
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
         }

@@ -1,43 +1,16 @@
 import AppKit
 import SwiftUI
 
-/// 文本预览使用独立黑底配色，不随窗口主题和透明度改变。
+/// 文件预览和改动对比共用排版与当前窗口主题。
 enum PreviewCodeStyle {
-    static func color(_ hex: UInt32) -> NSColor {
-        NSColor(srgbRed: CGFloat((hex >> 16) & 255) / 255, green: CGFloat((hex >> 8) & 255) / 255,
-                blue: CGFloat(hex & 255) / 255, alpha: 1)
-    }
-    static let background = color(0x121416), foreground = color(0xE2E5E9), bright = color(0xF8F8F2)
-    static let selection = color(0x365D91), occurrence = color(0x2B4567), bracket = color(0x48637C)
-    static let accent = color(0x66D9EF), gutter = color(0x818892), activeGutter = color(0x202934)
-    static let activeLine = activeGutter
-    static let hoverLine = accent.withAlphaComponent(0.08)
     static let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
     static let lineHeight: CGFloat = 21.7
-
-    static func attributes(for scope: String) -> [NSAttributedString.Key: Any] {
-        let root = scope.split(separator: ".").first.map(String.init) ?? scope
-        switch root {
-        case "comment", "quote":
-            return [.foregroundColor: color(0x8B98A8), .font: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)]
-        case "keyword", "selector-tag", "literal": return [.foregroundColor: color(0xF92672)]
-        case "section": return [.foregroundColor: color(0x82AAFF)]
-        case "link": return [.foregroundColor: color(0x7FD5E8)]
-        case "attribute", "attr", "built_in", "type": return [.foregroundColor: accent]
-        case "string", "title", "name": return [.foregroundColor: color(0xC3D99A)]
-        case "number", "meta": return [.foregroundColor: color(0xAE81FF)]
-        case "punctuation", "bullet", "operator": return [.foregroundColor: bright]
-        case "addition": return [.foregroundColor: color(0xA6E22E)]
-        case "deletion": return [.foregroundColor: color(0xF92672)]
-        default: return [:]
-        }
-    }
 }
 
-/// 改动对比沿用窗口主题；独立文本预览使用 PreviewCodeStyle。
 struct PreviewThemeStyle {
     let chrome: WindowChrome
-    let colors: AppTheme.Colors
+    let syntaxColors: [NSColor]
+    var background: NSColor { NSColor(chrome.background) }
     var foreground: NSColor { NSColor(chrome.text) }
     var bright: NSColor { foreground }
     var selection: NSColor { NSColor(chrome.selection) }
@@ -51,7 +24,14 @@ struct PreviewThemeStyle {
 
     init(chrome: WindowChrome) {
         self.chrome = chrome
-        colors = AppTheme.colors(isDark: chrome.isDark)
+        let base = NSColor(chrome.background).usingColorSpace(.sRGB)!
+        let background = RGBColor(red: base.redComponent, green: base.greenComponent, blue: base.blueComponent)
+        let ink = NSColor(chrome.text).usingColorSpace(.sRGB)!
+        let target = RGBColor(red: ink.redComponent, green: ink.greenComponent, blue: ink.blueComponent)
+        syntaxColors = (chrome.syntaxPalette ?? AppTheme.colors(isDark: chrome.isDark).ansi).map {
+            NSColor(RGBColor.ensureContrast(RGBColor(ghosttyHex: $0)!, against: background,
+                                           toward: target, minimum: 4.5).color)
+        }
     }
 
     func attributes(for scope: String) -> [NSAttributedString.Key: Any] {
@@ -61,11 +41,11 @@ struct PreviewThemeStyle {
         case "comment", "quote":
             return [.foregroundColor: gutter,
                     .font: NSFontManager.shared.convert(PreviewCodeStyle.font, toHaveTrait: .italicFontMask)]
-        case "keyword", "selector-tag", "literal", "deletion": color = NSColor(colors.color(colors.ansi[1]))
-        case "section", "attribute", "attr", "built_in", "type": color = NSColor(colors.color(colors.ansi[4]))
-        case "string", "title", "name": color = NSColor(colors.color(colors.ansi[3]))
-        case "number", "meta": color = NSColor(colors.color(colors.ansi[5]))
-        case "addition": color = NSColor(colors.color(colors.ansi[2]))
+        case "keyword", "selector-tag", "literal", "deletion": color = syntaxColors[1]
+        case "section", "attribute", "attr", "built_in", "type": color = syntaxColors[4]
+        case "string", "title", "name": color = syntaxColors[3]
+        case "number", "meta": color = syntaxColors[5]
+        case "addition": color = syntaxColors[2]
         default: color = foreground
         }
         return [.foregroundColor: color]
@@ -73,6 +53,7 @@ struct PreviewThemeStyle {
 }
 
 struct NativeTextPreview: NSViewRepresentable {
+    @Environment(\.windowChrome) private var chrome
     let text: String
     let path: String
     let findRequest: Int
@@ -91,6 +72,7 @@ struct NativeTextPreview: NSViewRepresentable {
     }
 
     func updateNSView(_ container: PreviewCodeContainer, context: Context) {
+        container.applyTheme(chrome)
         let view = container.code
         view.onClose = onClose
         if context.coordinator.text != text || context.coordinator.path != path {
@@ -127,7 +109,7 @@ final class PreviewCodeContainer: NSView {
         gutter = PreviewLineGutter(textView: code, scrollView: scroll)
         super.init(frame: .zero)
         clipsToBounds = true
-        appearance = NSAppearance(named: .darkAqua)
+        appearance = SystemTheme.appearance(isDark: code.style.chrome.isDark)
         scroll.automaticallyAdjustsContentInsets = false
         scroll.contentInsets = NSEdgeInsetsZero
         scroll.hasVerticalScroller = false
@@ -135,7 +117,7 @@ final class PreviewCodeContainer: NSView {
         scroll.autohidesScrollers = true
         scroll.findBarPosition = .aboveContent
         scroll.drawsBackground = true
-        scroll.backgroundColor = PreviewCodeStyle.background
+        scroll.backgroundColor = code.style.background
         scroll.clipsToBounds = true
         scroll.documentView = code
         code.lineGutter = gutter
@@ -144,8 +126,17 @@ final class PreviewCodeContainer: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    func applyTheme(_ chrome: WindowChrome) {
+        guard code.style.chrome != chrome else { return }
+        appearance = SystemTheme.appearance(isDark: chrome.isDark)
+        code.applyTheme(chrome)
+        scroll.backgroundColor = code.style.background
+        needsDisplay = true
+        gutter.needsDisplay = true
+    }
+
     override func draw(_ dirtyRect: NSRect) {
-        PreviewCodeStyle.background.setFill()
+        code.style.background.setFill()
         dirtyRect.fill()
     }
 
@@ -180,6 +171,8 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
     private var hoveredLine: Int?
     private var hoverTracking: NSTrackingArea?
     private var replacingText = false
+    private var syntaxTokens: [PreviewSyntaxToken] = []
+    private(set) var style = PreviewThemeStyle(chrome: WindowChrome(isDark: true))
 
     init() {
         let storage = NSTextStorage()
@@ -201,13 +194,13 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
         container.widthTracksTextView = false
         maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textContainerInset = NSSize(width: 10, height: 10)
-        appearance = NSAppearance(named: .darkAqua)
+        appearance = SystemTheme.appearance(isDark: style.chrome.isDark)
         drawsBackground = true
-        backgroundColor = PreviewCodeStyle.background
-        textColor = PreviewCodeStyle.foreground
+        backgroundColor = style.background
+        textColor = style.foreground
         font = PreviewCodeStyle.font
-        insertionPointColor = PreviewCodeStyle.bright
-        selectedTextAttributes = [.backgroundColor: PreviewCodeStyle.selection, .foregroundColor: PreviewCodeStyle.bright]
+        insertionPointColor = style.bright
+        selectedTextAttributes = [.backgroundColor: style.selection, .foregroundColor: style.bright]
         setAccessibilityIdentifier("files.preview.code")
     }
 
@@ -233,6 +226,16 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
         return true
     }
 
+    func applyTheme(_ chrome: WindowChrome) {
+        style = PreviewThemeStyle(chrome: chrome)
+        appearance = SystemTheme.appearance(isDark: chrome.isDark)
+        backgroundColor = style.background
+        textColor = style.foreground
+        insertionPointColor = style.bright
+        selectedTextAttributes = [.backgroundColor: style.selection, .foregroundColor: style.bright]
+        apply(tokens: syntaxTokens)
+    }
+
     func load(_ text: String) {
         occurrenceRanges = []; matchedBrackets = []; hoveredLine = nil
         replacingText = true
@@ -245,6 +248,7 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
     }
 
     func apply(tokens: [PreviewSyntaxToken]) {
+        syntaxTokens = tokens
         guard let storage = textStorage else { return }
         let selection = selectedRanges
         let scrollOrigin = enclosingScrollView?.contentView.bounds.origin
@@ -254,9 +258,9 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
         paragraph.tabStops = []
         paragraph.defaultTabInterval = ("  " as NSString).size(withAttributes: [.font: PreviewCodeStyle.font]).width
         storage.beginEditing()
-        storage.setAttributes([.foregroundColor: PreviewCodeStyle.foreground, .font: PreviewCodeStyle.font,
+        storage.setAttributes([.foregroundColor: style.foreground, .font: PreviewCodeStyle.font,
                                .paragraphStyle: paragraph], range: NSRange(location: 0, length: storage.length))
-        for token in tokens { storage.addAttributes(PreviewCodeStyle.attributes(for: token.scope), range: token.range) }
+        for token in tokens { storage.addAttributes(style.attributes(for: token.scope), range: token.range) }
         storage.endEditing()
         index = PreviewTextIndex(string, tokens: tokens)
         if selectedRanges != selection { selectedRanges = selection }
@@ -281,8 +285,8 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
         activeLine = index.line(at: selection.location)
         occurrenceRanges = index.occurrences(for: selection)
         matchedBrackets = selection.length == 0 ? index.matchingBrackets(at: selection.location) : []
-        for range in occurrenceRanges { layoutManager.addTemporaryAttribute(.backgroundColor, value: PreviewCodeStyle.occurrence, forCharacterRange: range) }
-        for range in matchedBrackets { layoutManager.addTemporaryAttribute(.backgroundColor, value: PreviewCodeStyle.bracket, forCharacterRange: range) }
+        for range in occurrenceRanges { layoutManager.addTemporaryAttribute(.backgroundColor, value: style.occurrence, forCharacterRange: range) }
+        for range in matchedBrackets { layoutManager.addTemporaryAttribute(.backgroundColor, value: style.bracket, forCharacterRange: range) }
         needsDisplay = true
         lineGutter?.needsDisplay = true
     }
@@ -305,10 +309,10 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
         if let hoveredLine, hoveredLine != activeLine, let line = lineRect(hoveredLine), line.intersects(rect) {
-            PreviewCodeStyle.hoverLine.setFill(); line.fill()
+            style.hoverLine.setFill(); line.fill()
         }
         if let line = lineRect(activeLine), line.intersects(rect) {
-            PreviewCodeStyle.activeLine.setFill(); line.fill()
+            style.activeLine.setFill(); line.fill()
         }
     }
 
@@ -316,7 +320,7 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
 
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
         super.drawInsertionPoint(in: NSRect(x: rect.minX, y: rect.minY, width: 2, height: rect.height),
-                                 color: PreviewCodeStyle.bright, turnedOn: flag)
+                                 color: style.bright, turnedOn: flag)
     }
 
     override func updateTrackingAreas() {
@@ -365,12 +369,12 @@ final class PreviewLineGutter: NSView {
             if row.maxY < bounds.minY { continue }
             let active = line == view.activeLine
             if active {
-                PreviewCodeStyle.activeGutter.setFill()
+                view.style.activeGutter.setFill()
                 NSRect(x: 0, y: row.minY, width: bounds.width, height: row.height).fill()
             }
             let label = String(line + 1) as NSString
             let attributes: [NSAttributedString.Key: Any] = [.font: PreviewCodeStyle.font,
-                                                             .foregroundColor: active ? PreviewCodeStyle.bright : PreviewCodeStyle.gutter]
+                                                             .foregroundColor: active ? view.style.bright : view.style.gutter]
             let size = label.size(withAttributes: attributes)
             label.draw(at: NSPoint(x: bounds.width - size.width - 10, y: row.minY + (row.height - size.height) / 2), withAttributes: attributes)
         }
