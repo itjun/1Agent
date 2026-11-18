@@ -117,7 +117,7 @@ private struct FilePairGrid: View {
     }
 }
 
-/// 每个文件面板独立预览：本机向右展开，远程向左展开，卡片靠近中间。
+/// 每个文件面板都在自己的列表右侧展开预览。
 private struct FileEndpointWithPreview: View {
     @ObservedObject var workspace: FileWorkspace
     var groupID: UUID
@@ -137,7 +137,6 @@ private struct FileEndpointWithPreview: View {
 
     var body: some View {
         let isPreviewOpen = column?.preview != nil
-        let isPreviewLeading = column?.isRemote == true
         let cardWidth = WorkspacePreviewLayout.visibleWidth(available: width, isOpen: isPreviewOpen,
             preferred: previewWidth, isEqualSplit: isPreviewEqualSplitOverride ?? isPreviewEqualSplitByDefault,
             spacing: ShellLayout.workspaceInset)
@@ -147,7 +146,6 @@ private struct FileEndpointWithPreview: View {
             FileEndpointPanel(workspace: workspace, groupID: groupID, model: model, window: window,
                               relay: relay, tabDrag: tabDrag, width: listWidth, showsHeader: showsHeader)
                 .frame(width: listWidth)
-                .offset(x: isPreviewLeading ? cardWidth + gap : 0)
             if let column, isPreviewOpen, cardWidth > 0 {
                 TextPreviewDrawer(column: column, onClose: { column.preview = nil }, isWorkspaceCard: true)
                     .id(column.id)
@@ -157,18 +155,17 @@ private struct FileEndpointWithPreview: View {
                     .modifier(FloatingContentSurface())
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("files.preview.\(column.id)")
-                    .offset(x: isPreviewLeading ? 0 : listWidth + gap)
+                    .offset(x: listWidth + gap)
                     .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
                 PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
                     if previewDragStart == nil { previewDragStart = Double(cardWidth) }
                     isPreviewEqualSplitOverride = false
-                    let growth = isPreviewLeading ? delta : -delta
-                    previewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(cardWidth)) + growth)
+                    previewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(cardWidth)) - delta)
                 }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
                     isPreviewEqualSplitOverride = true
                 })
                 .frame(width: 6)
-                .offset(x: (isPreviewLeading ? cardWidth : listWidth) - 2.5)
+                .offset(x: listWidth - 2.5)
                 .accessibilityLabel(Text("Resize File Preview"))
             }
         }

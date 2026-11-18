@@ -1449,6 +1449,19 @@ private struct FilesWorkspaceRoutingTests {
         try await settleDrawer()
         try require(element("files.remoteLocation") != nil && element("files.localLocation") == nil &&
                     element("files.preview.\(local.id)") == nil, "Browsing a host displays only that host")
+        let remoteEntry = FileEntry(name: "remote.txt", path: "/fixture/remote.txt", isDirectory: false, size: 20, mode: "-rw-r--r--", modified: nil)
+        let remotePreview = FileColumn.Preview(entry: remoteEntry, decoded: .init(text: "remote-drawer-marker\n", encoding: .utf8, lineEnding: .lf), truncated: false, error: nil)
+        remote.preview = remotePreview
+        try await settleDrawer()
+        guard let listing = element("files.remoteLocation"), let preview = element("files.preview.\(remote.id)") else {
+            throw TestFailure(description: "Missing remote folder or single-endpoint preview")
+        }
+        try require(frame(listing).maxX <= frame(preview).minX &&
+                    abs(frame(preview).width - pageFrame.width / 2) < 8 &&
+                    abs(frame(preview).maxX - pageFrame.maxX) < 8,
+                    "A single SSH browser opens its preview in the right half")
+        remote.preview = nil
+        try await settleDrawer()
         try await toggleTransfer()
         try require(workspace.transferSourceGroupID == workspace.remoteGroupID,
                     "SSH expansion must remember the remote source")
@@ -1577,13 +1590,12 @@ private struct FilesWorkspaceRoutingTests {
         try await settleDrawer()
         try require(element("files.preview.\(local.id)") == nil && local.preview == nil, "Closing leaves no stale card")
 
-        let remoteEntry = FileEntry(name: "remote.txt", path: "/fixture/remote.txt", isDirectory: false, size: 20, mode: "-rw-r--r--", modified: nil)
         workspace.focus(remote)
-        remote.preview = .init(entry: remoteEntry, decoded: .init(text: "remote-drawer-marker\n", encoding: .utf8, lineEnding: .lf), truncated: false, error: nil)
+        remote.preview = remotePreview
         try await settleDrawer()
         guard let right = element("files.preview.\(remote.id)") else { throw TestFailure(description: "Remote file opens its own preview card") }
-        try require(abs(frame(right).minX - pageFrame.midX) < ShellLayout.workspaceInset * 2,
-                    "Remote preview sits on the left of its browser, next to the workspace center")
+        try require(abs(frame(right).maxX - pageFrame.maxX) < 8,
+                    "The remote preview opens at the right edge in transfer mode")
         workspace.open(entry, in: local, window: window)
         try await eventually("open local preview beside remote preview") { local.preview?.decoded?.text == localSource }
         try await settleDrawer()
@@ -1592,8 +1604,10 @@ private struct FilesWorkspaceRoutingTests {
                     "Local and remote previews stay open together")
         let localCard = frame(element("files.preview.\(local.id)")!)
         let remoteCard = frame(element("files.preview.\(remote.id)")!)
-        try require(localCard.maxX <= remoteCard.minX && abs(localCard.midY - remoteCard.midY) < 2,
-                    "The two preview cards meet in the middle without overlap and align vertically")
+        let remoteFolder = frame(element("files.remoteLocation")!)
+        try require(localCard.maxX <= remoteFolder.minX && remoteFolder.maxX <= remoteCard.minX
+                    && abs(localCard.midY - remoteCard.midY) < 2,
+                    "Each preview follows its own folder when both are open for transfer")
         guard let text = textViews(window.contentView!).first(where: { $0.string.contains("remote-drawer-marker") }) else {
             throw TestFailure(description: "Drawer must render a native text view")
         }
@@ -1624,7 +1638,7 @@ private struct FilesWorkspaceRoutingTests {
         try await settleDrawer()
         try requireFullWidthLocalBrowser()
         print("ok: the local browser fills the file page and shares it equally with the default preview when there are no remote tabs")
-        print("ok: local preview opens right, remote preview opens left; both align in the center and close independently while preserving browsing state")
+        print("ok: local and SSH previews open to the right of their own folders and close independently")
     }
 
     @MainActor
