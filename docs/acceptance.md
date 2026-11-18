@@ -4,10 +4,10 @@
 
 ## 每次改动怎么执行
 
-1. **选范围**：记录本次改动及受影响模块，按下面的表选择测试范围与实机用例。应用代码、配置或资源改动至少运行 `core focus`；再加对应模块。共享组件改动覆盖所有使用它的模块。
+1. **选范围**：日常修改按当前会话改动的功能，从下表选择相关脚本和实机用例。涉及共享组件时，补测行为直接受影响的调用流程。发版前执行下文的全量验收。
 2. **准备构建**：需要应用模块的脚本使用当前源码生成的 Debug 构建。应用源码或资源变化后先构建；仅测试代码、验收入口或文档变化时，可复用未变化的应用构建。运行测试期间不要同时构建、安装或替换应用模块。
 3. **跑脚本**：通过统一入口串行执行，检查退出码和报告。失败先定位并修复，再重跑失败项及受影响范围；不要把缺少环境、超时或未执行记成通过。
-4. **跑实机流程**：应用行为改动至少核对 T01、T03、S01；再核对范围表中的对应流程。需要交付安装版本时，按“安装与恢复”完成构建、安装和 R01。UI 验收以新安装的 `/Applications/1Agent.app` 为准。
+4. **跑实机流程**：核对所选用例中与改动相关的操作。需要安装时，按“安装检查”构建、安装并核对会话恢复。UI 验收以新安装的 `/Applications/1Agent.app` 为准。
 5. **记录结果**：按文末模板报告本次范围、脚本结果、实机结果及未完成项。验收所选项目均通过才算完成；硬件、SSH 或系统权限缺失时明确标记阻塞，交由用户决定是否接受限制。
 
 仅文档改动检查内容、链接和命令有效性；验收脚本改动运行它的回归测试，并实际执行受影响的入口。无需因此反复安装同一应用。新增功能或修复缺陷时，同步补充相关用例及脚本覆盖。
@@ -19,19 +19,16 @@
 ```sh
 # 查看范围或执行计划，不启动测试
 python3 scripts/test-acceptance.py --list
-python3 scripts/test-acceptance.py core focus appearance --dry-run
+python3 scripts/test-acceptance.py appearance --dry-run
 
-# 日常基础验收；默认等同于 core focus
-python3 scripts/test-acceptance.py
-
-# 示例：修改搜索框、主题或通知
-python3 scripts/test-acceptance.py core focus appearance
+# 日常示例：修改主题配色
+python3 scripts/test-acceptance.py appearance
 
 # 示例：修改文件与终端之间的切换
-python3 scripts/test-acceptance.py core focus terminal files
+python3 scripts/test-acceptance.py terminal files
 
-# 常用模块全量自动化验收
-python3 scripts/test-acceptance.py all
+# 发版前全量自动化验收
+python3 scripts/test-acceptance.py all automation compatibility stress
 ```
 
 命令清单以 [test-acceptance.py](../scripts/test-acceptance.py) 的 `SUITES` 为准，可组合范围，相同命令只执行一次。默认日志写入 `build/acceptance/<时间戳-随机值>/`，也可用 `--output-dir <新目录>` 指定位置。`summary.json` 记录提交、未提交文件、范围、每项退出码和日志；实机状态始终保留为 `pending`，由验收记录补充。
@@ -53,9 +50,9 @@ python3 scripts/test-acceptance.py all
 | `automation` | 已安装应用的命令行、脚本接口、终端对象操作 | I01；会创建并清理测试终端 |
 | `compatibility` | 引擎、键盘协议、Shell 集成、TUI、全屏、多屏 | T01、T04、I03 |
 | `stress` | 输出量、滚动历史、隐藏终端和内存 | T04；使用隔离夹具 |
-| `all` | 常用范围合集：`core focus terminal commands files appearance restore release` | 按本次交付范围执行实机流程 |
+| `all` | 常用范围合集：`core focus terminal commands files appearance restore release` | 见各范围对应的实机用例 |
 
-`automation`、`compatibility`、`stress` 必须显式选择，不随 `all` 启动。前者操作已安装应用，后两者需要额外工具或较多资源。发布前运行 `all`，并根据引擎、系统集成及升级改动补齐这些专项测试。
+发版前运行 `all` 并显式加入 `automation`、`compatibility`、`stress`，随后逐项执行下文的实机用例。`automation` 操作已安装应用，后两项需要额外工具或较多资源。缺少环境的用例按实际情况记录为阻塞。
 
 ## 环境与测试数据
 
