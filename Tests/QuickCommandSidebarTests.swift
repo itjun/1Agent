@@ -216,6 +216,43 @@ import ObjectiveC
         model.openLocalTerminal(at: "/private/tmp", placement: .newTab, beside: original.id, in: state)
         try await eventually { model.tabs.count == 2 }
         let sibling = try unwrap(model.tabs.first { $0.id != original.id })
+        let target = try unwrap(SSHTerminalRegistry.view(for: original.sessionID) { terminal })
+        let host = TerminalHostView(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
+        (try unwrap(native.contentView)).addSubview(host)
+        host.attach(target)
+        native.makeFirstResponder(target)
+        model.selectOnly(sibling.id, in: state, focusTerminal: false)
+        try require(press(try requiredElement(rowID, in: native)))
+        try await eventually { native.firstResponder !== target }
+        // 模拟选中分屏后 TerminalCanvas 对已有原生终端的布局更新。
+        host.setFocusTarget(state.selectedTabID == original.id)
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        try key(53)
+        try require(model.commandSidebars[original.id]?.isExpanded == false, "跨分屏选命令后列表应保留键盘焦点处理 Esc")
+        model.commandSidebars[original.id]?.isExpanded = true
+        // 每次从另一个终端开始，分别点击命令列表和详情的空白处。
+        let preview = try accessibilityFrame(try requiredElement("quickCommands.preview." + original.id.uuidString, in: native))
+        let listBlank = NSPoint(x: preview.midX, y: preview.maxY + 70)
+        for point in [listBlank, NSPoint(x: preview.midX, y: preview.minY + 10)] {
+            model.selectOnly(sibling.id, in: state, focusTerminal: false)
+            native.makeFirstResponder(nil)
+            let location = native.convertPoint(fromScreen: point)
+            func mouse(_ type: NSEvent.EventType) throws -> NSEvent {
+                try unwrap(NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: native.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+            }
+            NSApp.postEvent(try mouse(.leftMouseUp), atStart: true)
+            NSApp.sendEvent(try mouse(.leftMouseDown))
+            try await eventually("单击命令栏空白处应高亮所属分屏，并将键盘焦点交给它的终端") {
+                state.selectedTabID == original.id && state.sidebarSelection == [original.id]
+                    && native.firstResponder === target
+            }
+        }
+        print("PASS clicks in command list and detail backgrounds select and focus their owning terminal")
+        host.removeFromSuperview()
         model.selectOnly(sibling.id, in: state, focusTerminal: false)
         let originalExecution = model.commandExecution(for: original.id)
         try require(press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)))
@@ -226,7 +263,7 @@ import ObjectiveC
         try await eventually { !originalExecution.isSubmitting }
         try require(originalExecution.error != nil, "没有 shell 的目标必须明确报错")
         try await eventually { element("quickCommands.error." + original.id.uuidString, in: native) != nil }
-        try require(state.selectedTabID == sibling.id && model.tabs.count == 2, "失败不能切到其他终端或新建终端")
+        try require(state.selectedTabID == original.id && model.tabs.count == 2, "执行失败时仍选中被点击的终端")
         try await eventually { press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)) }
         try require(originalExecution.isSubmitting)
         try await eventually { !originalExecution.isSubmitting }

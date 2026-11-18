@@ -665,6 +665,12 @@ enum SSHTerminalRegistry {
         }
     }
 
+    static func selectForCommandList(_ id: String) {
+        // 命令行已接管键盘；随后分屏刷新选中状态时，终端无需再次请求焦点。
+        let host = views[id]?.superview as? TerminalHostView
+        host?.setFocusTarget(true, requestKeyboardFocus: false)
+    }
+
     /// The shell's own cwd. Nil until the process is running, or after it exits.
     static func currentWorkingDirectory(for id: String) -> String? {
         views[id]?.processHost?.process.currentWorkingDirectory
@@ -1609,10 +1615,10 @@ final class TerminalHostView: NSView {
         layer?.masksToBounds = radius > 0
     }
 
-    func setFocusTarget(_ selected: Bool) {
-        if selected && !isFocusTarget { focusPending = true }
+    func setFocusTarget(_ selected: Bool, requestKeyboardFocus: Bool = true) {
+        if !selected || !requestKeyboardFocus { focusPending = false }
+        else if !isFocusTarget { focusPending = true }
         isFocusTarget = selected
-        if !selected { focusPending = false }
         applyTerminalEmphasis()
         scheduleFocus()
     }

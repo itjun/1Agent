@@ -40,7 +40,7 @@ struct QuickCommandSidebar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .frame(height: ShellLayout.compactHeaderHeight)
-                .background(WindowDragArea().accessibilityHidden(true))
+                .background(WindowDragArea(onClick: focusTerminal).accessibilityHidden(true))
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(chrome.hairline).frame(height: 0.5)
                         .padding(.horizontal, 12).allowsHitTesting(false)
@@ -87,6 +87,8 @@ struct QuickCommandSidebar: View {
         }
         .foregroundStyle(chrome.text)
         .background(chrome.readingBackground)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: focusTerminal)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("quickCommands.pane." + tabID.uuidString)
         .onChange(of: commands.map(\.id), initial: true) { _, ids in
@@ -124,13 +126,20 @@ struct QuickCommandSidebar: View {
         }
     }
 
+    private func focusTerminal() {
+        isListFocused = false
+        model.selectOnly(tabID, in: window)
+    }
+
     private func run(_ item: QuickCommand) {
+        focusTerminal()
         selectedCommandID = item.id
         model.runSidebarQuickCommand(item.id, in: window, expectedContext: context,
                                      expectedItem: item, targetTabID: tabID)
     }
 
     private func copy(_ item: QuickCommand) {
+        focusTerminal()
         CommandClipboard.copy(item.command)
         copiedCommandID = item.id
     }
@@ -138,6 +147,7 @@ struct QuickCommandSidebar: View {
     private func commandRow(_ item: QuickCommand, number: Int) -> some View {
         QuickCommandSidebarRow(item: item, number: number, isSelected: selectedCommandID == item.id,
                               select: {
+            if let sessionID = context.sessionID { SSHTerminalRegistry.selectForCommandList(sessionID) }
             model.selectOnly(tabID, in: window, focusTerminal: false)
             selectedCommandID = item.id
             execution.error = nil
