@@ -41,10 +41,6 @@ struct QuickCommandSidebar: View {
                 .padding(.horizontal, 12)
                 .frame(height: ShellLayout.compactHeaderHeight)
                 .background(WindowDragArea(onClick: focusTerminal).accessibilityHidden(true))
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(chrome.hairline).frame(height: 0.5)
-                        .padding(.horizontal, 12).allowsHitTesting(false)
-                }
             if let message = execution.error ?? store.loadError {
                 Text(verbatim: message).font(Theme.Font.rowMeta).foregroundStyle(chrome.danger)
                     .fixedSize(horizontal: false, vertical: true).padding(12)

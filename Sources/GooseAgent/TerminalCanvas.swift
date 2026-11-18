@@ -247,10 +247,6 @@ struct TerminalCanvas: View {
                 .frame(width: terminalWidth, height: headerHeight)
                 .background(WindowDragArea().accessibilityHidden(true))
                 .background(paneChrome.readingBackground)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(paneChrome.hairline).frame(height: 0.5)
-                        .padding(.horizontal, 12).allowsHitTesting(false)
-                }
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: ShellLayout.contentRadius,
                                                  topTrailingRadius: ShellLayout.contentRadius))
                 .environment(\.windowChrome, paneChrome)
