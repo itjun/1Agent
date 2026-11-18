@@ -142,21 +142,11 @@ private struct FileEndpointWithPreview: View {
             spacing: ShellLayout.workspaceInset)
         let gap = cardWidth > 0 ? ShellLayout.workspaceInset : 0
         let listWidth = max(0, width - cardWidth - gap)
-        ZStack(alignment: .leading) {
+        HStack(spacing: 0) {
             FileEndpointPanel(workspace: workspace, groupID: groupID, model: model, window: window,
                               relay: relay, tabDrag: tabDrag, width: listWidth, showsHeader: showsHeader)
-                .frame(width: listWidth)
+                .frame(width: listWidth, alignment: .leading)
             if let column, isPreviewOpen, cardWidth > 0 {
-                TextPreviewDrawer(column: column, onClose: { column.preview = nil }, isWorkspaceCard: true)
-                    .id(column.id)
-                    .frame(width: cardWidth)
-                    .background(chrome.background)
-                    .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
-                    .modifier(FloatingContentSurface())
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("files.preview.\(column.id)")
-                    .offset(x: listWidth + gap)
-                    .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
                 PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
                     if previewDragStart == nil { previewDragStart = Double(cardWidth) }
                     isPreviewEqualSplitOverride = false
@@ -165,8 +155,17 @@ private struct FileEndpointWithPreview: View {
                     isPreviewEqualSplitOverride = true
                 })
                 .frame(width: 6)
-                .offset(x: listWidth - 2.5)
+                .frame(width: gap)
                 .accessibilityLabel(Text("Resize File Preview"))
+                TextPreviewDrawer(column: column, onClose: { column.preview = nil }, isWorkspaceCard: true)
+                    .id(column.id)
+                    .frame(width: cardWidth)
+                    .background(chrome.background)
+                    .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+                    .modifier(FloatingContentSurface())
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("files.preview.\(column.id)")
+                    .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
             }
         }
         .frame(width: width, alignment: .leading)

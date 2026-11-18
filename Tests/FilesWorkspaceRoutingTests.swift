@@ -1411,12 +1411,17 @@ private struct FilesWorkspaceRoutingTests {
             throw TestFailure(description: "File page must be accessible")
         }
         let pageFrame = frame(filePage)
-        func requireFullWidthLocalBrowser() throws {
-            guard let row = element("files.row." + localPath) else {
-                throw TestFailure(description: "Missing local file row")
-            }
-            try require(abs(frame(row).width - pageFrame.width) < 8,
-                        "Without remote tabs or a preview, the local browser fills the file page")
+        func requireFullWidthBrowser(rowPath: String) throws {
+            guard let row = element("files.row." + rowPath) else { throw TestFailure(description: "Missing file row") }
+            let rect = frame(row)
+            try require(abs(rect.minX - pageFrame.minX) < 2 && abs(rect.maxX - pageFrame.maxX) < 2,
+                        "The closed preview must return both edges of the listing to the page: \(rect), page \(pageFrame)")
+        }
+        func closeSinglePreview() async throws {
+            guard let close = element("files.preview.close") else { throw TestFailure(description: "Missing preview close button") }
+            try require(accessibilityBool(close, "accessibilityPerformPress"), "The preview close button must work")
+            try await settleDrawer()
+            try require(element("files.preview.close") == nil, "The preview must stay closed")
         }
         func requireEqualLocalPreview() throws {
             guard let row = element("files.row." + localPath),
@@ -1427,9 +1432,15 @@ private struct FilesWorkspaceRoutingTests {
                         && abs(frame(preview).maxX - pageFrame.maxX) < 8,
                         "Without remote tabs, the local browser and preview split the full file page evenly")
         }
-        try requireFullWidthLocalBrowser()
+        try requireFullWidthBrowser(rowPath: localPath)
         workspace.open(entry, in: local, window: window)
         try await eventually("local-only preview opens") { local.preview?.decoded?.text == localSource }
+        try await settleDrawer()
+        try requireEqualLocalPreview()
+
+        try await closeSinglePreview()
+        try requireFullWidthBrowser(rowPath: localPath)
+        workspace.open(entry, in: local, window: window)
         try await settleDrawer()
         try requireEqualLocalPreview()
 
@@ -1460,7 +1471,14 @@ private struct FilesWorkspaceRoutingTests {
                     abs(frame(preview).width - pageFrame.width / 2) < 8 &&
                     abs(frame(preview).maxX - pageFrame.maxX) < 8,
                     "A single SSH browser opens its preview in the right half")
-        remote.preview = nil
+        let secondRemote = workspace.addRemoteTab(host: "fixture-b", at: "/fixture-other")
+        try await settleDrawer()
+        try requireFullWidthBrowser(rowPath: "/fixture-other/fixture.txt")
+        workspace.activate(remote)
+        try await settleDrawer()
+        try await closeSinglePreview()
+        try requireFullWidthBrowser(rowPath: "/fixture/fixture.txt")
+        workspace.close(secondRemote)
         try await settleDrawer()
         try await toggleTransfer()
         try require(workspace.transferSourceGroupID == workspace.remoteGroupID,
@@ -1640,7 +1658,7 @@ private struct FilesWorkspaceRoutingTests {
         try requireEqualLocalPreview()
         local.preview = nil
         try await settleDrawer()
-        try requireFullWidthLocalBrowser()
+        try requireFullWidthBrowser(rowPath: localPath)
         print("ok: the local browser fills the file page and shares it equally with the default preview when there are no remote tabs")
         print("ok: local and SSH previews open to the right of their own folders and close independently")
     }
