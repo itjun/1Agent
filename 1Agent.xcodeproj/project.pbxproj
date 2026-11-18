@@ -24,6 +24,7 @@
 		197C7C9B933208A046590B37 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC199BA5503EE914D1E884FD /* Theme.swift */; };
 		1D41B58B3DA4A1EED57067DB /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 497B4095A28F875BA663B0FE /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
 		1E5B961465BD513D985BBFB7 /* NetworkRecoveryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9175FA90CC9BD9A4C4296D87 /* NetworkRecoveryMonitor.swift */; };
+		1E978B4B573489DCF4F2D7EB /* DocumentPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4505B1BAF3A7CFC8B0E35C8 /* DocumentPreview.swift */; };
 		1FE2D8EE9BB1CDD4A2C65148 /* ScriptingReplyBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */; };
 		23A6EC59AFBAF14E9A1208E1 /* TerminalAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E279FCF5B1B5A003B7A5FB /* TerminalAutomation.swift */; };
 		24E81C4DF5F6CC9264A76503 /* WorkspaceGit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D2FBA844EBB4E5D753255BB /* WorkspaceGit.swift */; };
@@ -34,10 +35,11 @@
 		29DCF42903CE193679975624 /* TerminalPanelIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B5B69FF2A6DC86837C4248 /* TerminalPanelIcon.swift */; };
 		2D7C86FE185C7FD54564D5FF /* macaron-original-mark.png in Resources */ = {isa = PBXBuildFile; fileRef = C5E10203568D61260319007F /* macaron-original-mark.png */; };
 		327FACE840478309DCDBC856 /* SSHConfigurationResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE1C1723EFB387B6FBA1BE65 /* SSHConfigurationResolver.swift */; };
-		33DCFCC9A4C67EC83537B7CB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EEF38299B0234AAF0FD1166 /* Sparkle */; };
+		33DCFCC9A4C67EC83537B7CB /* cmark-gfm-extensions in Frameworks */ = {isa = PBXBuildFile; productRef = 6B6A88955B3E0E6E481EB76A /* cmark-gfm-extensions */; };
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
+		3E5A7562523657B63E232B0D /* SwiftCMark.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 41CDABA85889B334DE84751C /* SwiftCMark.LICENSE.txt */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
 		403CEA9A63B7BC92D18F4597 /* GhosttyThemes in Resources */ = {isa = PBXBuildFile; fileRef = 2FCE655C95F09FFBD446F8C2 /* GhosttyThemes */; };
@@ -67,6 +69,7 @@
 		61ED839C0AFD56A6F49594EC /* 1agent in Resources */ = {isa = PBXBuildFile; fileRef = F7598CCEED462B4329E3B155 /* 1agent */; };
 		65D0A618C064D4646AF58B25 /* PinnedLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16730EE26824B43E5A087F41 /* PinnedLocations.swift */; };
 		6633572CB49A2155FA32EFF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2077428E1F778214E2AA9D80 /* ContentView.swift */; };
+		6818AEE104F2361506BBD820 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
 		683CC41EC0037F47E07D4F7E /* SystemIntegrationSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9913CB31A48D7D7573940C7 /* SystemIntegrationSettingsPage.swift */; };
 		68550A509D3C43DB75677D1A /* ShortcutsSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */; };
 		68E57E62AE433E59107CCA8E /* SSHConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 440DFBB9CC120A82EAE3507C /* SSHConfig.swift */; };
@@ -115,7 +118,7 @@
 		B95805B891CB9A10F703DD10 /* TextPreviewDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */; };
 		BAEAD2F5BDC8950B39FE42CA /* ShellEscape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82647DDF4D4CF2646AFD8116 /* ShellEscape.swift */; };
 		BCAD3DD235D0D841889A3154 /* FileIconCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = BD4E62BE663582C439B996D1 /* FileIconCatalog.json */; };
-		BDE0F6784FE455B5144022E1 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 033219BA9590EAF0ABF5C327 /* GhosttyTerminal */; };
+		BDE0F6784FE455B5144022E1 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EEF38299B0234AAF0FD1166 /* Sparkle */; };
 		BEC47B8635B1CEAD0DF8F053 /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D401E5A50007A35AE4E9D9C /* FamilyMenu.swift */; };
 		C01D9ED719DD9AE851193F49 /* WorkspaceExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EBD6A0E24A363C1F73F4352 /* WorkspaceExternalOpen.swift */; };
 		C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */; };
@@ -215,6 +218,7 @@
 		3FE4EAAA17D65DB09C0642F9 /* TextPreviewDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewDrawer.swift; sourceTree = "<group>"; };
 		4085933113D9936B6D98C8FC /* RemoteShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShell.swift; sourceTree = "<group>"; };
 		4167865522B8D56901EE9CAA /* goose-agent-icon-rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "goose-agent-icon-rounded.png"; sourceTree = "<group>"; };
+		41CDABA85889B334DE84751C /* SwiftCMark.LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SwiftCMark.LICENSE.txt; sourceTree = "<group>"; };
 		423FBB1DA45A80DA8AC6E5A2 /* SidebarActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarActions.swift; sourceTree = "<group>"; };
 		440DFBB9CC120A82EAE3507C /* SSHConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfig.swift; sourceTree = "<group>"; };
 		4439A8E93DB3E5BDBC1423C2 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -317,6 +321,7 @@
 		EE1C1723EFB387B6FBA1BE65 /* SSHConfigurationResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigurationResolver.swift; sourceTree = "<group>"; };
 		EEDC2F383EF24233D2AA4CA9 /* ScriptingReplyBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ScriptingReplyBridge.m; sourceTree = "<group>"; };
 		F081A460F13779B2F87B39CA /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
+		F4505B1BAF3A7CFC8B0E35C8 /* DocumentPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPreview.swift; sourceTree = "<group>"; };
 		F62A44A0BFA60610CCB8DBB3 /* TerminalAssociations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAssociations.swift; sourceTree = "<group>"; };
 		F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
 		F6E603284DC48745C1935660 /* QuickCommandPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandPreview.swift; sourceTree = "<group>"; };
@@ -330,8 +335,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				33DCFCC9A4C67EC83537B7CB /* Sparkle in Frameworks */,
-				BDE0F6784FE455B5144022E1 /* GhosttyTerminal in Frameworks */,
+				33DCFCC9A4C67EC83537B7CB /* cmark-gfm-extensions in Frameworks */,
+				BDE0F6784FE455B5144022E1 /* Sparkle in Frameworks */,
+				6818AEE104F2361506BBD820 /* GhosttyTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -349,6 +355,7 @@
 		0F46666817381E6ED3679D5C /* Files */ = {
 			isa = PBXGroup;
 			children = (
+				F4505B1BAF3A7CFC8B0E35C8 /* DocumentPreview.swift */,
 				8A8680C82540985A8A88BADF /* DropTransfer.swift */,
 				9287816E82C9C005D220C098 /* FileBrowserModel.swift */,
 				D303E19F85127FB7B052F2ED /* FileBrowserView.swift */,
@@ -428,6 +435,7 @@
 				0FCF2BEA73357A29F9518EA3 /* ProgramIcons-UPSTREAM-LICENSE.txt */,
 				2B200563BCD8A830E6EF71BD /* ProgramIcons.xcassets */,
 				3BBD386548977A6DABBB8642 /* Sparkle.LICENSE.txt */,
+				41CDABA85889B334DE84751C /* SwiftCMark.LICENSE.txt */,
 				E0755D5110D5E776C9D7A7A2 /* TerminalDark.ghostty */,
 				15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */,
 				32E75555FCC89483D29787D4 /* WindowAtmosphere.png */,
@@ -579,6 +587,7 @@
 			);
 			name = 1Agent;
 			packageProductDependencies = (
+				6B6A88955B3E0E6E481EB76A /* cmark-gfm-extensions */,
 				4EEF38299B0234AAF0FD1166 /* Sparkle */,
 				033219BA9590EAF0ABF5C327 /* GhosttyTerminal */,
 			);
@@ -612,6 +621,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				750EA450F3985D8FDB2FE3C5 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				8952DC0AEB53183F63ADD3D2 /* XCRemoteSwiftPackageReference "swift-cmark" */,
 				6316148249528D2F5CB7267B /* XCLocalSwiftPackageReference "Vendor/libghostty-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -646,6 +656,7 @@
 				524CFCB831B9B449145C6B4B /* ProgramIcons-UPSTREAM-LICENSE.txt in Resources */,
 				E045D893C0433CA6265FD8DD /* ProgramIcons.xcassets in Resources */,
 				C736ADA6DE90055542C5E228 /* Sparkle.LICENSE.txt in Resources */,
+				3E5A7562523657B63E232B0D /* SwiftCMark.LICENSE.txt in Resources */,
 				7B2A0ADF041C5677048DBFDC /* SymbolsNerdFont-LICENSE.txt in Resources */,
 				8B105A26183F40D11D3959F1 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
 				E59AE0DE835B253FE25E062F /* TerminalDark.ghostty in Resources */,
@@ -740,6 +751,7 @@
 				5C951E0FE24055E131A2123A /* CommandFinishedPolicy.swift in Sources */,
 				0F3FE3B884B9BD0A7FA3D3E6 /* CommandLiteralEditor.swift in Sources */,
 				6633572CB49A2155FA32EFF2 /* ContentView.swift in Sources */,
+				1E978B4B573489DCF4F2D7EB /* DocumentPreview.swift in Sources */,
 				EECABD4DC9B3EB672205AFE6 /* DragDrop.swift in Sources */,
 				60DF178EEEA08306D7385297 /* DropTransfer.swift in Sources */,
 				26772E9BB33C53E1A17BD65D /* DropZoneLayout.swift in Sources */,
@@ -1072,6 +1084,14 @@
 				version = 2.10.0;
 			};
 		};
+		8952DC0AEB53183F63ADD3D2 /* XCRemoteSwiftPackageReference "swift-cmark" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swiftlang/swift-cmark.git";
+			requirement = {
+				kind = revision;
+				revision = b97d09472e847a416629f026eceae0e2afcfad65;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1083,6 +1103,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 750EA450F3985D8FDB2FE3C5 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		6B6A88955B3E0E6E481EB76A /* cmark-gfm-extensions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8952DC0AEB53183F63ADD3D2 /* XCRemoteSwiftPackageReference "swift-cmark" */;
+			productName = "cmark-gfm-extensions";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

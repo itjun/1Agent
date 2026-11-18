@@ -82,7 +82,19 @@ struct TextPreviewDrawer: View {
             if let url = preview.quickLook { FilePreviewPane(url: url) {} }
             else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         } else if let decoded = preview.decoded {
-            NativeTextPreview(text: decoded.text, path: preview.entry.path, findRequest: findRequest + externalFindRequest, onClose: close)
+            let kind = FilePreviewPolicy.kind(for: preview.entry)
+            if kind == .html || kind == .markdown {
+                DocumentPreview(text: decoded.text, isMarkdown: kind == .markdown,
+                                directory: column.isRemote ? nil : URL(fileURLWithPath: preview.entry.path).deletingLastPathComponent(),
+                                findRequest: findRequest + externalFindRequest)
+                    .id(preview.entry.path)
+            } else {
+                NativeTextPreview(text: decoded.text, path: preview.entry.path, findRequest: findRequest + externalFindRequest, onClose: close)
+            }
+            if preview.truncated && isWorkspaceCard {
+                Text("Preview shows only the beginning of this file.")
+                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+            }
         } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
     }
 

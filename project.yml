@@ -9,6 +9,9 @@ options:
     - en
     - zh-Hans
 packages:
+  SwiftCMark:
+    url: https://github.com/swiftlang/swift-cmark.git
+    revision: b97d09472e847a416629f026eceae0e2afcfad65 # swift-6.2-RELEASE
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.10.0
@@ -41,6 +44,8 @@ targets:
         type: folder
         buildPhase: resources
     dependencies:
+      - package: SwiftCMark
+        product: cmark-gfm-extensions
       - package: Sparkle
       - package: GhosttyTerminal
         product: GhosttyTerminal

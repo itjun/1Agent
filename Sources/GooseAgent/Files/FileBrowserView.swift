@@ -517,11 +517,19 @@ struct FileColumnView: View {
         }
         .clickableCursor()
         .onTapGesture(count: 2) {
-            workspace.open(entry, in: column, window: window)
+            if entry.isDirectory, FilePreviewPolicy.kind(for: entry) == nil {
+                workspace.open(entry, in: column, window: window)
+            }
         }
         .simultaneousGesture(TapGesture().onEnded {
             focused = true
-            column.click(entry, modifiers: NSEvent.modifierFlags)
+            let modifiers = NSEvent.modifierFlags
+            column.click(entry, modifiers: modifiers)
+            if modifiers.intersection([.command, .shift, .control]).isEmpty,
+               FilePreviewPolicy.kind(for: entry) != nil,
+               column.preview?.entry != entry || column.preview?.error != nil {
+                workspace.open(entry, in: column, window: window)
+            }
         })
 
         .familyContextMenu {

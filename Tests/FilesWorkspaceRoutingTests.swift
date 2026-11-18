@@ -942,6 +942,10 @@ private struct FilesWorkspaceRoutingTests {
         try await click(NSPoint(x: rowFrame.midX, y: rowFrame.midY), simulateFocusLoss: true)
         try require(local.selection == [localEntry.path], "The native click probe must select the actual local file row: \(rowFrame), expected \(localEntry.path), got \(local.selection)")
 
+        if FilePreviewPolicy.kind(for: localEntry) != nil {
+            try require(local.preview?.entry == localEntry, "A plain click previews the selected file")
+            local.preview = nil  // The following pointer and filter checks use two full-width lists.
+        }
         local.selection = []
         try await settle()
         let contextPoint = window.convertPoint(fromScreen: NSPoint(x: rowFrame.midX, y: rowFrame.midY))
@@ -1025,6 +1029,10 @@ private struct FilesWorkspaceRoutingTests {
                     "File panes do not show redundant transfer buttons")
         print("ok: family context menu targets the pointed file despite unclipped native hosts, and preserves multi-selection")
 
+        // Keep the blank-area click below the last row, even with the scrolling fixtures present.
+        let originalFilter = local.filter
+        local.filter = localEntry.name
+        try await settle()
         let paths = try elements("files.path").map(frame).sorted { $0.minX < $1.minX }
         try require(paths.count == 2, "Both file panes must expose a path control")
         let blankY = window.frame.minY + 150
@@ -1052,6 +1060,8 @@ private struct FilesWorkspaceRoutingTests {
         try require(workspace.focusedColumn === remote && local.selection == leftBeforeHeader,
                     "Clicking the right pane header must also move keyboard navigation to the right list")
         try await click(NSPoint(x: paths[0].midX, y: blankY))
+        local.filter = originalFilter
+        try await settle()
         let editTargets = try elements("files.path.edit").map(frame).sorted { $0.minX < $1.minX }
         try require(editTargets.count == 2, "Each breadcrumb bar must retain a blank editing target")
         try await click(NSPoint(x: editTargets[1].midX, y: editTargets[1].midY))
@@ -1483,8 +1493,17 @@ private struct FilesWorkspaceRoutingTests {
         let selection = local.selection
         let layout = workspace.layout
 
-        workspace.open(entry, in: local, window: window)
-        try await eventually("load real local preview") { local.preview?.decoded?.text == localSource }
+        guard let row = element("files.row." + localPath) else { throw TestFailure(description: "Missing preview fixture row") }
+        let rowFrame = frame(row)
+        let point = window.convertPoint(fromScreen: NSPoint(x: rowFrame.midX, y: rowFrame.midY))
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
+            NSApp.sendEvent(event)
+            try await settle()
+        }
+        try await eventually("single click loads the actual file preview") { local.preview?.decoded?.text == localSource }
         try await settleDrawer()
         guard let code = textViews(window.contentView!).first(where: { $0.string == localSource }) as? PreviewTextView else {
             throw TestFailure(description: "File drawer must mount the native code surface")

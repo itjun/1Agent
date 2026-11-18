@@ -2,6 +2,7 @@ import AppKit
 import Quartz
 import GhosttyTerminal
 import SwiftUI
+import WebKit
 @testable import GooseAgent
 
 @main struct WorkspacePreviewTests {
@@ -62,6 +63,7 @@ import SwiftUI
         try await Task.sleep(for: .seconds(1))
         precondition(column.preview?.decoded?.text.contains("value599") == true, "measure loaded text preview")
         try await measure(host, label: "Text file")
+        try await verifyDocuments(root: root, column: column, host: host)
         let imageEntry = try await column.fileSystem.list(root.path).first { $0.name == "preview.png" }!
         column.showQuickLook(imageEntry, window: nil)
         window.orderFrontRegardless()
@@ -79,16 +81,56 @@ import SwiftUI
         window.contentView = nil
         print("WorkspacePreviewTests passed: resize performance and terminal/directory/host context")
     }
+    @MainActor static func verifyDocuments(root: URL, column: FileColumn, host: NSView) async throws {
+        func webView(in view: NSView) -> WKWebView? {
+            if let web = view as? WKWebView { return web }
+            return view.subviews.lazy.compactMap { webView(in: $0) }.first
+        }
+        for (name, source) in [
+            ("file.md", "# Title\n\n| A | B |\n| --- | --- |\n| 1 | 2 |"),
+            ("page.html", "<h1>Page</h1><table><tr><td>A</td></tr></table><script>document.title='ran'</script>")
+        ] {
+            let url = root.appendingPathComponent(name)
+            try Data(source.utf8).write(to: url)
+            let entry = try await column.fileSystem.list(root.path).first { $0.name == name }!
+            column.showPreview(entry)
+            let heading = name == "file.md" ? "Title" : "Page"
+            var rendered = false
+            for _ in 0..<100 {
+                try await Task.sleep(for: .milliseconds(50))
+                host.layoutSubtreeIfNeeded()
+                if let web = webView(in: host), !web.isLoading,
+                   let result = try? await web.evaluateJavaScript("document.querySelector('h1')?.textContent === '\(heading)' && !!document.querySelector('table td') && document.title !== 'ran'") as? Bool,
+                   result {
+                    rendered = true
+                    break
+                }
+            }
+            precondition(rendered, "Render headings and tables in " + name)
+        }
+    }
+
     @MainActor static func verifyPreviewPolicy() {
         let blocked = ["service.jar", "APP.EXE", "image.bin", "backup.zip", "archive.tar.gz", "archive.7z",
                        "data.rar", "archive.zst", "library.so", "library.dll", "disk.dmg", "package.deb",
                        "module.class", "store.sqlite", "unknown.xyz", "executable", ".env.jar", "movie.mp4"]
-        for name in ["README.md", "Makefile", "config.yml", ".env.production", "script.sh", "app.swift"] {
+        for name in ["Makefile", "config.yml", ".env.production", "script.sh", "app.swift"] {
             precondition(FilePreviewPolicy.kind(for: name) == .text)
         }
-        for name in ["photo.PNG", "photo.jpg", "image.webp", "scan.pdf", "report.docx", "table.xlsx", "slides.pptx"] {
+        for name in ["README.MD", "notes.markdown", "notes.mdown"] {
+            precondition(FilePreviewPolicy.kind(for: name) == .markdown)
+        }
+        for name in ["PAGE.HTML", "index.htm"] {
+            precondition(FilePreviewPolicy.kind(for: name) == .html)
+        }
+        for name in ["slides.key", "legacy.DOC", "legacy.XLS", "legacy.PPT", "macros.xlsm", "photo.PNG", "photo.jpg", "image.webp", "scan.pdf", "report.docx", "table.xlsx", "slides.pptx"] {
             precondition(FilePreviewPolicy.kind(for: name) == .quickLook)
         }
+        let folder = FileEntry(name: "slides.key", path: "/slides.key", isDirectory: true, size: 0, mode: "drwx------")
+        precondition(FilePreviewPolicy.kind(for: folder) == .quickLook)
+        var ordinaryFolder = folder
+        ordinaryFolder.name = "draft.md"
+        precondition(FilePreviewPolicy.kind(for: ordinaryFolder) == nil)
         let model = AppModel()
         let state = WindowState()
         let workspace = FileWorkspace(saved: nil, model: model, window: state, loadImmediately: false)

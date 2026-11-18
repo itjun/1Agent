@@ -19,6 +19,18 @@ final class FileColumn: ObservableObject, Identifiable {
         var quickLook: URL? = nil
         var isQuickLook = false
         var revision: FileRevision? = nil
+        var download: PreviewDownload? = nil
+    }
+
+    /// Keep the remote copy only while the card is displaying it.
+    final class PreviewDownload: Equatable {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ghostty-open-" + UUID().uuidString)
+        init() throws {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                                                    attributes: [.posixPermissions: 0o700])
+        }
+        deinit { try? FileManager.default.removeItem(at: directory) }
+        static func == (lhs: PreviewDownload, rhs: PreviewDownload) -> Bool { lhs === rhs }
     }
 
     let fileSystem: any FileSystem
@@ -206,7 +218,7 @@ final class FileColumn: ObservableObject, Identifiable {
                     selection = Set(restored.selection ?? []).intersection(Set(listed.map(\.path)))
                     filter = restored.filter ?? ""
                     scrollAnchor = restored.scrollAnchor
-                    if let path = restored.previewPath, let entry = listed.first(where: { $0.path == path }), !entry.isDirectory {
+                    if let path = restored.previewPath, let entry = listed.first(where: { $0.path == path }) {
                         showPreview(entry, using: restored.readingEncoding)
                     }
                 } else if changed || !keepSelection {
@@ -315,8 +327,12 @@ final class FileColumn: ObservableObject, Identifiable {
 
     // MARK: Preview
 
-    func showPreview(_ entry: FileEntry, using encoding: TextFile.Encoding? = nil) {
-        guard !entry.isDirectory, FilePreviewPolicy.kind(for: entry.name) == .text else { return }
+    func showPreview(_ entry: FileEntry, using encoding: TextFile.Encoding? = nil, window: NSWindow? = nil) {
+        guard let kind = FilePreviewPolicy.kind(for: entry) else { return }
+        if kind == .quickLook {
+            showQuickLook(entry, window: window)
+            return
+        }
         readingEncoding = encoding
         let request = UUID()
         previewRequest = request
@@ -350,7 +366,10 @@ final class FileColumn: ObservableObject, Identifiable {
 
     /// 仅允许支持的图片和文档；在创建临时目录或下载前拒绝其他类型。
     func showQuickLook(_ entry: FileEntry, window: NSWindow?) {
-        guard !entry.isDirectory, FilePreviewPolicy.kind(for: entry.name) == .quickLook else { return }
+        guard FilePreviewPolicy.kind(for: entry) == .quickLook else { return }
+        let request = UUID()
+        previewRequest = request
+        readingEncoding = nil
         guard isRemote else {
             preview = Preview(
                 entry: entry, decoded: nil, truncated: false, error: nil,
@@ -359,22 +378,21 @@ final class FileColumn: ObservableObject, Identifiable {
             return
         }
         preview = Preview(entry: entry, decoded: nil, truncated: false, error: nil, isQuickLook: true)
-        let staging = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ghostty-open-\(UUID().uuidString)")
         Task {
             var toast: Int?
             do {
-                try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+                let download = try PreviewDownload()
                 let paths = try await FileTransfer.run(
-                    [FileTransfer.Item(path: entry.path, isDirectory: false)],
-                    from: fileSystem, to: LocalFileSystem(), into: staging.path, choice: .rename,
+                    [FileTransfer.Item(path: entry.path, isDirectory: entry.isDirectory)],
+                    from: fileSystem, to: LocalFileSystem(), into: download.directory.path, choice: .rename,
                     window: window, started: { toast = $0 }
                 )
-                guard preview?.entry == entry, let path = paths.first else { return }
+                guard previewRequest == request, preview?.entry == entry, let path = paths.first else { return }
+                preview?.download = download
                 preview?.quickLook = URL(fileURLWithPath: path)
             } catch {
                 TransferToast.shared.fail(toast, error.localizedDescription, in: window)
-                guard preview?.entry == entry else { return }
+                guard previewRequest == request, preview?.entry == entry else { return }
                 preview?.error = error.localizedDescription
             }
         }
@@ -816,13 +834,10 @@ final class FileWorkspace: ObservableObject {
     /// 文件夹进入目录；只有文本、图片和文档打开预览。
     func open(_ entry: FileEntry, in column: FileColumn, window: NSWindow?) {
         focus(column)
-        guard entry.isDirectory || FilePreviewPolicy.kind(for: entry.name) != nil else { return }
-        if entry.isDirectory {
+        if FilePreviewPolicy.kind(for: entry) != nil {
+            column.showPreview(entry, window: window)
+        } else if entry.isDirectory {
             column.open(entry.path)
-        } else if FilePreviewPolicy.kind(for: entry.name) == .text {
-            column.showPreview(entry)
-        } else {
-            column.showQuickLook(entry, window: window)
         }
     }
 

@@ -264,10 +264,9 @@ struct WorkspaceFilesView: View {
                     ForEach(column.shown) { entry in
                         WorkspaceFileRow(entry: entry, fileSystem: column.fileSystem, showHidden: column.showHidden, depth: 0, selectedPath: column.selection.first, revision: revision) { file in
                             column.selection = [file.path]
-                            guard !file.isDirectory, let kind = FilePreviewPolicy.kind(for: file.name) else { return }
+                            guard FilePreviewPolicy.kind(for: file) != nil else { return }
                             window.openToolFilePreview(column)
-                            if kind == .text { column.showPreview(file) }
-                            else { column.showQuickLook(file, window: nil) }
+                            column.showPreview(file)
                         }
                     }
                     if column.shown.isEmpty && !column.loading && column.error == nil {
@@ -305,14 +304,15 @@ private struct WorkspaceFileRow: View {
     @State private var error: String?
     @State private var isLoading = false
     @Environment(\.windowChrome) private var chrome
+    private var isFolder: Bool { entry.isDirectory && FilePreviewPolicy.kind(for: entry) == nil }
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Button {
                 open(entry)
-                if entry.isDirectory { isExpanded.toggle() }
+                if isFolder { isExpanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    if entry.isDirectory {
+                    if isFolder {
                         Image(systemName: isExpanded ? "chevron.down" : "chevron.right").frame(width: 12)
                         Image(systemName: "folder.fill")
                             .foregroundStyle(selectedPath == entry.path ? chrome.accent : chrome.secondary)
