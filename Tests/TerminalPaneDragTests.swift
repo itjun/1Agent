@@ -100,8 +100,11 @@ import SwiftUI
             try await settle()
         }
         let headerY = ShellLayout.compactHeaderHeight / 2
+        func titleCenter(_ id: UUID) -> NSPoint {
+            point(id, x: relay.frames[id]!.width / 2, y: headerY)
+        }
         let before = model.workspaces
-        let source = point(ids[2], x: 32, y: headerY)
+        let source = titleCenter(ids[2])
         let target = point(ids[0], x: 12, y: relay.frames[ids[0]]!.height / 2)
         try Self.check(hit(source) is TabDragHandleView,
             "The pane title must receive pointer events, got \(String(describing: hit(source)))")
@@ -117,7 +120,7 @@ import SwiftUI
         try Self.check(window.draggingTabID == nil && window.draggingTabIDs.isEmpty && relay.catcher!.overlay.superview == nil,
             "Releasing the pointer clears drag state and the landing preview")
 
-        // 左对齐文字拖动终端，文字前后的空白交给原生窗口拖动。
+        // 居中的文字拖动终端，两侧空白交给原生窗口拖动。
         let frame = relay.frames[ids[3]]!
         let blank = point(ids[3], x: frame.width - 70, y: headerY)
         try Self.check(hit(blank) is WindowDragAreaView, "The title's blank area drags the application window")
@@ -125,7 +128,7 @@ import SwiftUI
             "The title's leading blank area drags the application window")
         try Self.check(hit(point(ids[3], x: frame.width - 20, y: headerY)) is WindowDragAreaView,
             "The title's trailing blank area drags the application window")
-        let title = point(ids[3], x: 32, y: headerY)
+        let title = titleCenter(ids[3])
         try await gesture(from: title, to: nil)
         try Self.check(window.selectedTabID == ids[3], "Clicking pane title text still focuses its terminal")
         let beforeSecondMove = model.workspaces
@@ -133,7 +136,7 @@ import SwiftUI
         try Self.check(model.workspaces != beforeSecondMove && relay.frames[ids[3]]!.maxY <= relay.frames[ids[1]]!.minY + 1,
             "Dragging title text to a top edge places the terminal above its target")
         let beforeSelfDrop = model.workspaces
-        try await gesture(from: point(ids[3], x: 32, y: headerY),
+        try await gesture(from: titleCenter(ids[3]),
                           to: point(ids[3], x: 12, y: relay.frames[ids[3]]!.height / 2))
         try Self.check(model.workspaces == beforeSelfDrop, "Dropping a pane onto itself keeps the layout")
         try Self.check(terminals.allSatisfy { $0.window === native && $0.processHost == nil } &&
@@ -141,7 +144,7 @@ import SwiftUI
             "Pane moves retain the existing terminal views without starting a shell")
         let saved = try JSONDecoder().decode(SessionSnapshot.self, from: defaults.data(forKey: SessionSnapshot.storageKey)!)
         try Self.check(saved.workspaces == model.workspaces, "The moved split layout is persisted")
-        try await gesture(from: point(ids[3], x: 32, y: headerY), to: nil)
+        try await gesture(from: titleCenter(ids[3]), to: nil)
         try Self.check(window.selectedTabID == ids[3] && model.tabs.count == 4,
             "Clicking title text focuses the terminal without closing it")
         let tab = model.tabs.first { $0.id == ids[3] }!

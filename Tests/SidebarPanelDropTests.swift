@@ -66,6 +66,14 @@ import SwiftUI
             try check(abs(before.minY - bounds.minY - inset) < 1,
                       "The reading surface keeps a 5pt bottom window gap")
             let titleCenterY = before.maxY + ShellLayout.compactHeaderHeight / 2
+            let titleCenter = NSPoint(x: before.midX, y: titleCenterY)
+            let titlePoint = root.superview!.convert(titleCenter, from: nil)
+            guard let title = root.hitTest(titlePoint) as? TabDragHandleView else {
+                throw Failure(message: "The center of the terminal header hits its title")
+            }
+            let titleFrame = title.convert(title.bounds, to: nil)
+            try check(abs(titleFrame.midX - before.midX) < 1,
+                      "The title group stays centered over the terminal as either sidebar changes")
             try check(abs(toggleFrame.midY - titleCenterY) < 1,
                       "The sidebar toggle aligns with the inset terminal title")
             for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {

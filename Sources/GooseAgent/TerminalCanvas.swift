@@ -310,35 +310,32 @@ struct TerminalCanvas: View {
     }
 
     private func terminalHeader(_ tab: TerminalTab, chrome: WindowChrome) -> some View {
-        return HStack(spacing: Theme.Space.s) {
-            HStack(spacing: Theme.Space.s) {
-                Text(verbatim: numberedPaneTitle(tab))
-                    .font(Theme.Font.paneTitle)
-                    .fontWeight(.semibold)
-                    .lineLimit(1).truncationMode(.middle)
-                if let path = TerminalPaneActions.workingDirectory(of: tab) {
-                    Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
-                        .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                        .lineLimit(1).truncationMode(.middle).help(path)
-                }
-                RemoteTitleStatus(tab: tab)
+        HStack(spacing: Theme.Space.s) {
+            Text(verbatim: numberedPaneTitle(tab))
+                .font(Theme.Font.paneTitle)
+                .fontWeight(.semibold)
+                .lineLimit(1).truncationMode(.middle)
+            if let path = TerminalPaneActions.workingDirectory(of: tab) {
+                Text(verbatim: tab.isLocal ? LocalTerminal.displayPath(path) : path)
+                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                    .lineLimit(1).truncationMode(.middle).help(path)
             }
-            .frame(maxHeight: .infinity)
-            .overlay {
-                TabDragHandle(
-                    onClick: { _, _ in model.notePaneFocused(tab.id, in: window) },
-                    onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
-                    onMoved: { dropRelay.dragMoved(windowPoint: $0) },
-                    onEnded: { dropRelay.dragEnded(windowPoint: $0) },
-                    onSecondaryClick: { TerminalPaneActions.showContext(tab: tab, model: model, window: window) },
-                    freezesWindow: true
-                ).accessibilityHidden(true)
-            }
-
+            RemoteTitleStatus(tab: tab)
+        }
+        .frame(maxHeight: .infinity)
+        .overlay {
+            TabDragHandle(
+                onClick: { _, _ in model.notePaneFocused(tab.id, in: window) },
+                onBegan: { dropRelay.dragBegan(tab.id, fromPane: true) },
+                onMoved: { dropRelay.dragMoved(windowPoint: $0) },
+                onEnded: { dropRelay.dragEnded(windowPoint: $0) },
+                onSecondaryClick: { TerminalPaneActions.showContext(tab: tab, model: model, window: window) },
+                freezesWindow: true
+            ).accessibilityHidden(true)
         }
         .foregroundStyle(chrome.text)
         .padding(.horizontal, Theme.Space.m)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     private func commandSidebarWidth(_ tab: TerminalTab, in frame: CGRect) -> CGFloat {
