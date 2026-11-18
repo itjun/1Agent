@@ -77,6 +77,7 @@ struct CommandLiteralEditor: NSViewRepresentable {
     var textColor: NSColor
     var backgroundColor: NSColor
     var identifier: String
+    var editor: CommandLiteralTextView? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
@@ -86,7 +87,7 @@ struct CommandLiteralEditor: NSViewRepresentable {
         scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
-        let editor = CommandLiteralTextView(frame: .zero)
+        let editor = editor ?? CommandLiteralTextView(frame: .zero)
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]

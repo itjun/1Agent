@@ -9,7 +9,8 @@ final class FileColumn: ObservableObject, Identifiable {
     typealias SortKey = FileSortKey
 
     /// Text, or a Quick Look of a supported image/document, shown in the preview drawer.
-    struct Preview: Equatable {
+    struct Preview: Equatable, Identifiable {
+        var id: String { entry.path }
         var entry: FileEntry
         var decoded: TextFile.Decoded?
         /// Only the first `FileBrowserLayout.previewByteLimit` bytes are shown.
@@ -19,6 +20,7 @@ final class FileColumn: ObservableObject, Identifiable {
         var quickLook: URL? = nil
         var isQuickLook = false
         var revision: FileRevision? = nil
+        var isEditableText: Bool { decoded != nil && revision != nil && !isQuickLook }
         var download: PreviewDownload? = nil
     }
 
@@ -396,6 +398,35 @@ final class FileColumn: ObservableObject, Identifiable {
                 preview?.error = error.localizedDescription
             }
         }
+    }
+
+    /// A draft always represents one complete revision, even when the preview is a prefix.
+    func textForEditing(_ source: Preview) async throws -> TextFile.Decoded {
+        guard source.isEditableText, let decoded = source.decoded else {
+            throw FileError.message(String(localized: "Not a text file"))
+        }
+        let encoding = readingEncoding
+        if !source.truncated {
+            try await fileSystem.requireRegularFile(source.entry.path)
+            return decoded
+        }
+        let snapshot = try await fileSystem.readComplete(source.entry.path, maximumBytes: TextFile.uploadConversionLimit)
+        guard snapshot.revision == source.revision else { throw FileSafety.changed() }
+        guard let complete = TextFile.decode(snapshot.data, using: encoding) else {
+            throw FileError.message(String(localized: "Not a text file"))
+        }
+        return complete
+    }
+
+    func saveEditedText(_ text: String, original: TextFile.Decoded, source: Preview) async throws {
+        guard source.isEditableText, let revision = source.revision else { throw FileSafety.changed() }
+        let output = try TextFile.encode(text, encoding: original.encoding, lineEnding: original.lineEnding,
+                                         includeBOM: original.hasBOM)
+        _ = try await fileSystem.replaceFile(output, at: source.entry.path, expected: revision, keepBackup: false)
+        if preview?.entry.path == source.entry.path {
+            showPreview(source.entry, using: readingEncoding)
+        }
+        refresh()
     }
 
     /// Conversion always decodes the full current file, never the preview's truncated sample.

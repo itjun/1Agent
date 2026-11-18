@@ -56,6 +56,7 @@ struct TextPreviewDrawer: View {
                 .lineLimit(1).truncationMode(.middle)
                 .help(preview.entry.path)
             Spacer(minLength: 4)
+            FilePreviewEditButton(column: column)
             if !preview.isQuickLook {
                 Button { findRequest += 1 } label: { Image(systemName: "magnifyingglass") }
                     .help("Find in Preview")

@@ -127,6 +127,9 @@ struct WorkspacePreviewToolbar: View {
                 WorkspacePreviewFileTitle(column: column)
             }
             Spacer(minLength: 4)
+            if let column = state.toolPreviewColumn, state.toolGitPreview == nil {
+                FilePreviewEditButton(column: column)
+            }
             Button {
                 NSApp.keyWindow?.makeFirstResponder(nil)
                 state.isToolPreviewExpanded.toggle()

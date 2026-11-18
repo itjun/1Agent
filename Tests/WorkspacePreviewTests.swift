@@ -107,7 +107,34 @@ import WebKit
                 }
             }
             precondition(rendered, "Render headings and tables in " + name)
+            let snapshot = column.preview!
+            let original = try await column.textForEditing(snapshot)
+            precondition(original.text == source)
+            try await column.saveEditedText("Changed", original: original, source: snapshot)
+            let saved = try String(contentsOf: url, encoding: .utf8)
+            precondition(saved == "Changed")
+            do {
+                try await column.saveEditedText("Stale draft", original: original, source: snapshot)
+                preconditionFailure("Stale draft overwrote a newer file")
+            } catch {
+                let bytes = try Data(contentsOf: url)
+                precondition(bytes == Data("Changed".utf8))
+            }
         }
+        let large = root.appendingPathComponent("long.txt")
+        let contents = String(repeating: "a", count: FileBrowserLayout.previewByteLimit) + "\r\nend"
+        let originalBytes = try TextFile.encode(contents, encoding: .utf16LE, lineEnding: .crlf)
+        try originalBytes.write(to: large)
+        let entry = try await column.fileSystem.list(root.path).first { $0.name == large.lastPathComponent }!
+        column.showPreview(entry)
+        for _ in 0..<100 where column.preview?.decoded == nil { try await Task.sleep(for: .milliseconds(30)) }
+        let snapshot = column.preview!
+        precondition(snapshot.truncated)
+        let original = try await column.textForEditing(snapshot)
+        precondition(original.text == contents)
+        try await column.saveEditedText(original.text + "\nlast", original: original, source: snapshot)
+        let saved = try Data(contentsOf: large)
+        precondition(saved == originalBytes + "\r\nlast".data(using: .utf16LittleEndian)!)
     }
 
     @MainActor static func verifyPreviewPolicy() {

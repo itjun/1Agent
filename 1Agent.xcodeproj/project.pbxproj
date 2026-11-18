@@ -39,6 +39,7 @@
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
+		3E1E4D26166466CCB12ECA81 /* FilePreviewEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24164B400C20194FC6C73B0A /* FilePreviewEditor.swift */; };
 		3E5A7562523657B63E232B0D /* SwiftCMark.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 41CDABA85889B334DE84751C /* SwiftCMark.LICENSE.txt */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
 		402D95EA6D659787AB3E6C86 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAD42576853180D4E34F59B /* SSHLaunch.swift */; };
@@ -193,6 +194,7 @@
 		2105529F1C40033DFD8D8A32 /* FamilyModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyModal.swift; sourceTree = "<group>"; };
 		2254C1C7DBE4FE6A5CC025DC /* WindowTitleSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowTitleSync.swift; sourceTree = "<group>"; };
 		22680FE638056AFBBDA0F764 /* TerminalProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProcess.swift; sourceTree = "<group>"; };
+		24164B400C20194FC6C73B0A /* FilePreviewEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewEditor.swift; sourceTree = "<group>"; };
 		24504B9F19C86DFC1D09FFBD /* TerminalCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommands.swift; sourceTree = "<group>"; };
 		245BCA49FE2CE7BD3EAD7671 /* WorkspaceToolSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceToolSidebar.swift; sourceTree = "<group>"; };
 		2531C1F0F126671D179FC3FC /* PreviewSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSyntax.swift; sourceTree = "<group>"; };
@@ -359,6 +361,7 @@
 				8A8680C82540985A8A88BADF /* DropTransfer.swift */,
 				9287816E82C9C005D220C098 /* FileBrowserModel.swift */,
 				D303E19F85127FB7B052F2ED /* FileBrowserView.swift */,
+				24164B400C20194FC6C73B0A /* FilePreviewEditor.swift */,
 				3C1508E77FD403E3D733C119 /* FilePreviewPolicy.swift */,
 				388A1951E4AD6C678189139A /* FileRules.swift */,
 				F6B0F6E0EDBA2358457762D3 /* FileSafety.swift */,
@@ -764,6 +767,7 @@
 				91ED427A152DC13AE187EE58 /* FamilyModal.swift in Sources */,
 				14211F306FED1B2D11F4BC58 /* FileBrowserModel.swift in Sources */,
 				97B86305AC381C8700A523A5 /* FileBrowserView.swift in Sources */,
+				3E1E4D26166466CCB12ECA81 /* FilePreviewEditor.swift in Sources */,
 				3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */,
 				C135706278274D8E30D70EDE /* FilePreviewPolicy.swift in Sources */,
 				EE772365BA73023DCA562619 /* FileRules.swift in Sources */,
