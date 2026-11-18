@@ -31,6 +31,9 @@ final class WindowDragAreaView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         guard let window else { return }
+        // A pane title can lose its tracking area before it receives mouseExited.
+        // A press on this surface belongs to the window even if that title left it locked.
+        window.isMovable = true
         if event.clickCount == 2 {
             WindowDragAreaView.performTitlebarDoubleClick(window)
             return

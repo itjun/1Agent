@@ -103,6 +103,29 @@ import SwiftUI
         func titleCenter(_ id: UUID) -> NSPoint {
             point(id, x: relay.frames[id]!.width / 2, y: headerY)
         }
+        // Exercise the full height of the custom title bar, including the strip below
+        // the native title bar. Start with window movement locked by a pane title.
+        model.commandSidebars[ids[0], default: .init()].isExpanded = true
+        try await settle()
+        let paneWidth = relay.frames[ids[0]]!.width
+        let commandsWidth = TerminalCanvas.commandSidebarWidth(model.commandSidebars[ids[0]], paneWidth: paneWidth)
+        try check(commandsWidth > 0, "The fixture shows the first pane's command sidebar")
+        let terminalWidth = paneWidth - commandsWidth - ShellLayout.workspaceInset
+        let headerBottom = ShellLayout.compactHeaderHeight - 2
+        let sidebarBlank = NSPoint(x: 130, y: point(ids[0], x: 0, y: headerBottom).y)
+        for (name, blank) in [
+            ("navigation header", sidebarBlank),
+            ("left of terminal title", point(ids[0], x: 8, y: headerY)),
+            ("right of terminal title", point(ids[0], x: terminalWidth - 8, y: headerBottom)),
+            ("command header", point(ids[0], x: paneWidth - 25, y: headerY))
+        ] {
+            try check(hit(blank) is WindowDragAreaView, "Window drag must receive presses on the \(name)")
+            native.isMovable = false
+            try await gesture(from: blank, to: nil)
+            try check(native.isMovable, "A press on the \(name) must release the pane title's movement lock")
+        }
+        model.commandSidebars[ids[0]]?.isExpanded = false
+        try await settle()
         let before = model.workspaces
         let source = titleCenter(ids[2])
         let target = point(ids[0], x: 12, y: relay.frames[ids[0]]!.height / 2)

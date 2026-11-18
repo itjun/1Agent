@@ -59,15 +59,19 @@ struct RootView: View {
                         if shownSidebarWidth >= CGFloat(sidebarWidth) { sidebarWidth = Double($0) }
                     }
                 ) {
-                    sidebar
-                        .padding(.top, ShellLayout.compactHeaderHeight)
-                        .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
-                        .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
-                        .scrollIndicators(.never)
-                        .environment(\.windowChrome, sidebarChrome)
-                        .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
-                        .tint(sidebarChrome.accent).font(Theme.Font.body)
-                        .preferredColorScheme(appearanceDriver.interfaceColorScheme)
+                    VStack(spacing: 0) {
+                        WindowDragArea()
+                            .frame(height: ShellLayout.compactHeaderHeight)
+                            .accessibilityHidden(true)
+                        sidebar
+                    }
+                    .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
+                    .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+                    .scrollIndicators(.never)
+                    .environment(\.windowChrome, sidebarChrome)
+                    .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
+                    .tint(sidebarChrome.accent).font(Theme.Font.body)
+                    .preferredColorScheme(appearanceDriver.interfaceColorScheme)
 
                 } detail: {
                     workspaceWithTools
