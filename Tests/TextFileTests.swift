@@ -10,6 +10,7 @@ enum TextFileTests {
         expect(!TextFile.isTextName("photo.png"), "images are not text")
         expect(!TextFile.isTextName("noext"), "no extension is not text")
 
+        expect(TextFile.decode(Data([0xef, 0xbb, 0xbf, 0])) == nil, "a BOM does not make NUL data editable")
         let lf = TextFile.decode(Data("a\nb\n".utf8))
         expect(lf?.encoding == .utf8 && lf?.lineEnding == .lf && lf?.isUTF8LF == true, "utf-8 lf")
         let crlf = TextFile.decode(Data("a\r\nb\r\n".utf8))

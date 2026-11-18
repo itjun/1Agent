@@ -129,7 +129,7 @@ enum TextFile {
                 text = String(data: data, encoding: .isoLatin1)
             }
         }
-        guard let text else { return nil }
+        guard let text, !text.utf8.contains(0) else { return nil }
         return Decoded(text: text, encoding: encoding, lineEnding: lineEnding(of: text),
                        isInferred: encoding == .gb18030 || encoding == .latin1,
                        hasBOM: [.utf8BOM, .utf16LE, .utf16BE].contains(encoding))
