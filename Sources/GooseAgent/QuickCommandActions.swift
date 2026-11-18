@@ -102,6 +102,14 @@ extension AppModel {
         return quickCommandContext(for: tab)
     }
 
+    func expandCommandSidebarIfNeeded(for tab: TerminalTab) {
+        guard tab.hasTerminal, commandSidebars[tab.id] == nil else { return }
+        let context = quickCommandContext(for: tab)
+        if QuickCommandStore.shared.commands.contains(where: { $0.appearsInSidebar(for: context) }) {
+            commandSidebars[tab.id] = TerminalCommandSidebarState(isExpanded: true)
+        }
+    }
+
     private func quickCommandContext(for tab: TerminalTab) -> QuickCommandContext {
         let local = tab.alias == nil || tab.alias?.isEmpty == true
         let directory = local ? SSHTerminalRegistry.currentWorkingDirectory(for: tab.sessionID) ?? tab.directory : tab.remoteDirectory

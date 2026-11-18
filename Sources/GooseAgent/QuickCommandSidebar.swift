@@ -25,7 +25,7 @@ struct QuickCommandSidebar: View {
 
     private var context: QuickCommandContext { model.commandContext(in: window, targetTabID: tabID) }
     private var commands: [QuickCommand] {
-        store.commands.filter { $0.scope != .all && $0.matches(context) }.sorted(by: QuickCommand.displayOrder)
+        store.commands.filter { $0.appearsInSidebar(for: context) }.sorted(by: QuickCommand.displayOrder)
     }
     private var selectedCommandID: UUID? {
         get { model.commandSidebars[tabID]?.selectedCommandID }

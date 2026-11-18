@@ -239,6 +239,10 @@ struct TerminalCanvas: View {
         let paneChrome = themedPaneChrome(theme)
         if tab.hasTerminal && headerHeight > 0 {
             terminalHeader(tab, chrome: paneChrome)
+                // SSH 可能在面板打开后才首次报告目录。
+                .onChange(of: tab.remoteDirectory != nil, initial: true) { _, _ in
+                    model.expandCommandSidebarIfNeeded(for: tab)
+                }
                 .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
                 .frame(width: terminalWidth, height: headerHeight)
                 .background(WindowDragArea().accessibilityHidden(true))

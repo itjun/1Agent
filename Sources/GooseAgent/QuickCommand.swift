@@ -94,6 +94,10 @@ struct QuickCommand: Codable, Hashable, Identifiable, Sendable {
         }
     }
 
+    func appearsInSidebar(for context: QuickCommandContext) -> Bool {
+        scope != .all && matches(context)
+    }
+
     var section: Int { scope == .directory ? 0 : scope == .all ? 2 : 1 }
     static func displayOrder(_ a: Self, _ b: Self) -> Bool {
         if a.section != b.section { return a.section < b.section }
