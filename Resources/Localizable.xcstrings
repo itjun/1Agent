@@ -1,6 +1,10 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Expand Transfer" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "展开传输"}}}},
+    "Collapse Transfer" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "收起传输"}}}},
+    "Choose Transfer Host" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "选择传输主机"}}}},
+    "Local peer: %@" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "本机对端：%@"}}}},
     "Preview shows only the beginning of this file." : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "预览仅显示文件开头。"}}}},
     "Current program: %@" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current program: %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前程序：%@"}}}},
     "Could not connect to the background terminal session." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Could not connect to the background terminal session."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法连接后台终端会话。"}}}},

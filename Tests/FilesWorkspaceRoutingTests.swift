@@ -215,9 +215,8 @@ private struct FilesWorkspaceRoutingTests {
         model.selectOnly(hostA.id, in: state)
         model.selectFilesLayout(.sideBySide, in: state)
         let workspace = model.fileWorkspace(for: state)
-        try require(workspace.remoteColumn == nil,
-                    "Ordinary Files navigation must not bind to the selected terminal")
-        model.showFiles(for: hostA.id, in: state)
+        try require(workspace.visibleLayout == .leaf(workspace.remoteGroupID),
+                    "Opening Files from an SSH terminal must show only that server")
         try await eventually("explicitly reveal host A cwd") {
             workspace.remoteColumn?.fileSystem.host == "fixture-a" && workspace.remoteColumn?.directory == "/remote/a-terminal"
         }
@@ -228,24 +227,22 @@ private struct FilesWorkspaceRoutingTests {
         model.hideFiles(in: state)
         model.selectOnly(hostB.id, in: state)
         model.selectFilesLayout(.sideBySide, in: state)
-        try require(workspace.remoteColumn === remoteA && remoteA.directory == "/remote/a-browsed",
-                    "Ordinary Files navigation must retain the chosen server and browsed directory")
-        model.showFiles(for: hostB.id, in: state)
+        try require(workspace.remoteColumn?.fileSystem.host == "fixture-b" && remoteA.directory == "/remote/a-browsed",
+                    "Switching terminals must open the selected host and keep the other host's browsing state")
         try await eventually("explicitly reveal host B cwd") {
             workspace.remoteColumn?.fileSystem.host == "fixture-b" && workspace.remoteColumn?.directory == "/remote/b-terminal"
         }
         let remoteB = workspace.remoteColumn!
         try require(workspace.remoteTabs.contains { $0 === remoteA }, "Explicit navigation must retain other server locations")
+        workspace.expandTransfer(from: workspace.remoteGroupID)
         try await verifyFilePanePointerFocus(model: model, state: state, workspace: workspace, window: chromeWindow)
 
-        let oldLocalDirectory = workspace.localColumn.directory
         model.hideFiles(in: state)
         model.selectOnly(local.id, in: state)
         model.noteWorkingDirectory(localB, forSession: local.sessionID)
         model.selectFilesLayout(.sideBySide, in: state)
-        try require(workspace.remoteColumn === remoteB && workspace.localColumn.directory == oldLocalDirectory,
-                    "Selecting a local terminal must not change either file endpoint")
-        model.showFiles(for: local.id, in: state)
+        try require(workspace.visibleLayout == .leaf(workspace.localGroupID) && workspace.transferSourceGroupID == nil,
+                    "Returning from a local terminal must hide the previously opened transfer peer")
         try await eventually("explicitly reveal local terminal cwd") {
             workspace.focusedColumn === workspace.localColumn && workspace.localColumn.directory == localB
         }
@@ -282,8 +279,9 @@ private struct FilesWorkspaceRoutingTests {
         model.hideFiles(in: state)
         model.notePaneFocused(hostB.id, in: state)
         model.selectFilesLayout(.sideBySide, in: state)
-        try require(workspace.remoteColumn === remoteA && remoteA.directory == "/remote/a-browsed",
-                    "Changing terminal pane focus must not retarget the independent Files page")
+        try require(workspace.focusedColumn === remoteB && workspace.visibleLayout == .leaf(workspace.remoteGroupID)
+                    && remoteA.directory == "/remote/a-browsed",
+                    "Opening Files uses the focused terminal pane and preserves inactive browsing locations")
 
         // Mount process-free terminal views to make an accidental asynchronous focus observable.
         let native = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 360),
@@ -324,6 +322,10 @@ private struct FilesWorkspaceRoutingTests {
             try require(native.firstResponder === fileInput && terminalFocuses == 0, "\(name) must not focus a hidden terminal")
         }
 
+        remoteA.open("/remote/a-browsed")
+        try await eventually("browse away from terminal cwd before preserving directory") {
+            remoteA.directory == "/remote/a-browsed"
+        }
         model.selectOnly(hostA.id, in: state, focusTerminal: false)
         model.showFiles(for: hostA.id, in: state, preserveRemoteDirectory: true)
         try await settle()
@@ -333,8 +335,10 @@ private struct FilesWorkspaceRoutingTests {
         // Drain the explicit terminal-mode focus before testing the next Files transition.
         try await settle()
         model.toggleSection(in: state)
-        try require(state.presentation.fullFilesWorkspace && remoteA.directory == "/remote/a-browsed",
-                    "The existing shortcut must use the same entry and preserve browsing state")
+        try await eventually("shortcut opens the selected terminal directory") {
+            state.presentation.fullFilesWorkspace && remoteA.directory == "/remote/a-terminal"
+                && workspace.visibleLayout == .leaf(workspace.remoteGroupID)
+        }
         model.showFiles(for: hostA.id, in: state)
         try await eventually("Explicit host routing follows terminal cwd") { remoteA.directory == "/remote/a-terminal" }
 
@@ -487,7 +491,8 @@ private struct FilesWorkspaceRoutingTests {
               let model = files.model, let state = files.windowState else {
             throw TestFailure(description: "File tabs must expose their own directory action")
         }
-        try require(!open.enabled, "Opening a terminal is disabled until a directory is known")
+        try require(open.enabled && column.directory.isEmpty && column.savedPath == "/remote/a-browsed",
+                    "An inactive restored tab exposes its saved directory before loading the remote listing")
         column.start(at: "/remote/menu-target")
         try await eventually("load menu target") { column.directory == "/remote/menu-target" }
         files.activate(files.remoteTabs[1])
@@ -1288,6 +1293,9 @@ private struct FilesWorkspaceRoutingTests {
         defer { UserDefaults.standard.set(savedWidth, forKey: SidebarLayout.widthKey) }
         UserDefaults.standard.set(420.0, forKey: SidebarLayout.widthKey)
         model.selectFilesLayout(.sideBySide, in: state)
+        let files = model.fileWorkspace(for: state)
+        files.showLocal(nil)
+        files.expandTransfer(from: files.localGroupID)
         window.setContentSize(NSSize(width: 880, height: 620))
         state.presentation.sidebarCollapsed = true
         try await settle()
@@ -1312,7 +1320,7 @@ private struct FilesWorkspaceRoutingTests {
                     "Restoring the sidebar keeps island headers even in a narrow window")
         try await eventually("restored file island headers are visible") {
             element("files.localLocation") != nil
-                && (model.fileWorkspace(for: state).remoteColumn == nil || element("files.remoteLocation") != nil)
+                && (files.remoteColumn == nil || element("files.remoteLocation") != nil)
         }
         guard let native = split(window.contentView!), let title = element("files.localLocation") else {
             throw TestFailure(description: "Restored native sidebar and file header are required (split=\(split(window.contentView!) != nil), title=\(element("files.localLocation") != nil))")
@@ -1425,15 +1433,49 @@ private struct FilesWorkspaceRoutingTests {
         try await settleDrawer()
         try requireEqualLocalPreview()
 
+        func toggleTransfer() async throws {
+            guard let button = element("files.toggleTransfer") else { throw TestFailure(description: "Missing transfer toggle") }
+            try require(accessibilityBool(button, "accessibilityPerformPress"), "Pressing the transfer toggle must work")
+            try await settleDrawer()
+        }
+        try await toggleTransfer()
+        try require(state.hostPickerPresented && state.hostPickerPurpose == .transfer && element("files.remoteLocation") == nil,
+                    "From this Mac, expansion must first ask which host to use")
+        state.hostPickerPresented = false
+        try await settleDrawer()
+        try requireEqualLocalPreview()
         workspace.openRemote(host: "fixture-a", at: "/fixture")
         let remote = workspace.remoteColumn!
+        try await settleDrawer()
+        try require(element("files.remoteLocation") != nil && element("files.localLocation") == nil &&
+                    element("files.preview.\(local.id)") == nil, "Browsing a host displays only that host")
+        try await toggleTransfer()
+        try require(workspace.transferSourceGroupID == workspace.remoteGroupID,
+                    "SSH expansion must remember the remote source")
+        workspace.focus(local)
+        try await toggleTransfer()
+        try require(workspace.focusedColumn === remote && element("files.localLocation") == nil
+                    && local.selection == [localPath] && local.preview != nil,
+                    "Collapsing after clicking the peer must return to the remote browser and retain local state")
+        workspace.showLocal(nil)
+        try await settleDrawer()
+        try await toggleTransfer()
+        model.openFilesTabs(hosts: ["fixture-a"], in: state)
+        try await settleDrawer()
+        try require(workspace.transferSourceGroupID == workspace.localGroupID,
+                    "Choosing the transfer host must keep this Mac as the source")
+        try await toggleTransfer()
+        try require(element("files.remoteLocation") == nil && element("files.localLocation") != nil,
+                    "Collapsing after choosing a host must return to the local browser")
+        try await toggleTransfer()
+        model.openFilesTabs(hosts: ["fixture-a"], in: state)
         try await settleDrawer()
         guard let previewBesideRemote = element("files.preview.\(local.id)") else {
             throw TestFailure(description: "Opening a remote tab must retain the local preview")
         }
         try require(element("files.remoteLocation") != nil
                     && abs(frame(previewBesideRemote).maxX - pageFrame.midX) < ShellLayout.workspaceInset * 2,
-                    "Opening the first remote tab restores the remote pane beside the local browser and preview")
+                    "Expanding transfer places the remote pane to the right of the local browser and preview")
         local.preview = nil
         try await settleDrawer()
 

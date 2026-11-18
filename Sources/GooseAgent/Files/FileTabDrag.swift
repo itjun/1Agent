@@ -313,7 +313,9 @@ struct FileTabButton: View {
     private static let rowHeight = SidebarLayout.rowHeight
 
     private var dragging: Bool { tabDrag.draggingID == column.id }
-    private var active: Bool { workspace.groups[groupID]?.activeID == column.id }
+    private var active: Bool {
+        workspace.groups[groupID]?.activeID == column.id && PaneLayout.contains(groupID, in: workspace.visibleLayout)
+    }
 
     private var title: String {
         if let host = column.fileSystem.host { return host }
@@ -341,7 +343,7 @@ struct FileTabButton: View {
                     .font(.system(size: 14, weight: active ? .semibold : .regular))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text(verbatim: column.directory.isEmpty ? column.title : column.directory)
+                Text(verbatim: column.savedPath ?? column.title)
                     .font(.system(size: 12))
                     .foregroundStyle(chrome.secondary)
                     .lineLimit(1)
@@ -363,7 +365,7 @@ struct FileTabButton: View {
         .overlay(FileTabHandle(
             title: title,
             identifier: "files.tab." + column.id.uuidString,
-            toolTip: title + ": " + column.directory,
+            toolTip: title + ": " + (column.savedPath ?? ""),
             closeWidth: Self.closeSize + 11 + Theme.Space.xs,
             menu: menu,
             onClick: { workspace.activate(column) },
@@ -383,7 +385,7 @@ struct FileTabButton: View {
 
     private var menu: [FileTabMenuItem] {
         var items: [FileTabMenuItem] = [
-            FileTabMenuItem(title: String(localized: "Open in Terminal"), enabled: !column.directory.isEmpty,
+            FileTabMenuItem(title: String(localized: "Open in Terminal"), enabled: column.savedPath?.isEmpty == false,
                             action: { workspace.openTerminal([], in: column) })
         ]
         if workspace.canDrop(column, on: groupID, edge: .right) {

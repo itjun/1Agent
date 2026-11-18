@@ -55,15 +55,14 @@ private struct FilePairGrid: View {
         GeometryReader { geometry in
             let panelInset: CGFloat = 0
             let rect = CGRect(origin: .zero, size: geometry.size)
-            let isLocalOnly = workspace.remoteTabs.isEmpty
-            let layout: PaneNode = isLocalOnly ? .leaf(workspace.localGroupID) : workspace.layout
+            let layout = workspace.visibleLayout
             let frames = ShellLayout.paneFrames(of: layout, in: rect, isFloating: isShellTransparent)
             ZStack(alignment: .topLeading) {
                 ForEach(workspace.groupIDs, id: \.self) { id in
                     if let frame = frames[id] {
                         FileEndpointWithPreview(workspace: workspace, groupID: id, model: model, window: window,
                             relay: relay, tabDrag: tabDrag, width: max(0, frame.width - panelInset * 2),
-                            isPreviewEqualSplitByDefault: isLocalOnly)
+                            isPreviewEqualSplitByDefault: frames.count == 1)
                             .environment(\.workspaceTitlebarLeadingInset, frame.minX < 1 && frame.minY < 1 ? titlebarLeadingInset : 0)
                             .padding(.horizontal, panelInset)
                             .frame(width: frame.width, height: frame.height, alignment: .topLeading)
@@ -205,11 +204,13 @@ private struct FileEndpointPanel: View {
         VStack(spacing: 0) {
             if let column {
                 if showsHeader {
-                    FileColumnHeader(workspace: workspace, column: column, width: width) {
+                    FileColumnHeader(workspace: workspace, column: column, width: width,
+                                     showsTransferControl: workspace.transferSourceGroupID == nil || groupID == workspace.remoteGroupID) {
                         FileEndpointTitle(workspace: workspace, column: column)
                     }
                 }
                 FileColumnView(workspace: workspace, column: column).id(column.id)
+                    .onChange(of: column.id, initial: true) { workspace.loadIfNeeded(column) }
             } else {
                 VStack(spacing: Theme.Space.m) {
                     Image(systemName: SidebarConnectionGroup.remote.symbol).font(Theme.Font.emptySymbol).foregroundStyle(chrome.tertiary)

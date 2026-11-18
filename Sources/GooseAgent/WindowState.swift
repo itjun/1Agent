@@ -111,6 +111,7 @@ enum HostPickerPurpose {
     case terminal
     /// New remote tabs in the Files area.
     case files
+    case transfer
 }
 
 enum FilesDropTarget: Hashable {

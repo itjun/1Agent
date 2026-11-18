@@ -15,6 +15,7 @@ struct FileColumnHeader<Endpoint: View>: View {
     @ObservedObject var workspace: FileWorkspace
     @ObservedObject var column: FileColumn
     var width: CGFloat
+    var showsTransferControl = false
     var isWindowToolbar = false
     var onFilterFocusChange: (Bool) -> Void = { _ in }
     @ViewBuilder var endpoint: () -> Endpoint
@@ -89,11 +90,49 @@ struct FileColumnHeader<Endpoint: View>: View {
             .fixedSize()
             .accessibilityLabel(Text("Actions"))
             .accessibilityIdentifier("files.actions")
+            if showsTransferControl {
+                if column.isRemote, width >= 680, workspace.transferSourceGroupID == nil {
+                    let path = workspace.localColumn.savedPath ?? NSHomeDirectory()
+                    Text(String(format: String(localized: "Local peer: %@"), path))
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: 220, alignment: .trailing)
+                        .help(path)
+                }
+                transferButton(width: width)
+            }
         }
         .padding(.horizontal, isWindowToolbar ? Theme.Space.xs : Theme.Space.m)
         .padding(.leading, titlebarLeadingInset)
         .frame(height: isWindowToolbar ? 28 : FileBrowserLayout.tabStripHeight)
         .background(WindowDragArea())
+    }
+
+    private func transferButton(width: CGFloat) -> some View {
+        let expanded = workspace.transferSourceGroupID != nil
+        let label = expanded ? String(localized: "Collapse Transfer") : String(localized: "Expand Transfer")
+        return Button {
+            if expanded {
+                workspace.collapseTransfer()
+            } else if column.isRemote, let group = workspace.groupID(of: column) {
+                workspace.expandTransfer(from: group)
+            } else if let window = workspace.windowState {
+                workspace.model?.openHostPicker(in: window, purpose: .transfer)
+            }
+        } label: {
+            if width < 320 {
+                Image(systemName: expanded ? "rectangle.compress.vertical" : "arrow.left.arrow.right")
+            } else {
+                Text(verbatim: label)
+            }
+        }
+        .buttonStyle(FamilyButtonStyle(kind: .secondary))
+        .fixedSize()
+        .help(label)
+        .accessibilityLabel(Text(verbatim: label))
+        .accessibilityIdentifier("files.toggleTransfer")
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {

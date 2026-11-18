@@ -170,7 +170,7 @@ final class FileColumn: ObservableObject, Identifiable {
             startOverride = clean
             return
         }
-        guard clean != directory else { return }
+        guard clean != (loading ? attemptedPath : directory) else { return }
         load(clean, record: true)
     }
 
@@ -215,8 +215,9 @@ final class FileColumn: ObservableObject, Identifiable {
                 directory = path
                 entries = listed
                 error = nil
-                if let restored = restoredState {
-                    restoredState = nil
+                let restored = restoredState
+                restoredState = nil
+                if let restored, restored.path == path {
                     selection = Set(restored.selection ?? []).intersection(Set(listed.map(\.path)))
                     filter = restored.filter ?? ""
                     scrollAnchor = restored.scrollAnchor
@@ -471,6 +472,10 @@ final class FileWorkspace: ObservableObject {
     private(set) var remoteGroupID: UUID
     @Published private(set) var layout: PaneNode
     @Published private(set) var groups: [UUID: Group] = [:]
+    /// While transferring, remember which side to return to even if the other pane takes focus.
+    @Published private(set) var transferSourceGroupID: UUID?
+    @Published private var showsRemoteSplits = false
+    private let loadsFiles: Bool
     /// The pane last clicked or opened. ⌘W closes its current tab.
     @Published private(set) var focusedGroupID: UUID
     /// Panes in the order they were focused, latest last: "the other pane" for transfers.
@@ -485,6 +490,7 @@ final class FileWorkspace: ObservableObject {
 
     init(saved: Saved?, model: AppModel, window: WindowState, loadImmediately: Bool = true) {
         self.model = model
+        loadsFiles = loadImmediately
         windowState = window
         let saved = saved ?? Saved()
         let restored = saved.fixedColumns()
@@ -496,7 +502,6 @@ final class FileWorkspace: ObservableObject {
         func column(_ tab: Saved.Tab) -> FileColumn {
             let result = FileColumn(fileSystem: fileSystem(for: tab.host))
             result.restore(tab)
-            if loadImmediately { result.start(at: tab.path) }
             return result
         }
         if keepsLayout {
@@ -521,6 +526,8 @@ final class FileWorkspace: ObservableObject {
                                      leading: .leaf(localID), trailing: .leaf(remoteID)))
             focusedGroupID = restored.focusRemote && remote.active != nil ? remoteID : localID
         }
+        if groups[focusedGroupID]?.active == nil { focusedGroupID = localID }
+        showsRemoteSplits = groups.count > 2
         focusHistory = groupIDs.filter { $0 != focusedGroupID } + [focusedGroupID]
         for column in allTabs { observe(column) }
     }
@@ -537,8 +544,18 @@ final class FileWorkspace: ObservableObject {
     var groupIDs: [UUID] { WorkspaceBoard.leafIDs(layout) }
     /// All browsing locations, including inactive tabs in each pane.
     var allTabs: [FileColumn] { groupIDs.flatMap { groups[$0]?.tabs ?? [] } }
-    /// One visible browsing location per pane.
-    var openColumns: [FileColumn] { groupIDs.compactMap { groups[$0]?.active } }
+    var visibleLayout: PaneNode {
+        guard remoteColumn != nil, case .split(var root) = layout else { return .leaf(localGroupID) }
+        if !showsRemoteSplits { root.trailing = .leaf(remoteGroupID) }
+        if transferSourceGroupID != nil { return .split(root) }
+        return focusedGroupID == localGroupID ? root.leading : root.trailing
+    }
+
+    var openColumns: [FileColumn] { WorkspaceBoard.leafIDs(visibleLayout).compactMap { groups[$0]?.active } }
+
+    func loadIfNeeded(_ column: FileColumn) {
+        if loadsFiles { column.start(at: column.savedPath) }
+    }
     var focusedColumn: FileColumn? { groups[focusedGroupID]?.active }
 
     func groupID(of column: FileColumn) -> UUID? {
@@ -617,13 +634,26 @@ final class FileWorkspace: ObservableObject {
         }
     }
 
-    /// A transfer needs both ends visible. Reuse saved columns and their paths instead of
-    /// sending the user through pane-switching menus or resetting the local directory.
-    func prepareTransferPanes() { save() }
+    func showSingleEndpoint() {
+        transferSourceGroupID = nil
+        showsRemoteSplits = false
+    }
+
+    func expandTransfer(from source: UUID) {
+        guard remoteColumn != nil, groups[source]?.active != nil else { return }
+        transferSourceGroupID = source
+    }
+
+    func collapseTransfer() {
+        guard let source = transferSourceGroupID else { return }
+        transferSourceGroupID = nil
+        focusGroup(groups[source]?.active != nil ? source : localGroupID)
+    }
 
     func activate(_ column: FileColumn) {
         guard let id = groupID(of: column) else { return }
         groups[id]?.activeID = column.id
+        loadIfNeeded(column)
         focusGroup(id)
         save()
     }
@@ -633,6 +663,7 @@ final class FileWorkspace: ObservableObject {
         if id == localGroupID, localLocations.count == 1 { return }
         detach(column, from: id)
         removeIfEmpty(id)
+        if remoteColumn == nil { transferSourceGroupID = nil }
         if focusedGroupID == id, groups[id]?.active == nil { focusGroup(localGroupID) }
         save()
     }
@@ -672,6 +703,7 @@ final class FileWorkspace: ObservableObject {
         } else {
             let id = UUID()
             groups[id] = Group(id: id)
+            showsRemoteSplits = true
             layout = PaneLayout.split(layout, target: target, with: id, edge: edge)
             insert(column, into: id, at: nil)
         }
@@ -726,6 +758,7 @@ final class FileWorkspace: ObservableObject {
             remoteGroupID = focusHistory.reversed().first { $0 != localGroupID && groups[$0] != nil }
                 ?? groupIDs.first { $0 != localGroupID }!
         }
+        if transferSourceGroupID == id { transferSourceGroupID = remoteGroupID }
         if focusedGroupID == id { focusGroup(remoteGroupID) }
     }
 
@@ -766,7 +799,7 @@ final class FileWorkspace: ObservableObject {
             return Saved.SavedGroup(id: id, tabs: group.tabs.map(saved),
                                     active: group.tabs.firstIndex { $0.id == group.activeID } ?? 0)
         }
-        state.focused = focusedGroupID
+        state.focused = transferSourceGroupID ?? focusedGroupID
         state.localGroupID = localGroupID
         state.remoteGroupID = remoteGroupID
         onChange?(state)
@@ -881,8 +914,8 @@ final class FileWorkspace: ObservableObject {
     /// A new terminal in the selected folder, or in this column's folder, in the Terminals area.
     func openTerminal(_ entries: [FileEntry], in column: FileColumn) {
         guard let model, let windowState else { return }
-        let folder = entries.count == 1 && entries[0].isDirectory ? entries[0].path : column.directory
-        guard !folder.isEmpty else { return }
+        let folder = entries.count == 1 && entries[0].isDirectory ? entries[0].path : column.savedPath
+        guard let folder, !folder.isEmpty else { return }
         model.openTerminal(at: folder, host: column.fileSystem.host, in: windowState)
     }
 }

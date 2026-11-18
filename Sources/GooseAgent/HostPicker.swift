@@ -79,13 +79,29 @@ struct HostPicker: View {
     }
 
     private var forFiles: Bool {
-        window.hostPickerPurpose == .files
+        window.hostPickerPurpose != .terminal
+    }
+
+    private var pickerTitle: String {
+        switch window.hostPickerPurpose {
+        case .terminal: return String(localized: "Servers")
+        case .files: return String(localized: "Browse Server Files")
+        case .transfer: return String(localized: "Choose Transfer Host")
+        }
+    }
+
+    private var openButtonTitle: String {
+        switch window.hostPickerPurpose {
+        case .terminal: return String(localized: "New Terminal")
+        case .files: return String(localized: "Browse Files")
+        case .transfer: return String(localized: "Expand Transfer")
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(forFiles ? String(localized: "Browse Server Files") : String(localized: "Servers"))
+                Text(pickerTitle)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(chrome.text)
                 Spacer()
@@ -178,7 +194,7 @@ struct HostPicker: View {
                     .keyboardShortcut(.return, modifiers: .command)
                     .buttonStyle(FamilyButtonStyle(kind: .primary))
                 } else {
-                    Button(forFiles ? String(localized: "Browse Files") : String(localized: "New Terminal")) { openHighlighted() }
+                    Button(openButtonTitle) { openHighlighted() }
                         .accessibilityIdentifier("hosts.connect")
                         .buttonStyle(FamilyButtonStyle(kind: .primary))
                         .disabled(highlighted == nil || model.configFailed)
@@ -312,7 +328,7 @@ struct HostPicker: View {
         .clickableCursor()
         .onTapGesture(count: 2) { open([host.alias]) }
         .onTapGesture {
-            if NSEvent.modifierFlags.contains(.command) {
+            if window.hostPickerPurpose != .transfer && NSEvent.modifierFlags.contains(.command) {
                 toggleTick(host.alias)
                 highlighted = host.alias
             } else {

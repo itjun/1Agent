@@ -548,7 +548,7 @@ final class AppModel: ObservableObject {
     }
 
     func browsedDirectory(for alias: String, in window: WindowState) -> String? {
-        fileWorkspace(for: window).allTabs.first { $0.fileSystem.host == alias }?.directory
+        fileWorkspace(for: window).allTabs.first { $0.fileSystem.host == alias }?.savedPath
     }
 
     /// Palette slot when this host alias appears more than once anywhere.
@@ -885,6 +885,7 @@ final class AppModel: ObservableObject {
         let target = mainWindow
         if request.destination == .files {
             let workspace = fileWorkspace(for: target)
+            workspace.showSingleEndpoint()
             for alias in aliases { workspace.openRemote(host: alias, at: request.path) }
             activate(target)
             showSection(.files, in: target)
@@ -1802,10 +1803,8 @@ final class AppModel: ObservableObject {
 
     /// Legacy callers may still pass a dock layout; Files always opens its independent page.
     func selectFilesLayout(_ layout: FileWorkspaceLayout, in window: WindowState) {
-        let workspace = fileWorkspace(for: window)
-        updatePresentation(in: window) { $0.filesVisible = true; $0.filesLayout = .sideBySide; $0.filesExpanded = false }
-        workspace.prepareTransferPanes()
-        showSection(.files, in: window)
+        guard window.section != .files else { return }
+        showFiles(for: window.selectedTabID, in: window)
     }
 
     /// File chrome may not itself accept typing. Release a terminal responder without
@@ -1842,7 +1841,8 @@ final class AppModel: ObservableObject {
                 workspace.showLocal(localFolder(of: tab))
             }
         }
-        workspace.prepareTransferPanes()
+        workspace.showSingleEndpoint()
+        if id == nil { workspace.showLocal(nil) }
         showSection(.files, in: window)
     }
 
@@ -1850,6 +1850,7 @@ final class AppModel: ObservableObject {
     /// tab per host (an open one is reused), and a new tab for each terminal on this Mac.
     func openFiles(forTabs ids: [UUID], in group: UUID? = nil, window: WindowState) {
         let workspace = fileWorkspace(for: window)
+        if group == nil { workspace.showSingleEndpoint() }
         var seenHosts = Set<String>()
         for id in ids {
             guard let tab = tabs.first(where: { $0.id == id }) else { continue }
@@ -1869,6 +1870,10 @@ final class AppModel: ObservableObject {
         let workspace = fileWorkspace(for: window)
         for alias in aliases {
             workspace.openRemote(host: alias, at: nil, in: workspace.pickerGroupID)
+        }
+        if window.hostPickerPurpose == .transfer, !aliases.isEmpty {
+            workspace.expandTransfer(from: workspace.localGroupID)
+            workspace.focusGroup(workspace.localGroupID)
         }
         showSection(.files, in: window)
     }
