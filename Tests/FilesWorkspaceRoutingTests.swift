@@ -1372,9 +1372,6 @@ private struct FilesWorkspaceRoutingTests {
         try await eventually("local drawer fixture") { local.entries.contains { $0.path == localPath } }
         let entry = local.entries.first { $0.path == localPath }!
         local.selection = [localPath]
-        workspace.openRemote(host: "fixture-a", at: "/fixture")
-        let remote = workspace.remoteColumn!
-        try await settle()
 
         func element(_ id: String) -> NSObject? {
             accessibilityElements(window).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
@@ -1396,6 +1393,40 @@ private struct FilesWorkspaceRoutingTests {
             throw TestFailure(description: "File page must be accessible")
         }
         let pageFrame = frame(filePage)
+        func requireFullWidthLocalBrowser() throws {
+            guard let row = element("files.row." + localPath) else {
+                throw TestFailure(description: "Missing local file row")
+            }
+            try require(abs(frame(row).width - pageFrame.width) < 8,
+                        "Without remote tabs or a preview, the local browser fills the file page")
+        }
+        func requireEqualLocalPreview() throws {
+            guard let row = element("files.row." + localPath),
+                  let preview = element("files.preview.\(local.id)") else {
+                throw TestFailure(description: "Missing local browser row or preview")
+            }
+            try require(abs(frame(row).width - frame(preview).width) < 8
+                        && abs(frame(preview).maxX - pageFrame.maxX) < 8,
+                        "Without remote tabs, the local browser and preview split the full file page evenly")
+        }
+        try requireFullWidthLocalBrowser()
+        workspace.open(entry, in: local, window: window)
+        try await eventually("local-only preview opens") { local.preview?.decoded?.text == localSource }
+        try await settleDrawer()
+        try requireEqualLocalPreview()
+
+        workspace.openRemote(host: "fixture-a", at: "/fixture")
+        let remote = workspace.remoteColumn!
+        try await settleDrawer()
+        guard let previewBesideRemote = element("files.preview.\(local.id)") else {
+            throw TestFailure(description: "Opening a remote tab must retain the local preview")
+        }
+        try require(element("files.remoteLocation") != nil
+                    && abs(frame(previewBesideRemote).maxX - pageFrame.midX) < ShellLayout.workspaceInset * 2,
+                    "Opening the first remote tab restores the remote pane beside the local browser and preview")
+        local.preview = nil
+        try await settleDrawer()
+
         try require(element("files.transferQueue") == nil, "The file page has no transfer history panel")
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         let remoteItem = FileTransfer.Item(path: "/fixture/remote.txt", isDirectory: false)
@@ -1521,7 +1552,17 @@ private struct FilesWorkspaceRoutingTests {
             try require(previewWidth > 0 && previewWidth + ShellLayout.workspaceInset < width,
                         "Inline preview leaves the file browsers visible in narrow and wide workspaces")
         }
+        workspace.open(entry, in: local, window: window)
+        try await eventually("reopen preview before closing the remote tab") { local.preview?.decoded?.text == localSource }
         workspace.close(remote)
+        try await settleDrawer()
+        try require(element("files.remoteLocation") == nil && workspace.layout == layout,
+                    "Closing the last server hides its pane and preserves the saved split")
+        try requireEqualLocalPreview()
+        local.preview = nil
+        try await settleDrawer()
+        try requireFullWidthLocalBrowser()
+        print("ok: the local browser fills the file page and shares it equally with the default preview when there are no remote tabs")
         print("ok: local preview opens right, remote preview opens left; both align in the center and close independently while preserving browsing state")
     }
 

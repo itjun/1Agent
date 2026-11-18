@@ -55,11 +55,15 @@ private struct FilePairGrid: View {
         GeometryReader { geometry in
             let panelInset: CGFloat = 0
             let rect = CGRect(origin: .zero, size: geometry.size)
-            let frames = ShellLayout.paneFrames(of: workspace.layout, in: rect, isFloating: isShellTransparent)
+            let isLocalOnly = workspace.remoteTabs.isEmpty
+            let layout: PaneNode = isLocalOnly ? .leaf(workspace.localGroupID) : workspace.layout
+            let frames = ShellLayout.paneFrames(of: layout, in: rect, isFloating: isShellTransparent)
             ZStack(alignment: .topLeading) {
                 ForEach(workspace.groupIDs, id: \.self) { id in
                     if let frame = frames[id] {
-                        FileEndpointWithPreview(workspace: workspace, groupID: id, model: model, window: window, relay: relay, tabDrag: tabDrag, width: max(0, frame.width - panelInset * 2))
+                        FileEndpointWithPreview(workspace: workspace, groupID: id, model: model, window: window,
+                            relay: relay, tabDrag: tabDrag, width: max(0, frame.width - panelInset * 2),
+                            isPreviewEqualSplitByDefault: isLocalOnly)
                             .environment(\.workspaceTitlebarLeadingInset, frame.minX < 1 && frame.minY < 1 ? titlebarLeadingInset : 0)
                             .padding(.horizontal, panelInset)
                             .frame(width: frame.width, height: frame.height, alignment: .topLeading)
@@ -67,7 +71,7 @@ private struct FilePairGrid: View {
                             .offset(x: frame.minX, y: frame.minY)
                     }
                 }
-                ForEach(PaneLayout.dividers(of: workspace.layout, in: rect)) { divider in
+                ForEach(PaneLayout.dividers(of: layout, in: rect)) { divider in
                     dividerControl(divider)
                 }
                 if let zone = tabDrag.zone, !zone.reordering, let frame = frames[zone.group] {
@@ -123,19 +127,21 @@ private struct FileEndpointWithPreview: View {
     var relay: CanvasDropRelay
     @ObservedObject var tabDrag: FileTabDragTracker
     var width: CGFloat
+    var isPreviewEqualSplitByDefault: Bool
     var showsHeader = true
     @Environment(\.windowChrome) private var chrome
     @State private var previewWidth = WorkspacePreviewLayout.defaultWidth
     @State private var previewDragStart: Double?
-    @State private var isPreviewEqualSplit = false
+    @State private var isPreviewEqualSplitOverride: Bool?
 
     private var column: FileColumn? { workspace.groups[groupID]?.active }
 
     var body: some View {
         let isPreviewOpen = column?.preview != nil
         let isPreviewLeading = column?.isRemote == true
-        let cardWidth = WorkspacePreviewLayout.visibleWidth(available: width,
-            isOpen: isPreviewOpen, preferred: previewWidth, isEqualSplit: isPreviewEqualSplit)
+        let cardWidth = WorkspacePreviewLayout.visibleWidth(available: width, isOpen: isPreviewOpen,
+            preferred: previewWidth, isEqualSplit: isPreviewEqualSplitOverride ?? isPreviewEqualSplitByDefault,
+            spacing: ShellLayout.workspaceInset)
         let gap = cardWidth > 0 ? ShellLayout.workspaceInset : 0
         let listWidth = max(0, width - cardWidth - gap)
         ZStack(alignment: .leading) {
@@ -156,11 +162,11 @@ private struct FileEndpointWithPreview: View {
                     .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
                 PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
                     if previewDragStart == nil { previewDragStart = Double(cardWidth) }
-                    isPreviewEqualSplit = false
+                    isPreviewEqualSplitOverride = false
                     let growth = isPreviewLeading ? delta : -delta
                     previewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(cardWidth)) + growth)
                 }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
-                    isPreviewEqualSplit = true
+                    isPreviewEqualSplitOverride = true
                 })
                 .frame(width: 6)
                 .offset(x: (isPreviewLeading ? cardWidth : listWidth) - 2.5)
@@ -171,7 +177,7 @@ private struct FileEndpointWithPreview: View {
         .onChange(of: isPreviewOpen) { _, _ in
             previewWidth = WorkspacePreviewLayout.defaultWidth
             previewDragStart = nil
-            isPreviewEqualSplit = false
+            isPreviewEqualSplitOverride = nil
         }
     }
 }

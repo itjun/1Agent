@@ -156,10 +156,11 @@ enum WorkspacePreviewLayout {
     static func storedWidth(_ width: Double) -> Double {
         width.isFinite ? max(minimumWidth, width) : defaultWidth
     }
-    static func visibleWidth(available: CGFloat, isOpen: Bool, preferred: Double, isEqualSplit: Bool = false) -> CGFloat {
+    static func visibleWidth(available: CGFloat, isOpen: Bool, preferred: Double,
+                             isEqualSplit: Bool = false, spacing: CGFloat = 8) -> CGFloat {
         guard isOpen else { return 0 }
-        if isEqualSplit { return max(0, (available - 8) / 2) }
-        return min(CGFloat(storedWidth(preferred)), max(0, available - minimumTerminalWidth - 8))
+        if isEqualSplit { return max(0, (available - spacing) / 2) }
+        return min(CGFloat(storedWidth(preferred)), max(0, available - minimumTerminalWidth - spacing))
     }
 }
 
