@@ -1,6 +1,7 @@
 import AppKit
 import GhosttyTerminal
 import QuartzCore
+import SwiftUI
 @testable import GooseAgent
 
 @MainActor
@@ -55,6 +56,29 @@ enum TerminalThemeTests {
             _ = try TerminalThemeCatalog.parse(name: "invalid", text: "background = #FFFFFF")
             expect(false, "incomplete theme rejected")
         } catch {}
+        // 同一张未选中卡片更换候选主题时，外框也必须跟随卡片更新。
+        let preview = NSHostingView(rootView: TerminalThemePreview(colors: .system(isDark: false)))
+        let previewSize = CGSize(width: SettingsLayout.themeMinimumWidth, height: SettingsLayout.themePreviewHeight)
+        let previewWindow = NSWindow(contentRect: CGRect(origin: .zero, size: previewSize),
+                                     styleMask: [], backing: .buffered, defer: false)
+        previewWindow.isReleasedWhenClosed = false
+        previewWindow.contentView = preview
+        previewWindow.orderFront(nil)
+        func findBackdrop(in view: NSView) -> ShellBackdropView? {
+            if let backdrop = view as? ShellBackdropView { return backdrop }
+            return view.subviews.lazy.compactMap { findBackdrop(in: $0) }.first
+        }
+        for themeID in ["ghostty:Afterimage", "ghostty:Aura"] {
+            let candidate = catalog.theme(id: themeID)!.palette!
+            preview.rootView = TerminalThemePreview(colors: candidate)
+            FamilyAppearanceTests.drain()
+            preview.layoutSubtreeIfNeeded()
+            let backdrop = findBackdrop(in: preview)
+            expect(backdrop?.chrome == candidate.workspaceChrome && backdrop?.usesTerminalBackground == true,
+                   "preview shows the candidate's workspace backdrop: " + themeID)
+            expect(backdrop?.bounds.size == previewSize, "preview backdrop fills the thumbnail: " + themeID)
+        }
+        previewWindow.close()
         expect(SettingsLayout.themeColumnCount(width: 1280 - SidebarLayout.defaultWidth) == 4, "four columns at default window")
         expect(SettingsLayout.themeColumnCount(width: 880 - SidebarLayout.defaultWidth) < 4, "narrow window reduces columns")
         let prefs = TerminalThemePreferences.shared

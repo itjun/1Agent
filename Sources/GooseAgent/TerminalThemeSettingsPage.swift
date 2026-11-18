@@ -115,9 +115,9 @@ struct TerminalThemeSettingsPage: View {
             preferences.select(theme.id)
         } label: {
             VStack(alignment: .leading, spacing: Theme.Space.s) {
-                TerminalThemePreview(colors: theme.colors(interfaceIsDark: chrome.isDark))
+                TerminalThemePreview(colors: theme.colors(interfaceIsDark: appearance.interfaceIsDark))
                     .overlay {
-                        RoundedRectangle(cornerRadius: SettingsLayout.cardRadius)
+                        RoundedRectangle(cornerRadius: TerminalThemePreview.outerRadius)
                             .strokeBorder(selected ? chrome.accent : chrome.hairline, lineWidth: selected ? 2 : 1)
                     }
                 HStack(spacing: Theme.Space.xs) {
@@ -162,10 +162,13 @@ struct TerminalThemeSettingsPage: View {
 }
 
 struct TerminalThemePreview: View {
+    @Environment(\.isShellTransparent) private var isShellTransparent
+    static let outerRadius = ShellLayout.contentRadius + ShellLayout.workspaceInset
     let colors: TerminalThemeColors
     private func color(_ hex: String) -> Color { RGBColor(ghosttyHex: hex)!.color }
 
     var body: some View {
+        let chrome = colors.workspaceChrome
         VStack(alignment: .leading, spacing: 5) {
             (Text(verbatim: "~/project").foregroundColor(color(colors.ansi[4]))
              + Text(verbatim: " on ").foregroundColor(color(colors.foreground))
@@ -190,8 +193,15 @@ struct TerminalThemePreview: View {
         .minimumScaleFactor(0.8)
         .padding(Theme.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxHeight: .infinity)
+        .background(chrome.background, in: RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+        .padding(ShellLayout.workspaceInset)
         .frame(height: SettingsLayout.themePreviewHeight)
-        .background(color(colors.background), in: RoundedRectangle(cornerRadius: SettingsLayout.cardRadius))
+        .background {
+            ShellBackdrop(isTransparent: isShellTransparent, isDark: chrome.isDark,
+                          usesTerminalBackground: true, chrome: chrome)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Self.outerRadius))
         .accessibilityHidden(true)
     }
 }

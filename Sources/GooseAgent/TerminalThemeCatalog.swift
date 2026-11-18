@@ -6,9 +6,7 @@ extension WindowChrome {
     /// 工作区与设置沿用聚焦终端的原色，渐变只用于岛之间的间隙。
     @MainActor static func workspace(isDark: Bool) -> WindowChrome {
         let colors = TerminalThemePreferences.selected(isDark: isDark).colors(interfaceIsDark: isDark)
-        var chrome = colors.paneChrome(isFocused: true)
-        chrome.gradientColors = colors.gradientColors.map(\.color)
-        return chrome
+        return colors.workspaceChrome
     }
 }
 
@@ -59,6 +57,13 @@ struct TerminalThemeColors: Equatable {
         let base = RGBColor(ghosttyHex: background)!
         guard !isFocused else { return base }
         return base.mixed(with: RGBColor(red: 0, green: 0, blue: 0), amount: ShellLayout.inactivePaneDimming)
+    }
+
+    /// 主题卡片和实际工作区都用同一套终端底色与外框渐变。
+    var workspaceChrome: WindowChrome {
+        var chrome = paneChrome(isFocused: true)
+        chrome.gradientColors = gradientColors.map(\.color)
+        return chrome
     }
 
     /// 标题、搜索和命令栏保留终端原色。
