@@ -3,7 +3,7 @@ import QuartzCore
 import SwiftUI
 
 enum ShellStyle {
-    // 系统透明度偏好仅影响次级控件；主工作区始终使用不透明的主题底板。
+    // 系统透明度偏好影响控件与外框柔光；主工作区始终使用不透明的主题底板。
     // 系统“减少透明度”仍提供实色回退。
     static var isTransparent: Bool {
         !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
@@ -65,8 +65,9 @@ enum ShellLayout {
     static let fileOpacity: Double = 0
     /// 输入框与次级按钮保留主题底色，同时透出窗口渐变。
     static let controlOpacity: Double = 0.45
-    static let lightBackdropOpacity: CGFloat = 0.68
-    static let darkBackdropOpacity: CGFloat = 0.64
+    /// 整张主题渐变统一透出底色，避免青色叠层在交汇处重新变亮。
+    static let lightBackdropOpacity: CGFloat = 0.50
+    static let darkBackdropOpacity: CGFloat = 0.45
     static let systemLightBackdropOpacity: CGFloat = 0.60
     static let systemDarkBackdropOpacity: CGFloat = 0.58
     static let lightGlowOpacity: CGFloat = 0.10
@@ -161,12 +162,15 @@ final class ShellBackdropView: NSView {
     private let washView = NSView()
     private let gradientLayer = CAGradientLayer()
     private let tealLayer = CAGradientLayer()
+    private let sheenLayer = CAGradientLayer()
     override var isOpaque: Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         clipsToBounds = true
         washView.wantsLayer = true
+        washView.layer?.name = "workspace.gradientTint"
+        washView.layer?.allowsGroupOpacity = true
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 1)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.locations = ShellLayout.backdropLocations.map { NSNumber(value: Double($0)) }
@@ -178,6 +182,12 @@ final class ShellBackdropView: NSView {
         washView.frame = bounds
         washView.autoresizingMask = [.width, .height]
         addSubview(washView)
+        sheenLayer.name = "workspace.gradientSheen"
+        sheenLayer.startPoint = CGPoint(x: 0.5, y: 1)
+        sheenLayer.endPoint = CGPoint(x: 0.5, y: 0)
+        sheenLayer.locations = [0, 0.4, 1]
+        wantsLayer = true
+        layer?.addSublayer(sheenLayer)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -193,6 +203,7 @@ final class ShellBackdropView: NSView {
         CATransaction.setDisableActions(true)
         gradientLayer.frame = washView.bounds
         tealLayer.frame = washView.bounds
+        sheenLayer.frame = bounds
         CATransaction.commit()
     }
 
@@ -202,9 +213,11 @@ final class ShellBackdropView: NSView {
         appearance = SystemTheme.appearance(isDark: chrome.isDark)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        // 不透明渐变承载所有岛，面板之间的间隙露出同一张底板。
-        // 不采样壁纸，主题配色不会随窗口位置或其他应用变化。
+        // 实色底板承托半透明的主题色层，玻璃感只出现在外框和间隙。
+        // 保留主题自身的冷暖，不降低正文透明度，也不采样其他窗口。
         layer?.backgroundColor = NSColor(chrome.background).cgColor
+        washView.layer?.opacity = Float(chrome.isDark
+            ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity)
         if let colors = chrome.gradientColors {
             gradientLayer.isHidden = false
             gradientLayer.startPoint = CGPoint(x: 0, y: 1)
@@ -222,6 +235,12 @@ final class ShellBackdropView: NSView {
         }
         gradientLayer.frame = washView.bounds
         tealLayer.frame = washView.bounds
+        sheenLayer.colors = [NSColor.white.withAlphaComponent(chrome.isDark ? 0.025 : 0.10).cgColor,
+                             NSColor.white.withAlphaComponent(0).cgColor,
+                             NSColor.white.withAlphaComponent(0).cgColor]
+        sheenLayer.isHidden = !isTransparent || !chrome.isGradientEnabled
+            || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        sheenLayer.frame = bounds
         CATransaction.commit()
     }
 

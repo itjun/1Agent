@@ -13,6 +13,99 @@ enum TerminalThemeTests {
         expect(Set(catalog.themes.map(\.id)).count == 820, "unique theme IDs")
         expect(Set(catalog.themes.dropFirst().map(\.name)).count == 819, "unique original names")
         expect(catalog.themes.first?.isDefault == true, "default is first")
+        let frameBackdrop = ShellBackdropView(frame: CGRect(x: 0, y: 0, width: 64, height: 48))
+        frameBackdrop.usesTerminalBackground = true
+        // AppKit 首次显示后才把子视图的 backing layer 接入根层，离屏渲染也需完成这一步。
+        let frameWindow = NSWindow(contentRect: frameBackdrop.bounds, styleMask: [], backing: .buffered, defer: false)
+        frameWindow.isReleasedWhenClosed = false
+        frameWindow.contentView = frameBackdrop
+        frameWindow.orderFront(nil)
+        FamilyAppearanceTests.drain()
+        frameBackdrop.layoutSubtreeIfNeeded()
+        frameBackdrop.displayIfNeeded()
+        defer { frameWindow.close() }
+        func checkSoftFrame(_ colors: TerminalThemeColors, name: String) {
+            var chrome = colors.paneChrome(isFocused: true)
+            chrome.gradientColors = colors.gradientColors.map(\.color)
+            frameBackdrop.chrome = chrome
+            frameBackdrop.isDark = !colors.isDark
+            frameBackdrop.isTransparent = true
+            frameBackdrop.applyStyle()
+            let tint = frameBackdrop.subviews.first!.layer!
+            let gradients = tint.sublayers!.compactMap { $0 as? CAGradientLayer }
+            expect(tint.name == "workspace.gradientTint" && tint.allowsGroupOpacity
+                   && tint.opacity > 0 && tint.opacity <= 0.55,
+                   "the complete frame tint is softened once over its solid backing: " + name)
+            expect(gradients.count == 2 && gradients.allSatisfy { $0.opacity == 1 && !$0.isHidden },
+                   "linear and corner colors share one opacity instead of brightening each other: " + name)
+            expect((frameBackdrop.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == colors.isDark,
+                   "frame material follows the palette brightness rather than a stale appearance: " + name)
+            let base = GooseAgent.RGBColor(ghosttyHex: colors.background)!
+            for source in colors.gradientColors {
+                let composite = base.mixed(with: source, amount: Double(tint.opacity))
+                let sourceChannels = [source.red, source.green, source.blue]
+                let baseChannels = [base.red, base.green, base.blue]
+                let visibleChannels = [composite.red, composite.green, composite.blue]
+                for index in sourceChannels.indices {
+                    let originalDifference = sourceChannels[index] - baseChannels[index]
+                    let visibleDifference = visibleChannels[index] - baseChannels[index]
+                    expect(visibleChannels[index].isFinite && (0...1).contains(visibleChannels[index])
+                           && abs(visibleDifference) <= abs(originalDifference) * 0.55 + 0.000001
+                           && visibleDifference * originalDifference >= 0,
+                           "soft glass reduces color strength while preserving the theme's color direction: " + name)
+                }
+                if source.relativeLuminance > base.relativeLuminance + 0.000001 {
+                    expect(composite.relativeLuminance < source.relativeLuminance,
+                           "bright frame colors no longer retain their previous intensity: " + name)
+                }
+            }
+            let sourceColors = gradients[0].colors as! [CGColor]
+            expect(sourceColors.allSatisfy { $0.alpha == 1 }
+                   && frameBackdrop.layer!.backgroundColor!.alpha == 1 && frameBackdrop.isOpaque,
+                   "soft tint never makes the reading window transparent: " + name)
+        }
+        func checkRenderedFrame(name: String) {
+            let root = frameBackdrop.layer!
+            let tint = frameBackdrop.subviews.first!.layer!
+            let sheen = root.sublayers!.first { $0.name == "workspace.gradientSheen" }!
+            let opacity = tint.opacity
+            let isSheenHidden = sheen.isHidden
+            expect(tint.superlayer === root, "rendered fixture includes the native tint layer: " + name)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            sheen.isHidden = true
+            defer {
+                tint.opacity = opacity
+                sheen.isHidden = isSheenHidden
+                CATransaction.commit()
+            }
+            func samples() -> [NSColor] {
+                let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 48,
+                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                    colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+                root.render(in: NSGraphicsContext(bitmapImageRep: bitmap)!.cgContext)
+                return [(2, 2), (61, 2), (32, 24), (2, 45), (61, 45)].map {
+                    bitmap.colorAt(x: $0.0, y: $0.1)!.usingColorSpace(.sRGB)!
+                }
+            }
+            let softened = samples()
+            tint.opacity = 1
+            let original = samples()
+            let base = NSColor(cgColor: root.backgroundColor!)!.usingColorSpace(.sRGB)!
+            func difference(_ color: NSColor) -> Double {
+                abs(color.redComponent - base.redComponent)
+                    + abs(color.greenComponent - base.greenComponent)
+                    + abs(color.blueComponent - base.blueComponent)
+            }
+            expect(original.contains { difference($0) > 0.03 },
+                   "rendered fixture includes visible frame color: " + name)
+            for index in original.indices {
+                expect(difference(softened[index]) <= difference(original[index]) * 0.60 + 0.025,
+                       "rendered frame and teal corner lose their former color intensity together: " + name)
+                expect(softened[index].alphaComponent == 1,
+                       "rendered glass frame remains opaque over the theme backing: " + name)
+            }
+        }
         for theme in catalog.themes.dropFirst() {
             let colors = theme.palette!
             expect(colors.ansi.count == 16, "complete ANSI: " + theme.name)
@@ -31,6 +124,7 @@ enum TerminalThemeTests {
             expect(chrome.isDark == colors.isDark, "native controls follow theme brightness: " + theme.name)
             let base = GooseAgent.RGBColor(ghosttyHex: colors.background)!
             expect(colors.gradientColors.count == 4, "theme supplies frame and corner colors")
+            checkSoftFrame(colors, name: theme.name)
             let focused = colors.paneBackground(isFocused: true)
             expect(focused.red == base.red && focused.green == base.green && focused.blue == base.blue,
                    "focused terminal keeps the original theme background")
@@ -39,6 +133,19 @@ enum TerminalThemeTests {
                    && abs(inactive.green - base.green * 0.92) < 0.0001
                    && abs(inactive.blue - base.blue * 0.92) < 0.0001,
                    "inactive terminal dims every theme equally without a blue or white tint")
+        }
+        for isDark in [false, true] {
+            checkSoftFrame(.system(isDark: isDark), name: isDark ? "Default Dark" : "Default Light")
+        }
+        for background in ["000000", "FFFFFF", "FF0000", "00FF00"] {
+            var ansi = Array(repeating: "808080", count: 16)
+            ansi[4] = "0000FF"
+            ansi[5] = "FF00FF"
+            ansi[6] = "00FFFF"
+            let colors = TerminalThemeColors(background: background, foreground: "000000", cursor: "FFFFFF",
+                cursorText: "000000", selection: "FF00FF", selectionText: "FFFFFF", ansi: ansi)
+            checkSoftFrame(colors, name: "Saturated " + background)
+            checkRenderedFrame(name: "Saturated " + background)
         }
         expect(catalog.filtered(search: "", isDark: false).count == 183, "182 light themes plus default")
         expect(catalog.filtered(search: "", isDark: true).count == 638, "637 dark themes plus default")
@@ -287,6 +394,7 @@ enum TerminalThemeTests {
         expect(WindowChrome.resolve(isDark: true).isGradientEnabled, "obsolete off preference cannot disable the default frame gradient")
         let backdrop = ShellBackdropView(frame: CGRect(x: 0, y: 0, width: 800, height: 500))
         backdrop.usesTerminalBackground = true
+        backdrop.isTransparent = true
         var previousGradient: [CGColor]?
         for theme in [dark, otherDark, light, otherLight, .system] {
             let isDark = theme.palette?.isDark ?? false
@@ -299,7 +407,28 @@ enum TerminalThemeTests {
             let layer = backdrop.subviews.first!.layer!.sublayers!.first as! CAGradientLayer
             let colors = layer.colors as! [CGColor]
             expect(!layer.isHidden && backdrop.isOpaque && colors.allSatisfy { $0.alpha == 1 },
-                   "frame shows an opaque theme gradient without exposing the desktop")
+                   "frame retains opaque source colors over a solid backing without exposing the desktop")
+            let tint = backdrop.subviews.first!.layer!
+            expect(tint.opacity > 0 && tint.opacity <= 0.55,
+                   "live theme switches preserve the softened frame tint")
+            let sheen = backdrop.layer!.sublayers!.first { $0.name == "workspace.gradientSheen" } as! CAGradientLayer
+            let reflections = sheen.colors as! [CGColor]
+            expect(reflections.first!.alpha > 0 && reflections.first!.alpha <= (isDark ? 0.03 : 0.12)
+                   && reflections.dropFirst().allSatisfy { $0.alpha == 0 },
+                   "the top reflection remains faint and fades before reaching the rest of the frame")
+            expect(sheen.isHidden == NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast,
+                   "increased contrast removes the decorative reflection")
+            backdrop.isTransparent = false
+            backdrop.applyStyle()
+            expect(sheen.isHidden && tint.opacity > 0 && tint.opacity <= 0.55,
+                   "reduced transparency removes reflections without restoring the bright frame")
+            backdrop.isTransparent = true
+            backdrop.setFrameSize(NSSize(width: 960, height: 640))
+            backdrop.layoutSubtreeIfNeeded()
+            backdrop.applyStyle()
+            expect(tint.frame == backdrop.bounds && sheen.frame == backdrop.bounds
+                   && tint.sublayers!.allSatisfy { $0.frame == tint.bounds },
+                   "resizing keeps one continuous gradient and reflection across the whole window")
             expect(chrome.readingBackground == chrome.background,
                    "reading surfaces stay solid while the frame follows the theme")
             if let previousGradient {
@@ -316,6 +445,6 @@ enum TerminalThemeTests {
         defaults.removeObject(forKey: "appearance.gradientEnabled")
         expect(prefs.reset(), "restore themes after gradient coverage")
         switchAppearance(true)
-        print("PASS terminal themes: 819 palettes, legacy preservation, shared appearance pair, live switching, retained buffers, failure and resets")
+        print("PASS terminal themes: 819 palettes, soft frame tint, extreme palettes, legacy preservation, shared appearance pair, live switching, retained buffers, failure and resets")
     }
 }
