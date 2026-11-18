@@ -155,18 +155,30 @@ final class TerminalSessionConnection: @unchecked Sendable {
         source.activate()
     }
 
+    struct Inspection {
+        var foreground: pid_t = 0
+        var isRunning = false
+        var command: String?
+    }
+
     /// 未挂载的侧栏行只读取程序状态，不改变 PTY 大小或抢占界面连接。
-    func inspect(sessionID: String, completion: @escaping (pid_t, String?) -> Void) {
+    func inspect(sessionID: String, completion: @escaping (Inspection?) -> Void) {
         queue.async { [self] in
             guard let folder = TerminalSessionConnection.folder(for: sessionID),
-                  let socketFD = TerminalSessionConnection.connectSocket(folder + "/p") else { completion(0, nil); return }
+                  let socketFD = TerminalSessionConnection.connectSocket(folder + "/p") else { completion(nil); return }
             fd = socketFD
-            var foreground: pid_t = 0
-            var command: String?
-            onStatus = { _, group, _ in foreground = group }
-            onCommand = { isRunning, value in command = isRunning ? value : nil }
+            var inspection = Inspection()
+            var shellPID: pid_t = 0
+            onStatus = { pid, group, _ in
+                shellPID = pid
+                inspection.foreground = group
+            }
+            onCommand = { isRunning, value in
+                inspection.isRunning = isRunning
+                inspection.command = isRunning ? value : nil
+            }
             ready = { [weak self] isReady in
-                completion(isReady ? foreground : 0, isReady ? command : nil)
+                completion(isReady ? (shellPID > 0 ? inspection : Inspection()) : nil)
                 self?.disconnect()
             }
             let source = DispatchSource.makeReadSource(fileDescriptor: socketFD, queue: queue)

@@ -528,6 +528,7 @@ struct RootView: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 SidebarBellMark(sessionID: tab.sessionID)
+                if !row.isSplit { SidebarBusyIndicator(tab: tab) }
                 if tab.reconnecting || tab.showsDisconnected {
                     Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
                         .font(.system(size: 12))
@@ -593,6 +594,7 @@ struct RootView: View {
                     .foregroundStyle(rowChrome.secondary)
             }.frame(maxWidth: .infinity, alignment: .leading)
             SidebarBellMark(sessionID: tab.sessionID)
+            SidebarBusyIndicator(tab: tab)
             if tab.reconnecting || tab.showsDisconnected {
                 Image(systemName: tab.reconnecting ? "arrow.triangle.2.circlepath" : "link.slash")
                     .font(.system(size: 12))
@@ -601,7 +603,7 @@ struct RootView: View {
         }
         .foregroundStyle(rowChrome.text)
         .environment(\.windowChrome, rowChrome)
-        .padding(.leading, 29).padding(.trailing, 30)
+        .padding(.leading, 29).padding(.trailing, SidebarLayout.contentInset)
         .frame(height: SidebarLayout.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.control)
             .fill(rowFill(selected: isSelected, hovered: hoveredTabID == tab.id, tabID: tab.id)))
@@ -622,7 +624,7 @@ struct RootView: View {
             ).accessibilityHidden(true)
         }
         .help(subtitle)
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: numberedSessionTitle(tab)))
         .accessibilityValue(Text(verbatim: subtitle))
         .accessibilityIdentifier("sidebar.terminal." + tab.id.uuidString)
@@ -1075,6 +1077,50 @@ struct SidebarBellMark: View {
                 .foregroundStyle(chrome.warning)
                 .frame(width: 14, height: 14)
                 .accessibilityLabel(Text("Bell Rang"))
+        }
+    }
+}
+
+struct SidebarBusyIndicator: View {
+    @Environment(\.windowChrome) private var chrome
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var shell = RemoteShellStatus.shared
+    @ObservedObject private var programs = TerminalProgramStatus.shared
+    let tab: TerminalTab
+
+    static func isVisible(tab: TerminalTab, state: RemoteShellState?, foregroundProgram: TerminalProgram?) -> Bool {
+        guard tab.hasTerminal, !tab.exited, !tab.reconnecting else { return false }
+        if let state { return state.isRunning }
+        // A local shell without command markers can still report its foreground program.
+        guard tab.isLocal, let foregroundProgram else { return false }
+        return foregroundProgram.kind != .shell
+    }
+
+    var body: some View {
+        if Self.isVisible(tab: tab, state: shell.states[tab.sessionID], foregroundProgram: programs.programs[tab.sessionID]) {
+            let arc = Circle().trim(from: 0, to: 0.25)
+                .stroke(style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            ZStack {
+                Circle().stroke(lineWidth: 1.5).opacity(0.18)
+                if reduceMotion {
+                    arc
+                } else {
+                    arc.keyframeAnimator(initialValue: 0.0, repeating: true) { view, angle in
+                        view.rotationEffect(.degrees(angle))
+                    } keyframes: { _ in
+                        MoveKeyframe(0.0)
+                        LinearKeyframe(360.0, duration: 1)
+                    }
+                }
+            }
+            .foregroundStyle(chrome.accent)
+            .frame(width: 11, height: 11)
+            .frame(width: 14, height: 14)
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Running"))
+            .accessibilityIdentifier("sidebar.busy." + tab.id.uuidString)
         }
     }
 }

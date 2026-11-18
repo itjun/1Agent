@@ -96,6 +96,24 @@ import SwiftUI
         commandState.isRunning = false
         commandState.lastExitCode = 0
         try check(SidebarSessionSubtitle.message(tab: remote, location: location, state: commandState) == "…/workspace/project", "A successful command returns to the directory")
+        let local = model.tabs.first { $0.id == l1 }!
+        let filePreview = model.tabs.first { $0.id == preview }!
+        let program = TerminalProgram.identify(command: "sleep 10")
+        let running = RemoteShellState(isRunning: true)
+        for tab in [local, remote] {
+            try check(SidebarBusyIndicator.isVisible(tab: tab, state: running, foregroundProgram: nil), "An unnamed running job has a busy ring")
+            try check(!SidebarBusyIndicator.isVisible(tab: tab, state: commandState, foregroundProgram: program), "A finished command clears the ring despite a stale program sample")
+        }
+        try check(SidebarBusyIndicator.isVisible(tab: local, state: nil, foregroundProgram: program), "Local foreground jobs are visible without shell integration")
+        try check(!SidebarBusyIndicator.isVisible(tab: local, state: nil, foregroundProgram: .init(kind: .shell, name: "zsh")), "An idle local shell has no ring")
+        try check(!SidebarBusyIndicator.isVisible(tab: remote, state: nil, foregroundProgram: program), "The SSH transport alone is never a remote job")
+        try check(!SidebarBusyIndicator.isVisible(tab: filePreview, state: running, foregroundProgram: program), "File previews have no busy ring")
+        var unavailable = remote
+        unavailable.reconnecting = true
+        try check(!SidebarBusyIndicator.isVisible(tab: unavailable, state: running, foregroundProgram: nil), "Reconnecting hides a stale running job")
+        unavailable.reconnecting = false
+        unavailable.exited = true
+        try check(!SidebarBusyIndicator.isVisible(tab: unavailable, state: running, foregroundProgram: nil), "Disconnected terminals have no busy ring")
         try check(model.panelRow(for: r1, in: window)?.block == .ungrouped, "Legacy wrong local placement is repaired")
         try check(model.panelRow(for: l2, in: window)?.block == .localGroup, "Legacy wrong remote placement is repaired")
         try check(model.panelRow(for: ml, in: window)?.block == .mixedGroup, "Mixed split has its own category")

@@ -692,13 +692,16 @@ enum SSHTerminalRegistry {
             guard !inspectingPrograms.contains(id), TerminalSessionConnection.hasSession(id) else { continue }
             inspectingPrograms.insert(id)
             let inspector = TerminalSessionConnection()
-            inspector.inspect(sessionID: id) { foreground, command in
-                let reported = command.flatMap { TerminalProgram.identify(command: $0) }
-                let local = tab.isLocal ? TerminalProgram.identify(arguments: TerminalProcess.arguments(of: foreground)) : nil
+            inspector.inspect(sessionID: id) { inspection in
+                let reported = inspection?.command.flatMap { TerminalProgram.identify(command: $0) }
+                let local = tab.isLocal ? inspection.flatMap {
+                    TerminalProgram.identify(arguments: TerminalProcess.arguments(of: $0.foreground))
+                } : nil
                 let program = reported?.kind != .command && reported != nil ? reported : (local ?? reported)
                 Task { @MainActor in
                     inspectingPrograms.remove(id)
-                    guard views[id] == nil, !closedIDs.contains(id) else { return }
+                    guard views[id] == nil, !closedIDs.contains(id), let inspection else { return }
+                    RemoteShellStatus.shared.synchronize(isRunning: inspection.isRunning, command: inspection.command, sessionID: id)
                     TerminalProgramStatus.shared.update(program, sessionID: id)
                 }
             }
