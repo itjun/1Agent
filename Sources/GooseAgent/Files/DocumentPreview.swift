@@ -65,9 +65,9 @@ struct DocumentPreview: View {
         let html = cmark_render_html(tree, CMARK_OPT_DEFAULT, cmark_parser_get_syntax_extensions(parser))!
         defer { free(html) }
         return """
-            <meta name="color-scheme" content="light dark">
+            <meta name="color-scheme" content="dark">
             <style>
-            body { font: 15px/1.6 -apple-system, sans-serif; margin: 16px; overflow-wrap: anywhere; }
+            body { background: #000; color: #eee; font: 15px/1.6 -apple-system, sans-serif; margin: 16px; overflow-wrap: anywhere; }
             h1,h2,h3 { line-height: 1.25; } img { max-width: 100%; }
             pre { overflow-x: auto; padding: .7em; background: rgba(128,128,128,.12); }
             code { font-family: ui-monospace, monospace; }

@@ -90,12 +90,20 @@ struct PreviewSyntaxTests {
         expect(view.selectedRange() == selected && !view.isEditable, "asynchronous syntax styling preserves selection and read-only state")
         for name in ["Springfield Resident", "Prismatica", "Nord"] {
             let chrome = TerminalThemeCatalog.shared.theme(id: "ghostty:" + name)!.palette!.applicationChrome()
-            view.applyTheme(chrome)
+            view.applySyntaxPalette(chrome.syntaxPalette)
             expect(view.string == keywordSource && view.selectedRange() == selected && !view.isEditable,
                    "changing theme preserves file text, selection and read-only state")
-            expect(view.backgroundColor == NSColor(chrome.background)
-                   && view.selectedTextAttributes[.backgroundColor] as? NSColor == NSColor(chrome.selection),
-                   "file background and selection follow the same application palette")
+            expect(view.backgroundColor.usingColorSpace(.sRGB) == NSColor.black.usingColorSpace(.sRGB)
+                   && view.selectedTextAttributes[.backgroundColor] as? NSColor == view.style.selection,
+                   "file previews keep a black reading surface and dark-mode selection")
+            for ink in view.style.syntaxColors + [view.style.foreground, view.style.gutter] {
+                let color = ink.usingColorSpace(.sRGB)!
+                let visible = RGBColor(red: color.redComponent * color.alphaComponent,
+                                       green: color.greenComponent * color.alphaComponent,
+                                       blue: color.blueComponent * color.alphaComponent)
+                expect(visible.contrastRatio(with: RGBColor(red: 0, green: 0, blue: 0)) >= 4.5,
+                       "syntax tokens, plain text and line numbers stay readable on black")
+            }
             expect(view.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
                    == view.style.attributes(for: "keyword")[.foregroundColor] as? NSColor,
                    "existing syntax tokens repaint when only the theme changes")

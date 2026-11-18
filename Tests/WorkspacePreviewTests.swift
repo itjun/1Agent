@@ -107,6 +107,10 @@ import WebKit
                 }
             }
             precondition(rendered, "Render headings and tables in " + name)
+            if name == "file.md" {
+                let background = try await webView(in: host)!.evaluateJavaScript("getComputedStyle(document.body).backgroundColor") as? String
+                precondition(background == "rgb(0, 0, 0)", "Markdown uses a black reading surface")
+            }
             let snapshot = column.preview!
             let original = try await column.textForEditing(snapshot)
             precondition(original.text == source)

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// 文件预览和改动对比共用排版与当前窗口主题。
+/// 文件预览和改动对比共用等宽字体与行高。
 enum PreviewCodeStyle {
     static let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
     static let lineHeight: CGFloat = 21.7
@@ -72,8 +72,8 @@ struct NativeTextPreview: NSViewRepresentable {
     }
 
     func updateNSView(_ container: PreviewCodeContainer, context: Context) {
-        container.applyTheme(chrome)
         let view = container.code
+        view.applySyntaxPalette(chrome.syntaxPalette)
         view.onClose = onClose
         if context.coordinator.text != text || context.coordinator.path != path {
             context.coordinator.text = text
@@ -125,15 +125,6 @@ final class PreviewCodeContainer: NSView {
         addSubview(scroll)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    func applyTheme(_ chrome: WindowChrome) {
-        guard code.style.chrome != chrome else { return }
-        appearance = SystemTheme.appearance(isDark: chrome.isDark)
-        code.applyTheme(chrome)
-        scroll.backgroundColor = code.style.background
-        needsDisplay = true
-        gutter.needsDisplay = true
-    }
 
     override func draw(_ dirtyRect: NSRect) {
         code.style.background.setFill()
@@ -196,7 +187,12 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
     private var hoverTracking: NSTrackingArea?
     private var replacingText = false
     private var syntaxTokens: [PreviewSyntaxToken] = []
-    private(set) var style = PreviewThemeStyle(chrome: WindowChrome(isDark: true))
+    private static let readingChrome: WindowChrome = {
+        var chrome = WindowChrome(isDark: true)
+        chrome.background = .black
+        return chrome
+    }()
+    private(set) var style = PreviewThemeStyle(chrome: PreviewTextView.readingChrome)
 
     init() {
         let storage = NSTextStorage()
@@ -250,13 +246,11 @@ final class PreviewTextView: NSTextView, NSTextViewDelegate, NSLayoutManagerDele
         return true
     }
 
-    func applyTheme(_ chrome: WindowChrome) {
+    func applySyntaxPalette(_ palette: [String]?) {
+        guard style.chrome.syntaxPalette != palette else { return }
+        var chrome = PreviewTextView.readingChrome
+        chrome.syntaxPalette = palette
         style = PreviewThemeStyle(chrome: chrome)
-        appearance = SystemTheme.appearance(isDark: chrome.isDark)
-        backgroundColor = style.background
-        textColor = style.foreground
-        insertionPointColor = style.bright
-        selectedTextAttributes = [.backgroundColor: style.selection, .foregroundColor: style.bright]
         apply(tokens: syntaxTokens)
     }
 

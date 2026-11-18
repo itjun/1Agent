@@ -1569,6 +1569,10 @@ private struct FilesWorkspaceRoutingTests {
         }
         try require(code.lineGutter != nil && code.enclosingScrollView!.frame.minX >= code.lineGutter!.frame.maxX,
                     "Code preview includes a native gutter outside the text scroll view")
+        let black = NSColor.black.usingColorSpace(.sRGB)
+        try require(code.backgroundColor.usingColorSpace(.sRGB) == black &&
+                    code.enclosingScrollView?.backgroundColor.usingColorSpace(.sRGB) == black,
+                    "The mounted text and scroll area share a black background")
         try require(abs(code.enclosingScrollView!.contentView.bounds.minX) < 1,
                     "Mounting the gutter must not horizontally crop the beginning of every line")
         code.setSelectedRange(NSRange(location: (localSource as NSString).range(of: "value").location + 2, length: 0))
