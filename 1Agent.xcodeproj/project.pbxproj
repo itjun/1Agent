@@ -39,6 +39,7 @@
 		38C34235D2F87AADC5DF22BC /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043B43BD36E404CF638EB54F /* TerminalCanvas.swift */; };
 		3911A423F56F820278E6DAD2 /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FAC638FAC8F08403A1BC6F /* FilePreviewPane.swift */; };
 		3A0501610A940B2B92B56377 /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8B90421D84B96A4DC2D00 /* FocusRing.swift */; };
+		3CEDE8FD35ABF63EF5387719 /* QuickCommandCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130DFBDC19AAA24ECDA33865 /* QuickCommandCards.swift */; };
 		3E1E4D26166466CCB12ECA81 /* FilePreviewEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24164B400C20194FC6C73B0A /* FilePreviewEditor.swift */; };
 		3E5A7562523657B63E232B0D /* SwiftCMark.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 41CDABA85889B334DE84751C /* SwiftCMark.LICENSE.txt */; };
 		3EE86F0B7F25F530BB086822 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E513AE207C91AAB81A8D5279 /* PaneContent.swift */; };
@@ -180,6 +181,7 @@
 		0BD36DA3B27C4A575364695B /* ShortcutsSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettingsPage.swift; sourceTree = "<group>"; };
 		0FCF2BEA73357A29F9518EA3 /* ProgramIcons-UPSTREAM-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ProgramIcons-UPSTREAM-LICENSE.txt"; sourceTree = "<group>"; };
 		11B7BE5E018ED46FA154243C /* shell-integration */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "shell-integration"; path = "Resources/shell-integration"; sourceTree = SOURCE_ROOT; };
+		130DFBDC19AAA24ECDA33865 /* QuickCommandCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandCards.swift; sourceTree = "<group>"; };
 		13C77A3EEAAB6371CA927F40 /* DropZoneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZoneLayout.swift; sourceTree = "<group>"; };
 		15B0CBC0DB65E4C93F32EFC1 /* TerminalLight.ghostty */ = {isa = PBXFileReference; path = TerminalLight.ghostty; sourceTree = "<group>"; };
 		16730EE26824B43E5A087F41 /* PinnedLocations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocations.swift; sourceTree = "<group>"; };
@@ -501,6 +503,7 @@
 				5A7EE823807020FCAC7AB30D /* PaneLayout.swift */,
 				F081A460F13779B2F87B39CA /* QuickCommand.swift */,
 				53671EAC13A4301F206F20C1 /* QuickCommandActions.swift */,
+				130DFBDC19AAA24ECDA33865 /* QuickCommandCards.swift */,
 				47519C98F67FEF8BFC1D299C /* QuickCommandDialogs.swift */,
 				079DE4BF5E6B74331A44C372 /* QuickCommandDrag.swift */,
 				4AAFA5CF1DDA1488A30029D0 /* QuickCommandHistory.swift */,
@@ -801,6 +804,7 @@
 				8B9EA4C7BED737DB4F675B71 /* PreviewSyntax.swift in Sources */,
 				A017C648B0C6B7A50F41DBF9 /* QuickCommand.swift in Sources */,
 				9B069FD4F9697A0C757333EF /* QuickCommandActions.swift in Sources */,
+				3CEDE8FD35ABF63EF5387719 /* QuickCommandCards.swift in Sources */,
 				FCB11DE661B12CD801D7A781 /* QuickCommandDialogs.swift in Sources */,
 				F3CB90109973D461C41E5160 /* QuickCommandDrag.swift in Sources */,
 				ED5D2B34518AAFC3574D3EBA /* QuickCommandHistory.swift in Sources */,
