@@ -64,6 +64,30 @@ enum TerminalThemeTests {
                    && frameBackdrop.layer!.backgroundColor!.alpha == 1 && frameBackdrop.isOpaque,
                    "soft tint never makes the reading window transparent: " + name)
         }
+        // 直接采样遮罩，把光源方向和主题自身各颜色的明暗差异分开验证。
+        func checkLightDirection(_ backdrop: ShellBackdropView, name: String) {
+            let tint = backdrop.subviews.first!.layer!
+            guard let mask = tint.mask else {
+                expect(false, "theme frame has a light mask: " + name)
+                return
+            }
+            expect(mask.frame == tint.bounds, "light mask fills the complete frame: " + name)
+            let width = Int(mask.bounds.width), height = Int(mask.bounds.height)
+            let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+            mask.render(in: NSGraphicsContext(bitmapImageRep: bitmap)!.cgContext)
+            func strength(_ x: Int, _ y: Int) -> CGFloat { bitmap.colorAt(x: x, y: y)!.alphaComponent }
+            let topLeft = strength(2, 2)
+            let topRight = strength(width - 3, 2)
+            let middleLeft = strength(2, height / 2)
+            let bottomLeft = strength(2, height - 3)
+            let bottomRight = strength(width - 3, height - 3)
+            expect(topLeft > 0.9 && topLeft > topRight && topRight > bottomLeft
+                   && topLeft > middleLeft && middleLeft > bottomLeft
+                   && bottomLeft < 0.25 && bottomRight < 0.25,
+                   "top-left light fades down faster than along the top edge: " + name)
+        }
         func checkRenderedFrame(name: String) {
             let root = frameBackdrop.layer!
             let tint = frameBackdrop.subviews.first!.layer!
@@ -146,6 +170,7 @@ enum TerminalThemeTests {
                 cursorText: "000000", selection: "FF00FF", selectionText: "FFFFFF", ansi: ansi)
             checkSoftFrame(colors, name: "Saturated " + background)
             checkRenderedFrame(name: "Saturated " + background)
+            checkLightDirection(frameBackdrop, name: "Saturated " + background)
         }
         expect(catalog.filtered(search: "", isDark: false).count == 183, "182 light themes plus default")
         expect(catalog.filtered(search: "", isDark: true).count == 638, "637 dark themes plus default")
@@ -184,6 +209,7 @@ enum TerminalThemeTests {
             expect(backdrop?.chrome == candidate.workspaceChrome && backdrop?.usesTerminalBackground == true,
                    "preview shows the candidate's workspace backdrop: " + themeID)
             expect(backdrop?.bounds.size == previewSize, "preview backdrop fills the thumbnail: " + themeID)
+            if let backdrop { checkLightDirection(backdrop, name: themeID) }
         }
         previewWindow.close()
         expect(SettingsLayout.themeColumnCount(width: 1280 - SidebarLayout.defaultWidth) == 4, "four columns at default window")
@@ -415,7 +441,9 @@ enum TerminalThemeTests {
             let reflections = sheen.colors as! [CGColor]
             expect(reflections.first!.alpha > 0 && reflections.first!.alpha <= (isDark ? 0.03 : 0.12)
                    && reflections.dropFirst().allSatisfy { $0.alpha == 0 },
-                   "the top reflection remains faint and fades before reaching the rest of the frame")
+                   "the reflection remains faint and fades away from its source")
+            expect(sheen.type == .radial && sheen.startPoint == CGPoint(x: 0, y: 1),
+                   "the reflection shares the top-left light source")
             expect(sheen.isHidden == NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast,
                    "increased contrast removes the decorative reflection")
             backdrop.isTransparent = false
@@ -429,6 +457,7 @@ enum TerminalThemeTests {
             expect(tint.frame == backdrop.bounds && sheen.frame == backdrop.bounds
                    && tint.sublayers!.allSatisfy { $0.frame == tint.bounds },
                    "resizing keeps one continuous gradient and reflection across the whole window")
+            checkLightDirection(backdrop, name: theme.name)
             expect(chrome.readingBackground == chrome.background,
                    "reading surfaces stay solid while the frame follows the theme")
             if let previousGradient {

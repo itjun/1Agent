@@ -162,6 +162,7 @@ final class ShellBackdropView: NSView {
     private let washView = NSView()
     private let gradientLayer = CAGradientLayer()
     private let tealLayer = CAGradientLayer()
+    private let lightMask = CAGradientLayer()
     private let sheenLayer = CAGradientLayer()
     override var isOpaque: Bool { true }
 
@@ -183,8 +184,13 @@ final class ShellBackdropView: NSView {
         washView.autoresizingMask = [.width, .height]
         addSubview(washView)
         sheenLayer.name = "workspace.gradientSheen"
-        sheenLayer.startPoint = CGPoint(x: 0.5, y: 1)
-        sheenLayer.endPoint = CGPoint(x: 0.5, y: 0)
+        // 在原渐变上只调透明度。横向扩散得更远，让上边缘比下边缘浓。
+        for layer in [lightMask, sheenLayer] {
+            layer.type = .radial
+            layer.startPoint = CGPoint(x: 0, y: 1)
+            layer.endPoint = CGPoint(x: 1.7, y: 0)
+        }
+        lightMask.colors = [NSColor.black.cgColor, NSColor.black.withAlphaComponent(0.12).cgColor]
         sheenLayer.locations = [0, 0.4, 1]
         wantsLayer = true
         layer?.addSublayer(sheenLayer)
@@ -203,6 +209,7 @@ final class ShellBackdropView: NSView {
         CATransaction.setDisableActions(true)
         gradientLayer.frame = washView.bounds
         tealLayer.frame = washView.bounds
+        lightMask.frame = washView.bounds
         sheenLayer.frame = bounds
         CATransaction.commit()
     }
@@ -218,6 +225,7 @@ final class ShellBackdropView: NSView {
         layer?.backgroundColor = NSColor(chrome.background).cgColor
         washView.layer?.opacity = Float(chrome.isDark
             ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity)
+        washView.layer?.mask = chrome.isGradientEnabled ? lightMask : nil
         if let colors = chrome.gradientColors {
             gradientLayer.isHidden = false
             gradientLayer.startPoint = CGPoint(x: 0, y: 1)
@@ -235,6 +243,7 @@ final class ShellBackdropView: NSView {
         }
         gradientLayer.frame = washView.bounds
         tealLayer.frame = washView.bounds
+        lightMask.frame = washView.bounds
         sheenLayer.colors = [NSColor.white.withAlphaComponent(chrome.isDark ? 0.025 : 0.10).cgColor,
                              NSColor.white.withAlphaComponent(0).cgColor,
                              NSColor.white.withAlphaComponent(0).cgColor]
