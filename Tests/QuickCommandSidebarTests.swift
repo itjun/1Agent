@@ -51,6 +51,38 @@ import ObjectiveC
         try store.save(item)
         let second = QuickCommand(alias: "第二条", command: "printf second", scope: .local)
         try store.save(second)
+        func mountLibrary() async throws {
+            state.section = .commands
+            state.commandLibraryCollection = .local
+            state.commandLibrarySelection = item.id
+            native.setContentSize(NSSize(width: 1000, height: 760))
+            for isDark in [true, false] {
+                native.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+                let content = NSHostingView(rootView: QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
+                    .environment(\.windowChrome, WindowChrome(isDark: isDark)))
+                native.contentView = content
+                try await eventually("编号与名称在列表同行显示，详情仅展示名称和命令原文") {
+                    guard let row = element("quickCommand." + item.id.uuidString, in: native),
+                          let title = element("quickCommands.library.title", in: native),
+                          let code = element("quickCommands.library.code", in: native) else { return false }
+                    @MainActor func text(_ element: NSObject) -> [String] {
+                        ["accessibilityLabel", "accessibilityTitle", "accessibilityValue"].compactMap {
+                            value(element, $0) as? String
+                        }
+                    }
+                    return try text(row).contains { $0.contains("1-" + item.alias) }
+                        && text(title).contains(item.alias) && text(code).contains(item.command)
+                        && accessibilityFrame(row).height >= 64
+                }
+            }
+            print("PASS rendered dark and light command library split workspace")
+        }
+        if CommandLine.arguments.contains("--library-grid") {
+            native.makeKeyAndOrderFront(nil)
+            try await mountLibrary()
+            try await verifyLibraryKeyboard(item: item, state: state, in: native)
+            return
+        }
         native.setContentSize(NSSize(width: 260, height: 700))
         func mount(isDark: Bool = false) {
             native.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
@@ -270,13 +302,7 @@ import ObjectiveC
         print("PASS per-terminal execution guard, failure feedback and explicit retry")
 
         // 维护只在左侧“命令”工作区进行，保存后重新挂载使用栏应看到更新。
-        state.section = .commands
-        state.commandLibraryCollection = .local
-        state.commandLibrarySelection = item.id
-        native.setContentSize(NSSize(width: 1000, height: 760))
-        native.contentView = NSHostingView(rootView: QuickCommandLibraryView(model: model, window: state, isWorkspace: true, onClose: {})
-            .environment(\.windowChrome, WindowChrome(isDark: false)))
-        try await eventually { element("quickCommands.library.edit", in: native) != nil }
+        try await mountLibrary()
         try await verifyLibraryKeyboard(item: item, state: state, in: native)
         try require(press(try requiredElement("quickCommands.library.edit", in: native)))
         try await eventually { element("quickCommand.script", in: native) != nil }
@@ -332,13 +358,46 @@ import ObjectiveC
     @MainActor static func verifyLibraryKeyboard(item: QuickCommand, state: WindowState, in window: NSWindow) async throws {
         let store = QuickCommandStore.shared
         let additions = (0..<15).map { index in
-            var command = QuickCommand(alias: "键盘候选 \(index)", command: "printf keyboard-\(index)", scope: .local)
+            let script: String
+            switch index {
+            case 0: script = "printf keyboard-0 | sort | uniq"
+            case 2: script = (1...6).map { "echo line-\($0)" }.joined(separator: "\n")
+            case 3: script = "git log -8 --oneline --decorate --graph --all"
+            default: script = "printf keyboard-\(index)"
+            }
+            var command = QuickCommand(alias: "键盘候选 \(index)", command: script, scope: .local)
             command.order = 100 + index
             return command
         }
         for command in additions { try store.save(command) }
         let ordered = store.commands.filter { $0.scope == .local }.sorted(by: QuickCommand.displayOrder)
         try require(ordered.count >= 2, "键盘测试至少需要两条命令")
+        try await eventually { element("quickCommand." + additions[0].id.uuidString, in: window) != nil }
+        func rowFrame(_ command: QuickCommand) throws -> CGRect {
+            try accessibilityFrame(requiredElement("quickCommand." + command.id.uuidString, in: window))
+        }
+        try await eventually("短命令、多行脚本与长单行命令等宽等高，相邻卡片之间留有间距") {
+            let unit = try rowFrame(additions[1]), tall = try rowFrame(additions[2]), wide = try rowFrame(additions[3])
+            return abs(unit.minX - tall.minX) < 1 && abs(unit.minX - wide.minX) < 1
+                && abs(unit.width - tall.width) < 1 && abs(unit.width - wide.width) < 1
+                && abs(unit.height - tall.height) < 1 && abs(unit.height - wide.height) < 1
+                && abs(tall.midY - unit.midY) >= unit.height + 11
+        }
+        let originalRatio = state.commandLibrarySplitRatio
+        state.commandLibrarySplitRatio = 0.33
+        try await eventually("调整分栏比例后列表仍保持单列垂直对齐") {
+            let first = try rowFrame(ordered[0]), second = try rowFrame(ordered[1])
+            return abs(first.minX - second.minX) < 1 && second.maxY < first.minY
+        }
+        state.commandLibrarySplitRatio = originalRatio
+        let multiline = additions[2]
+        try require(multiline.singleLinePreview.contains(" ↵ ") && !multiline.singleLinePreview.contains("\n"))
+        try require(press(try requiredElement("quickCommand." + multiline.id.uuidString, in: window)))
+        try await eventually("列表单行摘要展示后仍复制完整多行原文") {
+            guard state.commandLibrarySelection == multiline.id,
+                  let copy = element("quickCommands.library.copy", in: window), press(copy) else { return false }
+            return NSPasteboard.general.string(forType: .string) == multiline.command
+        }
         func arrow(_ isDown: Bool, modifiers: NSEvent.ModifierFlags = []) throws {
             let character = isDown ? "\u{f701}" : "\u{f700}"
             NSApp.sendEvent(try unwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
@@ -377,6 +436,12 @@ import ObjectiveC
         let filtered = ordered.filter { $0.matchesSearch("keyboard-1") }
         try require(filtered.count >= 2, "搜索测试至少需要两个结果")
         try await eventually { state.commandLibrarySelection == filtered.last?.id }
+        let result = try unwrap(filtered.last)
+        let number = try unwrap(ordered.firstIndex(of: result)) + 1
+        let button = try requiredElement("quickCommand." + result.id.uuidString, in: window)
+        let spoken = ["accessibilityLabel", "accessibilityTitle"].compactMap { value(button, $0) as? String }.joined(separator: " ")
+        try require(spoken.split(whereSeparator: { !$0.isNumber }).first.flatMap { Int($0) } == number,
+                    "搜索后卡片仍显示侧栏原号")
         try arrow(false)
         try await eventually { state.commandLibrarySelection == filtered[filtered.count - 2].id }
         try require(window.firstResponder === editor, "搜索框用方向键选择后仍可继续输入")

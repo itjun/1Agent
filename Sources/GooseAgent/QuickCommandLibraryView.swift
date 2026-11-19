@@ -12,6 +12,7 @@ struct QuickCommandLibraryView: View {
     @FocusState private var isListFocused: Bool
     @State private var splitDragStart: CGFloat?
     @State private var isDividerHovered = false
+    @State private var copiedCommandID: UUID?
     private var collection: QuickCommandCollection {
         get { window.commandLibraryCollection }
         nonmutating set { window.commandLibraryCollection = newValue }
@@ -30,10 +31,25 @@ struct QuickCommandLibraryView: View {
     @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
 
     private var collections: [QuickCommandCollection] { QuickCommandCollection.available(in: store.commands) }
-    private var commands: [QuickCommand] {
-        store.commands.filter { collection.contains($0) && $0.matchesSearch(query) }.sorted(by: QuickCommand.displayOrder)
+    private var sidebarContext: QuickCommandContext? {
+        guard collection != .common else { return nil }
+        let current = model.currentTerminalContext(in: window)
+        if current.sessionID != nil, current.host == collection.host { return current }
+        let tabIDs = Set(model.sidebarOrder(in: window))
+        guard let tab = model.tabs.first(where: { tabIDs.contains($0.id) && $0.hasTerminal && $0.alias == collection.host }) else { return nil }
+        return model.commandContext(in: window, targetTabID: tab.id)
     }
+
+    private var numberedCommands: [(offset: Int, element: QuickCommand)] {
+        collection.orderedCommands(in: store.commands, sidebarContext: sidebarContext)
+            .enumerated().filter { $0.element.matchesSearch(query) }
+    }
+
+    private var commands: [QuickCommand] { numberedCommands.map(\.element) }
     private var selected: QuickCommand? { commands.first { $0.id == selectedID } }
+    private var allowsReordering: Bool {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         Group {
@@ -61,12 +77,16 @@ struct QuickCommandLibraryView: View {
         .onChange(of: collections) { _, values in
             if !values.contains(collection) { collection = .common }
         }
+        .task(id: copiedCommandID) {
+            guard copiedCommandID != nil else { return }
+            do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
+            copiedCommandID = nil
+        }
         .familySheet(isPresented: Binding(get: { !isWorkspace && editing != nil }, set: { if !$0 && !isWorkspace { editing = nil } }), width: SheetLayout.commandEditor, height: SheetLayout.commandEditorHeight) {
             if let editing {
                 QuickCommandEditor(item: editing, hosts: model.hosts, onSaved: didSave) { self.editing = nil }.id(editing.id)
             }
         }
-
     }
 
     private func didSave(_ saved: QuickCommand) {
@@ -132,7 +152,7 @@ struct QuickCommandLibraryView: View {
                                 .accessibilityLabel(Text("Resize Command Columns"))
                                 .help("Drag to resize. Double-click to split equally.")
                             }
-                        commandPreview.frame(width: max(0, availableWidth - listWidth))
+                        rightPane.frame(width: max(0, availableWidth - listWidth))
                     }
                     .frame(height: geometry.size.height)
                     .onDisappear {
@@ -145,41 +165,55 @@ struct QuickCommandLibraryView: View {
     }
 
     private var commandList: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.m) {
-            if isWorkspace {
-                Text(verbatim: collection.title).font(.headline).lineLimit(1)
-                    .padding(.leading, titlebarLeadingInset)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: ShellLayout.compactHeaderHeight)
-                    .background(WindowDragArea())
-            } else {
-                QuickCommandLibraryHeader(model: model, window: window)
-                    .frame(height: ShellLayout.compactHeaderHeight)
-            }
-            CommandTextField(text: $query, placeholder: String(localized: "Search names, commands, hosts or folders"),
-                             identifier: "quickCommands.library.search", symbol: "magnifyingglass",
-                             onMoveSelection: { moveSelection(by: $0) })
-                .frame(height: Theme.Control.height)
-            if let message = window.commandLibraryMessage {
-                Text(verbatim: message).foregroundStyle(chrome.secondary).font(Theme.Font.rowMeta)
-            }
-            if let message = error ?? store.loadError {
-                Text(verbatim: message).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta)
-            }
+        let entries = numberedCommands
+        let groups = QuickCommandDirectoryGroup.group(entries: entries, in: collection)
+        return VStack(alignment: .leading, spacing: 0) {
+            commandListHeader
             ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: Theme.Space.xs) {
-                    // 编辑后刷新行里的名称、正文和菜单快照，不复用旧内容。
-                    ForEach(commands) { item in libraryRow(item).id(item) }
-                    if commands.isEmpty {
-                        Text(query.isEmpty && collection == .common ? "No Library Commands" : store.commands.isEmpty ? "Your command library is empty." : "No matching commands")
-                            .foregroundStyle(chrome.secondary).padding(.vertical, Theme.Space.l)
-
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: Theme.Space.m) {
+                        if entries.isEmpty {
+                            Text(query.isEmpty && collection == .common
+                                 ? "No Library Commands"
+                                 : store.commands.isEmpty ? "Your command library is empty." : "No matching commands")
+                                .foregroundStyle(chrome.secondary)
+                                .font(Theme.Font.body)
+                                .padding(.horizontal, Theme.Space.xs)
+                                .padding(.vertical, Theme.Space.l)
+                        } else {
+                            ForEach(groups) { group in
+                                VStack(alignment: .leading, spacing: Theme.Space.m) {
+                                    if group.showsHeader {
+                                        QuickCommandDirectorySectionHeader(
+                                            kind: group.kind,
+                                            isLocalCollection: collection == .local,
+                                            count: group.entries.count
+                                        )
+                                    }
+                                    ForEach(group.entries) { entry in
+                                        let item = entry.item
+                                        let isRowSelected = selectedID == item.id
+                                        CommandLibraryRow(
+                                            item: item,
+                                            number: entry.number,
+                                            isSelected: isRowSelected,
+                                            allowsReordering: allowsReordering,
+                                            select: { select(item) },
+                                            edit: { editing = item },
+                                            onReorder: reorderCommand,
+                                            actions: { rowActions(item) }
+                                        )
+                                        .id(item.id)
+                                    }
+                                }
+                            }
+                        }
                     }
+                    .padding(Theme.Space.s)
                 }
-            }.frame(maxHeight: .infinity)
+                .frame(maxHeight: .infinity)
                 .onChange(of: selectedID) { _, id in
-                    if let item = commands.first(where: { $0.id == id }) { proxy.scrollTo(item) }
+                    if let id, commands.contains(where: { $0.id == id }) { proxy.scrollTo(id) }
                 }
             }
             .focusable(interactions: .edit)
@@ -191,116 +225,139 @@ struct QuickCommandLibraryView: View {
                 return .handled
             }
         }
-        .padding(.horizontal, Theme.Space.m)
-        .padding(.top, isWorkspace ? 0 : Theme.Space.m)
-        .padding(.bottom, Theme.Space.m)
         .background(commandPaneBackground)
-        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : 0))
+        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : Theme.Radius.row))
         .modifier(FloatingContentSurface())
     }
 
-    private var commandPreview: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private var commandListHeader: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
             if isWorkspace {
-                QuickCommandLibraryHeader(model: model, window: window, showsTitle: false)
-                    .padding(.horizontal, Theme.Space.m)
-                    .frame(height: ShellLayout.compactHeaderHeight)
-                    .background(WindowDragArea())
+                HStack(spacing: Theme.Space.xs) {
+                    Text(verbatim: collection.title)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .padding(.leading, titlebarLeadingInset)
+                    Spacer(minLength: 0)
+                    QuickCommandLibraryHeader(model: model, window: window, showsTitle: false, showsPlusButton: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: ShellLayout.compactHeaderHeight)
+                .background(WindowDragArea())
             }
-            if let selected {
-                VStack(alignment: .leading, spacing: Theme.Space.m) {
-                    HStack(spacing: Theme.Space.s) {
-                        Text(verbatim: selected.alias).font(Theme.Font.sectionTitle).lineLimit(2)
-                        Spacer(minLength: 0)
-                    }
-                    HStack(spacing: Theme.Space.s) {
-                        Text(verbatim: QuickCommandCollection.owner(of: selected).title)
-                            .fixedSize()
-                        if let directory = selected.directory {
-                            Text(verbatim: selected.host == nil ? LocalTerminal.displayPath(directory) : directory)
-                                .lineLimit(1).truncationMode(.middle).help(directory)
-                        }
-                    }.font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                    HStack(spacing: Theme.Space.s) {
-                        if selected.scope == .all {
-                            FamilyMenu("Copy to Host", items: { hostCopyActions(selected) })
-                                .accessibilityIdentifier("quickCommands.library.copyToHost")
-                        } else {
-                            Button("Save to Library") { model.copyLibraryCommand(selected.id, to: .common, in: window) }
-                                .buttonStyle(FamilyButtonStyle(kind: .secondary))
-                        }
-                        Spacer(minLength: 0)
-                        Button { CommandClipboard.copy(selected.command) } label: { Label("Copy", systemImage: "doc.on.doc") }
-                            .buttonStyle(FamilyButtonStyle(kind: .secondary)).accessibilityIdentifier("quickCommands.library.copy")
-                        Button { editing = selected } label: { Label("Edit", systemImage: "pencil") }
-                            .buttonStyle(FamilyButtonStyle(kind: .secondary)).accessibilityIdentifier("quickCommands.library.edit")
-                    }
-                }.padding(Theme.Space.l)
-                Divider()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Space.l) {
-                        QuickCommandCodeBlock(command: selected.command)
-                        let parameters = QuickCommandLexer.extractLongFlags(selected.command)
-                        if !parameters.isEmpty {
-                            QuickCommandParametersGrid(parameters: parameters)
-                        }
-                    }
-                    .padding(Theme.Space.l)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity).id(selected.id)
-            } else {
-                Text("Select a command to preview its details.")
-                    .font(Theme.Font.body).foregroundStyle(chrome.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(Theme.Space.l)
+            CommandTextField(text: $query, placeholder: String(localized: "Search names, commands, hosts or folders"),
+                             identifier: "quickCommands.library.search", symbol: "magnifyingglass",
+                             onMoveSelection: { moveSelection(by: $0) })
+                .frame(height: Theme.Control.height)
+            if let message = window.commandLibraryMessage {
+                Text(verbatim: message).foregroundStyle(chrome.secondary).font(Theme.Font.rowMeta)
+            }
+            if let message = error ?? store.loadError {
+                Text(verbatim: message).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta)
             }
         }
+        .padding(.horizontal, Theme.Space.m)
+        .padding(.top, isWorkspace ? 2 : Theme.Space.m)
+        .padding(.bottom, Theme.Space.m)
+    }
+
+    @ViewBuilder
+    private var rightPane: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            commandInspector
+        }
         .background(commandPaneBackground)
-        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : 0))
+        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : Theme.Radius.row))
         .modifier(FloatingContentSurface())
+    }
+
+    @ViewBuilder
+    private var commandInspector: some View {
+        if isWorkspace {
+            WindowDragArea()
+                .frame(height: ShellLayout.compactHeaderHeight)
+                .accessibilityHidden(true)
+        }
+        if let item = selected {
+            let parameters = QuickCommandLexer.extractLongFlags(item.command)
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: Theme.Space.s) {
+                        inspectorTitle(item)
+                        Spacer(minLength: 0)
+                        inspectorActions(item)
+                    }
+                    VStack(alignment: .leading, spacing: Theme.Space.s) {
+                        inspectorTitle(item)
+                        HStack(spacing: Theme.Space.s) {
+                            inspectorActions(item)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+                if item.needsRepair {
+                    Label("Needs binding review — edit to repair", systemImage: "exclamationmark.triangle")
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.warning)
+                }
+            }
+            .padding(.horizontal, Theme.Space.l)
+            .padding(.top, isWorkspace ? 0 : Theme.Space.l)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Space.l) {
+                    QuickCommandCodeBlock(command: item.command)
+                    if !parameters.isEmpty {
+                        QuickCommandParametersGrid(parameters: parameters)
+                    }
+                }
+                .padding(Theme.Space.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .id(item.id)
+        } else {
+            Text("Select a command to preview its details.")
+                .font(Theme.Font.body)
+                .foregroundStyle(chrome.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(Theme.Space.l)
+        }
+    }
+
+    private func inspectorTitle(_ item: QuickCommand) -> some View {
+        Text(verbatim: item.alias)
+            .font(.system(size: 16, weight: .semibold))
+            .lineLimit(2)
+            .accessibilityIdentifier("quickCommands.library.title")
+    }
+
+    @ViewBuilder
+    private func inspectorActions(_ item: QuickCommand) -> some View {
+        if item.scope == .all {
+            FamilyMenu("Copy to Host", items: { hostCopyActions(item) })
+                .accessibilityIdentifier("quickCommands.library.copyToHost")
+        } else {
+            Button("Save to Library") { model.copyLibraryCommand(item.id, to: .common, in: window) }
+                .buttonStyle(FamilyButtonStyle(kind: .secondary))
+        }
+        Button {
+            CommandClipboard.copy(item.command)
+            copiedCommandID = item.id
+        } label: {
+            Label(copiedCommandID == item.id ? "Copied" : "Copy",
+                  systemImage: copiedCommandID == item.id ? "checkmark" : "doc.on.doc")
+        }
+        .buttonStyle(FamilyButtonStyle(kind: .secondary))
+        .accessibilityIdentifier("quickCommands.library.copy")
+
+        Button { editing = item } label: { Label("Edit", systemImage: "pencil") }
+            .buttonStyle(FamilyButtonStyle(kind: .primary))
+            .accessibilityIdentifier("quickCommands.library.edit")
     }
 
     private var commandPaneBackground: Color { chrome.background }
 
-    private func libraryRow(_ item: QuickCommand) -> some View {
-        HStack(spacing: 0) {
-            Button { select(item) } label: {
-                VStack(alignment: .leading, spacing: Theme.Space.s) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            if item.needsRepair {
-                                Image(systemName: "exclamationmark.triangle").foregroundStyle(chrome.warning)
-                            }
-                            Text(verbatim: item.alias).font(Theme.Font.row)
-                                .fontWeight(selectedID == item.id ? .semibold : .regular).lineLimit(2)
-                        }
-                        if let directory = item.directory {
-                            Text(verbatim: item.host == nil ? LocalTerminal.displayPath(directory) : directory)
-                                .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary).lineLimit(1).truncationMode(.middle)
-                                .help(directory)
-                        }
-                        if item.needsRepair {
-                            Text("Needs binding review — edit to repair").font(Theme.Font.rowMeta).foregroundStyle(chrome.warning)
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                    Text(verbatim: item.command.replacingOccurrences(of: "\n", with: " ↵ "))
-                        .font(.system(size: 12, design: .monospaced)).foregroundStyle(chrome.secondary).lineLimit(1)
-                }.frame(maxWidth: .infinity, minHeight: 20, alignment: .leading).contentShape(Rectangle())
-            }.buttonStyle(FamilyPlainButtonStyle()).accessibilityIdentifier("quickCommand." + item.id.uuidString)
-                .accessibilityAddTraits(selectedID == item.id ? .isSelected : [])
-                .overlay {
-                    if item.scope == .all {
-                        QuickCommandDragHandle(item: item, chrome: chrome, onClick: { select(item) },
-                                               onDoubleClick: { editing = item }, onDragStart: { select(item) })
-                            .accessibilityHidden(true)
-                    }
-                }
-            FamilyMenu(items: { rowActions(item) }) { Image(systemName: "ellipsis").frame(width: 28, height: 28) }
-                .help("Command Actions")
-        }.padding(.horizontal, 10).padding(.vertical, Theme.Space.m).background(selectedID == item.id ? chrome.rowSelection(active: true) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-            .familyContextMenu { rowActions(item) }
-    }
     private func rowActions(_ item: QuickCommand) -> [FamilyMenuItem] {
         [FamilyMenuItem(title: String(localized: "Copy to Host"), children: hostCopyActions(item)),
          FamilyMenuItem(title: String(localized: "Save to Library"), enabled: item.scope != .all,
@@ -323,6 +380,7 @@ struct QuickCommandLibraryView: View {
             FamilyMenuItem(title: destination.title, action: { model.copyLibraryCommand(item.id, to: destination, in: window) })
         }
     }
+
     private func move(_ item: QuickCommand, delta: Int) {
         let peers = commands.filter { QuickCommandCollection.owner(of: $0) == QuickCommandCollection.owner(of: item) && $0.section == item.section }
         guard let index = peers.firstIndex(where: { $0.id == item.id }), peers.indices.contains(index + delta) else { return }
@@ -330,14 +388,124 @@ struct QuickCommandLibraryView: View {
         catch { self.error = error.localizedDescription }
     }
 
+    private func reorderCommand(sourceID: UUID, destinationID: UUID, isAfter: Bool) {
+        do { try _ = store.move(sourceID, relativeTo: destinationID, after: isAfter) }
+        catch { self.error = error.localizedDescription }
+    }
 }
 
+private struct CommandLibraryRow: View {
+    let item: QuickCommand
+    let number: Int
+    let isSelected: Bool
+    let allowsReordering: Bool
+    let select: () -> Void
+    let edit: () -> Void
+    let onReorder: (UUID, UUID, Bool) -> Void
+    let actions: () -> [FamilyMenuItem]
+    @Environment(\.windowChrome) private var chrome
+    @Environment(\.accessibilityVoiceOverEnabled) private var isVoiceOverEnabled
+    @FocusState private var isMenuFocused: Bool
+    @State private var isHovered = false
+    @State private var isMenuOpen = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+        return Button(action: select) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if item.needsRepair {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 11))
+                            .foregroundStyle(chrome.warning)
+                    }
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text(verbatim: "\(number)-")
+                            .monospacedDigit()
+                            .foregroundStyle(chrome.secondary)
+                            .fixedSize()
+                        Text(verbatim: item.alias)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(chrome.text)
+                            .lineLimit(1)
+                    }
+                    .font(Theme.Font.row)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: "\(number)-\(item.alias)"))
+                    if !item.group.isEmpty {
+                        Text(verbatim: item.group)
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(chrome.secondary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(chrome.elevated, in: RoundedRectangle(cornerRadius: 4))
+                    }
+                }
+
+                Text(verbatim: item.singleLinePreview)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(chrome.secondary)
+                    .lineLimit(1)
+            }
+            .padding(.leading, Theme.Space.m)
+            .padding(.trailing, 30)
+            .padding(.vertical, Theme.Space.s)
+            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FamilyPlainButtonStyle())
+        .accessibilityIdentifier("quickCommand." + item.id.uuidString)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .overlay {
+            QuickCommandDragHandle(item: item, chrome: chrome, onClick: select,
+                                   onDoubleClick: edit, onDragStart: select)
+                .accessibilityHidden(true)
+        }
+        .overlay(alignment: .trailing) {
+            FamilyMenu(items: actions, onPresentationChange: { isMenuOpen = $0 }) {
+                Image(systemName: "ellipsis")
+                    .foregroundStyle(chrome.secondary)
+                    .frame(width: 26, height: 26)
+            }
+            .accessibilityLabel(Text("Command Actions"))
+            .help("Command Actions")
+            .padding(.trailing, Theme.Space.xs)
+            .opacity(isHovered || isMenuOpen || isVoiceOverEnabled || isMenuFocused ? 1 : 0)
+            .focused($isMenuFocused)
+        }
+        .overlay {
+            if allowsReordering, item.scope != .all {
+                QuickCommandReorderTarget(item: item, chrome: chrome, onMove: onReorder)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .background(rowFill, in: shape)
+        .overlay {
+            if isSelected {
+                shape.strokeBorder(chrome.accent.opacity(chrome.isDark ? 0.68 : 0.45), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onHover { isHovered = $0 }
+        .familyContextMenu(actions)
+        .help(item.alias + "\n" + item.command)
+    }
+
+    private var rowFill: Color {
+        if isSelected { return chrome.rowSelection(active: true) }
+        if isHovered { return chrome.elevated }
+        return Color.clear
+    }
+}
 
 /// 分类标记和操作共用窗口通栏；管理弹窗仍可复用同一组控件。
 struct QuickCommandLibraryHeader: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     var showsTitle = true
+    var showsPlusButton = false
     @ObservedObject private var store = QuickCommandStore.shared
     @Environment(\.windowChrome) private var chrome
     @State private var importing: QuickCommandLibrary?
@@ -351,12 +519,22 @@ struct QuickCommandLibraryHeader: View {
     }
 
     var body: some View {
-        HStack(spacing: Theme.Space.s) {
+        HStack(spacing: Theme.Space.xs) {
             if showsTitle { Text(verbatim: collection.title).font(.headline).lineLimit(1) }
-            Spacer(minLength: 0)
+            if showsTitle { Spacer(minLength: 0) }
+            if showsPlusButton, store.loadError == nil {
+                SidebarIconButton(
+                    symbol: "plus",
+                    help: String(localized: "New Quick Command"),
+                    accessibilityLabel: "New Quick Command",
+                    hoverFill: chrome.elevated,
+                    action: startNewCommand
+                )
+                .accessibilityIdentifier("quickCommands.library.new")
+            }
             FamilyMenu("Actions", items: { libraryActions })
                 .font(Theme.Font.body).foregroundStyle(chrome.text)
-                .padding(.horizontal, Theme.Space.s)
+                .padding(.horizontal, Theme.Space.xs)
                 .fixedSize()
                 .accessibilityLabel(Text("Actions"))
                 .accessibilityIdentifier("quickCommands.library.actions")
@@ -380,9 +558,13 @@ struct QuickCommandLibraryHeader: View {
         }
     }
 
+    private func startNewCommand() {
+        window.commandLibraryDraft = collection.draft(in: model.currentTerminalContext(in: window))
+    }
+
     private var libraryActions: [FamilyMenuItem] {
         [FamilyMenuItem(title: String(localized: "New Quick Command"), enabled: store.loadError == nil,
-                        action: { window.commandLibraryDraft = collection.draft(in: model.currentTerminalContext(in: window)) }),
+                        action: startNewCommand),
          FamilyMenuItem(title: String(localized: "Add from History"), enabled: store.loadError == nil,
                         action: { historyPresented = true }),
          FamilyMenuItem(title: String(localized: "Paste Quick Commands…"), enabled: store.loadError == nil, action: {

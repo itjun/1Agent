@@ -26,7 +26,7 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var commandLibrarySelection: UUID?
     @Published var commandLibraryCollection: QuickCommandCollection = .common
     @Published var commandLibraryMessage: String?
-    @Published var commandLibrarySplitRatio: CGFloat = 0.5
+    @Published var commandLibrarySplitRatio: CGFloat = SheetLayout.commandLibraryDefaultSplitRatio
     @Published var isToolPreviewExpanded = false
     @Published var toolPreviewFrame: CGRect = .zero
     @Published var toolPreviewFindRequest = 0

@@ -48,6 +48,14 @@ enum QuickCommandCollection: Hashable, Identifiable {
         return item.host.map(Self.host) ?? .local
     }
     func contains(_ item: QuickCommand) -> Bool { self == Self.owner(of: item) }
+
+    func orderedCommands(in commands: [QuickCommand], sidebarContext: QuickCommandContext?) -> [QuickCommand] {
+        let ordered = commands.filter(contains).sorted(by: QuickCommand.displayOrder)
+        guard self != .common, let context = sidebarContext, context.host == host else { return ordered }
+        // 当前目录可见的命令使用终端侧栏原号；其余目录和待修复的命令接在后面。
+        return ordered.filter { $0.appearsInSidebar(for: context) } + ordered.filter { !$0.appearsInSidebar(for: context) }
+    }
+
     static func available(in commands: [QuickCommand]) -> [Self] {
         let owners = Set(commands.map(Self.owner))
         let hosts = owners.compactMap(\.host).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
@@ -275,6 +283,54 @@ struct QuickCommandRunRequest: Identifiable, Equatable {
     private static var consumed: Set<UUID> = []
     static func claim(_ id: UUID) throws {
         guard consumed.insert(id).inserted else { throw QuickCommandError.uncertain }
+    }
+}
+
+struct QuickCommandNumberedEntry: Identifiable, Equatable, Sendable {
+    let number: Int
+    let item: QuickCommand
+    var id: UUID { item.id }
+}
+
+enum QuickCommandDirectoryGroupKind: Hashable, Sendable {
+    case common
+    case directory(path: String, includesSubdirectories: Bool)
+    case hostWide(isLocal: Bool)
+}
+
+/// 相邻且归属同一工作目录的命令合并为一个组头，保留侧栏原始序号与排列顺序。
+struct QuickCommandDirectoryGroup: Identifiable, Equatable, Sendable {
+    let id: String
+    let kind: QuickCommandDirectoryGroupKind
+    let entries: [QuickCommandNumberedEntry]
+
+    var showsHeader: Bool { kind != .common }
+
+    static func group(entries: [(offset: Int, element: QuickCommand)],
+                      in collection: QuickCommandCollection) -> [QuickCommandDirectoryGroup] {
+        let numbered = entries.map { QuickCommandNumberedEntry(number: $0.offset + 1, item: $0.element) }
+        guard !numbered.isEmpty else { return [] }
+        if collection == .common {
+            return [QuickCommandDirectoryGroup(id: "common", kind: .common, entries: numbered)]
+        }
+        var groups: [(kind: QuickCommandDirectoryGroupKind, items: [QuickCommandNumberedEntry])] = []
+        for entry in numbered {
+            let kind: QuickCommandDirectoryGroupKind
+            if entry.item.scope == .directory, let path = entry.item.directory, !path.isEmpty {
+                kind = .directory(path: path, includesSubdirectories: entry.item.includesSubdirectories)
+            } else {
+                kind = .hostWide(isLocal: collection == .local)
+            }
+            if let last = groups.last, last.kind == kind {
+                groups[groups.count - 1].items.append(entry)
+            } else {
+                groups.append((kind: kind, items: [entry]))
+            }
+        }
+        return groups.enumerated().map { index, bucket in
+            QuickCommandDirectoryGroup(id: "group-\(index)-\(bucket.items[0].id.uuidString)",
+                                       kind: bucket.kind, entries: bucket.items)
+        }
     }
 }
 

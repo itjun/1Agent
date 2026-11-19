@@ -14,7 +14,7 @@ struct QuickCommandTests {
         try transferTests()
         try orderingTests()
         collectionTests()
-        lexerTests()
+        groupingAndLexerTests()
         try publicLibraryTests()
         let local = QuickCommandContext(sessionID: "a#0", directory: "/work/project", isLive: true)
         var item = QuickCommand(alias: "Pull", command: "python project.py git pull", directory: "/work/project")
@@ -316,6 +316,12 @@ extension QuickCommandTests {
         assert(deploy.matchesSearch("production") && !deploy.matchesSearch("other"))
         assert(repair.matchesSearch("removed"), "失联主机的指令仍可检索修复")
         let context = QuickCommandContext(host: "build", directory: "/srv/project")
+        let otherFolder = QuickCommand(alias: "其他目录", command: "ls", host: "build", directory: "/another")
+        let allItems = commands + [otherFolder]
+        let libraryOrder = QuickCommandCollection.host("build").orderedCommands(in: allItems, sidebarContext: context)
+        let sidebar = allItems.filter { $0.appearsInSidebar(for: context) }.sorted(by: QuickCommand.displayOrder)
+        assert(libraryOrder == sidebar + [otherFolder] && sidebar == [folder, deploy])
+        assert(QuickCommandCollection.common.orderedCommands(in: allItems, sidebarContext: context) == [common])
         let draft = QuickCommandCollection.host("build").draft(in: context)
         assert(draft.scope == .directory && draft.host == "build" && draft.directory == context.directory)
         let other = QuickCommandCollection.host("empty").draft(in: context)
@@ -327,7 +333,23 @@ extension QuickCommandTests {
         print("Command collections: bound hosts only, folder ownership, missing-host repair, search and draft context passed")
     }
 
-    static func lexerTests() {
+    static func groupingAndLexerTests() {
+        let cmd1 = QuickCommand(alias: "建立环境", command: "source ./init.sh", host: "zhetai-build", directory: "/root/diteng-script", order: 0)
+        let cmd2 = QuickCommand(alias: "更新发布", command: "python diteng.py deploy --host cdcp-raven --services rc --mode new", host: "zhetai-build", directory: "/root/diteng-script", order: 1)
+        let cmd3 = QuickCommand(alias: "日志巡检", command: "tail -n 100 app.log", host: "zhetai-build", directory: "/var/log/app", includesSubdirectories: true, order: 2)
+        let cmd4 = QuickCommand(alias: "整机状态", command: "uptime", scope: .host, host: "zhetai-build", order: 3)
+        let entries = [cmd1, cmd2, cmd3, cmd4].enumerated().map { ($0.offset, $0.element) }
+        let groups = QuickCommandDirectoryGroup.group(entries: entries, in: .host("zhetai-build"))
+        assert(groups.count == 3, "相同目录自动合并为同一组头")
+        assert(groups[0].showsHeader && groups[0].kind == .directory(path: "/root/diteng-script", includesSubdirectories: false))
+        assert(groups[0].entries.map(\.number) == [1, 2])
+        assert(groups[1].kind == .directory(path: "/var/log/app", includesSubdirectories: true) && groups[1].entries.map(\.number) == [3])
+        assert(groups[2].kind == .hostWide(isLocal: false) && groups[2].entries.map(\.number) == [4])
+
+        let commonItem = QuickCommand(alias: "通用", command: "df -h", scope: .all)
+        let commonGroups = QuickCommandDirectoryGroup.group(entries: [(0, commonItem)], in: .common)
+        assert(commonGroups.count == 1 && !commonGroups[0].showsHeader)
+
         let deployLine = "python diteng.py deploy --host cdcp-raven --services rc --mode=new"
         let deployTokens = QuickCommandLexer.tokenizeLine(deployLine)
         assert(deployTokens.map(\.text).joined() == deployLine)
@@ -349,6 +371,6 @@ extension QuickCommandTests {
         let gitFlags = QuickCommandLexer.extractLongFlags(complexLines.joined(separator: "\n"))
         assert(gitFlags.map(\.flag) == ["--oneline", "--graph", "--author"])
         assert(gitFlags[0].isFlagOnly && gitFlags[1].isFlagOnly && !gitFlags[2].isFlagOnly && gitFlags[2].value == "Alice Bob")
-        print("Command lexer tests passed")
+        print("Directory grouping and command lexer tests passed")
     }
 }

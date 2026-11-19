@@ -5926,6 +5926,9 @@
         }
       }
     },
+    "Includes Subfolders" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Includes Subfolders"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "包含子目录"}}}},
+    "All Folders on This Mac" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "All Folders on This Mac"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "本机通用（不限目录）"}}}},
+    "All Folders on Host" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "All Folders on Host"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "整机通用（不限目录）"}}}},
     "Parameters" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Parameters"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "参数速览"}}}},
     "Enabled" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enabled"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已启用"}}}}
   },
