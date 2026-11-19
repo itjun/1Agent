@@ -43,8 +43,8 @@ import ObjectiveC
         precondition(showCommands.key == "b" && showCommands.modifiers == [.command, .shift])
         showCommands.action()
         precondition(model.commandSidebars[b.id]?.isExpanded == true && state.selectedTabID == b.id)
-        precondition(TerminalCanvas.commandSidebarWidth(model.commandSidebars[a.id], paneWidth: 900) == 0,
-                     "打开 B 不占用 A 的正文宽度")
+        precondition(model.commandSidebars[a.id]?.isExpanded == true, "同一分屏共用一列命令栏，从 B 打开后 A 也算展开")
+        precondition(model.commandSidebarTab(in: state)?.id == b.id, "命令栏显示当前终端 B 的命令")
         let hideCommands = TerminalPaneActions.items(tab: b, model: model, window: state)
             .first { $0.title == String(localized: "Hide Quick Commands") }!
         precondition(hideCommands.key == "b" && hideCommands.modifiers == [.command, .shift])
@@ -54,31 +54,67 @@ import ObjectiveC
         precondition(customToggle.key == "j" && customToggle.modifiers == [.command, .option], "右键菜单跟随自定义快捷键")
         AppShortcuts.resetToDefault(.toggleToolSidebar)
         precondition(NSApp.windows.count == initialWindows, "快捷命令属于终端窗口")
+        let widthBeforeFocusChange = TerminalCanvas.commandSidebarWidth(model.sharedCommandSidebar(for: b.id), canvasWidth: 900)
         model.selectOnly(a.id, in: state, focusTerminal: false)
-        precondition(model.commandSidebars[a.id]?.isExpanded != true && state.selectedTabID == a.id,
-                     "切换到 A 不会自动打开它的命令栏")
-        precondition(TerminalCanvas.commandSidebarWidth(model.commandSidebars[b.id], paneWidth: 900) > 0,
-                     "B 失去焦点后仍保留自己的命令栏")
+        precondition(model.commandSidebarTab(in: state)?.id == a.id, "切到 A 后命令栏跟着显示 A 的命令")
+        precondition(widthBeforeFocusChange > 0
+                     && TerminalCanvas.commandSidebarWidth(model.sharedCommandSidebar(for: a.id), canvasWidth: 900) == widthBeforeFocusChange,
+                     "切换焦点不改变命令栏宽度，终端不用重排")
         precondition(TerminalPaneActions.items(tab: b, model: model, window: state)
-            .contains { $0.title == String(localized: "Hide Quick Commands") }, "未聚焦终端的菜单使用自身状态")
+            .contains { $0.title == String(localized: "Hide Quick Commands") }, "未聚焦终端的菜单也反映分屏共用的状态")
         let selection = UUID()
-        model.commandSidebars[a.id] = TerminalCommandSidebarState(width: 310, selectedCommandID: selection)
+        model.commandSidebars[a.id]?.selectedCommandID = selection
+        model.toggleToolSidebar(in: state)
+        precondition(model.commandSidebars[a.id]?.isExpanded == false && model.commandSidebars[b.id]?.isExpanded == false,
+                     "在 A 收起，整个分屏的命令栏一起收起")
+        precondition(TerminalPaneActions.items(tab: b, model: model, window: state)
+            .contains { $0.title == String(localized: "Show Quick Commands") }, "收起后 B 的菜单显示展开入口")
+        model.selectOnly(b.id, in: state, focusTerminal: false)
+        precondition(model.sharedCommandSidebar(for: b.id) == nil, "切到 B 不会重新展开")
         model.toggleToolSidebar(in: state)
         precondition(model.commandSidebars[a.id]?.isExpanded == true && model.commandSidebars[b.id]?.isExpanded == true,
-                     "两个分屏终端可以分别打开命令栏")
-        model.toggleToolSidebar(in: state)
-        precondition(model.commandSidebars[a.id]?.isExpanded == false && model.commandSidebars[b.id]?.isExpanded == true,
-                     "关闭 A 不影响 B")
-        model.selectOnly(b.id, in: state, focusTerminal: false)
-        precondition(model.commandSidebars[b.id]?.isExpanded == true, "切回 B 保留展开")
-        model.selectOnly(a.id, in: state, focusTerminal: false)
-        precondition(model.commandSidebars[a.id]?.isExpanded == false, "切回 A 保留收起")
-        model.toggleToolSidebar(in: state)
-        precondition(model.commandSidebars[a.id]?.selectedCommandID == selection && model.commandSidebars[a.id]?.width == 310)
+                     "在 B 展开，整个分屏一起展开")
+        precondition(model.commandSidebars[a.id]?.selectedCommandID == selection, "展开收起不影响各终端选中的命令")
+        model.updateSharedCommandSidebar(for: b.id) { $0.width = 310 }
+        precondition(model.commandSidebars[a.id]?.width == 310 && model.commandSidebars[b.id]?.width == 310,
+                     "拖宽对整个分屏生效")
+        precondition(model.commandSidebars[a.id]?.selectedCommandID == selection && model.commandSidebars[b.id]?.selectedCommandID == nil,
+                     "选中的命令仍按终端各自保存")
         let otherWindow = WindowState()
         model.toggleCommandSidebar(for: a.id, in: otherWindow)
         precondition(model.commandSidebars[a.id]?.isExpanded == true, "其他窗口不能修改不属于自己的终端")
-        print("PASS independent terminal sidebars, split focus retention, isolated toggles and width/selection retention")
+        print("PASS shared split sidebar follows focus, toggles and resizes together, keeps per-terminal selection")
+
+        model.openLocalTerminal(at: "/private/tmp", placement: .split(.right), beside: b.id, in: state)
+        try await eventually { model.tabs.count == 3 }
+        let c = model.tabs.first { $0.id != a.id && $0.id != b.id }!
+        model.expandCommandSidebarIfNeeded(for: c)
+        precondition(model.commandSidebars[c.id] == TerminalCommandSidebarState(isExpanded: true, width: 310),
+                     "新分出来的终端沿用分屏的展开状态和宽度")
+        model.closeTab(c.id)
+        model.toggleCommandSidebar(for: a.id, in: state)
+        model.openLocalTerminal(at: "/private/tmp", placement: .split(.right), beside: b.id, in: state)
+        try await eventually { model.tabs.count == 3 }
+        let d = model.tabs.first { $0.id != a.id && $0.id != b.id }!
+        model.expandCommandSidebarIfNeeded(for: d)
+        precondition(model.commandSidebars[d.id]?.isExpanded == false, "分屏已收起时，新终端不会自动展开")
+        model.closeTab(d.id)
+        model.toggleCommandSidebar(for: a.id, in: state)
+        model.open(.preview(path: "/private/tmp/preview.txt"), placement: .split(.right), beside: b.id, in: state)
+        try await eventually { model.tabs.count == 3 }
+        let preview = model.tabs.first { !$0.hasTerminal }!
+        model.selectOnly(preview.id, in: state, focusTerminal: false)
+        precondition(model.commandSidebarTab(in: state)?.id == a.id && model.sharedCommandSidebar(for: preview.id) != nil,
+                     "选中预览面板时命令栏不消失，显示分屏里第一个终端的命令")
+        model.closeTab(preview.id)
+        model.selectOnly(a.id, in: state, focusTerminal: false)
+        model.commandSidebars[a.id] = TerminalCommandSidebarState(isExpanded: false, width: 250)
+        model.commandSidebars[b.id] = TerminalCommandSidebarState(isExpanded: true, width: 300)
+        precondition(model.sharedCommandSidebar(for: a.id)?.width == 300, "旧存档里只有 B 展开时，命令栏用 B 的宽度")
+        model.toggleCommandSidebar(for: a.id, in: state)
+        model.toggleCommandSidebar(for: a.id, in: state)
+        precondition(model.sharedCommandSidebar(for: a.id)?.width == 300, "收起再展开后宽度不变")
+        print("PASS new split terminals follow the shared state and preview panes keep the sidebar")
 
         let old = model.commandContext(in: state, targetTabID: b.id)
         model.selectOnly(a.id, in: state, focusTerminal: false)
@@ -114,17 +150,17 @@ import ObjectiveC
 
         let frame = CGRect(x: 0, y: 0, width: 900, height: 600)
         let expanded = TerminalCommandSidebarState(isExpanded: true)
-        let width = TerminalCanvas.commandSidebarWidth(expanded, paneWidth: frame.width)
-        let before = TerminalCanvas.terminalContentFrame(frame, isFloating: false, accessoryHeight: 30)
-        let after = TerminalCanvas.terminalContentFrame(frame, isFloating: false, accessoryHeight: 30, commandSidebarWidth: width)
-        precondition(before.minX == after.minX && before.minY == after.minY && before.height == after.height)
-        precondition(before.width - after.width == width + 5, "command island keeps the same 5pt gap as the internal splits")
-        precondition(TerminalCanvas.commandSidebarWidth(nil, paneWidth: 900) == 0)
-        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(), paneWidth: 900) == 0)
-        precondition(TerminalCanvas.commandSidebarWidth(expanded, paneWidth: 300) == 0)
-        precondition(TerminalCanvas.commandSidebarWidth(expanded, paneWidth: 900) == width)
-        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(isExpanded: true, width: 2000), paneWidth: 500) == 315)
-        print("PASS sidebar reserves terminal width without changing header/search geometry and restores after narrow layout")
+        let width = TerminalCanvas.commandSidebarWidth(expanded, canvasWidth: frame.width)
+        let area = TerminalCanvas.paneArea(frame, commandSidebarWidth: width)
+        precondition(area.minX == frame.minX && area.minY == frame.minY && area.height == frame.height)
+        precondition(frame.width - area.width == width + 5, "command island keeps the same 5pt gap as the internal splits")
+        precondition(TerminalCanvas.paneArea(frame, commandSidebarWidth: 0) == frame, "收起后分屏占满整个画布")
+        precondition(TerminalCanvas.commandSidebarWidth(nil, canvasWidth: 900) == 0)
+        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(), canvasWidth: 900) == 0)
+        precondition(TerminalCanvas.commandSidebarWidth(expanded, canvasWidth: 300) == 0)
+        precondition(TerminalCanvas.commandSidebarWidth(expanded, canvasWidth: 900) == width)
+        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(isExpanded: true, width: 2000), canvasWidth: 500) == 315)
+        print("PASS shared sidebar reserves one canvas column without changing pane header/search geometry and restores after narrow layout")
     }
 
     @MainActor static func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }

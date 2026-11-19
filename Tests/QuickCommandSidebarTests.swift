@@ -119,7 +119,12 @@ import ObjectiveC
         try require(model.commandSidebars[original.id]?.selectedCommandID == second.id, "重新打开保留已选指令")
         try require(press(try requiredElement(rowID, in: native)))
         try await eventually { element("quickCommands.code." + item.id.uuidString, in: native) != nil }
-        try require(!descendants(try unwrap(native.contentView)).contains { $0 is QuickCommandPreviewAnchorView }, "完整命令在底部，不打开悬浮窗")
+        try require(!descendants(try unwrap(native.contentView)).contains { $0 is QuickCommandPreviewAnchorView }, "完整命令在列表下方，不打开悬浮窗")
+        let detailsFrame = try accessibilityFrame(try requiredElement("quickCommands.details." + original.id.uuidString, in: native))
+        // 列表下边距 8 加详情内边距 12。
+        try require(abs(initialSecondFrame.minY - 20 - detailsFrame.maxY) < 1, "命令详情紧跟在列表下面")
+        let nearbyRunFrame = try accessibilityFrame(try requiredElement("quickCommands.run." + item.id.uuidString, in: native))
+        try require(initialSecondFrame.minY - nearbyRunFrame.minY < 130, "短命令的执行按钮紧跟命令原文，不沉到侧栏最底下")
         try require(try accessibilityFrame(try requiredElement(rowID, in: native)).height == initialRowHeight, "选择命令不改变行高")
         try require(try accessibilityFrame(try requiredElement(secondRowID, in: native)) == initialSecondFrame, "选择命令不推动其他行")
         try require(element("quickCommands.quickCopy." + item.id.uuidString, in: native) == nil, "列表不重复提供拷贝入口")
@@ -264,10 +269,11 @@ import ObjectiveC
         try key(53)
         try require(model.commandSidebars[original.id]?.isExpanded == false, "跨分屏选命令后列表应保留键盘焦点处理 Esc")
         model.commandSidebars[original.id]?.isExpanded = true
-        // 每次从另一个终端开始，分别点击命令列表和详情的空白处。
-        let preview = try accessibilityFrame(try requiredElement("quickCommands.preview." + original.id.uuidString, in: native))
-        let listBlank = NSPoint(x: preview.midX, y: preview.maxY + 70)
-        for point in [listBlank, NSPoint(x: preview.midX, y: preview.minY + 10)] {
+        // 每次从另一个终端开始，分别点击详情下方和详情内两个按钮之间的空白处。
+        let copyButton = try accessibilityFrame(try requiredElement("quickCommands.copy." + item.id.uuidString, in: native))
+        let runButton = try accessibilityFrame(try requiredElement("quickCommands.run." + item.id.uuidString, in: native))
+        let sidebarBlank = NSPoint(x: runButton.midX, y: runButton.minY - 60)
+        for point in [sidebarBlank, NSPoint(x: (copyButton.maxX + runButton.minX) / 2, y: runButton.midY)] {
             model.selectOnly(sibling.id, in: state, focusTerminal: false)
             native.makeFirstResponder(nil)
             let location = native.convertPoint(fromScreen: point)
@@ -283,7 +289,7 @@ import ObjectiveC
                     && native.firstResponder === target
             }
         }
-        print("PASS clicks in command list and detail backgrounds select and focus their owning terminal")
+        print("PASS clicks in sidebar and detail backgrounds select and focus their owning terminal")
         host.removeFromSuperview()
         model.selectOnly(sibling.id, in: state, focusTerminal: false)
         let originalExecution = model.commandExecution(for: original.id)

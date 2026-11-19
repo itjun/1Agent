@@ -105,27 +105,63 @@ import SwiftUI
         }
         // Exercise the full height of the custom title bar, including the strip below
         // the native title bar. Start with window movement locked by a pane title.
+        NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
+        func accessibilityFrame(_ identifier: String) -> CGRect? {
+            func find(_ object: NSObject) -> NSObject? {
+                if object.responds(to: NSSelectorFromString("accessibilityIdentifier")),
+                   object.value(forKey: "accessibilityIdentifier") as? String == identifier { return object }
+                guard object.responds(to: NSSelectorFromString("accessibilityChildren")),
+                      let children = object.value(forKey: "accessibilityChildren") as? [NSObject] else { return nil }
+                return children.lazy.compactMap { find($0) }.first
+            }
+            return (find(native)?.value(forKey: "accessibilityFrame") as? NSValue).map { native.convertFromScreen($0.rectValue) }
+        }
+        let canvas = relay.catcher!.bounds
+        let framesWithoutCommands = relay.frames
         model.commandSidebars[ids[0], default: .init()].isExpanded = true
         try await settle()
         let paneWidth = relay.frames[ids[0]]!.width
-        let commandsWidth = TerminalCanvas.commandSidebarWidth(model.commandSidebars[ids[0]], paneWidth: paneWidth)
-        try check(commandsWidth > 0, "The fixture shows the first pane's command sidebar")
-        let terminalWidth = paneWidth - commandsWidth - ShellLayout.workspaceInset
+        let commandsWidth = TerminalCanvas.commandSidebarWidth(model.sharedCommandSidebar(for: ids[0]), canvasWidth: canvas.width)
+        try check(commandsWidth > 0, "The fixture shows the split's shared command sidebar")
+        let paneEdge = canvas.width - commandsWidth - ShellLayout.workspaceInset
+        try check(ids.allSatisfy { relay.frames[$0]!.maxX <= paneEdge + 1 } && abs(relay.frames[ids[2]]!.maxX - paneEdge) < 1,
+                  "Every pane sits left of the one shared command island with a single gap")
+        try check(paneWidth < framesWithoutCommands[ids[0]]!.width && relay.frames[ids[2]]!.width < framesWithoutCommands[ids[2]]!.width,
+                  "The shared island takes its width from the whole split, not from one pane")
+        guard let island = accessibilityFrame("quickCommands.pane." + ids[0].uuidString) else {
+            throw Failure(message: "The shared command island shows the focused terminal's commands")
+        }
+        let canvasFrame = relay.catcher!.convert(canvas, to: nil)
+        try check(abs(island.minX - (canvasFrame.minX + paneEdge + ShellLayout.workspaceInset)) < 1
+                  && abs(island.maxX - canvasFrame.maxX) < 1 && abs(island.height - canvasFrame.height) < 1,
+                  "The shared command island fills the canvas's right column from top to bottom")
+        try check(accessibilityFrame("quickCommands.target." + ids[0].uuidString) != nil,
+                  "In a split the island's title names the terminal that receives commands")
         let headerBottom = ShellLayout.compactHeaderHeight - 2
         let sidebarBlank = NSPoint(x: 130, y: point(ids[0], x: 0, y: headerBottom).y)
+        let commandHeader = relay.catcher!.convert(NSPoint(x: canvas.width - 25, y: canvas.height - headerY), to: nil)
         for (name, blank) in [
             ("navigation header", sidebarBlank),
             ("left of terminal title", point(ids[0], x: 8, y: headerY)),
-            ("right of terminal title", point(ids[0], x: terminalWidth - 8, y: headerBottom)),
-            ("command header", point(ids[0], x: paneWidth - 25, y: headerY))
+            ("right of terminal title", point(ids[0], x: paneWidth - 8, y: headerBottom)),
+            ("command header", commandHeader)
         ] {
             try check(hit(blank) is WindowDragAreaView, "Window drag must receive presses on the \(name)")
             native.isMovable = false
             try await gesture(from: blank, to: nil)
             try check(native.isMovable, "A press on the \(name) must release the pane title's movement lock")
         }
-        model.commandSidebars[ids[0]]?.isExpanded = false
+        let framesBeforeFocusChange = relay.frames
+        model.selectOnly(ids[3], in: window, focusTerminal: false)
         try await settle()
+        try check(accessibilityFrame("quickCommands.pane." + ids[3].uuidString) == island
+                  && accessibilityFrame("quickCommands.pane." + ids[0].uuidString) == nil,
+                  "The island follows the focused terminal and stays in place")
+        try check(relay.frames == framesBeforeFocusChange, "Changing focus keeps every pane's size, so no terminal reflows")
+        model.selectOnly(ids[0], in: window, focusTerminal: false)
+        model.updateSharedCommandSidebar(for: ids[0]) { $0.isExpanded = false }
+        try await settle()
+        try check(relay.frames == framesWithoutCommands, "Collapsing the island returns its column to the panes")
         let before = model.workspaces
         let source = titleCenter(ids[2])
         let target = point(ids[0], x: 12, y: relay.frames[ids[0]]!.height / 2)

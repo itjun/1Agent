@@ -70,7 +70,7 @@ import ObjectiveC
         try check(restored.commandSidebars[id] == model.commandSidebars[id], "本地终端恢复宽度和选中命令")
         try check(restored.commandSidebars[remoteID] == model.commandSidebars[remoteID], "SSH 终端恢复自己的命令栏状态")
         try check(restored.commandSidebars[untouchedID] == nil, "未打开的命令栏仍保持默认收起")
-        try check(TerminalCanvas.commandSidebarWidth(restored.commandSidebars[id], paneWidth: 900) == 310,
+        try check(TerminalCanvas.commandSidebarWidth(restored.sharedCommandSidebar(for: id), canvasWidth: 900) == 310,
                   "恢复的命令栏在正常窗口宽度下可见")
         try check(!restored.commandExecution(for: id).isSubmitting, "恢复界面不会恢复命令执行")
         print("PASS local/SSH sidebar expansion, width, selection, legacy defaults and visible layout")
