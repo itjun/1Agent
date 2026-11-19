@@ -28,7 +28,11 @@ struct TerminalCanvas: View {
         GeometryReader { geo in
             let root = model.displayRoot(in: window)
             let bounds = CGRect(origin: .zero, size: geo.size)
-            let layout = bounds
+            let commandTab = model.commandSidebarTab(in: window)
+            let commandWidth = commandTab.map {
+                Self.commandSidebarWidth(model.sharedCommandSidebar(for: $0.id), canvasWidth: bounds.width)
+            } ?? 0
+            let layout = Self.paneArea(bounds, commandSidebarWidth: commandWidth)
             let zoomed = model.zoomedPane(in: window)
             let frames = Self.paneFrames(root, zoomed: zoomed, in: layout, isFloating: isShellTransparent)
             let dividers = Self.paneDividers(root, zoomed: zoomed, in: layout)
@@ -44,7 +48,7 @@ struct TerminalCanvas: View {
             ZStack(alignment: .topLeading) {
                 Color.clear
                 ForEach(ownTabs) { tab in
-                    let content = frames[tab.id].map { Self.terminalContentFrame($0, isFloating: isShellTransparent, accessoryHeight: findBarInset(tab), commandSidebarWidth: commandSidebarWidth(tab, in: $0)) }
+                    let content = frames[tab.id].map { Self.terminalContentFrame($0, isFloating: isShellTransparent, accessoryHeight: findBarInset(tab)) }
                     let drawn = content ?? lastContentFrame[tab.id] ?? fallbackContent
                     let visible = content != nil
                     let isSelected = window.selectedTabID == tab.id && window.section == .terminals
@@ -139,6 +143,9 @@ struct TerminalCanvas: View {
                                    isSplit: isSplit, isZoomed: zoomed == tab.id)
                     }
                 }
+                if let commandTab, commandWidth > 0 {
+                    commandSidebar(commandTab, width: commandWidth, in: bounds, isSplit: isSplit)
+                }
             }
             .overlay {
                 PaneDropCatcher(relay: dropRelay, chrome: chrome)
@@ -232,8 +239,6 @@ struct TerminalCanvas: View {
 
     @ViewBuilder
     private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
-        let sidebarWidth = commandSidebarWidth(tab, in: frame)
-        let terminalWidth = max(1, frame.width - sidebarWidth - (sidebarWidth > 0 ? ShellLayout.workspaceInset : 0))
         let isSelected = window.selectedTabID == tab.id && window.section == .terminals
         let theme = TerminalThemePreferences.selected(isDark: interfaceIsDark)
         let paneChrome = themedPaneChrome(theme)
@@ -244,61 +249,68 @@ struct TerminalCanvas: View {
                     model.expandCommandSidebarIfNeeded(for: tab)
                 }
                 .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
-                .frame(width: terminalWidth, height: headerHeight)
+                .frame(width: frame.width, height: headerHeight)
                 .background(WindowDragArea().accessibilityHidden(true))
                 .background(paneChrome.readingBackground)
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: ShellLayout.contentRadius,
                                                  topTrailingRadius: ShellLayout.contentRadius))
                 .environment(\.windowChrome, paneChrome)
                 .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
-                .position(x: frame.minX + terminalWidth / 2, y: frame.minY + headerHeight / 2)
+                .position(x: frame.midX, y: frame.minY + headerHeight / 2)
                 .zIndex(4)
-        }
-        if tab.hasTerminal && sidebarWidth > 0 {
-            let height = max(1, frame.height)
-            let dividerX = frame.maxX - sidebarWidth
-            QuickCommandSidebar(model: model, window: window, tabID: tab.id)
-                .environment(\.windowChrome, paneChrome)
-                .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
-                .frame(width: sidebarWidth, height: height)
-                .overlay {
-                    Color.black.opacity(isSelected ? 0 : ShellLayout.inactivePaneDimming)
-                        .allowsHitTesting(false).accessibilityHidden(true)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
-                .position(x: frame.maxX - sidebarWidth / 2, y: frame.midY)
-                .zIndex(3)
-            PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
-                if commandWidthDrag?.id != tab.id { commandWidthDrag = (tab.id, sidebarWidth) }
-                guard let drag = commandWidthDrag else { return }
-                model.commandSidebars[tab.id, default: TerminalCommandSidebarState()].width =
-                    min(SheetLayout.terminalCommandSidebarMaximumWidth,
-                        max(SheetLayout.terminalCommandSidebarMinimumWidth, drag.start - delta))
-            }, onDragEnded: { commandWidthDrag = nil }, onDoubleClick: {
-                model.commandSidebars[tab.id, default: TerminalCommandSidebarState()].width = SheetLayout.terminalCommandSidebarWidth
-            })
-            .frame(width: ShellLayout.workspaceInset, height: height)
-            .position(x: dividerX - ShellLayout.workspaceInset / 2, y: frame.midY)
-            .accessibilityLabel("Resize Quick Commands")
-            .zIndex(5)
         }
         if let findState = find.states[tab.sessionID] {
             let findTop = frame.minY + headerHeight
             TerminalFindBar(state: findState, onFocus: { model.notePaneFocused(tab.id, in: window) })
                 .environment(\.windowChrome, paneChrome)
                 .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
-                .frame(width: terminalWidth, height: Theme.PaneStyle.findBarHeight)
-                .position(x: frame.minX + terminalWidth / 2, y: findTop + Theme.PaneStyle.findBarHeight / 2)
+                .frame(width: frame.width, height: Theme.PaneStyle.findBarHeight)
+                .position(x: frame.midX, y: findTop + Theme.PaneStyle.findBarHeight / 2)
                 .zIndex(4)
         }
         if tab.hasTerminal && !isSelected {
             RoundedRectangle(cornerRadius: ShellLayout.contentRadius)
                 .fill(Color.black.opacity(ShellLayout.inactivePaneDimming))
-                .frame(width: terminalWidth, height: frame.height)
-                .position(x: frame.minX + terminalWidth / 2, y: frame.midY)
+                .frame(width: frame.width, height: frame.height)
+                .position(x: frame.midX, y: frame.midY)
                 .allowsHitTesting(false).accessibilityHidden(true)
                 .zIndex(6)
         }
+    }
+
+    /// 整个分屏共用的命令栏，占画布最右一列，内容跟着当前终端走。
+    @ViewBuilder
+    private func commandSidebar(_ tab: TerminalTab, width: CGFloat, in bounds: CGRect, isSplit: Bool) -> some View {
+        let isSelected = window.selectedTabID == tab.id && window.section == .terminals
+        let paneChrome = themedPaneChrome(TerminalThemePreferences.selected(isDark: interfaceIsDark))
+        QuickCommandSidebar(model: model, window: window, tabID: tab.id,
+                            targetTitle: isSplit ? numberedPaneTitle(tab) : nil)
+            // 换终端时重建，选中的命令、拷贝提示和键盘焦点都回到新终端自己的状态。
+            .id(tab.id)
+            .environment(\.windowChrome, paneChrome)
+            .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
+            .frame(width: width, height: bounds.height)
+            .overlay {
+                Color.black.opacity(isSelected ? 0 : ShellLayout.inactivePaneDimming)
+                    .allowsHitTesting(false).accessibilityHidden(true)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+            .position(x: bounds.maxX - width / 2, y: bounds.midY)
+            .zIndex(3)
+        PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
+            if commandWidthDrag?.id != tab.id { commandWidthDrag = (tab.id, width) }
+            guard let drag = commandWidthDrag else { return }
+            model.updateSharedCommandSidebar(for: tab.id) {
+                $0.width = min(SheetLayout.terminalCommandSidebarMaximumWidth,
+                               max(SheetLayout.terminalCommandSidebarMinimumWidth, drag.start - delta))
+            }
+        }, onDragEnded: { commandWidthDrag = nil }, onDoubleClick: {
+            model.updateSharedCommandSidebar(for: tab.id) { $0.width = SheetLayout.terminalCommandSidebarWidth }
+        })
+        .frame(width: ShellLayout.workspaceInset, height: bounds.height)
+        .position(x: bounds.maxX - width - ShellLayout.workspaceInset / 2, y: bounds.midY)
+        .accessibilityLabel("Resize Quick Commands")
+        .zIndex(5)
     }
 
     private func themedPaneChrome(_ theme: TerminalThemeDescriptor) -> WindowChrome {
@@ -332,10 +344,6 @@ struct TerminalCanvas: View {
         .foregroundStyle(chrome.text)
         .padding(.horizontal, Theme.Space.m)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-    }
-
-    private func commandSidebarWidth(_ tab: TerminalTab, in frame: CGRect) -> CGFloat {
-        Self.commandSidebarWidth(model.commandSidebars[tab.id], paneWidth: frame.width)
     }
 
     /// 搜索栏仍预留空间；右下角通知不再改变终端尺寸或滚动位置。
@@ -390,17 +398,23 @@ func copySessionInfo(_ tab: TerminalTab, model: AppModel) {
 
 extension TerminalCanvas {
     /// 先确定整张浮动卡片，再预留内部标题、搜索及连接状态区域。
-    static func terminalContentFrame(_ frame: CGRect, isFloating: Bool, accessoryHeight: CGFloat = 0, commandSidebarWidth: CGFloat = 0) -> CGRect {
-        var content = Self.contentFrame(ShellLayout.contentFrame(frame, isFloating: isFloating),
-                                       headerHeight: Self.headerHeight(for: frame, isFloating: isFloating) + accessoryHeight)
-        content.size.width = max(1, content.width - commandSidebarWidth - (commandSidebarWidth > 0 ? ShellLayout.workspaceInset : 0))
-        return content
+    static func terminalContentFrame(_ frame: CGRect, isFloating: Bool, accessoryHeight: CGFloat = 0) -> CGRect {
+        Self.contentFrame(ShellLayout.contentFrame(frame, isFloating: isFloating),
+                          headerHeight: Self.headerHeight(for: frame, isFloating: isFloating) + accessoryHeight)
     }
 
-    static func commandSidebarWidth(_ state: TerminalCommandSidebarState?, paneWidth: CGFloat) -> CGFloat {
+    /// 命令栏占画布最右一列，分屏在剩下的区域里排布，中间留一道和分屏之间相同的间隙。
+    static func paneArea(_ bounds: CGRect, commandSidebarWidth: CGFloat) -> CGRect {
+        guard commandSidebarWidth > 0 else { return bounds }
+        var area = bounds
+        area.size.width = max(1, bounds.width - commandSidebarWidth - ShellLayout.workspaceInset)
+        return area
+    }
+
+    static func commandSidebarWidth(_ state: TerminalCommandSidebarState?, canvasWidth: CGFloat) -> CGFloat {
         guard let state, state.isExpanded else { return 0 }
-        let available = paneWidth - SheetLayout.terminalMinimumContentWidth - ShellLayout.workspaceInset
-        // 极窄分屏临时让出正文空间，放大后恢复，不改变终端自己的展开状态。
+        let available = canvasWidth - SheetLayout.terminalMinimumContentWidth - ShellLayout.workspaceInset
+        // 窗口太窄时临时让出正文空间，放大后恢复，不改变展开状态。
         guard available >= SheetLayout.terminalCommandSidebarMinimumWidth else { return 0 }
         return min(max(state.width, SheetLayout.terminalCommandSidebarMinimumWidth),
                    SheetLayout.terminalCommandSidebarMaximumWidth, available)
