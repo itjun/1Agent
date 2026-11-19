@@ -91,12 +91,21 @@ import ObjectiveC
             }
             try await eventually("命令行提供右键菜单") { rowActions() != nil }
             let actions = try unwrap(rowActions())
+            try require(!actions.contains { [String(localized: "Move Up"), String(localized: "Move Down")].contains($0.title) })
             let saveToLibrary = try unwrap(actions.first { $0.title == String(localized: "Save to Library") && $0.enabled })
             saveToLibrary.action()
             let firstCommon = try unwrap(store.commands.first { $0.scope == .all && $0.command == item.command })
             try require(firstCommon.id != item.id && store.commands.contains { $0.id == item.id && $0.scope == .local })
             try require(state.commandLibraryCollection == .common && state.commandLibrarySelection == firstCommon.id)
-            print("PASS row menu saves an independent library copy")
+
+            let secondCommon = QuickCommand(alias: "公共命令二", command: "printf second", scope: .all)
+            try store.save(secondCommon)
+            try await eventually("公共命令行提供拖动排序落点") { reorderTarget(for: firstCommon.id) != nil }
+            let target = try unwrap(reorderTarget(for: firstCommon.id))
+            target.move(secondCommon.id, after: false)
+            try require(QuickCommandCollection.common.orderedCommands(in: store.commands, sidebarContext: nil).map(\.id)
+                        == [secondCommon.id, firstCommon.id], "拖动公共命令后保存新顺序")
+            print("PASS row menu saves an independent library copy and common rows persist the dragged order")
             state.commandLibraryCollection = .local
             state.commandLibrarySelection = item.id
             try await eventually { element("quickCommand." + item.id.uuidString, in: native) != nil }

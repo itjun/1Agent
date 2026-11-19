@@ -430,8 +430,6 @@ struct QuickCommandLibraryView: View {
              copy.id = UUID()
              window.confirmDiscardCommandDraftIfNeeded { editing = copy }
          }),
-         FamilyMenuItem(title: String(localized: "Move Up"), action: { move(item, delta: -1) }),
-         FamilyMenuItem(title: String(localized: "Move Down"), action: { move(item, delta: 1) }),
          .separator,
          FamilyMenuItem(title: String(localized: "Delete"), destructive: true, action: {
              do {
@@ -448,13 +446,6 @@ struct QuickCommandLibraryView: View {
         ([QuickCommandCollection.local] + model.hosts.map { .host($0.alias) }).map { destination in
             FamilyMenuItem(title: destination.title, action: { model.copyLibraryCommand(item.id, to: destination, in: window) })
         }
-    }
-
-    private func move(_ item: QuickCommand, delta: Int) {
-        let peers = commands.filter { QuickCommandCollection.owner(of: $0) == QuickCommandCollection.owner(of: item) && $0.section == item.section }
-        guard let index = peers.firstIndex(where: { $0.id == item.id }), peers.indices.contains(index + delta) else { return }
-        do { try store.move(item.id, relativeTo: peers[index + delta].id, after: delta > 0) }
-        catch { self.error = error.localizedDescription }
     }
 
     private func reorderCommand(sourceID: UUID, destinationID: UUID, isAfter: Bool) {
@@ -544,7 +535,7 @@ private struct CommandLibraryRow: View {
             .focused($isMenuFocused)
         }
         .overlay {
-            if allowsReordering, item.scope != .all {
+            if allowsReordering {
                 QuickCommandReorderTarget(item: item, chrome: chrome, onMove: onReorder)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
