@@ -54,7 +54,7 @@ struct TerminalThemeSettingsPage: View {
                                         .id(theme.id)
                                 }
                             }
-                            .padding(3) // 选中和键盘焦点轮廓不被滚动区域裁切。
+                            .padding(3) // 给卡片外侧的键盘焦点环留出空间。
                         }
                     }
                     .onMoveCommand { direction in
@@ -116,10 +116,6 @@ struct TerminalThemeSettingsPage: View {
         } label: {
             VStack(alignment: .leading, spacing: Theme.Space.s) {
                 TerminalThemePreview(colors: theme.colors(interfaceIsDark: appearance.interfaceIsDark))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: TerminalThemePreview.outerRadius)
-                            .strokeBorder(selected ? chrome.accent : chrome.hairline, lineWidth: selected ? 2 : 1)
-                    }
                 HStack(spacing: Theme.Space.xs) {
                     if selected {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(chrome.accent)
@@ -163,7 +159,7 @@ struct TerminalThemeSettingsPage: View {
 
 struct TerminalThemePreview: View {
     @Environment(\.isShellTransparent) private var isShellTransparent
-    static let outerRadius = ShellLayout.contentRadius + ShellLayout.workspaceInset
+    private static let outerRadius = ShellLayout.contentRadius + ShellLayout.workspaceInset
     let colors: TerminalThemeColors
     private func color(_ hex: String) -> Color { RGBColor(ghosttyHex: hex)!.color }
 

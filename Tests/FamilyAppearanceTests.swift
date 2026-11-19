@@ -435,6 +435,7 @@ enum FamilyAppearanceTests {
                             guard let card = accessibilityElements(window).first(where: {
                                 accessibilityValue($0, "accessibilityIdentifier") as? String == "themes.card." + themeID
                             }) else { expect(false, "theme card is visible: " + themeID); return }
+                            let candidateEdge = themePreviewTopEdge(of: card, in: window)
                             expect(unsafeBitCast(card.method(for: selector), to: Press.self)(card, selector),
                                    "theme card activates: " + themeID)
                             for _ in 0..<5 { drain() }
@@ -447,6 +448,9 @@ enum FamilyAppearanceTests {
                             expect(GhosttyRuntime.controller.theme == theme.configuration
                                    && (GhosttyRuntime.controller.effectiveColorScheme == .dark) == theme.palette!.isDark,
                                    "theme card updates the engine and window together")
+                            let selectedEdge = themePreviewTopEdge(of: card, in: window)
+                            expect(zip(candidateEdge, selectedEdge).allSatisfy { abs($0 - $1) < 0.02 },
+                                   "applying a theme leaves its preview gradient edge unchanged: " + themeID)
                         }
                         UserDefaults.standard.set("dark", forKey: TerminalAppearance.storageKey)
                         AppearanceDriver.shared.reapply()
@@ -490,6 +494,18 @@ enum FamilyAppearanceTests {
             }
         }
         print("CHECKED: all six independent settings pages at minimum, common and large window sizes; hidden pages excluded from accessibility; preset appearance retained")
+    }
+
+    @MainActor static func themePreviewTopEdge(of card: NSObject, in window: NSWindow) -> [CGFloat] {
+        let view = window.contentView!
+        let frame = view.convert(window.convertFromScreen(accessibilityFrame(card)), from: nil)
+        let top = view.isFlipped ? frame.minY : view.bounds.maxY - frame.maxY
+        let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        let x = Int(frame.midX * CGFloat(bitmap.pixelsWide) / view.bounds.width)
+        let y = Int((top + 1.5) * CGFloat(bitmap.pixelsHigh) / view.bounds.height)
+        let color = bitmap.colorAt(x: x, y: y)!.usingColorSpace(.sRGB)!
+        return [color.redComponent, color.greenComponent, color.blueComponent]
     }
 
     @MainActor static func accessibilityValue(_ object: NSObject, _ name: String) -> Any? {
