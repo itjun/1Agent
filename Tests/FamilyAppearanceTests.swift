@@ -415,7 +415,17 @@ enum FamilyAppearanceTests {
                 expect(Set(identifiers.filter { $0.hasPrefix("settings.content.") }) == ["settings.content." + page],
                        "only the selected page scroll area is exposed: " + page)
                 if page == "appearance" {
+                    let cards = accessibilityElements(window).filter {
+                        (accessibilityValue($0, "accessibilityIdentifier") as? String)?.hasPrefix("themes.card.") == true
+                    }
+                    let frames = cards.map { accessibilityFrame($0) }
+                    let top = frames.map(\.maxY).max() ?? 0
+                    let row = frames.filter { abs($0.maxY - top) < 1 }
+                    let columns = size == SettingsLayout.windowMinimumSize ? 2 : size == SettingsLayout.windowDefaultSize ? 3 : 4
+                    expect(row.count == columns, "theme grid has \(columns) columns at \(size.width)pt")
+                    expect(row.allSatisfy { abs($0.width - $0.height * 1.5) <= 1.5 }, "theme previews keep their 3:2 proportions")
                     if size == SettingsLayout.windowDefaultSize {
+                        expect(row.allSatisfy { abs($0.width - 288) <= 1 }, "default preview cards fit the sample at 288 × 192pt")
                         for themeID in ["ghostty:0x96f", "ghostty:3024 Day"] {
                             let theme = TerminalThemeCatalog.shared.theme(id: themeID)!
                             let isDark = theme.palette!.isDark
@@ -441,6 +451,7 @@ enum FamilyAppearanceTests {
                             for _ in 0..<5 { drain() }
                             expect(TerminalThemePreferences.selected(isDark: isDark).id == themeID,
                                    "theme card saves to the current appearance")
+                            expect(window.attachedSheet == nil, "applying a theme stays on the appearance page")
                             expect(TerminalAppearance.stored().resolvesDark() == isDark
                                    && (window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
                                        == isDark,

@@ -43,10 +43,13 @@ enum SettingsLayout {
     static let integrationRowHeight: CGFloat = 58
     static let integrationIconSize: CGFloat = 22
     static let themeGridSpacing: CGFloat = 16
-    static let themeMinimumWidth: CGFloat = 205
-    static let themePreviewHeight: CGFloat = 132
+    static let themeGridFocusInset: CGFloat = 3
+    static let themeMinimumWidth: CGFloat = 264
+    static let themeMaximumWidth: CGFloat = 288
+    static let themePreviewAspectRatio: CGFloat = 3.0 / 2
     static func themeColumnCount(width: CGFloat) -> Int {
-        min(4, max(1, Int((width - 2 * Theme.Space.xl + themeGridSpacing) / (themeMinimumWidth + themeGridSpacing))))
+        let availableWidth = width - 2 * (Theme.Space.xl + themeGridFocusInset)
+        return min(4, max(1, Int((availableWidth + themeGridSpacing) / (themeMinimumWidth + themeGridSpacing))))
     }
 }
 

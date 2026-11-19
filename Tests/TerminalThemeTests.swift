@@ -204,8 +204,9 @@ enum TerminalThemeTests {
             expect(false, "incomplete theme rejected")
         } catch {}
         // 同一张未选中卡片更换候选主题时，外框也必须跟随卡片更新。
-        let preview = NSHostingView(rootView: TerminalThemePreview(colors: .system(isDark: false)))
-        let previewSize = CGSize(width: SettingsLayout.themeMinimumWidth, height: SettingsLayout.themePreviewHeight)
+        let preview = NSHostingView(rootView: TerminalThemePreview(colors: .system(isDark: false), title: "Default"))
+        let previewWidth = SettingsLayout.themeMaximumWidth
+        let previewSize = CGSize(width: previewWidth, height: previewWidth / SettingsLayout.themePreviewAspectRatio)
         let previewWindow = NSWindow(contentRect: CGRect(origin: .zero, size: previewSize),
                                      styleMask: [], backing: .buffered, defer: false)
         previewWindow.isReleasedWhenClosed = false
@@ -215,20 +216,43 @@ enum TerminalThemeTests {
             if let backdrop = view as? ShellBackdropView { return backdrop }
             return view.subviews.lazy.compactMap { findBackdrop(in: $0) }.first
         }
-        for themeID in ["ghostty:Afterimage", "ghostty:Aura"] {
+        // 可见滚动条会占用栅格空间，覆盖略窄于列宽阈值的实际卡片。
+        for (themeID, width) in [("ghostty:Afterimage", CGFloat(255)),
+                                 ("ghostty:Argonaut", previewWidth)] {
             let candidate = catalog.theme(id: themeID)!.palette!
-            preview.rootView = TerminalThemePreview(colors: candidate)
+            let previewSize = CGSize(width: width, height: width / SettingsLayout.themePreviewAspectRatio)
+            previewWindow.setContentSize(previewSize)
+            preview.rootView = TerminalThemePreview(colors: candidate, title: themeID)
             FamilyAppearanceTests.drain()
             preview.layoutSubtreeIfNeeded()
             let backdrop = findBackdrop(in: preview)
             expect(backdrop?.chrome == candidate.workspaceChrome && backdrop?.usesTerminalBackground == true,
                    "preview shows the candidate's workspace backdrop: " + themeID)
-            expect(backdrop?.bounds.size == previewSize, "preview backdrop fills the thumbnail: " + themeID)
+            expect(backdrop?.bounds.size == previewSize, "preview backdrop fills the 3:2 card: " + themeID)
             if let backdrop { checkLightDirection(backdrop, name: themeID) }
+
+            let bitmap = preview.bitmapImageRepForCachingDisplay(in: preview.bounds)!
+            preview.cacheDisplay(in: preview.bounds, to: bitmap)
+            let scale = CGFloat(bitmap.pixelsHigh) / previewSize.height
+            let x = bitmap.pixelsWide - Int(20 * CGFloat(bitmap.pixelsWide) / previewSize.width)
+            // 表格右侧的空白也有 ANSI 背景，取样避开字形。
+            let tableRows = [2, 6].map { slot in
+                let color = GooseAgent.RGBColor(ghosttyHex: candidate.ansi[slot])!.color
+                let expected = NSColor(color).usingColorSpace(bitmap.colorSpace)!
+                let matchingRows = (bitmap.pixelsHigh / 2..<bitmap.pixelsHigh).filter { y in
+                    guard let pixel = bitmap.colorAt(x: x, y: y) else { return false }
+                    return max(abs(pixel.redComponent - expected.redComponent), abs(pixel.greenComponent - expected.greenComponent),
+                               abs(pixel.blueComponent - expected.blueComponent)) < 0.025
+                }
+                expect(abs(CGFloat(matchingRows.count) - 18 * scale) <= 1,
+                       "htop ANSI slot \(slot) fills an 18pt row at the default terminal font size: " + themeID)
+                return matchingRows
+            }
+            expect(abs(tableRows[0].count - tableRows[1].count) <= 1
+                   && tableRows[0].last! + 1 == tableRows[1].first!,
+                   "htop header and selection render as adjacent rows of equal height: " + themeID)
         }
         previewWindow.close()
-        expect(SettingsLayout.themeColumnCount(width: 1280 - SidebarLayout.defaultWidth) == 4, "four columns at default window")
-        expect(SettingsLayout.themeColumnCount(width: 880 - SidebarLayout.defaultWidth) < 4, "narrow window reduces columns")
         let prefs = TerminalThemePreferences.shared
         let light = catalog.theme(id: "ghostty:GitHub Light Default")!
         let otherLight = catalog.theme(id: "ghostty:Ayu Light")!

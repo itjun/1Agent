@@ -47,14 +47,16 @@ struct TerminalThemeSettingsPage: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, Theme.Space.xl * 2)
                         } else {
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: SettingsLayout.themeGridSpacing), count: count),
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(maximum: SettingsLayout.themeMaximumWidth),
+                                                                        spacing: SettingsLayout.themeGridSpacing), count: count),
                                       alignment: .leading, spacing: Theme.Space.xl) {
                                 ForEach(themes) { theme in
                                     themeCard(theme)
                                         .id(theme.id)
                                 }
                             }
-                            .padding(3) // 给卡片外侧的键盘焦点环留出空间。
+                            .padding(SettingsLayout.themeGridFocusInset)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                     .onMoveCommand { direction in
@@ -110,40 +112,21 @@ struct TerminalThemeSettingsPage: View {
 
     private func themeCard(_ theme: TerminalThemeDescriptor) -> some View {
         let selected = TerminalThemePreferences.selected(isDark: appearance.interfaceIsDark).id == theme.id
-        let selectedLabel: LocalizedStringKey = "In Use"
+        let colors = theme.colors(interfaceIsDark: appearance.interfaceIsDark)
         return Button {
             preferences.select(theme.id)
         } label: {
-            VStack(alignment: .leading, spacing: Theme.Space.s) {
-                TerminalThemePreview(colors: theme.colors(interfaceIsDark: appearance.interfaceIsDark))
-                HStack(spacing: Theme.Space.xs) {
-                    if selected {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(chrome.accent)
-                    }
-                    Text(verbatim: theme.displayName)
-                        .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                        .lineLimit(1).truncationMode(.middle)
-                        .foregroundStyle(chrome.text)
-                    if selected {
-                        Text(selectedLabel)
-                            .font(.system(size: 11))
-                            .foregroundStyle(chrome.secondary)
-                            .padding(.horizontal, 5).padding(.vertical, 2)
-                            .background(chrome.hairline, in: Capsule())
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-            .contentShape(Rectangle())
+            TerminalThemePreview(colors: colors, title: theme.displayName, isSelected: selected)
+                .contentShape(Rectangle())
         }
-        .buttonStyle(FamilyButtonStyle(showsFocusRing: false))
+        .buttonStyle(FamilyPlainButtonStyle())
         .focusable()
         .focusEffectDisabled()
         .focused($focusedTheme, equals: theme.id)
         .overlay {
             RoundedRectangle(cornerRadius: SettingsLayout.cardRadius)
                 .strokeBorder(focusedTheme == theme.id ? chrome.lineStrong : .clear, lineWidth: 1)
-                .padding(-3).allowsHitTesting(false)
+                .padding(-SettingsLayout.themeGridFocusInset).allowsHitTesting(false)
         }
         .onKeyPress(keys: [.space, .return]) { _ in
             preferences.select(theme.id)
@@ -151,7 +134,7 @@ struct TerminalThemeSettingsPage: View {
         }
         .help(theme.displayName)
         .accessibilityLabel(Text(verbatim: theme.displayName))
-        .accessibilityValue(selected ? Text(selectedLabel) : Text(verbatim: ""))
+        .accessibilityValue(selected ? Text("In Use") : Text(verbatim: ""))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("themes.card.\(theme.id)")
     }
@@ -160,44 +143,79 @@ struct TerminalThemeSettingsPage: View {
 struct TerminalThemePreview: View {
     @Environment(\.isShellTransparent) private var isShellTransparent
     private static let outerRadius = ShellLayout.contentRadius + ShellLayout.workspaceInset
+    private static let sampleFontSize = CGFloat(TerminalDefaults.defaultFontSize)
     let colors: TerminalThemeColors
+    let title: String
+    var isSelected = false
+
     private func color(_ hex: String) -> Color { RGBColor(ghosttyHex: hex)!.color }
+    private func ansi(_ index: Int) -> Color { color(colors.ansi[index]) }
 
     var body: some View {
         let chrome = colors.workspaceChrome
-        VStack(alignment: .leading, spacing: 5) {
-            (Text(verbatim: "~/project").foregroundColor(color(colors.ansi[4]))
-             + Text(verbatim: " on ").foregroundColor(color(colors.foreground))
-             + Text(verbatim: "main").foregroundColor(color(colors.ansi[2])))
-            (Text(verbatim: "$ ").foregroundColor(color(colors.ansi[2]))
-             + Text(verbatim: "git status").foregroundColor(color(colors.foreground)))
-            Text(verbatim: "working tree clean").foregroundStyle(color(colors.foreground))
-            Spacer(minLength: Theme.Space.s)
-            HStack(spacing: 5) {
-                ForEach(0..<8, id: \.self) { index in
-                    VStack(spacing: 0) {
-                        color(colors.ansi[index])
-                        color(colors.ansi[index + 8])
-                    }
-                    .frame(maxWidth: 14).frame(height: 14)
-                    .clipShape(RoundedRectangle(cornerRadius: 3))
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            HStack(spacing: Theme.Space.s) {
+                Text(verbatim: title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1).truncationMode(.tail)
+                if isSelected {
+                    Label("In Use", systemImage: "checkmark")
+                        .font(Theme.Font.rowMeta)
+                        .foregroundStyle(chrome.accent)
+                        .fixedSize()
                 }
             }
+            .foregroundStyle(chrome.text)
+            .frame(height: 20)
+
+            sample
+                .frame(maxHeight: .infinity)
         }
-        .font(.system(size: 12, weight: .medium, design: .monospaced))
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-        .padding(Theme.Space.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(maxHeight: .infinity)
+        .padding(.horizontal, Theme.Space.m)
+        .padding(.vertical, Theme.Space.s)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(chrome.background, in: RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
         .padding(ShellLayout.workspaceInset)
-        .frame(height: SettingsLayout.themePreviewHeight)
         .background {
             ShellBackdrop(isTransparent: isShellTransparent, isDark: chrome.isDark,
                           usesTerminalBackground: true, chrome: chrome)
         }
         .clipShape(RoundedRectangle(cornerRadius: Self.outerRadius))
+        .aspectRatio(SettingsLayout.themePreviewAspectRatio, contentMode: .fit)
         .accessibilityHidden(true)
+    }
+
+    private var sample: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            VStack(alignment: .leading, spacing: 0) {
+                line(("~/project ", 4), ("(main) ", 2), (" $ ls", nil))
+                line(("src/  ", 4), ("README.md  ", nil), ("run.sh", 2))
+            }
+            line(("12  ", 7), ("def ", 5), ("greet", 4), ("(name: str):", nil))
+            VStack(alignment: .leading, spacing: 0) {
+                line(("CPU", 6), ("[", nil), ("|||||", 2), ("    12.5%]", nil))
+                line(("  PID  CPU%  Command", 0))
+                    .background(ansi(2))
+                line(("  421   2.1  python", 0))
+                    .background(ansi(6))
+            }
+        }
+        .font(.system(size: Self.sampleFontSize, design: .monospaced))
+        .foregroundStyle(color(colors.foreground))
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    }
+
+    private func line(_ spans: (String, Int?)...) -> some View {
+        let text = spans.reduce(into: AttributedString()) { line, span in
+            var fragment = AttributedString(span.0)
+            if let colorIndex = span.1 {
+                fragment.foregroundColor = ansi(colorIndex)
+            }
+            line.append(fragment)
+        }
+        return Text(text)
+            .frame(height: Self.sampleFontSize + 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
