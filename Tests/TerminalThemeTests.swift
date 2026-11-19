@@ -82,13 +82,14 @@ enum TerminalThemeTests {
             let topRight = strength(width - 3, 2)
             let middleLeft = strength(2, height / 2)
             let bottomLeft = strength(2, height - 3)
+            let bottomMiddle = strength(width / 2, height - 3)
             let bottomRight = strength(width - 3, height - 3)
-            expect(topLeft > 0.9 && topLeft > topRight && topRight > bottomLeft
-                   && topLeft > middleLeft && middleLeft > bottomLeft
-                   && bottomLeft < 0.25 && bottomRight < 0.25,
-                   "top-left light fades down faster than along the top edge: " + name)
+            expect(topLeft > 0.9 && topLeft > topRight && topLeft > middleLeft && topLeft > bottomRight,
+                   "top-left remains the strongest light source: " + name)
+            expect([bottomLeft, bottomMiddle, bottomRight].allSatisfy { $0 > 0.75 },
+                   "bottom fill reaches the entire lower gap: " + name)
         }
-        func checkRenderedFrame(name: String) {
+        func checkRenderedFrame(name: String, minimumBottomDifference: Double = 0.055) {
             let root = frameBackdrop.layer!
             let tint = frameBackdrop.subviews.first!.layer!
             let sheen = root.sublayers!.first { $0.name == "workspace.gradientSheen" }!
@@ -108,7 +109,7 @@ enum TerminalThemeTests {
                     bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                     colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
                 root.render(in: NSGraphicsContext(bitmapImageRep: bitmap)!.cgContext)
-                return [(2, 2), (61, 2), (32, 24), (2, 45), (61, 45)].map {
+                return [(2, 2), (32, 2), (61, 2), (2, 24), (61, 24), (2, 45), (32, 45), (61, 45)].map {
                     bitmap.colorAt(x: $0.0, y: $0.1)!.usingColorSpace(.sRGB)!
                 }
             }
@@ -123,7 +124,14 @@ enum TerminalThemeTests {
             }
             expect(original.contains { difference($0) > 0.03 },
                    "rendered fixture includes visible frame color: " + name)
+            let weakestBottomDifference = softened.suffix(3).map(difference).min()!
+            expect(weakestBottomDifference >= minimumBottomDifference,
+                   "bottom gap remains visible across the frame: \(name), measured \(weakestBottomDifference)")
             for index in original.indices {
+                let visibleDifference = difference(softened[index])
+                expect(visibleDifference >= difference(original[index]) * 0.22 - 0.01
+                       && visibleDifference >= 0.055,
+                       "frame stays distinct from the island background at perimeter sample \(index): " + name)
                 expect(difference(softened[index]) <= difference(original[index]) * 0.60 + 0.025,
                        "rendered frame and teal corner lose their former color intensity together: " + name)
                 expect(softened[index].alphaComponent == 1,
@@ -159,7 +167,14 @@ enum TerminalThemeTests {
                    "inactive terminal dims every theme equally without a blue or white tint")
         }
         for isDark in [false, true] {
-            checkSoftFrame(.system(isDark: isDark), name: isDark ? "Default Dark" : "Default Light")
+            let name = isDark ? "Default Dark" : "Default Light"
+            checkSoftFrame(.system(isDark: isDark), name: name)
+            checkRenderedFrame(name: name)
+        }
+        for name in ["Spring", "Argonaut"] {
+            let colors = catalog.themes.first { $0.name == name }!.palette!
+            checkSoftFrame(colors, name: name)
+            checkRenderedFrame(name: name, minimumBottomDifference: colors.isDark ? 0.24 : 0.055)
         }
         for background in ["000000", "FFFFFF", "FF0000", "00FF00"] {
             var ansi = Array(repeating: "808080", count: 16)
