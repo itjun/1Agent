@@ -51,7 +51,6 @@ struct QuickCommandRemoteFolderPicker: View {
                 Text(verbatim: "SSH · \(host)").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                     .lineLimit(1).truncationMode(.middle)
             }
-            Divider()
             browser
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .focusable(interactions: .edit)
@@ -70,7 +69,6 @@ struct QuickCommandRemoteFolderPicker: View {
                     showHidden.toggle()
                     return .handled
                 }
-            Divider()
             HStack(spacing: Theme.Space.s) {
                 if let selection {
                     Text(verbatim: selection).font(.system(size: 12, design: .monospaced))
