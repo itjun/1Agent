@@ -91,7 +91,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var hosts: [SSHHost] = []
     @Published private(set) var configFailed = false
     @Published private(set) var tabs: [TerminalTab] = []
-    /// 按终端保存，切换分屏或移动到其他窗口不会改变展开状态和选择。
+    /// 按终端保存；同一分屏共用一列命令栏，展开和宽度一起改，选中的命令各记各的。
     @Published var commandSidebars: [UUID: TerminalCommandSidebarState] = [:] {
         didSet {
             if commandSidebars != oldValue { persistSessionIfReady() }

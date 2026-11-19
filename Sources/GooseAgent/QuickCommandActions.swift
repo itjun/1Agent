@@ -102,8 +102,46 @@ extension AppModel {
         return quickCommandContext(for: tab)
     }
 
+    /// 和这个终端同在一个分屏的终端（含自己）。它们共用右侧一列命令栏。
+    func commandSidebarGroup(of tabID: UUID) -> [UUID] {
+        let panel = WorkspaceBoard.index(containing: tabID, in: workspaces).flatMap { workspaces[$0].panel(containing: tabID) }
+        let leaves = panel.map { WorkspaceBoard.leafIDs($0.layout) } ?? [tabID]
+        return leaves.filter { id in tabs.contains { $0.id == id && $0.hasTerminal } }
+    }
+
+    /// 分屏里任一终端展开就显示命令栏，宽度取第一个展开的终端，切换焦点时布局不跳动。
+    func sharedCommandSidebar(for tabID: UUID) -> TerminalCommandSidebarState? {
+        commandSidebarGroup(of: tabID).compactMap { commandSidebars[$0] }.first { $0.isExpanded }
+    }
+
+    /// 展开、收起和宽度对整个分屏生效；选中的命令仍按终端各自保存。
+    func updateSharedCommandSidebar(for tabID: UUID, _ change: (inout TerminalCommandSidebarState) -> Void) {
+        // 旧存档里各终端宽度可能不同，先对齐到正在显示的宽度，收起再展开不会变宽变窄。
+        let width = sharedCommandSidebar(for: tabID)?.width
+        var states = commandSidebars
+        for id in commandSidebarGroup(of: tabID) {
+            if let width { states[id, default: TerminalCommandSidebarState()].width = width }
+            change(&states[id, default: TerminalCommandSidebarState()])
+        }
+        commandSidebars = states
+    }
+
+    /// 命令栏跟着当前终端走；选中的是预览面板时，显示分屏里第一个终端的命令。
+    func commandSidebarTab(in window: WindowState) -> TerminalTab? {
+        guard let selected = window.selectedTabID else { return nil }
+        let group = commandSidebarGroup(of: selected)
+        guard let id = group.contains(selected) ? selected : group.first else { return nil }
+        return tabs.first { $0.id == id }
+    }
+
     func expandCommandSidebarIfNeeded(for tab: TerminalTab) {
         guard tab.hasTerminal, commandSidebars[tab.id] == nil else { return }
+        // 新终端分进已有分屏时，沿用这个分屏的展开状态和宽度，不再自己判断。
+        let siblings = commandSidebarGroup(of: tab.id).compactMap { commandSidebars[$0] }
+        if let sibling = siblings.first(where: { $0.isExpanded }) ?? siblings.first {
+            commandSidebars[tab.id] = TerminalCommandSidebarState(isExpanded: sibling.isExpanded, width: sibling.width)
+            return
+        }
         let context = quickCommandContext(for: tab)
         if QuickCommandStore.shared.commands.contains(where: { $0.appearsInSidebar(for: context) }) {
             commandSidebars[tab.id] = TerminalCommandSidebarState(isExpanded: true)

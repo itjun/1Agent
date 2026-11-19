@@ -56,7 +56,7 @@ enum TerminalPaneActions {
         var items = connectionItems(tab, model: model, window: window)
         if !items.isEmpty { items.append(.separator) }
         items += [
-            FamilyMenuItem(title: model.commandSidebars[tab.id]?.isExpanded == true ? String(localized: "Hide Quick Commands") : String(localized: "Show Quick Commands"),
+            FamilyMenuItem(title: model.sharedCommandSidebar(for: tab.id) != nil ? String(localized: "Hide Quick Commands") : String(localized: "Show Quick Commands"),
                            key: commandSidebarChord.key, modifiers: commandSidebarChord.menuModifierMask, action: {
                 guard currentTab(tab.id, model: model) != nil else { return }
                 model.toggleCommandSidebar(for: tab.id, in: window)
