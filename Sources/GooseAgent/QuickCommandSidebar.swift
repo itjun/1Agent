@@ -11,15 +11,20 @@ struct QuickCommandSidebar: View {
     @ObservedObject var model: AppModel
     @ObservedObject var window: WindowState
     let tabID: UUID
+    /// 分屏共用一列命令栏时，标题里写明命令会发给哪个终端。
+    let targetTitle: String?
     @ObservedObject private var store = QuickCommandStore.shared
     @ObservedObject private var execution: QuickCommandSidebarExecution
     @Environment(\.windowChrome) private var chrome
     @State private var copiedCommandID: UUID?
     @FocusState private var isListFocused: Bool
-    init(model: AppModel, window: WindowState, tabID: UUID) {
+    private static let listSpacing: CGFloat = 4
+    private static let listInset: CGFloat = 8
+    init(model: AppModel, window: WindowState, tabID: UUID, targetTitle: String? = nil) {
         self.model = model
         self.window = window
         self.tabID = tabID
+        self.targetTitle = targetTitle
         execution = model.commandExecution(for: tabID)
     }
 
@@ -31,12 +36,25 @@ struct QuickCommandSidebar: View {
         get { model.commandSidebars[tabID]?.selectedCommandID }
         nonmutating set { model.commandSidebars[tabID, default: TerminalCommandSidebarState()].selectedCommandID = newValue }
     }
+    /// 列表只占命令本身的高度，详情紧跟在下面。
+    private var listHeight: CGFloat {
+        let count = CGFloat(commands.count)
+        return count * SheetLayout.commandSidebarUsageRowHeight + (count - 1) * Self.listSpacing + Self.listInset * 2
+    }
 
     var body: some View {
         GeometryReader { geometry in
         VStack(alignment: .leading, spacing: 0) {
-            Text("Commands")
-                .font(Theme.Font.paneTitle).fontWeight(.semibold)
+            HStack(spacing: Theme.Space.s) {
+                Text("Commands")
+                    .font(Theme.Font.paneTitle).fontWeight(.semibold)
+                if let targetTitle {
+                    Text(verbatim: targetTitle)
+                        .font(Theme.Font.paneTitle).foregroundStyle(chrome.secondary)
+                        .lineLimit(1).truncationMode(.middle)
+                        .accessibilityIdentifier("quickCommands.target." + tabID.uuidString)
+                }
+            }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .frame(height: ShellLayout.compactHeaderHeight)
@@ -48,7 +66,7 @@ struct QuickCommandSidebar: View {
             }
             ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
+                LazyVStack(alignment: .leading, spacing: Self.listSpacing) {
                     ForEach(Array(commands.enumerated()), id: \.element.id) { index, item in
                         commandRow(item, number: index + 1).id(item.id)
                     }
@@ -56,8 +74,8 @@ struct QuickCommandSidebar: View {
                         Text("No Commands").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
                     }
-                }.padding(8)
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                }.padding(Self.listInset)
+            }.frame(maxWidth: .infinity, maxHeight: commands.isEmpty ? .infinity : listHeight)
             .onChange(of: selectedCommandID) { _, id in
                 if let id { proxy.scrollTo(id) }
             }
@@ -77,7 +95,7 @@ struct QuickCommandSidebar: View {
                             .padding(12)
                     }
                 }
-                .frame(height: min(SheetLayout.commandSidebarDetailsHeight, geometry.size.height * 0.4))
+                .frame(height: min(SheetLayout.commandSidebarDetailsHeight, geometry.size.height * 0.4), alignment: .top)
             }
         }
         }
@@ -100,7 +118,7 @@ struct QuickCommandSidebar: View {
     }
 
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
-        guard model.commandSidebars[tabID]?.isExpanded == true, window.selectedTabID == tabID,
+        guard model.sharedCommandSidebar(for: tabID) != nil, window.selectedTabID == tabID,
               window.section == .terminals, !window.presentation.fullFilesWorkspace,
               window.quickCommandConfirmation == nil,
               press.modifiers.intersection([.command, .control, .option, .shift]).isEmpty else { return .ignored }
@@ -114,7 +132,7 @@ struct QuickCommandSidebar: View {
             execution.error = nil
             return .handled
         case .escape:
-            model.commandSidebars[tabID]?.isExpanded = false
+            model.updateSharedCommandSidebar(for: tabID) { $0.isExpanded = false }
             if let sessionID = context.sessionID { SSHTerminalRegistry.focus(sessionID) }
             return .handled
         default:
@@ -154,16 +172,14 @@ struct QuickCommandSidebar: View {
     private func commandDetails(_ item: QuickCommand) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(verbatim: item.alias).font(Theme.Font.row).fontWeight(.semibold).lineLimit(2)
-            ScrollView {
-                Text(verbatim: item.command).font(.system(size: 12, design: .monospaced))
-                    .textSelection(.enabled)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("quickCommands.code." + item.id.uuidString)
+            // 短命令按内容高度显示，按钮紧跟在下面；放不下时才滚动，按钮仍留在可见范围。
+            ViewThatFits(in: .vertical) {
+                commandText(item)
+                ScrollView { commandText(item) }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity)
             .id(item.id)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("quickCommands.preview." + tabID.uuidString)
             HStack(spacing: 8) {
                 Button { copy(item) } label: {
@@ -185,6 +201,15 @@ struct QuickCommandSidebar: View {
         }.padding(12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("quickCommands.details." + tabID.uuidString)
+    }
+
+    private func commandText(_ item: QuickCommand) -> some View {
+        Text(verbatim: item.command).font(.system(size: 12, design: .monospaced))
+            .textSelection(.enabled)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("quickCommands.code." + item.id.uuidString)
     }
 
 }
