@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 /* Deterministic remote fixture; never opens a socket, starts a shell, or reads SSH config. */
 int main(int argc, char **argv) {
@@ -20,16 +21,33 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (strncmp(command, "find ", 5) == 0) {
+        if (strncmp(command, "find '/' ", strlen("find '/' ")) == 0) {
+            static const char root[] =
+                "d\td\t0\tdrwxr-xr-x\t0\tfixture-command-picker\0"
+                "d\td\t0\tdrwxr-xr-x\t0\tfixture-remote-home\0";
+            fwrite(root, 1, sizeof(root) - 1, stdout);
+            return 0;
+        }
         if (strncmp(command, "find '/fixture-command-picker", strlen("find '/fixture-command-picker")) == 0) {
             static const char folders[] =
+                "d\td\t0\tdrwxr-xr-x\t0\t.hidden-folder\0"
                 "d\td\t0\tdrwxr-xr-x\t0\tbuild outputs\0"
                 "d\td\t0\tdrwxr-xr-x\t0\t旧目录\0"
                 "f\tf\t4\t-rw-r--r--\t0\tfixture.txt\0";
-            static const char child[] = "d\td\t0\tdrwxr-xr-x\t0\t子目录\0";
+            static const char children[] =
+                "d\td\t0\tdrwxr-xr-x\t0\t子目录 1\0"
+                "d\td\t0\tdrwxr-xr-x\t0\t子目录 2\0";
+            static const char inner[] = "d\td\t0\tdrwxr-xr-x\t0\tdeep\0";
+            static const char leaf[] = "d\td\t0\tdrwxr-xr-x\t0\tleaf\0";
             if (strstr(command, "find '/fixture-command-picker'") == command) {
                 fwrite(folders, 1, sizeof(folders) - 1, stdout);
             } else if (strstr(command, "find '/fixture-command-picker/build outputs'") == command) {
-                fwrite(child, 1, sizeof(child) - 1, stdout);
+                usleep(200000);
+                fwrite(children, 1, sizeof(children) - 1, stdout);
+            } else if (strstr(command, "find '/fixture-command-picker/build outputs/子目录 1'") == command) {
+                fwrite(inner, 1, sizeof(inner) - 1, stdout);
+            } else if (strstr(command, "find '/fixture-command-picker/build outputs/子目录 1/deep'") == command) {
+                fwrite(leaf, 1, sizeof(leaf) - 1, stdout);
             } else {
                 fputs("f\tf\t4\t-rw-r--r--\t0\tfixture.txt", stdout);
                 fputc(0, stdout);

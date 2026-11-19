@@ -622,6 +622,18 @@ private struct FilesWorkspaceRoutingTests {
                 throw TestFailure(description: "Could not press \(id)")
             }
         }
+        func key(_ code: UInt16, _ characters: String, in window: NSWindow, modifiers: NSEvent.ModifierFlags = []) throws {
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code) else {
+                throw TestFailure(description: "Could not create folder picker key event")
+            }
+            NSApp.sendEvent(event)
+        }
+        func selection(in window: NSWindow) -> String? {
+            guard let label = element("quickCommand.folderSelection", in: window) else { return nil }
+            return accessibilityValue(label, "accessibilityValue") as? String
+        }
 
         let localFolder = home + "/local-a"
         let local = QuickCommand(alias: "本机", command: "printf test", scope: .directory, directory: localFolder)
@@ -648,12 +660,52 @@ private struct FilesWorkspaceRoutingTests {
             return element("quickCommand.folderEntry.旧目录", in: sheet) != nil
         }
         let sheet = window.attachedSheet!
-        try require(element("quickCommand.folderEntry.fixture.txt", in: sheet) == nil, "Only folders are listed")
-        try press("quickCommand.folderOpen.build outputs", in: sheet)
-        try await eventually("enter remote folder with spaces") { element("quickCommand.folderEntry.子目录", in: sheet) != nil }
-        try press("quickCommand.folderParent", in: sheet)
-        try await eventually("return to remote parent") { element("quickCommand.folderEntry.旧目录", in: sheet) != nil }
-        try press("quickCommand.folderCancel", in: sheet)
+        let newPath = "/fixture-command-picker/build outputs"
+        let child = newPath + "/子目录 1"
+        try await eventually("restore the saved remote chain") {
+            selection(in: sheet) == remote.directory
+                && element("quickCommand.folderEntry.fixture-command-picker", in: sheet) != nil
+        }
+        try require(element("quickCommand.folderEntry.fixture.txt", in: sheet) == nil
+                    && element("quickCommand.folderEntry..hidden-folder", in: sheet) == nil, "Only visible folders are listed")
+        try key(47, ".", in: sheet, modifiers: [.command, .shift])
+        try await eventually("toggle hidden folders on") { element("quickCommand.folderEntry..hidden-folder", in: sheet) != nil }
+        try key(47, ".", in: sheet, modifiers: [.command, .shift])
+        try await eventually("hide hidden folders") { element("quickCommand.folderEntry..hidden-folder", in: sheet) == nil }
+
+        try press("quickCommand.folderEntry.build outputs", in: sheet)
+        try key(124, "\u{f703}", in: sheet)
+        try press("quickCommand.folderEntry.旧目录", in: sheet)
+        try await Task.sleep(for: .milliseconds(350))
+        try require(selection(in: sheet) == remote.directory && element("quickCommand.folderEntry.子目录 1", in: sheet) == nil,
+                    "An obsolete response or queued right arrow cannot switch branches")
+
+        try press("quickCommand.folderEntry.build outputs", in: sheet)
+        try await eventually("single click opens the next column") {
+            selection(in: sheet) == newPath && element("quickCommand.folderEntry.子目录 1", in: sheet) != nil
+                && element("quickCommand.folderEntry.旧目录", in: sheet) != nil
+        }
+        try key(124, "\u{f703}", in: sheet)
+        try await eventually("right selects the first child") { selection(in: sheet) == child }
+        try key(125, "\u{f701}", in: sheet)
+        try await eventually("down selects the next sibling") { selection(in: sheet) == newPath + "/子目录 2" }
+        try key(126, "\u{f700}", in: sheet)
+        try await eventually("up selects the previous sibling") { selection(in: sheet) == child }
+        try await eventually("expand a fifth column") { element("quickCommand.folderEntry.deep", in: sheet) != nil }
+        try key(124, "\u{f703}", in: sheet)
+        try await eventually("keyboard can continue past four columns") { selection(in: sheet) == child + "/deep" }
+        try await eventually("latest column scrolls into the visible sheet") {
+            let selector = NSSelectorFromString("accessibilityFrame")
+            guard let leaf = element("quickCommand.folderEntry.leaf", in: sheet), leaf.responds(to: selector) else { return false }
+            typealias FrameGetter = @convention(c) (AnyObject, Selector) -> NSRect
+            let frame = unsafeBitCast(leaf.method(for: selector), to: FrameGetter.self)(leaf, selector)
+            return frame.width > 0 && frame.minX >= sheet.frame.minX && frame.maxX <= sheet.frame.maxX
+        }
+        try key(123, "\u{f702}", in: sheet)
+        try await eventually("left selects parent") { selection(in: sheet) == child }
+        try key(123, "\u{f702}", in: sheet)
+        try await eventually("left continues through parents") { selection(in: sheet) == newPath }
+        try key(53, "\u{1b}", in: sheet)
         try await eventually("dismiss remote folder picker") { window.attachedSheet == nil }
         let originalPath = element("quickCommand.directory", in: window)!
         try require(accessibilityValue(originalPath, "accessibilityValue") as? String == remote.directory, "Cancel keeps the original path")
@@ -665,9 +717,9 @@ private struct FilesWorkspaceRoutingTests {
         }
         let reopened = window.attachedSheet!
         try press("quickCommand.folderEntry.build outputs", in: reopened)
-        try press("quickCommand.folderChoose", in: reopened)
-        let newPath = "/fixture-command-picker/build outputs"
-        try await eventually("remote selection fills the command editor") {
+        try await eventually("select without entering the selected folder") { selection(in: reopened) == newPath }
+        try key(36, "\r", in: reopened)
+        try await eventually("Return fills the command editor") {
             guard window.attachedSheet == nil, let path = element("quickCommand.directory", in: window) else { return false }
             return accessibilityValue(path, "accessibilityValue") as? String == newPath
         }
@@ -676,7 +728,7 @@ private struct FilesWorkspaceRoutingTests {
         try require(saved?.host == remote.host && saved?.directory == newPath && saved?.group == remote.group
                     && saved?.includesSubdirectories == false,
                     "Changing directory retains ownership and existing group and uses exact directory matching")
-        print("PASS native local folder panel and SSH selection, navigation, cancel and saved bindings")
+        print("PASS local folder panel and SSH auto-expansion, keyboard navigation, stale response, cancel and save")
     }
 
     @MainActor
