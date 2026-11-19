@@ -350,11 +350,15 @@ import ObjectiveC
                     && descendants(try unwrap(native.contentView)).contains { $0 is NSSearchField },
                     "右侧原地编辑时左侧命令列表与搜索框保持可见")
         let script = try unwrap(element("quickCommand.script", in: native) as? NSTextView, "脚本编辑器不存在")
+        let originalScript = try unwrap(element("quickCommand.originalScript", in: native) as? NSTextView, "原命令不存在")
+        try require(originalScript.string == item.command && !originalScript.isEditable && originalScript.isSelectable)
+        try require(element("quickCommand.host", in: native) == nil, "编辑时主机固定")
         native.makeFirstResponder(script)
         try key(125)
         try require(state.commandLibrarySelection == item.id, "编辑指令时方向键不切换列表")
         script.string = "printf edited"
         script.didChangeText()
+        try require(originalScript.string == item.command, "编辑不改变原命令")
         try require(press(try requiredElement("quickCommand.save", in: native)))
         try await eventually { state.commandLibraryDraft == nil && store.commands.first { $0.id == item.id }?.command == "printf edited" }
         try await eventually { element("quickCommands.library.edit", in: native) != nil }
@@ -364,6 +368,7 @@ import ObjectiveC
         try await eventually { state.commandLibraryDraft == nil }
         try require(press(try requiredElement("quickCommands.library.new", in: native)))
         try await eventually { state.commandLibraryDraft != nil && element("quickCommand.script", in: native) != nil }
+        try require(element("quickCommand.originalScript", in: native) == nil, "新建命令没有原命令")
         try require(element("quickCommand." + item.id.uuidString, in: native) != nil, "新建草稿时左侧已有命令列表仍可对照查看")
         try require(press(try requiredElement("quickCommand.cancel", in: native)))
         try await eventually { state.commandLibraryDraft == nil }

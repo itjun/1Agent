@@ -51,7 +51,7 @@ import SwiftUI
         }
         let fixtures: [(String, CGFloat, CGFloat, AnyView)] = [
             ("host picker", SheetLayout.search, SheetLayout.sessionBodyHeight, AnyView(HostPicker(model: model, window: state))),
-            ("command editor", SheetLayout.commandEditor, SheetLayout.commandEditorHeight, AnyView(QuickCommandEditor(item: item, hosts: [], onClose: {}))),
+            ("command editor", SheetLayout.commandEditor, SheetLayout.commandEditorHeight, AnyView(QuickCommandEditor(item: item, onClose: {}))),
             ("command details", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandDetails(item: item, onClose: {}))),
             ("command confirmation", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandConfirmation(confirmation: QuickCommandConfirmationTarget(item: item, context: context), model: model, window: state, onClose: {}))),
             ("command paste", SheetLayout.quickCommand, SheetLayout.quickCommandHeight, AnyView(QuickCommandPasteView(request: paste, onClose: {}, onSaved: { _ in }))),
@@ -231,17 +231,22 @@ import SwiftUI
         expect(owner.attachedSheet == nil, "editing stays in the main page")
         let fields = elements(host)
         expect(fields.contains { ($0 as? CommandLiteralTextField)?.stringValue == item.alias }, "main page edits selected name")
-        let editor = fields.compactMap { $0 as? CommandLiteralTextView }.first!
+        let commandFields = fields.compactMap { $0 as? CommandLiteralTextView }
+        let original = commandFields.first { $0.accessibilityIdentifier() == "quickCommand.originalScript" }!
+        let editor = commandFields.first { $0.accessibilityIdentifier() == "quickCommand.script" }!
+        expect(original.string == item.command && !original.isEditable && original.isSelectable, "original command is copyable and read-only")
         expect(editor.string == item.command, "main page edits complete command text")
         editor.insertText("cancelled draft", replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
         await settle()
+        expect(original.string == item.command, "editing does not change the original command")
         expect(invoke(button("quickCommand.cancel")!, "accessibilityPerformPress"), "cancel exits page editing")
         await settle()
         expect(state.commandLibraryDraft == nil && state.section == .commands, "cancel returns to main command list")
         expect(QuickCommandStore.shared.commands.first { $0.id == item.id }?.command == item.command, "cancel keeps saved command")
         expect(invoke(button("quickCommands.library.edit")!, "accessibilityPerformPress"), "page editor can be reopened")
         await settle()
-        let saveEditor = elements(host).compactMap { $0 as? CommandLiteralTextView }.first!
+        let saveEditor = elements(host).compactMap { $0 as? CommandLiteralTextView }
+            .first { $0.accessibilityIdentifier() == "quickCommand.script" }!
         let savedText = "printf 'saved in command workspace\\n'"
         saveEditor.insertText(savedText, replacementRange: NSRange(location: 0, length: (saveEditor.string as NSString).length))
         await settle()

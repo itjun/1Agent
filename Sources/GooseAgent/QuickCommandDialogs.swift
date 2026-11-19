@@ -2,225 +2,193 @@ import AppKit
 import SwiftUI
 
 struct QuickCommandEditor: View {
-    @State private var item: QuickCommand
-    @State private var target: QuickCommandCollection
-    @State private var directories: [QuickCommandCollection: String]
-    @State private var isDirectoryScoped: Bool
+    @State private var name: String
+    @State private var command: String
+    @State private var directory: String?
+    @State private var commandFocused = false
     @State private var error: String?
     @State private var isSaving = false
     @State private var isSaved = false
     @State private var saveTask: Task<Void, Never>?
     private let initialItem: QuickCommand
-    private let initialTarget: QuickCommandCollection
-    private let initialDirectory: String
-    private let initialIsDirectoryScoped: Bool
+    private let collection: QuickCommandCollection
     private let isNew: Bool
     private let isWorkspaceCard: Bool
-    let hosts: [SSHHost]
     let onDirtyChange: (Bool) -> Void
     let onSaved: (QuickCommand) -> Void
     let onClose: () -> Void
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
 
-    init(item: QuickCommand, hosts: [SSHHost], isWorkspaceCard: Bool = false,
+    init(item: QuickCommand, isWorkspaceCard: Bool = false,
          onDirtyChange: @escaping (Bool) -> Void = { _ in },
          onSaved: @escaping (QuickCommand) -> Void = { _ in },
          onClose: @escaping () -> Void) {
-        let target = QuickCommandCollection.owner(of: item)
-        let directoryValue = item.directory ?? ""
-        let isScoped = item.scope == .directory
-        _item = State(initialValue: item)
-        _target = State(initialValue: target)
-        _directories = State(initialValue: [target: directoryValue])
-        _isDirectoryScoped = State(initialValue: isScoped)
+        _name = State(initialValue: item.alias)
+        _command = State(initialValue: item.command)
+        _directory = State(initialValue: item.directory)
         initialItem = item
-        initialTarget = target
-        initialDirectory = directoryValue
-        initialIsDirectoryScoped = isScoped
+        collection = QuickCommandCollection.owner(of: item)
         isNew = !QuickCommandStore.shared.commands.contains { $0.id == item.id }
-        self.hosts = hosts
         self.isWorkspaceCard = isWorkspaceCard
         self.onDirtyChange = onDirtyChange
         self.onSaved = onSaved
         self.onClose = onClose
     }
-    private var directory: Binding<String> {
-        Binding(get: { directories[target] ?? "" }, set: { directories[target] = $0 })
-    }
+
     private var isDirty: Bool {
         if isNew {
-            return !item.alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                || !item.group.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                || !item.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || directory != initialItem.directory
         }
-        let currentDirectory = target == .common || !isDirectoryScoped ? "" : (directories[target] ?? "")
-        let initialSubfolders = initialTarget != .common && initialIsDirectoryScoped && initialItem.includesSubdirectories
-        let currentSubfolders = target != .common && isDirectoryScoped && item.includesSubdirectories
-        return item.alias != initialItem.alias
-            || item.group != initialItem.group
-            || item.command != initialItem.command
-            || target != initialTarget
-            || (target != .common && isDirectoryScoped != initialIsDirectoryScoped)
-            || currentDirectory != (initialTarget == .common || !initialIsDirectoryScoped ? "" : initialDirectory)
-            || currentSubfolders != initialSubfolders
+        return name != initialItem.alias || command != initialItem.command || directory != initialItem.directory
     }
+
+    private var title: LocalizedStringKey { isNew ? "New Quick Command" : "Edit Quick Command" }
+
     var body: some View {
         Group {
             if isWorkspaceCard {
                 VStack(alignment: .leading, spacing: 0) {
-                    WindowDragArea()
+                    Text(title).font(Theme.Font.sectionTitle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(height: ShellLayout.compactHeaderHeight)
-                        .accessibilityHidden(true)
-                    HStack(spacing: Theme.Space.s) {
-                        Text(isNew ? "New Quick Command" : "Edit Quick Command")
-                            .font(Theme.Font.sectionTitle)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        editorActions
-                    }
-                    .padding(.horizontal, Theme.Space.l)
-                    .padding(.bottom, Theme.Space.m)
-                    Divider()
-                    GeometryReader { geometry in
-                        ScrollView {
+                        .padding(.horizontal, Theme.Space.l)
+                        .background(WindowDragArea())
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: Theme.Space.m) {
                             editorFields
-                                .frame(minHeight: max(0, geometry.size.height - Theme.Space.l * 2))
-                                .padding(Theme.Space.l)
+                            Divider()
+                            HStack { Spacer(minLength: 0); editorActions }
                         }
+                        .padding(Theme.Space.l)
                     }
-                }.foregroundStyle(chrome.text)
-                    .background(Color.clear)
+                }
+                .foregroundStyle(chrome.text)
             } else {
-                CommandDialog(title: isNew ? "New Quick Command" : "Edit Quick Command", close: close) {
-                    editorFields
+                CommandDialog(title: title, close: close) {
+                    ScrollView { editorFields }
                 } actions: { editorActions }
             }
         }
         .onAppear { onDirtyChange(isDirty) }
         .onDisappear { saveTask?.cancel() }
-        .onChange(of: target) { _, _ in error = nil; onDirtyChange(isDirty) }
-        .onChange(of: isDirectoryScoped) { _, _ in onDirtyChange(isDirty) }
-        .onChange(of: directories) { _, _ in onDirtyChange(isDirty) }
-        .onChange(of: item) { _, _ in onDirtyChange(isDirty) }
+        .onChange(of: isDirty) { _, value in onDirtyChange(value) }
+        .onChange(of: directory) { _, _ in error = nil }
     }
+
     private var editorFields: some View {
-        let codeBackground = QuickCommandCodePalette(chrome: chrome).background
-        return VStack(alignment: .leading, spacing: isWorkspaceCard ? 14 : 18) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 12) {
-                    field("Command Name", text: $item.alias, id: "quickCommand.alias")
-                    field("Group (optional)", text: $item.group, id: "quickCommand.group")
-                        .frame(width: isWorkspaceCard ? 168 : SheetLayout.commandEditorGroupWidth)
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    field("Command Name", text: $item.alias, id: "quickCommand.alias")
-                    field("Group (optional)", text: $item.group, id: "quickCommand.group")
+        VStack(alignment: .leading, spacing: Theme.Space.m) {
+            fieldLabel("Command Name") {
+                CommandTextField(text: $name, placeholder: "", identifier: "quickCommand.alias")
+                    .frame(height: Theme.Control.height)
+            }
+            if !isNew {
+                fieldLabel("Original Command") {
+                    commandField(.constant(initialItem.command), value: initialItem.command, editable: false)
                 }
             }
-            if target != .common {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: Theme.Space.s) {
-                        Text("Execution Host").font(Theme.Font.row)
-                        Spacer(minLength: 0)
-                        FamilyPicker(value: $target, options: hostOptions)
-                            .frame(maxWidth: SheetLayout.commandEditorHostWidth)
-                            .accessibilityLabel(Text("Execution Host"))
-                            .accessibilityIdentifier("quickCommand.host")
-                    }
-                    HStack(spacing: Theme.Space.l) {
-                        Toggle("Limit to Folder", isOn: $isDirectoryScoped)
-                            .toggleStyle(FamilyToggleStyle(checkbox: true))
-                            .accessibilityIdentifier("quickCommand.limitFolder")
-                        if isDirectoryScoped {
-                            Toggle("Include Subfolders", isOn: $item.includesSubdirectories)
-                                .toggleStyle(FamilyToggleStyle(checkbox: true))
-                                .accessibilityIdentifier("quickCommand.subfolders")
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    if isDirectoryScoped {
-                        HStack(spacing: Theme.Space.s) {
-                            CommandTextField(text: directory, placeholder: String(localized: "Working Directory"), identifier: "quickCommand.directory", symbol: "folder")
-                                .frame(height: Theme.Control.height)
-                            if target == .local {
-                                Button("Choose…", action: chooseDirectory).buttonStyle(FamilyButtonStyle())
-                            }
-                        }
-                    }
-                }
-                .padding(isWorkspaceCard ? Theme.Space.m : 0)
-                .background {
-                    if isWorkspaceCard {
-                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                            .fill(chrome.elevated.opacity(chrome.isDark ? 0.65 : 0.8))
-                            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(chrome.hairline, lineWidth: 1))
-                    }
-                }
-                if !isWorkspaceCard { Divider() }
+            fieldLabel(isNew ? "Command" : "New Command Text") {
+                commandField($command, value: command, editable: true)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Command").font(Theme.Font.row).foregroundStyle(chrome.secondary)
-                CommandLiteralEditor(text: $item.command, textColor: NSColor(chrome.text), backgroundColor: .clear, identifier: "quickCommand.script")
-                    .frame(minHeight: isWorkspaceCard ? SheetLayout.commandCardTextHeight : nil, maxHeight: .infinity)
-                    .background(isWorkspaceCard ? codeBackground : chrome.elevated.opacity(isShellTransparent ? ShellLayout.controlOpacity : 1))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline))
+            if collection != .common { directoryField }
+            if initialItem.needsRepair {
+                Text("Review the host and folder bindings before saving this imported command.")
+                    .font(Theme.Font.rowMeta).foregroundStyle(chrome.warning)
             }
-            if item.needsRepair { Text("Review the host and folder bindings before saving this imported command.").foregroundStyle(chrome.warning) }
             if let error { Text(verbatim: error).foregroundStyle(chrome.danger).font(Theme.Font.rowMeta) }
-        }.disabled(isSaving)
+        }
+        .disabled(isSaving)
     }
-    @ViewBuilder private var editorActions: some View {
-        if isSaving { ProgressView().controlSize(.small) }
-        Button("Cancel", action: close).buttonStyle(FamilyButtonStyle())
-            .accessibilityIdentifier("quickCommand.cancel")
-        Button("Save", action: save).buttonStyle(FamilyButtonStyle(kind: .primary))
-            .disabled(isSaving || isSaved || item.alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || item.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .accessibilityIdentifier("quickCommand.save")
-    }
-    private var hostOptions: [(QuickCommandCollection, String)] {
-        let aliases = Set(hosts.map(\.alias) + [item.host, target.host].compactMap { $0 }).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        return [(.local, String(localized: "This Mac"))]
-            + aliases.map { (.host($0), $0) }
-            + [(.common, String(localized: "Command Library"))]
-    }
-    private func field(_ title: LocalizedStringKey, text: Binding<String>, id: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+
+    private func fieldLabel<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
             Text(title).font(Theme.Font.row).foregroundStyle(chrome.secondary)
-            CommandTextField(text: text, placeholder: "", identifier: id).frame(height: Theme.Control.height)
+            content()
         }
     }
+
+    private func commandField(_ text: Binding<String>, value: String, editable: Bool) -> some View {
+        let visibleLines = min(value.split(separator: "\n", maxSplits: 7, omittingEmptySubsequences: false).count, 7)
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.control)
+        let background = editable ? chrome.background : QuickCommandCodePalette(chrome: chrome).background
+        return CommandLiteralEditor(text: text, textColor: NSColor(chrome.text), backgroundColor: .clear,
+                                    identifier: editable ? "quickCommand.script" : "quickCommand.originalScript",
+                                    isReadOnly: !editable, onFocusChange: editable ? { commandFocused = $0 } : nil)
+            .frame(height: max(Theme.Control.height, CGFloat(visibleLines) * 18 + 12))
+            .background(background, in: shape)
+            .clipShape(shape)
+            .overlay {
+                shape.strokeBorder(editable && commandFocused ? chrome.accent : chrome.hairline)
+                    .allowsHitTesting(false)
+            }
+    }
+
+    private var directoryField: some View {
+        HStack(spacing: Theme.Space.s) {
+            Text("Choose Directory").font(Theme.Font.row).foregroundStyle(chrome.secondary)
+                .fixedSize()
+            CommandTextField(
+                text: Binding(get: { directory ?? "" }, set: { directory = $0.isEmpty ? nil : $0 }),
+                placeholder: String(localized: "Any Directory"),
+                identifier: "quickCommand.directory"
+            )
+            .frame(height: Theme.Control.height)
+            if collection == .local {
+                Button("Choose…", action: chooseDirectory).buttonStyle(FamilyButtonStyle(kind: .secondary))
+            }
+        }
+    }
+
+    @ViewBuilder private var editorActions: some View {
+        if isSaving { ProgressView().controlSize(.small) }
+        Button("Cancel", action: close).buttonStyle(FamilyButtonStyle(kind: .secondary))
+            .accessibilityIdentifier("quickCommand.cancel")
+        Button("Save", action: save).buttonStyle(FamilyButtonStyle(kind: .primary))
+            .disabled(isSaving || isSaved || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityIdentifier("quickCommand.save")
+    }
+
     private func chooseDirectory() {
         let owner = NSApp.keyWindow
         defer { owner?.makeKeyAndOrderFront(nil) }
         let panel = NSOpenPanel()
-        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url { directories[target] = url.path }
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        if let directory { panel.directoryURL = URL(fileURLWithPath: directory, isDirectory: true) }
+        if panel.runModal() == .OK, let url = panel.url { directory = url.path }
     }
+
     private func close() {
         saveTask?.cancel()
         onClose()
     }
+
     private func save() {
         guard !isSaving, !isSaved else { return }
-        isSaving = true; error = nil
+        isSaving = true
+        error = nil
         // 固定本次保存快照，异步目录检查期间不接受第二次提交。
-        var next = item
-        next.host = target.host
-        next.scope = target == .common ? .all : isDirectoryScoped ? .directory : target == .local ? .local : .host
-        next.directory = next.scope == .directory ? directories[target] : nil
-        next.includesSubdirectories = next.scope == .directory && item.includesSubdirectories
-        let path = next.directory ?? ""
+        var next = initialItem
+        next.alias = name
+        next.command = command
+        next.host = collection.host
+        let selectedPath = directory
+        switch collection {
+        case .common: next.scope = .all
+        case .local: next.scope = selectedPath == nil ? .local : .directory
+        case .host: next.scope = selectedPath == nil ? .host : .directory
+        }
+        next.directory = next.scope == .directory ? selectedPath : nil
         saveTask = Task {
             defer { isSaving = false }
             do {
-                // 先验证名称、命令和主机，避免无效表单发起远程目录请求。
-                var validation = next
-                if validation.scope == .directory { validation.directory = "/" }
-                _ = try validation.validated()
-                if next.scope == .directory {
+                next = try next.validated()
+                if let path = next.directory {
                     next.directory = try await QuickCommandDirectory.resolve(path, host: next.host)
+                    next.includesSubdirectories = initialItem.includesSubdirectories && next.directory == initialItem.directory
                 }
                 try Task.checkCancellation()
                 next.needsRepair = false
@@ -229,7 +197,7 @@ struct QuickCommandEditor: View {
                 onSaved(next)
                 onClose()
             } catch is CancellationError {
-                // 取消后不写入指令库。
+                // 取消后不写入命令库。
             } catch { self.error = error.localizedDescription }
         }
     }

@@ -88,7 +88,7 @@ struct QuickCommandLibraryView: View {
         }
         .familySheet(isPresented: Binding(get: { !isWorkspace && editing != nil }, set: { if !$0 && !isWorkspace { editing = nil } }), width: SheetLayout.commandEditor, height: SheetLayout.commandEditorHeight) {
             if let editing {
-                QuickCommandEditor(item: editing, hosts: model.hosts, onSaved: didSave) { self.editing = nil }.id(editing.id)
+                QuickCommandEditor(item: editing, onSaved: didSave) { self.editing = nil }.id(editing.id)
             }
         }
     }
@@ -313,7 +313,6 @@ struct QuickCommandLibraryView: View {
             if isWorkspace, let editing {
                 QuickCommandEditor(
                     item: editing,
-                    hosts: model.hosts,
                     isWorkspaceCard: true,
                     onDirtyChange: { window.isCommandLibraryDraftDirty = $0 },
                     onSaved: didSave

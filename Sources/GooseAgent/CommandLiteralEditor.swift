@@ -5,6 +5,7 @@ import SwiftUI
 /// disabling macOS prose substitutions never changes the user's shared field editor.
 final class CommandLiteralTextView: NSTextView {
     private var ownedStorage: NSTextStorage?
+    var onFocusChange: ((Bool) -> Void)?
 
     override init(frame frameRect: NSRect, textContainer container: NSTextContainer? = nil) {
         let resolvedContainer: NSTextContainer
@@ -45,6 +46,13 @@ final class CommandLiteralTextView: NSTextView {
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
         configureLiteralInput()
+        if accepted, let onFocusChange { DispatchQueue.main.async { onFocusChange(true) } }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let accepted = super.resignFirstResponder()
+        if accepted, let onFocusChange { DispatchQueue.main.async { onFocusChange(false) } }
         return accepted
     }
 
@@ -78,6 +86,8 @@ struct CommandLiteralEditor: NSViewRepresentable {
     var backgroundColor: NSColor
     var identifier: String
     var editor: CommandLiteralTextView? = nil
+    var isReadOnly = false
+    var onFocusChange: ((Bool) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
@@ -107,7 +117,8 @@ struct CommandLiteralEditor: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.text = $text
         guard let editor = scroll.documentView as? CommandLiteralTextView else { return }
-        editor.isEditable = isEnabled
+        editor.isEditable = isEnabled && !isReadOnly
+        editor.onFocusChange = onFocusChange
         editor.updateFromModel(text)
         editor.textColor = textColor
         editor.insertionPointColor = textColor

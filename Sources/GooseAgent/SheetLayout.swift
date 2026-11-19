@@ -19,9 +19,6 @@ enum SheetLayout {
     static let commandLibraryDefaultSplitRatio: CGFloat = 0.38
     static let commandLibraryNameColumn: CGFloat = 240
     static let commandLibraryPreviewHeight: CGFloat = 76
-    static let commandEditorHostWidth: CGFloat = 320
-    static let commandEditorGroupWidth: CGFloat = 220
-    static let commandCardTextHeight: CGFloat = 200
     static let commandSidebarPreviewHeight: CGFloat = 180
     static let commandSidebarPreviewWidth: CGFloat = 420
     static let commandSidebarPreviewMaxWidth: CGFloat = 900
