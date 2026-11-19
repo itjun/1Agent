@@ -74,6 +74,16 @@ import ObjectiveC
                         && text(title).contains(item.alias) && text(code).contains(item.command)
                         && accessibilityFrame(row).height >= 64
                 }
+                try await eventually("拷贝图标位于详情标题下方、代码原文右侧，与单行命令垂直居中") {
+                    guard let title = element("quickCommands.library.title", in: native),
+                          let code = element("quickCommands.library.code", in: native),
+                          let copy = element("quickCommands.library.copy", in: native) else { return false }
+                    let titleFrame = try accessibilityFrame(title)
+                    let codeFrame = try accessibilityFrame(code)
+                    let copyFrame = try accessibilityFrame(copy)
+                    return copyFrame.maxY < titleFrame.minY && copyFrame.minX >= codeFrame.maxX
+                        && abs(copyFrame.midY - codeFrame.midY) < 2
+                }
             }
             print("PASS rendered dark and light command library split workspace")
 
@@ -450,6 +460,12 @@ import ObjectiveC
                   let copy = element("quickCommands.library.copy", in: window), press(copy) else { return false }
             return NSPasteboard.general.string(forType: .string) == multiline.command
         }
+        func copyButtonHasLabel(_ label: String) -> Bool {
+            guard let copy = element("quickCommands.library.copy", in: window) else { return false }
+            return ["accessibilityLabel", "accessibilityTitle"].contains { value(copy, $0) as? String == label }
+        }
+        try await eventually("拷贝完成反馈可由辅助功能读取") { copyButtonHasLabel(String(localized: "Copied")) }
+        try await eventually("拷贝完成反馈自动复位") { copyButtonHasLabel(String(localized: "Copy Command Text")) }
         func arrow(_ isDown: Bool, modifiers: NSEvent.ModifierFlags = []) throws {
             let character = isDown ? "\u{f701}" : "\u{f700}"
             NSApp.sendEvent(try unwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,

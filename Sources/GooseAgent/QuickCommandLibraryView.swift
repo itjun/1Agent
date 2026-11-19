@@ -12,7 +12,6 @@ struct QuickCommandLibraryView: View {
     @FocusState private var isListFocused: Bool
     @State private var splitDragStart: CGFloat?
     @State private var isDividerHovered = false
-    @State private var copiedCommandID: UUID?
     private var collection: QuickCommandCollection {
         get { window.commandLibraryCollection }
         nonmutating set { window.commandLibraryCollection = newValue }
@@ -80,11 +79,6 @@ struct QuickCommandLibraryView: View {
         }
         .onChange(of: collections) { _, values in
             if !values.contains(collection) { collection = .common }
-        }
-        .task(id: copiedCommandID) {
-            guard copiedCommandID != nil else { return }
-            do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
-            copiedCommandID = nil
         }
         .familySheet(isPresented: Binding(get: { !isWorkspace && editing != nil }, set: { if !$0 && !isWorkspace { editing = nil } }), width: SheetLayout.commandEditor, height: SheetLayout.commandEditorHeight) {
             if let editing {
@@ -398,16 +392,6 @@ struct QuickCommandLibraryView: View {
             FamilyMenu("Copy to Host", items: { hostCopyActions(item) })
                 .accessibilityIdentifier("quickCommands.library.copyToHost")
         }
-        Button {
-            CommandClipboard.copy(item.command)
-            copiedCommandID = item.id
-        } label: {
-            Label(copiedCommandID == item.id ? "Copied" : "Copy",
-                  systemImage: copiedCommandID == item.id ? "checkmark" : "doc.on.doc")
-        }
-        .buttonStyle(FamilyButtonStyle(kind: .secondary))
-        .accessibilityIdentifier("quickCommands.library.copy")
-
         Button { requestEdit(item) } label: { Label("Edit", systemImage: "pencil") }
             .buttonStyle(FamilyButtonStyle(kind: .primary))
             .accessibilityIdentifier("quickCommands.library.edit")

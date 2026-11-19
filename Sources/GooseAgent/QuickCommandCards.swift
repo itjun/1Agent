@@ -165,19 +165,41 @@ struct QuickCommandDirectorySectionHeader: View {
 struct QuickCommandCodeBlock: View {
     let command: String
     @Environment(\.windowChrome) private var chrome
+    @State private var isCopied = false
 
     var body: some View {
         let palette = QuickCommandCodePalette(chrome: chrome)
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-        Text(QuickCommandCodePalette.attributedCommand(command, palette: palette))
-            .lineSpacing(3)
-            .textSelection(.enabled)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityIdentifier("quickCommands.library.code")
-            .padding(Theme.Space.m)
-            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-            .background(palette.background, in: shape)
-            .overlay(shape.strokeBorder(chrome.hairline, lineWidth: 1))
+        let minimumHeight: CGFloat = 56
+        HStack(alignment: .top, spacing: Theme.Space.s) {
+            Text(QuickCommandCodePalette.attributedCommand(command, palette: palette))
+                .lineSpacing(3)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("quickCommands.library.code")
+                .padding(.vertical, Theme.Space.m)
+                .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .leading)
+
+            SidebarIconButton(
+                symbol: isCopied ? "checkmark" : "doc.on.doc",
+                help: isCopied ? String(localized: "Copied") : String(localized: "Copy Command Text"),
+                accessibilityLabel: isCopied ? "Copied" : "Copy Command Text",
+                hoverFill: chrome.hairline, tint: chrome.accent
+            ) {
+                CommandClipboard.copy(command)
+                isCopied = true
+            }
+            .accessibilityIdentifier("quickCommands.library.copy")
+            .frame(height: minimumHeight)
+        }
+        .padding(.horizontal, Theme.Space.m)
+        .background(palette.background, in: shape)
+        .overlay(shape.strokeBorder(chrome.hairline, lineWidth: 1).allowsHitTesting(false))
+        .task(id: isCopied) {
+            guard isCopied else { return }
+            do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
+            isCopied = false
+        }
     }
 }
 
