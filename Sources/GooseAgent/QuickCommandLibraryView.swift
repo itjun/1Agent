@@ -238,10 +238,15 @@ struct QuickCommandLibraryView: View {
                 }.padding(Theme.Space.l)
                 Divider()
                 ScrollView {
-                    Text(verbatim: selected.command).font(.system(size: 13, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(Theme.Space.l)
+                    VStack(alignment: .leading, spacing: Theme.Space.l) {
+                        QuickCommandCodeBlock(command: selected.command)
+                        let parameters = QuickCommandLexer.extractLongFlags(selected.command)
+                        if !parameters.isEmpty {
+                            QuickCommandParametersGrid(parameters: parameters)
+                        }
+                    }
+                    .padding(Theme.Space.l)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).id(selected.id)
             } else {
                 Text("Select a command to preview its details.")

@@ -277,3 +277,216 @@ struct QuickCommandRunRequest: Identifiable, Equatable {
         guard consumed.insert(id).inserted else { throw QuickCommandError.uncertain }
     }
 }
+
+enum QuickCommandTokenRole: Equatable, Sendable {
+    case plain
+    case command
+    case operatorToken
+    case flag
+    case flagValue
+    case stringOrVariable
+    case comment
+}
+
+struct QuickCommandToken: Equatable, Sendable {
+    let text: String
+    let role: QuickCommandTokenRole
+}
+
+struct QuickCommandFlagParameter: Equatable, Identifiable, Sendable {
+    let index: Int
+    let flag: String
+    let value: String
+    let isFlagOnly: Bool
+    var id: Int { index }
+}
+
+/// 命令行轻量词法切分与长参数提取；保持原字符序列一字不改。
+enum QuickCommandLexer {
+    static let highlightByteLimit = 8_192
+    private static let commandWrappers: Set<String> = ["sudo", "env", "nohup", "time", "command", "exec"]
+
+    static func tokenizeLine(_ line: String) -> [QuickCommandToken] {
+        guard !line.isEmpty else { return [] }
+        let characters = Array(line)
+        let count = characters.count
+        var index = 0
+        var tokens: [QuickCommandToken] = []
+        var isExpectingCommand = true
+        var isExpectingFlagValue = false
+        var isAtLineLead = true
+
+        func append(_ text: String, role: QuickCommandTokenRole) {
+            guard !text.isEmpty else { return }
+            tokens.append(QuickCommandToken(text: text, role: role))
+        }
+
+        while index < count {
+            let ch = characters[index]
+            if ch.isWhitespace {
+                let start = index
+                while index < count, characters[index].isWhitespace { index += 1 }
+                append(String(characters[start..<index]), role: .plain)
+                continue
+            }
+            if ch == "#", isAtLineLead || tokens.last?.text.last?.isWhitespace == true {
+                append(String(characters[index..<count]), role: .comment)
+                break
+            }
+            isAtLineLead = false
+
+            if ch == "|" || ch == "&" || ch == ";" {
+                if index + 1 < count, (ch == "|" && characters[index + 1] == "|") || (ch == "&" && characters[index + 1] == "&") {
+                    append(String(characters[index...(index + 1)]), role: .operatorToken)
+                    index += 2
+                    isExpectingCommand = true
+                    isExpectingFlagValue = false
+                    continue
+                } else if ch == "|" || ch == ";" {
+                    append(String(ch), role: .operatorToken)
+                    index += 1
+                    isExpectingCommand = true
+                    isExpectingFlagValue = false
+                    continue
+                }
+            }
+
+            if ch == "'" || ch == "\"" {
+                let quote = ch
+                let start = index
+                index += 1
+                while index < count {
+                    if quote == "\"", characters[index] == "\\", index + 1 < count {
+                        index += 2
+                        continue
+                    }
+                    if characters[index] == quote {
+                        index += 1
+                        break
+                    }
+                    index += 1
+                }
+                let text = String(characters[start..<index])
+                let role: QuickCommandTokenRole = isExpectingFlagValue ? .flagValue : .stringOrVariable
+                append(text, role: role)
+                isExpectingCommand = false
+                isExpectingFlagValue = false
+                continue
+            }
+
+            let start = index
+            while index < count {
+                let current = characters[index]
+                if current.isWhitespace || current == ";" || current == "'" || current == "\"" { break }
+                if current == "|" { break }
+                if current == "&", index + 1 < count, characters[index + 1] == "&" { break }
+                index += 1
+            }
+            if index == start {
+                append(String(characters[index]), role: .plain)
+                index += 1
+                continue
+            }
+
+            let word = String(characters[start..<index])
+            if isExpectingCommand {
+                if QuickCommandLexer.isEnvironmentAssignment(word) {
+                    append(word, role: .stringOrVariable)
+                } else {
+                    append(word, role: .command)
+                    if !QuickCommandLexer.commandWrappers.contains(word) {
+                        isExpectingCommand = false
+                    }
+                }
+                isExpectingFlagValue = false
+            } else if word.hasPrefix("--"), word.count > 2 {
+                if let eq = word.firstIndex(of: "=") {
+                    let flagPart = String(word[..<eq])
+                    let valuePart = String(word[word.index(after: eq)...])
+                    append(flagPart, role: .flag)
+                    append("=", role: .operatorToken)
+                    if valuePart.isEmpty {
+                        isExpectingFlagValue = index < count && (characters[index] == "'" || characters[index] == "\"")
+                    } else {
+                        append(valuePart, role: .flagValue)
+                        isExpectingFlagValue = false
+                    }
+                } else {
+                    append(word, role: .flag)
+                    isExpectingFlagValue = true
+                }
+            } else if word.hasPrefix("-"), word.count > 1 {
+                append(word, role: .flag)
+                isExpectingFlagValue = false
+            } else if isExpectingFlagValue {
+                append(word, role: .flagValue)
+                isExpectingFlagValue = false
+            } else if word.hasPrefix("$") {
+                append(word, role: .stringOrVariable)
+            } else {
+                append(word, role: .plain)
+            }
+        }
+        return tokens
+    }
+
+    static func extractLongFlags(_ command: String, limit: Int = 12) -> [QuickCommandFlagParameter] {
+        guard command.utf8.count <= QuickCommandLexer.highlightByteLimit, limit > 0 else { return [] }
+        var parameters: [QuickCommandFlagParameter] = []
+        for line in command.components(separatedBy: "\n") {
+            let meaningful = QuickCommandLexer.tokenizeLine(line).filter { token in
+                token.role != .comment && !token.text.allSatisfy(\.isWhitespace)
+            }
+            var i = 0
+            while i < meaningful.count, parameters.count < limit {
+                let token = meaningful[i]
+                if token.role == .flag, token.text.hasPrefix("--"), token.text.count > 2 {
+                    if i + 2 < meaningful.count, meaningful[i + 1].text == "=", meaningful[i + 2].role == .flagValue {
+                        parameters.append(QuickCommandFlagParameter(
+                            index: parameters.count,
+                            flag: token.text,
+                            value: QuickCommandLexer.unquoted(meaningful[i + 2].text),
+                            isFlagOnly: false
+                        ))
+                        i += 3
+                        continue
+                    } else if i + 1 < meaningful.count, meaningful[i + 1].role == .flagValue {
+                        parameters.append(QuickCommandFlagParameter(
+                            index: parameters.count,
+                            flag: token.text,
+                            value: QuickCommandLexer.unquoted(meaningful[i + 1].text),
+                            isFlagOnly: false
+                        ))
+                        i += 2
+                        continue
+                    } else {
+                        parameters.append(QuickCommandFlagParameter(
+                            index: parameters.count,
+                            flag: token.text,
+                            value: "",
+                            isFlagOnly: true
+                        ))
+                    }
+                }
+                i += 1
+            }
+            if parameters.count >= limit { break }
+        }
+        return parameters
+    }
+
+    private static func isEnvironmentAssignment(_ word: String) -> Bool {
+        guard let eq = word.firstIndex(of: "="), eq != word.startIndex else { return false }
+        let name = word[..<eq]
+        guard let first = name.first, first == "_" || first.isLetter else { return false }
+        return name.allSatisfy { $0 == "_" || $0.isLetter || $0.isNumber }
+    }
+
+    private static func unquoted(_ text: String) -> String {
+        guard text.count >= 2 else { return text }
+        if (text.hasPrefix("'") && text.hasSuffix("'")) || (text.hasPrefix("\"") && text.hasSuffix("\"")) {
+            return String(text.dropFirst().dropLast())
+        }
+        return text
+    }
+}

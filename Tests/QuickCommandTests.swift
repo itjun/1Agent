@@ -14,6 +14,7 @@ struct QuickCommandTests {
         try transferTests()
         try orderingTests()
         collectionTests()
+        lexerTests()
         try publicLibraryTests()
         let local = QuickCommandContext(sessionID: "a#0", directory: "/work/project", isLive: true)
         var item = QuickCommand(alias: "Pull", command: "python project.py git pull", directory: "/work/project")
@@ -324,5 +325,30 @@ extension QuickCommandTests {
         let shared = QuickCommandCollection.common.draft(in: context)
         assert(shared.scope == .all && shared.host == nil && shared.directory == nil)
         print("Command collections: bound hosts only, folder ownership, missing-host repair, search and draft context passed")
+    }
+
+    static func lexerTests() {
+        let deployLine = "python diteng.py deploy --host cdcp-raven --services rc --mode=new"
+        let deployTokens = QuickCommandLexer.tokenizeLine(deployLine)
+        assert(deployTokens.map(\.text).joined() == deployLine)
+        assert(deployTokens.first?.role == .command && deployTokens.first?.text == "python")
+        let flags = QuickCommandLexer.extractLongFlags(deployLine)
+        assert(flags.map(\.flag) == ["--host", "--services", "--mode"])
+        assert(flags.map(\.value) == ["cdcp-raven", "rc", "new"] && flags.allSatisfy { !$0.isFlagOnly })
+
+        assert(QuickCommandLexer.extractLongFlags("source ./init.sh").isEmpty)
+
+        let complexLines = [
+            #"ONEAGENT_ENV=prod sudo nginx -t && printf '%s\n' "--quoted-not-flag" | cat # trailing comment"#,
+            "# 独立注释行 --ignored value",
+            "git log -8 --oneline --graph --author=\"Alice Bob\""
+        ]
+        for line in complexLines {
+            assert(QuickCommandLexer.tokenizeLine(line).map(\.text).joined() == line, "词法切分必须保持原文无损")
+        }
+        let gitFlags = QuickCommandLexer.extractLongFlags(complexLines.joined(separator: "\n"))
+        assert(gitFlags.map(\.flag) == ["--oneline", "--graph", "--author"])
+        assert(gitFlags[0].isFlagOnly && gitFlags[1].isFlagOnly && !gitFlags[2].isFlagOnly && gitFlags[2].value == "Alice Bob")
+        print("Command lexer tests passed")
     }
 }

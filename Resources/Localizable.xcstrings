@@ -5925,7 +5925,9 @@
           }
         }
       }
-    }
+    },
+    "Parameters" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Parameters"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "参数速览"}}}},
+    "Enabled" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enabled"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已启用"}}}}
   },
   "version" : "1.0"
 }
