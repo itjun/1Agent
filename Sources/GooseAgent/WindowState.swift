@@ -22,7 +22,12 @@ final class WindowState: ObservableObject, Identifiable {
     @Published var toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
     @Published var toolPreviewColumn: FileColumn?
     @Published var toolGitPreview: GitPreviewRequest?
-    @Published var commandLibraryDraft: QuickCommand?
+    @Published var commandLibraryDraft: QuickCommand? {
+        didSet {
+            if commandLibraryDraft == nil { isCommandLibraryDraftDirty = false }
+        }
+    }
+    var isCommandLibraryDraftDirty = false
     @Published var commandLibrarySelection: UUID?
     @Published var commandLibraryCollection: QuickCommandCollection = .common
     @Published var commandLibraryMessage: String?
@@ -103,6 +108,26 @@ final class WindowState: ObservableObject, Identifiable {
     init(id: UUID = UUID(), frame: CGRect? = nil) {
         self.id = id
         self.frame = frame
+    }
+
+    func confirmDiscardCommandDraftIfNeeded(perform action: @escaping () -> Void) {
+        guard commandLibraryDraft != nil, isCommandLibraryDraftDirty,
+              let owner = MainWindowManager.shared.window(for: self) ?? NSApp.keyWindow,
+              owner.isVisible else {
+            isCommandLibraryDraftDirty = false
+            action()
+            return
+        }
+        let alert = FamilyAlert()
+        alert.messageText = String(localized: "Discard Unsaved Changes?")
+        alert.informativeText = String(localized: "Your edits to this command have not been saved.")
+        alert.addButton(withTitle: String(localized: "Discard Changes"))
+        alert.addButton(withTitle: String(localized: "Keep Editing"))
+        alert.beginSheetModal(for: owner) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            self?.isCommandLibraryDraftDirty = false
+            action()
+        }
     }
 }
 

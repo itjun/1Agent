@@ -5930,7 +5930,12 @@
     "All Folders on This Mac" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "All Folders on This Mac"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "本机通用（不限目录）"}}}},
     "All Folders on Host" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "All Folders on Host"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "整机通用（不限目录）"}}}},
     "Parameters" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Parameters"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "参数速览"}}}},
-    "Enabled" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enabled"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已启用"}}}}
+    "Enabled" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enabled"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已启用"}}}},
+    "Editing New Command" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Editing New Command"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在右侧新建命令"}}}},
+    "Discard Unsaved Changes?" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Discard Unsaved Changes?"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "放弃未保存的修改？"}}}},
+    "Your edits to this command have not been saved." : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Your edits to this command have not been saved."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前命令的改动还没保存，切走后会丢失。"}}}},
+    "Discard Changes" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Discard Changes"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "放弃修改"}}}},
+    "Keep Editing" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Keep Editing"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "继续编辑"}}}}
   },
   "version" : "1.0"
 }

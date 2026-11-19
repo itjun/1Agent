@@ -10,48 +10,85 @@ struct QuickCommandEditor: View {
     @State private var isSaving = false
     @State private var isSaved = false
     @State private var saveTask: Task<Void, Never>?
+    private let initialItem: QuickCommand
+    private let initialTarget: QuickCommandCollection
+    private let initialDirectory: String
+    private let initialIsDirectoryScoped: Bool
     private let isNew: Bool
     private let isWorkspaceCard: Bool
     let hosts: [SSHHost]
+    let onDirtyChange: (Bool) -> Void
     let onSaved: (QuickCommand) -> Void
     let onClose: () -> Void
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
 
-    init(item: QuickCommand, hosts: [SSHHost], isWorkspaceCard: Bool = false, onSaved: @escaping (QuickCommand) -> Void = { _ in }, onClose: @escaping () -> Void) {
+    init(item: QuickCommand, hosts: [SSHHost], isWorkspaceCard: Bool = false,
+         onDirtyChange: @escaping (Bool) -> Void = { _ in },
+         onSaved: @escaping (QuickCommand) -> Void = { _ in },
+         onClose: @escaping () -> Void) {
         let target = QuickCommandCollection.owner(of: item)
+        let directoryValue = item.directory ?? ""
+        let isScoped = item.scope == .directory
         _item = State(initialValue: item)
         _target = State(initialValue: target)
-        _directories = State(initialValue: [target: item.directory ?? ""])
-        _isDirectoryScoped = State(initialValue: item.scope == .directory)
+        _directories = State(initialValue: [target: directoryValue])
+        _isDirectoryScoped = State(initialValue: isScoped)
+        initialItem = item
+        initialTarget = target
+        initialDirectory = directoryValue
+        initialIsDirectoryScoped = isScoped
         isNew = !QuickCommandStore.shared.commands.contains { $0.id == item.id }
         self.hosts = hosts
         self.isWorkspaceCard = isWorkspaceCard
+        self.onDirtyChange = onDirtyChange
         self.onSaved = onSaved
         self.onClose = onClose
     }
     private var directory: Binding<String> {
         Binding(get: { directories[target] ?? "" }, set: { directories[target] = $0 })
     }
+    private var isDirty: Bool {
+        if isNew {
+            return !item.alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !item.group.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !item.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        let currentDirectory = target == .common || !isDirectoryScoped ? "" : (directories[target] ?? "")
+        let initialSubfolders = initialTarget != .common && initialIsDirectoryScoped && initialItem.includesSubdirectories
+        let currentSubfolders = target != .common && isDirectoryScoped && item.includesSubdirectories
+        return item.alias != initialItem.alias
+            || item.group != initialItem.group
+            || item.command != initialItem.command
+            || target != initialTarget
+            || (target != .common && isDirectoryScoped != initialIsDirectoryScoped)
+            || currentDirectory != (initialTarget == .common || !initialIsDirectoryScoped ? "" : initialDirectory)
+            || currentSubfolders != initialSubfolders
+    }
     var body: some View {
         Group {
             if isWorkspaceCard {
-                VStack(spacing: 0) {
-                    HStack {
-                        Text(isNew ? "New Quick Command" : "Edit Quick Command").font(Theme.Font.paneTitle)
-                        Spacer()
-                        Button(action: close) { Image(systemName: "xmark") }
-                            .buttonStyle(FamilyButtonStyle()).help("Cancel")
-                            .accessibilityLabel(Text("Cancel"))
-                    }.padding(12)
+                VStack(alignment: .leading, spacing: 0) {
+                    WindowDragArea()
+                        .frame(height: ShellLayout.compactHeaderHeight)
+                        .accessibilityHidden(true)
+                    HStack(spacing: Theme.Space.s) {
+                        Text(isNew ? "New Quick Command" : "Edit Quick Command")
+                            .font(Theme.Font.sectionTitle)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        editorActions
+                    }
+                    .padding(.horizontal, Theme.Space.l)
+                    .padding(.bottom, Theme.Space.m)
                     Divider()
                     GeometryReader { geometry in
                         ScrollView {
-                            editorFields.frame(minHeight: max(0, geometry.size.height - 32)).padding(16)
+                            editorFields
+                                .frame(minHeight: max(0, geometry.size.height - Theme.Space.l * 2))
+                                .padding(Theme.Space.l)
                         }
                     }
-                    Divider()
-                    HStack(spacing: Theme.Space.s) { Spacer(); editorActions }.padding(12)
                 }.foregroundStyle(chrome.text)
                     .background(Color.clear)
             } else {
@@ -60,51 +97,73 @@ struct QuickCommandEditor: View {
                 } actions: { editorActions }
             }
         }
+        .onAppear { onDirtyChange(isDirty) }
         .onDisappear { saveTask?.cancel() }
-        .onChange(of: target) { _, _ in error = nil }
+        .onChange(of: target) { _, _ in error = nil; onDirtyChange(isDirty) }
+        .onChange(of: isDirectoryScoped) { _, _ in onDirtyChange(isDirty) }
+        .onChange(of: directories) { _, _ in onDirtyChange(isDirty) }
+        .onChange(of: item) { _, _ in onDirtyChange(isDirty) }
     }
     private var editorFields: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            if target != .common {
-            VStack(alignment: .leading, spacing: 12) {
-                (isWorkspaceCard ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
-                    Text("Execution Host").font(Theme.Font.row)
-                    if !isWorkspaceCard { Spacer() }
-                    FamilyPicker(value: $target, options: hostOptions)
-                        .frame(width: isWorkspaceCard ? nil : SheetLayout.commandEditorHostWidth)
-                        .accessibilityLabel(Text("Execution Host"))
-                        .accessibilityIdentifier("quickCommand.host")
+        let codeBackground = QuickCommandCodePalette(chrome: chrome).background
+        return VStack(alignment: .leading, spacing: isWorkspaceCard ? 14 : 18) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    field("Command Name", text: $item.alias, id: "quickCommand.alias")
+                    field("Group (optional)", text: $item.group, id: "quickCommand.group")
+                        .frame(width: isWorkspaceCard ? 168 : SheetLayout.commandEditorGroupWidth)
                 }
-                if target != .common {
-                    Toggle("Limit to Folder", isOn: $isDirectoryScoped)
-                        .toggleStyle(FamilyToggleStyle(checkbox: true))
-                        .accessibilityIdentifier("quickCommand.limitFolder")
+                VStack(alignment: .leading, spacing: 12) {
+                    field("Command Name", text: $item.alias, id: "quickCommand.alias")
+                    field("Group (optional)", text: $item.group, id: "quickCommand.group")
+                }
+            }
+            if target != .common {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: Theme.Space.s) {
+                        Text("Execution Host").font(Theme.Font.row)
+                        Spacer(minLength: 0)
+                        FamilyPicker(value: $target, options: hostOptions)
+                            .frame(maxWidth: SheetLayout.commandEditorHostWidth)
+                            .accessibilityLabel(Text("Execution Host"))
+                            .accessibilityIdentifier("quickCommand.host")
+                    }
+                    HStack(spacing: Theme.Space.l) {
+                        Toggle("Limit to Folder", isOn: $isDirectoryScoped)
+                            .toggleStyle(FamilyToggleStyle(checkbox: true))
+                            .accessibilityIdentifier("quickCommand.limitFolder")
+                        if isDirectoryScoped {
+                            Toggle("Include Subfolders", isOn: $item.includesSubdirectories)
+                                .toggleStyle(FamilyToggleStyle(checkbox: true))
+                                .accessibilityIdentifier("quickCommand.subfolders")
+                        }
+                        Spacer(minLength: 0)
+                    }
                     if isDirectoryScoped {
-                        HStack {
+                        HStack(spacing: Theme.Space.s) {
                             CommandTextField(text: directory, placeholder: String(localized: "Working Directory"), identifier: "quickCommand.directory", symbol: "folder")
                                 .frame(height: Theme.Control.height)
                             if target == .local {
                                 Button("Choose…", action: chooseDirectory).buttonStyle(FamilyButtonStyle())
                             }
                         }
-                        Toggle("Include Subfolders", isOn: $item.includesSubdirectories)
-                            .toggleStyle(FamilyToggleStyle(checkbox: true))
-                            .accessibilityIdentifier("quickCommand.subfolders")
                     }
                 }
-            }
-            Divider()
-            }
-            (isWorkspaceCard ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(alignment: .top, spacing: 16))) {
-                field("Command Name", text: $item.alias, id: "quickCommand.alias")
-                field("Group (optional)", text: $item.group, id: "quickCommand.group")
-                    .frame(width: isWorkspaceCard ? nil : SheetLayout.commandEditorGroupWidth)
+                .padding(isWorkspaceCard ? Theme.Space.m : 0)
+                .background {
+                    if isWorkspaceCard {
+                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                            .fill(chrome.elevated.opacity(chrome.isDark ? 0.65 : 0.8))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(chrome.hairline, lineWidth: 1))
+                    }
+                }
+                if !isWorkspaceCard { Divider() }
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Command").font(Theme.Font.row).foregroundStyle(chrome.secondary)
                 CommandLiteralEditor(text: $item.command, textColor: NSColor(chrome.text), backgroundColor: .clear, identifier: "quickCommand.script")
                     .frame(minHeight: isWorkspaceCard ? SheetLayout.commandCardTextHeight : nil, maxHeight: .infinity)
-                    .background(chrome.elevated.opacity(isShellTransparent ? ShellLayout.controlOpacity : 1))
+                    .background(isWorkspaceCard ? codeBackground : chrome.elevated.opacity(isShellTransparent ? ShellLayout.controlOpacity : 1))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
                     .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).stroke(chrome.hairline))
             }

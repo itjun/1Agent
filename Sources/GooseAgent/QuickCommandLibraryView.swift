@@ -47,6 +47,10 @@ struct QuickCommandLibraryView: View {
 
     private var commands: [QuickCommand] { numberedCommands.map(\.element) }
     private var selected: QuickCommand? { commands.first { $0.id == selectedID } }
+    private var isCreatingNewDraft: Bool {
+        guard isWorkspace, let editing else { return false }
+        return !store.commands.contains { $0.id == editing.id }
+    }
     private var allowsReordering: Bool {
         query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -90,21 +94,58 @@ struct QuickCommandLibraryView: View {
     }
 
     private func didSave(_ saved: QuickCommand) {
+        window.isCommandLibraryDraftDirty = false
         query = ""
         collection = QuickCommandCollection.owner(of: saved)
         selectedID = saved.id
     }
+
     private func moveSelection(by delta: Int) {
         guard !commands.isEmpty else { return }
         let current = commands.firstIndex { $0.id == selectedID }
         let next = current.map { min(max($0 + delta, 0), commands.count - 1) }
             ?? (delta > 0 ? 0 : commands.count - 1)
-        selectedID = commands[next].id
+        let targetID = commands[next].id
+        guard targetID != selectedID || editing != nil else { return }
+        if isWorkspace, editing != nil {
+            window.confirmDiscardCommandDraftIfNeeded {
+                editing = nil
+                selectedID = targetID
+            }
+        } else {
+            selectedID = targetID
+        }
     }
+
     private func select(_ item: QuickCommand) {
-        selectedID = item.id
-        isListFocused = true
+        if isWorkspace, let currentDraft = editing {
+            if currentDraft.id == item.id {
+                selectedID = item.id
+                return
+            }
+            window.confirmDiscardCommandDraftIfNeeded {
+                editing = nil
+                selectedID = item.id
+                isListFocused = true
+            }
+        } else {
+            selectedID = item.id
+            isListFocused = true
+        }
     }
+
+    private func requestEdit(_ item: QuickCommand) {
+        if isWorkspace, editing != nil, editing?.id != item.id {
+            window.confirmDiscardCommandDraftIfNeeded {
+                selectedID = item.id
+                editing = item
+            }
+        } else {
+            selectedID = item.id
+            editing = item
+        }
+    }
+
     private var libraryContent: some View {
         VStack(spacing: Theme.Space.m) {
             QuickCommandLibraryHeader(model: model, window: window)
@@ -116,50 +157,36 @@ struct QuickCommandLibraryView: View {
         }
     }
 
-    @ViewBuilder
     private var detailContent: some View {
-        if isWorkspace, let editing {
-            QuickCommandEditor(item: editing, hosts: model.hosts, isWorkspaceCard: true, onSaved: didSave) {
-                self.editing = nil
-            }.id(editing.id).frame(maxWidth: SheetLayout.commandEditor).frame(maxWidth: .infinity)
-                .padding(Theme.Space.xl)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .background(chrome.background)
-                .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
-                .modifier(FloatingContentSurface(showsShadow: false))
-        } else {
-            VStack(alignment: .leading, spacing: ShellLayout.workspaceInset) {
-                GeometryReader { geometry in
-                    let availableWidth = max(0, geometry.size.width - ShellLayout.workspaceInset)
-                    let minimumWidth = min(SheetLayout.commandLibraryPaneMinWidth, availableWidth / 2)
-                    let listWidth = min(availableWidth - minimumWidth,
-                        max(minimumWidth, availableWidth * window.commandLibrarySplitRatio))
-                    HStack(spacing: 0) {
-                        commandList.frame(width: listWidth)
-                        Color.clear
-                            .frame(width: ShellLayout.workspaceInset)
-                            .overlay {
-                                PaneDividerHandle(vertical: true, onHover: { isDividerHovered = $0 }, onDragChanged: { delta in
-                                    guard availableWidth > 0 else { return }
-                                    if splitDragStart == nil { splitDragStart = listWidth }
-                                    let width = min(availableWidth - minimumWidth,
-                                        max(minimumWidth, (splitDragStart ?? listWidth) + delta))
-                                    window.commandLibrarySplitRatio = width / availableWidth
-                                }, onDragEnded: { splitDragStart = nil }, onDoubleClick: {
-                                    window.commandLibrarySplitRatio = 0.5
-                                })
-                                .frame(width: 8)
-                                .accessibilityLabel(Text("Resize Command Columns"))
-                                .help("Drag to resize. Double-click to split equally.")
-                            }
-                        rightPane.frame(width: max(0, availableWidth - listWidth))
+        GeometryReader { geometry in
+            let availableWidth = max(0, geometry.size.width - ShellLayout.workspaceInset)
+            let minimumWidth = min(SheetLayout.commandLibraryPaneMinWidth, availableWidth / 2)
+            let listWidth = min(availableWidth - minimumWidth,
+                max(minimumWidth, availableWidth * window.commandLibrarySplitRatio))
+            HStack(spacing: 0) {
+                commandList.frame(width: listWidth)
+                Color.clear
+                    .frame(width: ShellLayout.workspaceInset)
+                    .overlay {
+                        PaneDividerHandle(vertical: true, onHover: { isDividerHovered = $0 }, onDragChanged: { delta in
+                            guard availableWidth > 0 else { return }
+                            if splitDragStart == nil { splitDragStart = listWidth }
+                            let width = min(availableWidth - minimumWidth,
+                                max(minimumWidth, (splitDragStart ?? listWidth) + delta))
+                            window.commandLibrarySplitRatio = width / availableWidth
+                        }, onDragEnded: { splitDragStart = nil }, onDoubleClick: {
+                            window.commandLibrarySplitRatio = 0.5
+                        })
+                        .frame(width: 8)
+                        .accessibilityLabel(Text("Resize Command Columns"))
+                        .help("Drag to resize. Double-click to split equally.")
                     }
-                    .frame(height: geometry.size.height)
-                    .onDisappear {
-                        splitDragStart = nil
-                        isDividerHovered = false
-                    }
-                }
+                rightPane.frame(width: max(0, availableWidth - listWidth))
+            }
+            .frame(height: geometry.size.height)
+            .onDisappear {
+                splitDragStart = nil
+                isDividerHovered = false
             }
         }
     }
@@ -172,6 +199,25 @@ struct QuickCommandLibraryView: View {
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: Theme.Space.m) {
+                        if isCreatingNewDraft {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(chrome.accent)
+                                    .accessibilityHidden(true)
+                                Text("Editing New Command")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(chrome.text)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(chrome.rowSelection(active: true), in: RoundedRectangle(cornerRadius: Theme.Radius.control))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                                    .strokeBorder(chrome.accent.opacity(0.65), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                            )
+                        }
                         if entries.isEmpty {
                             Text(query.isEmpty && collection == .common
                                  ? "No Library Commands"
@@ -192,14 +238,14 @@ struct QuickCommandLibraryView: View {
                                     }
                                     ForEach(group.entries) { entry in
                                         let item = entry.item
-                                        let isRowSelected = selectedID == item.id
+                                        let isRowSelected = !isCreatingNewDraft && selectedID == item.id
                                         CommandLibraryRow(
                                             item: item,
                                             number: entry.number,
                                             isSelected: isRowSelected,
                                             allowsReordering: allowsReordering,
                                             select: { select(item) },
-                                            edit: { editing = item },
+                                            edit: { requestEdit(item) },
                                             onReorder: reorderCommand,
                                             actions: { rowActions(item) }
                                         )
@@ -264,7 +310,22 @@ struct QuickCommandLibraryView: View {
     @ViewBuilder
     private var rightPane: some View {
         VStack(alignment: .leading, spacing: 0) {
-            commandInspector
+            if isWorkspace, let editing {
+                QuickCommandEditor(
+                    item: editing,
+                    hosts: model.hosts,
+                    isWorkspaceCard: true,
+                    onDirtyChange: { window.isCommandLibraryDraftDirty = $0 },
+                    onSaved: didSave
+                ) {
+                    window.isCommandLibraryDraftDirty = false
+                    self.editing = nil
+                }
+                .id(editing.id)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                commandInspector
+            }
         }
         .background(commandPaneBackground)
         .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : Theme.Radius.row))
@@ -351,7 +412,7 @@ struct QuickCommandLibraryView: View {
         .buttonStyle(FamilyButtonStyle(kind: .secondary))
         .accessibilityIdentifier("quickCommands.library.copy")
 
-        Button { editing = item } label: { Label("Edit", systemImage: "pencil") }
+        Button { requestEdit(item) } label: { Label("Edit", systemImage: "pencil") }
             .buttonStyle(FamilyButtonStyle(kind: .primary))
             .accessibilityIdentifier("quickCommands.library.edit")
     }
@@ -362,19 +423,30 @@ struct QuickCommandLibraryView: View {
         [FamilyMenuItem(title: String(localized: "Copy to Host"), children: hostCopyActions(item)),
          FamilyMenuItem(title: String(localized: "Save to Library"), enabled: item.scope != .all,
                         action: { model.copyLibraryCommand(item.id, to: .common, in: window) }),
-         FamilyMenuItem(title: String(localized: "Edit"), action: { editing = item }),
+         FamilyMenuItem(title: String(localized: "Edit"), action: { requestEdit(item) }),
          FamilyMenuItem(title: String(localized: "Copy Quick Command"), action: {
              do { try QuickCommandClipboard.copy([item]) } catch { self.error = error.localizedDescription }
          }),
          FamilyMenuItem(title: String(localized: "Copy Command Text"), action: { CommandClipboard.copy(item.command) }),
-         FamilyMenuItem(title: String(localized: "Duplicate Command"), action: { var copy = item; copy.id = UUID(); editing = copy }),
+         FamilyMenuItem(title: String(localized: "Duplicate Command"), action: {
+             var copy = item
+             copy.id = UUID()
+             window.confirmDiscardCommandDraftIfNeeded { editing = copy }
+         }),
          FamilyMenuItem(title: String(localized: "Move Up"), action: { move(item, delta: -1) }),
          FamilyMenuItem(title: String(localized: "Move Down"), action: { move(item, delta: 1) }),
          .separator,
          FamilyMenuItem(title: String(localized: "Delete"), destructive: true, action: {
-             do { try store.remove(item.id) } catch { self.error = error.localizedDescription }
+             do {
+                 if editing?.id == item.id {
+                     window.isCommandLibraryDraftDirty = false
+                     editing = nil
+                 }
+                 try store.remove(item.id)
+             } catch { self.error = error.localizedDescription }
          })]
     }
+
     private func hostCopyActions(_ item: QuickCommand) -> [FamilyMenuItem] {
         ([QuickCommandCollection.local] + model.hosts.map { .host($0.alias) }).map { destination in
             FamilyMenuItem(title: destination.title, action: { model.copyLibraryCommand(item.id, to: destination, in: window) })
@@ -547,6 +619,8 @@ struct QuickCommandLibraryHeader: View {
                 QuickCommandPasteView(request: pasteRequest, onClose: { self.pasteRequest = nil }, onSaved: { additions in
                     self.pasteRequest = nil
                     if let first = additions.first {
+                        window.isCommandLibraryDraftDirty = false
+                        window.commandLibraryDraft = nil
                         window.commandLibraryCollection = QuickCommandCollection.owner(of: first)
                         window.commandLibrarySelection = first.id
                     }
@@ -559,7 +633,9 @@ struct QuickCommandLibraryHeader: View {
     }
 
     private func startNewCommand() {
-        window.commandLibraryDraft = collection.draft(in: model.currentTerminalContext(in: window))
+        window.confirmDiscardCommandDraftIfNeeded {
+            window.commandLibraryDraft = collection.draft(in: model.currentTerminalContext(in: window))
+        }
     }
 
     private var libraryActions: [FamilyMenuItem] {
@@ -629,9 +705,12 @@ struct QuickCommandLibraryNavigation: View {
     }
     private func row(_ value: QuickCommandCollection) -> some View {
         Button {
-            window.commandLibraryDraft = nil
-            window.commandLibraryMessage = nil
-            window.commandLibraryCollection = value
+            guard window.commandLibraryCollection != value || window.commandLibraryDraft != nil else { return }
+            window.confirmDiscardCommandDraftIfNeeded {
+                window.commandLibraryDraft = nil
+                window.commandLibraryMessage = nil
+                window.commandLibraryCollection = value
+            }
         } label: {
             HStack(spacing: 10) {
                 Text(verbatim: value.title).lineLimit(2)

@@ -307,6 +307,9 @@ import ObjectiveC
         try require(press(try requiredElement("quickCommands.library.edit", in: native)))
         try await eventually { element("quickCommand.script", in: native) != nil }
         try require(native.attachedSheet == nil, "在命令工作区内编辑")
+        try require(element("quickCommand." + item.id.uuidString, in: native) != nil
+                    && descendants(try unwrap(native.contentView)).contains { $0 is NSSearchField },
+                    "右侧原地编辑时左侧命令列表与搜索框保持可见")
         let script = try unwrap(element("quickCommand.script", in: native) as? NSTextView, "脚本编辑器不存在")
         native.makeFirstResponder(script)
         try key(125)
@@ -318,6 +321,11 @@ import ObjectiveC
         try await eventually { element("quickCommands.library.edit", in: native) != nil }
         try require(press(try requiredElement("quickCommands.library.edit", in: native)))
         try await eventually { element("quickCommand.cancel", in: native) != nil }
+        try require(press(try requiredElement("quickCommand.cancel", in: native)))
+        try await eventually { state.commandLibraryDraft == nil }
+        try require(press(try requiredElement("quickCommands.library.new", in: native)))
+        try await eventually { state.commandLibraryDraft != nil && element("quickCommand.script", in: native) != nil }
+        try require(element("quickCommand." + item.id.uuidString, in: native) != nil, "新建草稿时左侧已有命令列表仍可对照查看")
         try require(press(try requiredElement("quickCommand.cancel", in: native)))
         try await eventually { state.commandLibraryDraft == nil }
         state.section = .terminals
