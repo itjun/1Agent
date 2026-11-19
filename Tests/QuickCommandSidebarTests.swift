@@ -76,6 +76,30 @@ import ObjectiveC
                 }
             }
             print("PASS rendered dark and light command library split workspace")
+
+            let content = try unwrap(native.contentView)
+            func reorderTarget(for id: UUID) -> QuickCommandReorderTargetView? {
+                descendants(content).compactMap { $0 as? QuickCommandReorderTargetView }
+                    .first { $0.commandID == id }
+            }
+            func rowActions() -> [FamilyMenuItem]? {
+                guard let row = reorderTarget(for: item.id) else { return nil }
+                let rowCenter = row.convert(NSPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil)
+                return descendants(content).compactMap { $0 as? FamilyContextAnchorView }.first {
+                    $0.hitBounds.contains($0.convert(rowCenter, from: nil))
+                }?.items?()
+            }
+            try await eventually("命令行提供右键菜单") { rowActions() != nil }
+            let actions = try unwrap(rowActions())
+            let saveToLibrary = try unwrap(actions.first { $0.title == String(localized: "Save to Library") && $0.enabled })
+            saveToLibrary.action()
+            let firstCommon = try unwrap(store.commands.first { $0.scope == .all && $0.command == item.command })
+            try require(firstCommon.id != item.id && store.commands.contains { $0.id == item.id && $0.scope == .local })
+            try require(state.commandLibraryCollection == .common && state.commandLibrarySelection == firstCommon.id)
+            print("PASS row menu saves an independent library copy")
+            state.commandLibraryCollection = .local
+            state.commandLibrarySelection = item.id
+            try await eventually { element("quickCommand." + item.id.uuidString, in: native) != nil }
         }
         if CommandLine.arguments.contains("--library-grid") {
             native.makeKeyAndOrderFront(nil)

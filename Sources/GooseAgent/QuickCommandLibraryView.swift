@@ -398,9 +398,6 @@ struct QuickCommandLibraryView: View {
         if item.scope == .all {
             FamilyMenu("Copy to Host", items: { hostCopyActions(item) })
                 .accessibilityIdentifier("quickCommands.library.copyToHost")
-        } else {
-            Button("Save to Library") { model.copyLibraryCommand(item.id, to: .common, in: window) }
-                .buttonStyle(FamilyButtonStyle(kind: .secondary))
         }
         Button {
             CommandClipboard.copy(item.command)
