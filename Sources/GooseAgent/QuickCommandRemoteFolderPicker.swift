@@ -79,6 +79,7 @@ struct QuickCommandRemoteFolderPicker: View {
                 Spacer(minLength: 0)
                 Button("Cancel", action: onClose)
                     .buttonStyle(FamilyButtonStyle(kind: .secondary))
+                    .keyboardShortcut(.cancelAction)
                     .accessibilityIdentifier("quickCommand.folderCancel")
                 Button("Choose…") {
                     if canChoose, let selection { onChoose(selection) }

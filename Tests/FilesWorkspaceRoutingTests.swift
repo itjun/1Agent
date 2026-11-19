@@ -622,13 +622,16 @@ private struct FilesWorkspaceRoutingTests {
                 throw TestFailure(description: "Could not press \(id)")
             }
         }
-        func key(_ code: UInt16, _ characters: String, in window: NSWindow, modifiers: NSEvent.ModifierFlags = []) throws {
+        func keyEvent(_ code: UInt16, _ characters: String, in window: NSWindow, modifiers: NSEvent.ModifierFlags = []) throws -> NSEvent {
             guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
                 characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code) else {
                 throw TestFailure(description: "Could not create folder picker key event")
             }
-            NSApp.sendEvent(event)
+            return event
+        }
+        func key(_ code: UInt16, _ characters: String, in window: NSWindow, modifiers: NSEvent.ModifierFlags = []) throws {
+            NSApp.sendEvent(try keyEvent(code, characters, in: window, modifiers: modifiers))
         }
         func selection(in window: NSWindow) -> String? {
             guard let label = element("quickCommand.folderSelection", in: window) else { return nil }
@@ -709,6 +712,19 @@ private struct FilesWorkspaceRoutingTests {
         try await eventually("dismiss remote folder picker") { window.attachedSheet == nil }
         let originalPath = element("quickCommand.directory", in: window)!
         try require(accessibilityValue(originalPath, "accessibilityValue") as? String == remote.directory, "Cancel keeps the original path")
+
+        try press("quickCommand.directory", in: window)
+        try await eventually("reopen picker without navigating") {
+            guard let sheet = window.attachedSheet else { return false }
+            return element("quickCommand.folderCancel", in: sheet) != nil
+        }
+        let fresh = window.attachedSheet!
+        let escape = try keyEvent(53, "\u{1b}", in: fresh)
+        try require(fresh.performKeyEquivalent(with: escape),
+                    "Escape resolves directly to the directory picker's Cancel action")
+        try await eventually("Escape removes the sheet without leaving a residual window") {
+            window.attachedSheet == nil && !fresh.isVisible
+        }
 
         try press("quickCommand.directory", in: window)
         try await eventually("reopen remote picker") {
