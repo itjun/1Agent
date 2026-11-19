@@ -132,6 +132,7 @@ private struct FilesWorkspaceRoutingTests {
         }
         if environment["ONEAGENT_TEST_COMPACT_HEADER"] == "1" {
             try await verifyCompactHeaderGeometry(model: model, state: state, window: chromeWindow)
+            try await verifyStableWindowButtons(model: model, state: state, window: chromeWindow)
             chromeWindow.orderOut(nil)
             chromeWindow.contentView = nil
             return
@@ -148,6 +149,7 @@ private struct FilesWorkspaceRoutingTests {
             chromeWindow.contentView = nil
             return
         }
+        try await verifyStableWindowButtons(model: model, state: state, window: chromeWindow)
         try verifySingleFilesEntry(chromeWindow, visible: false)
         try await verifyNativeFolderPicker(window: chromeWindow, home: home)
         if environment["ONEAGENT_TEST_NATIVE_FOLDER"] == "1" { return }
@@ -1376,6 +1378,49 @@ private struct FilesWorkspaceRoutingTests {
         state.presentation.toolSidebarOpen = savedInspectorOpen
         print("ok: full-height navigation survives terminal/command/file switching without a terminal toolbar")
         print("ok: island headers preserve content Y, geometry and actions across repeated collapse and restore")
+    }
+
+    @MainActor
+    private static func verifyStableWindowButtons(model: AppModel, state: WindowState, window: NSWindow) async throws {
+        let kinds: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        let buttons = kinds.compactMap { window.standardWindowButton($0) }
+        try require(buttons.count == kinds.count, "The workspace must expose all three native window buttons")
+        func frame(_ button: NSButton) -> NSRect { button.convert(button.bounds, to: nil) }
+
+        let wasCollapsed = state.presentation.sidebarCollapsed
+        for collapsed in [false, true] {
+            state.presentation.sidebarCollapsed = collapsed
+            for source: AppSection in [.files, .commands] {
+                model.showSection(source, in: state)
+                try await settle()
+                let frames = buttons.map(frame)
+                let headerCenterY = window.frame.height - ShellLayout.workspaceInset - ShellLayout.compactHeaderHeight / 2
+                try require(frames.allSatisfy { abs($0.midY - headerCenterY) < 1 },
+                            "Window buttons in \(source) (collapsed: \(collapsed)) must align at y=\(headerCenterY): \(frames)")
+                var movements: [String] = []
+                let observers = zip(buttons, frames).map { button, original in
+                    button.postsFrameChangedNotifications = true
+                    return NotificationCenter.default.addObserver(
+                        forName: NSView.frameDidChangeNotification, object: button, queue: nil
+                    ) { _ in
+                        // Sample after AppKit returns to the main queue. A settled-only
+                        // assertion misses the reset before a deferred realignment.
+                        DispatchQueue.main.async {
+                            let current = frame(button)
+                            if current != original { movements.append("\(original) → \(current)") }
+                        }
+                    }
+                }
+                defer { observers.forEach(NotificationCenter.default.removeObserver) }
+                model.showSection(.terminals, in: state)
+                try await settle()
+                try require(buttons.map(frame) == frames && movements.isEmpty,
+                            "Window buttons moved during \(source) → Terminals (collapsed: \(collapsed)): \(movements)")
+            }
+        }
+        state.presentation.sidebarCollapsed = wasCollapsed
+        try await settle()
+        print("ok: native window buttons stay put throughout Files/Commands → Terminal")
     }
 
     @MainActor

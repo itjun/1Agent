@@ -46,18 +46,23 @@ struct WorkspaceToolbar: NSViewRepresentable {
 
         func update() {
             window?.backgroundColor = NSColor(WindowChrome.workspace(isDark: AppearanceDriver.shared.isDark).background)
-            let tab = model.selectedTab(in: state)
-            window?.title = state.section == .commands ? String(localized: "Command Library")
-                : state.presentation.fullFilesWorkspace ? String(localized: "Files")
-                : tab.map { model.sessionTitle($0) } ?? String(localized: "1Agent")
-            // 各页标题与操作属于各自的岛，不再切换原生通栏或改变内容高度。
-            window?.toolbar = nil
-            DispatchQueue.main.async { [weak self] in self?.positionWindowButtons() }
+            DispatchQueue.main.async { [weak self] in self?.updateTitleAndWindowButtons() }
             FocusedTerminal.shared.refreshSoon()
         }
 
-        private func positionWindowButtons() {
-            guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        private func updateTitleAndWindowButtons() {
+            guard let window else { return }
+            let tab = model.selectedTab(in: state)
+            let title = state.section == .commands ? String(localized: "Command Library")
+                : state.presentation.fullFilesWorkspace ? String(localized: "Files")
+                : tab.map { model.sessionTitle($0) } ?? String(localized: "1Agent")
+            // 等当前布局完成后再更新标题。AppKit 会重置红绿灯，因此需要立即把它们对齐。
+            if window.title != title { window.title = title }
+            positionWindowButtons(in: window)
+        }
+
+        private func positionWindowButtons(in window: NSWindow) {
+            guard !window.styleMask.contains(.fullScreen) else { return }
             // 原生红绿灯放在导航岛内部，与各岛的 32pt 标题共用中心线。
             // 使用窗口坐标，避免每次布局在已移动的位置上累计偏移。
             for (index, kind) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
