@@ -150,7 +150,11 @@ import ObjectiveC
             try require(element(id, in: native) == nil, "快捷命令栏不提供维护入口")
         }
         try require(!descendants(try unwrap(native.contentView)).contains { $0 is QuickCommandReorderTargetView }, "指令栏不提供拖动排序")
-        try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) != nil }
+        let copyID = "quickCommands.copy." + item.id.uuidString
+        let codeID = "quickCommands.code." + item.id.uuidString
+        let codeBlockID = "quickCommands.codeBlock." + original.id.uuidString
+        let runID = "quickCommands.run." + item.id.uuidString
+        try await eventually { element(copyID, in: native) != nil }
         try require(model.commandSidebars[original.id]?.selectedCommandID == item.id, "首次打开自动选中第一条指令")
         let rowID = "quickCommand." + item.id.uuidString
         let secondRowID = "quickCommand." + second.id.uuidString
@@ -164,10 +168,19 @@ import ObjectiveC
         try await eventually { element("quickCommands.code." + item.id.uuidString, in: native) != nil }
         try require(!descendants(try unwrap(native.contentView)).contains { $0 is QuickCommandPreviewAnchorView }, "完整命令在列表下方，不打开悬浮窗")
         let detailsFrame = try accessibilityFrame(try requiredElement("quickCommands.details." + original.id.uuidString, in: native))
-        // 列表下边距 8 加详情内边距 12。
-        try require(abs(initialSecondFrame.minY - 20 - detailsFrame.maxY) < 1, "命令详情紧跟在列表下面")
-        let nearbyRunFrame = try accessibilityFrame(try requiredElement("quickCommands.run." + item.id.uuidString, in: native))
-        try require(initialSecondFrame.minY - nearbyRunFrame.minY < 130, "短命令的执行按钮紧跟命令原文，不沉到侧栏最底下")
+        try require(abs(initialSecondFrame.minY - 24 - detailsFrame.maxY) < 1, "命令列表与详情之间留出 24 pt")
+        try require(element(runID, in: native) == nil, "命令详情不提供执行按钮")
+        func verifyCopyPlacement() throws -> CGRect {
+            let block = try accessibilityFrame(try requiredElement(codeBlockID, in: native))
+            let preview = try accessibilityFrame(try requiredElement("quickCommands.preview." + original.id.uuidString, in: native))
+            let copy = try accessibilityFrame(try requiredElement(copyID, in: native))
+            try require(block.contains(copy) && copy.maxY <= preview.minY
+                        && abs(block.maxX - copy.maxX - 12) < 1 && abs(copy.minY - block.minY - 12) < 1,
+                        "拷贝位于代码块右下角，正文区域在按钮上方")
+            return copy
+        }
+        let nearbyCopyFrame = try verifyCopyPlacement()
+        try require(initialSecondFrame.minY - nearbyCopyFrame.minY < 150, "短命令的拷贝按钮随正文取高")
         try require(try accessibilityFrame(try requiredElement(rowID, in: native)).height == initialRowHeight, "选择命令不改变行高")
         try require(try accessibilityFrame(try requiredElement(secondRowID, in: native)) == initialSecondFrame, "选择命令不推动其他行")
         try require(element("quickCommands.quickCopy." + item.id.uuidString, in: native) == nil, "列表不重复提供拷贝入口")
@@ -177,7 +190,6 @@ import ObjectiveC
         try require(model.commandSidebars[original.id]?.selectedCommandID == item.id)
         try require(model.tabs.count == 1 && state.quickCommandConfirmation == nil)
         let shortCommand = item.command
-        let codeID = "quickCommands.code." + item.id.uuidString
         let shortHeight = try accessibilityFrame(try requiredElement(codeID, in: native)).height
         item.command = "printf '%s\\n' '" + String(repeating: "long-command-argument-", count: 12) + "'"
         try store.save(item)
@@ -188,9 +200,6 @@ import ObjectiveC
         }
         let wrappedFrame = try accessibilityFrame(try requiredElement(codeID, in: native))
         try require(wrappedFrame.width <= 230, "长命令换行后不能溢出侧栏")
-        let runFrame = try accessibilityFrame(try requiredElement("quickCommands.run." + item.id.uuidString, in: native))
-        let previewFrame = try accessibilityFrame(try requiredElement("quickCommands.preview." + original.id.uuidString, in: native))
-        try require(runFrame.maxY <= previewFrame.minY, "执行按钮固定在滚动预览下方，不能被长命令挤走")
         try require(try accessibilityFrame(try requiredElement(rowID, in: native)).height == initialRowHeight, "长命令不撑开列表")
         item.command += "\nprintf 'second line'\nprintf 'third line'"
         try store.save(item)
@@ -198,6 +207,7 @@ import ObjectiveC
             guard let code = element(codeID, in: native) else { return false }
             return try accessibilityFrame(code).height > wrappedFrame.height
         }
+        _ = try verifyCopyPlacement()
         try capture("fixture-narrow-long")
         mount(isDark: true)
         try await eventually { element(codeID, in: native) != nil }
@@ -290,7 +300,7 @@ import ObjectiveC
         try require(press(try requiredElement("quickCommands.copy." + item.id.uuidString, in: native)))
         try require(pasteboard.string(forType: .string) == item.command)
         mount()
-        try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) != nil }
+        try await eventually { element(copyID, in: native) != nil }
         print("PASS no search, footer preview, a single copy entry and selection survives remount")
 
         model.openLocalTerminal(at: "/private/tmp", placement: .newTab, beside: original.id, in: state)
@@ -312,11 +322,11 @@ import ObjectiveC
         try key(53)
         try require(model.commandSidebars[original.id]?.isExpanded == false, "跨分屏选命令后列表应保留键盘焦点处理 Esc")
         model.commandSidebars[original.id]?.isExpanded = true
-        // 每次从另一个终端开始，分别点击详情下方和详情内两个按钮之间的空白处。
-        let copyButton = try accessibilityFrame(try requiredElement("quickCommands.copy." + item.id.uuidString, in: native))
-        let runButton = try accessibilityFrame(try requiredElement("quickCommands.run." + item.id.uuidString, in: native))
-        let sidebarBlank = NSPoint(x: runButton.midX, y: runButton.minY - 60)
-        for point in [sidebarBlank, NSPoint(x: (copyButton.maxX + runButton.minX) / 2, y: runButton.midY)] {
+        // 每次从另一个终端开始，分别点击详情下方和代码块内按钮左侧的空白处。
+        let copyButton = try verifyCopyPlacement()
+        let codeBlock = try accessibilityFrame(try requiredElement(codeBlockID, in: native))
+        let sidebarBlank = NSPoint(x: copyButton.midX, y: codeBlock.minY - 60)
+        for point in [sidebarBlank, NSPoint(x: (codeBlock.minX + copyButton.minX) / 2, y: copyButton.midY)] {
             model.selectOnly(sibling.id, in: state, focusTerminal: false)
             native.makeFirstResponder(nil)
             let location = native.convertPoint(fromScreen: point)
@@ -334,18 +344,17 @@ import ObjectiveC
         }
         print("PASS clicks in sidebar and detail backgrounds select and focus their owning terminal")
         host.removeFromSuperview()
-        model.selectOnly(sibling.id, in: state, focusTerminal: false)
+        model.selectOnly(original.id, in: state, focusTerminal: false)
         let originalExecution = model.commandExecution(for: original.id)
-        try require(press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)))
+        try require(model.runDroppedQuickCommand(item.id, on: original.id, in: state))
         try require(originalExecution.isSubmitting)
         try require(!model.commandExecution(for: sibling.id).isSubmitting, "兄弟终端不显示执行状态")
-        try require(!press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)), "提交期间执行入口禁用")
-        try require(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id), "按钮与拖拽共享同一终端的提交守卫")
+        try require(!model.runDroppedQuickCommand(item.id, on: original.id, in: state), "提交期间拒绝重复拖入")
         try await eventually { !originalExecution.isSubmitting }
         try require(originalExecution.error != nil, "没有 shell 的目标必须明确报错")
         try await eventually { element("quickCommands.error." + original.id.uuidString, in: native) != nil }
-        try require(state.selectedTabID == original.id && model.tabs.count == 2, "执行失败时仍选中被点击的终端")
-        try await eventually { press(try requiredElement("quickCommands.run." + item.id.uuidString, in: native)) }
+        try require(state.selectedTabID == original.id && model.tabs.count == 2, "执行失败时仍选中落点终端")
+        try require(model.runDroppedQuickCommand(item.id, on: original.id, in: state))
         try require(originalExecution.isSubmitting)
         try await eventually { !originalExecution.isSubmitting }
         print("PASS per-terminal execution guard, failure feedback and explicit retry")
@@ -366,11 +375,12 @@ import ObjectiveC
         native.makeFirstResponder(script)
         try key(125)
         try require(state.commandLibrarySelection == item.id, "编辑指令时方向键不切换列表")
-        script.string = "printf edited"
+        let editedCommand = "printf edited\nprintf second"
+        script.string = editedCommand
         script.didChangeText()
         try require(originalScript.string == item.command, "编辑不改变原命令")
         try require(press(try requiredElement("quickCommand.save", in: native)))
-        try await eventually { state.commandLibraryDraft == nil && store.commands.first { $0.id == item.id }?.command == "printf edited" }
+        try await eventually { state.commandLibraryDraft == nil && store.commands.first { $0.id == item.id }?.command == editedCommand }
         try await eventually { element("quickCommands.library.edit", in: native) != nil }
         try require(press(try requiredElement("quickCommands.library.edit", in: native)))
         try await eventually { element("quickCommand.cancel", in: native) != nil }
@@ -388,13 +398,13 @@ import ObjectiveC
         try await eventually { element("quickCommands.code." + item.id.uuidString, in: native) != nil }
         try require(element("quickCommands.edit." + item.id.uuidString, in: native) == nil)
         try require(press(try requiredElement("quickCommands.copy." + item.id.uuidString, in: native)))
-        try require(pasteboard.string(forType: .string) == "printf edited", "命令管理保存后使用栏显示新内容")
+        try require(pasteboard.string(forType: .string) == editedCommand, "命令管理保存后使用栏拷贝完整多行原文")
         let reviewedContext = model.commandContext(in: state, targetTabID: original.id)
         try require(!model.runSidebarQuickCommand(item.id, in: state, expectedContext: reviewedContext,
                                                  expectedItem: item, targetTabID: original.id), "编辑后旧命令快照被拒绝")
         item = try unwrap(store.commands.first { $0.id == item.id })
         try store.remove(item.id)
-        try await eventually { element("quickCommands.run." + item.id.uuidString, in: native) == nil }
+        try await eventually { element(copyID, in: native) == nil }
         try require(!model.runSidebarQuickCommand(item.id, in: state, targetTabID: original.id))
         print("PASS management-page editing, live sidebar refresh, stale content and deleted-command rejection")
 

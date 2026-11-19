@@ -20,6 +20,7 @@ struct QuickCommandSidebar: View {
     @FocusState private var isListFocused: Bool
     private static let listSpacing: CGFloat = 4
     private static let listInset: CGFloat = 8
+    private static let detailsSpacing: CGFloat = 16
     init(model: AppModel, window: WindowState, tabID: UUID, targetTitle: String? = nil) {
         self.model = model
         self.window = window
@@ -36,7 +37,7 @@ struct QuickCommandSidebar: View {
         get { model.commandSidebars[tabID]?.selectedCommandID }
         nonmutating set { model.commandSidebars[tabID, default: TerminalCommandSidebarState()].selectedCommandID = newValue }
     }
-    /// 列表只占命令本身的高度，详情紧跟在下面。
+    /// 命令较少时，列表按内容取高，让详情留在列表下方。
     private var listHeight: CGFloat {
         let count = CGFloat(commands.count)
         return count * SheetLayout.commandSidebarUsageRowHeight + (count - 1) * Self.listSpacing + Self.listInset * 2
@@ -96,6 +97,7 @@ struct QuickCommandSidebar: View {
                     }
                 }
                 .frame(height: min(SheetLayout.commandSidebarDetailsHeight, geometry.size.height * 0.4), alignment: .top)
+                .padding(.top, Self.detailsSpacing)
             }
         }
         }
@@ -145,13 +147,6 @@ struct QuickCommandSidebar: View {
         model.selectOnly(tabID, in: window)
     }
 
-    private func run(_ item: QuickCommand) {
-        focusTerminal()
-        selectedCommandID = item.id
-        model.runSidebarQuickCommand(item.id, in: window, expectedContext: context,
-                                     expectedItem: item, targetTabID: tabID)
-    }
-
     private func copy(_ item: QuickCommand) {
         focusTerminal()
         CommandClipboard.copy(item.command)
@@ -172,33 +167,32 @@ struct QuickCommandSidebar: View {
     private func commandDetails(_ item: QuickCommand) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(verbatim: item.alias).font(Theme.Font.row).fontWeight(.semibold).lineLimit(2)
-            // 短命令按内容高度显示，按钮紧跟在下面；放不下时才滚动，按钮仍留在可见范围。
-            ViewThatFits(in: .vertical) {
-                commandText(item)
-                ScrollView { commandText(item) }
-            }
-            .frame(maxWidth: .infinity)
-            .id(item.id)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("quickCommands.preview." + tabID.uuidString)
-            HStack(spacing: 8) {
+            VStack(alignment: .trailing, spacing: 8) {
+                // 仅滚动长命令的正文，代码块右下角的拷贝按钮始终可见。
+                ViewThatFits(in: .vertical) {
+                    commandText(item)
+                    ScrollView { commandText(item) }
+                }
+                .frame(maxWidth: .infinity)
+                .id(item.id)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("quickCommands.preview." + tabID.uuidString)
                 Button { copy(item) } label: {
                     Label(copiedCommandID == item.id ? "Copied" : "Copy",
                           systemImage: copiedCommandID == item.id ? "checkmark" : "doc.on.doc")
                 }
-                    .buttonStyle(FamilyButtonStyle()).accessibilityIdentifier("quickCommands.copy." + item.id.uuidString)
-                Spacer(minLength: 0)
-                Button {
-                    run(item)
-                } label: {
-                    if execution.commandID == item.id { ProgressView().controlSize(.mini) }
-                    else { Label("Run", systemImage: "play.fill") }
-                }
-                .buttonStyle(FamilyButtonStyle(kind: .primary))
-                .disabled(execution.isSubmitting || !context.isLive || window.quickCommandConfirmation != nil)
-                .help("Run in This Terminal").accessibilityIdentifier("quickCommands.run." + item.id.uuidString)
-            }.font(Theme.Font.rowMeta).controlSize(.small)
-        }.padding(12)
+                .buttonStyle(FamilyButtonStyle())
+                .font(Theme.Font.rowMeta).controlSize(.small)
+                .accessibilityIdentifier("quickCommands.copy." + item.id.uuidString)
+            }
+            .padding(12)
+            .background(chrome.text.opacity(chrome.isDark ? 0.08 : 0.05),
+                        in: RoundedRectangle(cornerRadius: Theme.Radius.control))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("quickCommands.codeBlock." + tabID.uuidString)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("quickCommands.details." + tabID.uuidString)
     }
