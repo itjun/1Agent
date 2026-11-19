@@ -5,11 +5,13 @@ struct QuickCommandEditor: View {
     @State private var name: String
     @State private var command: String
     @State private var directory: String?
+    @State private var showsRemotePicker = false
     @State private var commandFocused = false
     @State private var error: String?
     @State private var isSaving = false
     @State private var isSaved = false
     @State private var saveTask: Task<Void, Never>?
+    @StateObject private var localPicker = NativeFolderPicker()
     private let initialItem: QuickCommand
     private let collection: QuickCommandCollection
     private let isNew: Bool
@@ -18,6 +20,7 @@ struct QuickCommandEditor: View {
     let onSaved: (QuickCommand) -> Void
     let onClose: () -> Void
     @Environment(\.windowChrome) private var chrome
+    @Environment(\.isShellTransparent) private var isShellTransparent
 
     init(item: QuickCommand, isWorkspaceCard: Bool = false,
          onDirtyChange: @escaping (Bool) -> Void = { _ in },
@@ -69,6 +72,16 @@ struct QuickCommandEditor: View {
                 CommandDialog(title: title, close: close) {
                     ScrollView { editorFields }
                 } actions: { editorActions }
+            }
+        }
+        .background(NativeFolderPickerAnchor(picker: localPicker))
+        .familySheet(isPresented: $showsRemotePicker, width: SheetLayout.commandFolderPicker,
+                     height: SheetLayout.commandFolderPickerHeight) {
+            if let host = collection.host {
+                QuickCommandRemoteFolderPicker(host: host, directory: directory, onClose: { showsRemotePicker = false }) {
+                    directory = $0
+                    showsRemotePicker = false
+                }
             }
         }
         .onAppear { onDirtyChange(isDirty) }
@@ -125,17 +138,33 @@ struct QuickCommandEditor: View {
     }
 
     private var directoryField: some View {
-        HStack(spacing: Theme.Space.s) {
+        HStack(spacing: Theme.Space.l) {
             Text("Choose Directory").font(Theme.Font.row).foregroundStyle(chrome.secondary)
                 .fixedSize()
-            CommandTextField(
-                text: Binding(get: { directory ?? "" }, set: { directory = $0.isEmpty ? nil : $0 }),
-                placeholder: String(localized: "Any Directory"),
-                identifier: "quickCommand.directory"
-            )
-            .frame(height: Theme.Control.height)
-            if collection == .local {
-                Button("Choose…", action: chooseDirectory).buttonStyle(FamilyButtonStyle(kind: .secondary))
+            Button(action: chooseDirectory) {
+                HStack(spacing: Theme.Space.s) {
+                    Text(verbatim: directory ?? String(localized: "Any Directory"))
+                        .font(directory == nil ? Theme.Font.row : .system(size: 13, design: .monospaced))
+                        .foregroundStyle(directory == nil ? chrome.secondary : chrome.text)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.down").font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
+                }
+                .padding(.horizontal, Theme.Space.s)
+                .frame(height: Theme.Control.height)
+                .background(chrome.elevated.opacity(isShellTransparent ? ShellLayout.controlOpacity : 1),
+                            in: RoundedRectangle(cornerRadius: Theme.Radius.control))
+                .overlay { RoundedRectangle(cornerRadius: Theme.Radius.control).strokeBorder(chrome.hairline) }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(FamilyPlainButtonStyle())
+            .accessibilityLabel(Text("Choose Directory"))
+            .accessibilityValue(Text(verbatim: directory ?? String(localized: "Any Directory")))
+            .accessibilityIdentifier("quickCommand.directory")
+            .familyContextMenu {
+                [FamilyMenuItem(title: String(localized: "Remove Directory Restriction"),
+                                enabled: directory != nil, action: { directory = nil })]
             }
         }
     }
@@ -151,14 +180,16 @@ struct QuickCommandEditor: View {
     }
 
     private func chooseDirectory() {
-        let owner = NSApp.keyWindow
-        defer { owner?.makeKeyAndOrderFront(nil) }
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        if let directory { panel.directoryURL = URL(fileURLWithPath: directory, isDirectory: true) }
-        if panel.runModal() == .OK, let url = panel.url { directory = url.path }
+        if collection == .local {
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            let startingDirectory = directory.flatMap { ExternalOpen.validatedDirectory($0) } ?? home
+            localPicker.present(directory: startingDirectory, prompt: String(localized: "Choose…"),
+                                allowsMultipleSelection: false) { urls in
+                if let url = urls.first { directory = url.path }
+            }
+        } else {
+            showsRemotePicker = true
+        }
     }
 
     private func close() {

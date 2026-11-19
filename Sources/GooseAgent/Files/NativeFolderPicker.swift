@@ -7,14 +7,15 @@ final class NativeFolderPicker: ObservableObject {
     private(set) var panel: NSOpenPanel?
     private var closeObserver: NSObjectProtocol?
 
-    func present(directory: String, onChoose: @escaping ([URL]) -> Void) {
+    func present(directory: String, prompt: String = String(localized: "Pin Folder"),
+                 allowsMultipleSelection: Bool = true, onChoose: @escaping ([URL]) -> Void) {
         guard panel == nil, let owner, owner.attachedSheet == nil else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
+        panel.allowsMultipleSelection = allowsMultipleSelection
         panel.directoryURL = URL(fileURLWithPath: directory, isDirectory: true)
-        panel.prompt = String(localized: "Pin Folder")
+        panel.prompt = prompt
         self.panel = panel
         closeObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: owner, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.cancel() }

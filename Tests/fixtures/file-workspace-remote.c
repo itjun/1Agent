@@ -20,6 +20,22 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (strncmp(command, "find ", 5) == 0) {
+        if (strncmp(command, "find '/fixture-command-picker", strlen("find '/fixture-command-picker")) == 0) {
+            static const char folders[] =
+                "d\td\t0\tdrwxr-xr-x\t0\tbuild outputs\0"
+                "d\td\t0\tdrwxr-xr-x\t0\t旧目录\0"
+                "f\tf\t4\t-rw-r--r--\t0\tfixture.txt\0";
+            static const char child[] = "d\td\t0\tdrwxr-xr-x\t0\t子目录\0";
+            if (strstr(command, "find '/fixture-command-picker'") == command) {
+                fwrite(folders, 1, sizeof(folders) - 1, stdout);
+            } else if (strstr(command, "find '/fixture-command-picker/build outputs'") == command) {
+                fwrite(child, 1, sizeof(child) - 1, stdout);
+            } else {
+                fputs("f\tf\t4\t-rw-r--r--\t0\tfixture.txt", stdout);
+                fputc(0, stdout);
+            }
+            return 0;
+        }
         static const char row[] = "f\tf\t4\t-rw-r--r--\t0\tfixture.txt\0";
         fwrite(row, 1, sizeof(row) - 1, stdout);
         return 0;

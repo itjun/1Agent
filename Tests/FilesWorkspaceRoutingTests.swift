@@ -149,6 +149,10 @@ private struct FilesWorkspaceRoutingTests {
             chromeWindow.contentView = nil
             return
         }
+        if environment["ONEAGENT_TEST_COMMAND_FOLDER_PICKER"] == "1" {
+            try await verifyCommandFolderPickers(window: chromeWindow, home: home)
+            return
+        }
         try await verifyStableWindowButtons(model: model, state: state, window: chromeWindow)
         try verifySingleFilesEntry(chromeWindow, visible: false)
         try await verifyNativeFolderPicker(window: chromeWindow, home: home)
@@ -595,6 +599,84 @@ private struct FilesWorkspaceRoutingTests {
         }
         window.orderOut(nil)
         window.contentView = nil
+    }
+
+    @MainActor
+    private static func verifyCommandFolderPickers(window: NSWindow, home: String) async throws {
+        let store = QuickCommandStore.shared
+        let canonicalHome = URL(fileURLWithPath: home).resolvingSymlinksInPath().path
+        try require(store.url.resolvingSymlinksInPath().path.hasPrefix(canonicalHome + "/"), "Use an isolated command library")
+        var saved: QuickCommand?
+        func mount(_ command: QuickCommand) async throws {
+            try store.save(command)
+            saved = nil
+            window.contentView = NSHostingView(rootView: QuickCommandEditor(item: command, isWorkspaceCard: true,
+                onSaved: { saved = $0 }, onClose: {}))
+            try await settle()
+        }
+        func element(_ id: String, in window: NSWindow) -> NSObject? {
+            accessibilityElements(window.contentView!).first { accessibilityValue($0, "accessibilityIdentifier") as? String == id }
+        }
+        func press(_ id: String, in window: NSWindow) throws {
+            guard let button = element(id, in: window), accessibilityBool(button, "accessibilityPerformPress") else {
+                throw TestFailure(description: "Could not press \(id)")
+            }
+        }
+
+        let localFolder = home + "/local-a"
+        let local = QuickCommand(alias: "本机", command: "printf test", scope: .directory, directory: localFolder)
+        try await mount(local)
+        try press("quickCommand.directory", in: window)
+        try await eventually("open native command folder picker") { window.attachedSheet is NSOpenPanel }
+        let panel = window.attachedSheet as! NSOpenPanel
+        try require(panel.canChooseDirectories && !panel.canChooseFiles && !panel.allowsMultipleSelection,
+                    "Command picker accepts one local folder")
+        window.endSheet(panel, returnCode: .cancel)
+        panel.orderOut(nil)
+        try await eventually("cancelling local picker keeps the path") {
+            guard window.attachedSheet == nil else { return false }
+            guard let path = element("quickCommand.directory", in: window) else { return false }
+            return accessibilityValue(path, "accessibilityValue") as? String == localFolder
+        }
+
+        let remote = QuickCommand(alias: "远程", command: "printf test", group: "legacy", scope: .directory,
+                                  host: "fixture-a", directory: "/fixture-command-picker/旧目录", includesSubdirectories: true)
+        try await mount(remote)
+        try press("quickCommand.directory", in: window)
+        try await eventually("load SSH command folders") {
+            guard let sheet = window.attachedSheet else { return false }
+            return element("quickCommand.folderEntry.旧目录", in: sheet) != nil
+        }
+        let sheet = window.attachedSheet!
+        try require(element("quickCommand.folderEntry.fixture.txt", in: sheet) == nil, "Only folders are listed")
+        try press("quickCommand.folderOpen.build outputs", in: sheet)
+        try await eventually("enter remote folder with spaces") { element("quickCommand.folderEntry.子目录", in: sheet) != nil }
+        try press("quickCommand.folderParent", in: sheet)
+        try await eventually("return to remote parent") { element("quickCommand.folderEntry.旧目录", in: sheet) != nil }
+        try press("quickCommand.folderCancel", in: sheet)
+        try await eventually("dismiss remote folder picker") { window.attachedSheet == nil }
+        let originalPath = element("quickCommand.directory", in: window)!
+        try require(accessibilityValue(originalPath, "accessibilityValue") as? String == remote.directory, "Cancel keeps the original path")
+
+        try press("quickCommand.directory", in: window)
+        try await eventually("reopen remote picker") {
+            guard let sheet = window.attachedSheet else { return false }
+            return element("quickCommand.folderEntry.build outputs", in: sheet) != nil
+        }
+        let reopened = window.attachedSheet!
+        try press("quickCommand.folderEntry.build outputs", in: reopened)
+        try press("quickCommand.folderChoose", in: reopened)
+        let newPath = "/fixture-command-picker/build outputs"
+        try await eventually("remote selection fills the command editor") {
+            guard window.attachedSheet == nil, let path = element("quickCommand.directory", in: window) else { return false }
+            return accessibilityValue(path, "accessibilityValue") as? String == newPath
+        }
+        try press("quickCommand.save", in: window)
+        try await eventually("save SSH folder") { saved?.id == remote.id }
+        try require(saved?.host == remote.host && saved?.directory == newPath && saved?.group == remote.group
+                    && saved?.includesSubdirectories == false,
+                    "Changing directory retains ownership and existing group and uses exact directory matching")
+        print("PASS native local folder panel and SSH selection, navigation, cancel and saved bindings")
     }
 
     @MainActor
