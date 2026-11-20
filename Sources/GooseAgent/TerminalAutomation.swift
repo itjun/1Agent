@@ -127,7 +127,13 @@ enum TerminalAutomation {
 @MainActor
 extension NSApplication {
     @objc(handleOneAgentQuit:)
-    func handleOneAgentQuit(_ command: NSScriptCommand) { terminate(nil) }
+    func handleOneAgentQuit(_ command: NSScriptCommand) {
+        if let model = TerminalAutomation.model, !model.isQuitting,
+           (command.evaluatedArguments?["PreserveTerminalSessions"] as? NSNumber)?.boolValue == true {
+            model.isQuittingForInstallation = true
+        }
+        terminate(nil)
+    }
     @objc(valueInOneAgentWindowsWithUniqueID:)
     func oneAgentWindow(uniqueID: String) -> ScriptTerminalWindow? { oneAgentWindows.first { $0.id == uniqueID } }
     @objc(valueInOneAgentTerminalsWithUniqueID:)

@@ -4,6 +4,8 @@ import Foundation
 /// 一个串行队列管理 socket、握手、收发和关闭，避免启动与快速关闭交错后留下后台进程。
 final class TerminalSessionConnection: @unchecked Sendable {
     static let frameLimit = 32 * 1024 * 1024
+    private static let helperURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/1AgentSessionHost")
+    static var isAvailable: Bool { FileManager.default.isExecutableFile(atPath: helperURL.path) }
     private let queue = DispatchQueue(label: "com.itjun.1agent.session")
     private var fd: Int32 = -1
     private var reader: DispatchSourceRead?
@@ -15,6 +17,7 @@ final class TerminalSessionConnection: @unchecked Sendable {
     private var isTerminating = false
     private var pendingExitCode: Int32?
     private var sessionFolder: String?
+    private var helperPID: pid_t?
     private var helperIdentity: HelperIdentity?
     private var isForcedTermination = false
     private var ready: ((Bool) -> Void)?
@@ -31,10 +34,7 @@ final class TerminalSessionConnection: @unchecked Sendable {
         let seconds: UInt64
         let microseconds: UInt64
 
-        init?(socketFD: Int32) {
-            var pid: pid_t = 0
-            var size = socklen_t(MemoryLayout<pid_t>.size)
-            guard getsockopt(socketFD, SOL_LOCAL, LOCAL_PEERPID, &pid, &size) == 0, pid > 1 else { return nil }
+        init?(pid: pid_t) {
             var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
             guard proc_pidpath(pid, &path, UInt32(path.count)) > 0,
                   String(cString: path).hasSuffix("/Contents/Helpers/1AgentSessionHost") else { return nil }
@@ -111,13 +111,12 @@ final class TerminalSessionConnection: @unchecked Sendable {
             ready = completion
             var socketFD = TerminalSessionConnection.connectSocket(folder + "/s")
             if socketFD == nil {
-                let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/1AgentSessionHost")
-                guard FileManager.default.isExecutableFile(atPath: helper.path) else { fail(); return }
+                guard TerminalSessionConnection.isAvailable else { fail(); return }
                 let historyPath = folder + "/initial-output"
                 guard FileManager.default.createFile(atPath: historyPath, contents: initialOutput,
                     attributes: [.posixPermissions: 0o600]) else { fail(); return }
                 let launcher = Process()
-                launcher.executableURL = helper
+                launcher.executableURL = TerminalSessionConnection.helperURL
                 launcher.arguments = [folder, String(columns), String(rows), String(scrollbackBytes), executable] + args
                 launcher.environment = Dictionary(environment.compactMap { entry -> (String, String)? in
                     guard let index = entry.firstIndex(of: "=") else { return nil }
@@ -146,7 +145,12 @@ final class TerminalSessionConnection: @unchecked Sendable {
 
     private func observe(_ socketFD: Int32) {
         fd = socketFD
-        helperIdentity = HelperIdentity(socketFD: socketFD)
+        var pid: pid_t = 0
+        var size = socklen_t(MemoryLayout<pid_t>.size)
+        if getsockopt(socketFD, SOL_LOCAL, LOCAL_PEERPID, &pid, &size) == 0, pid > 1 {
+            helperPID = pid
+            helperIdentity = HelperIdentity(pid: pid)
+        }
         let source = DispatchSource.makeReadSource(fileDescriptor: socketFD, queue: queue)
         // 连接在 detach/退出握手前自行保活，不依赖视图的存活时间。
         source.setEventHandler { [self] in readAvailable() }
@@ -295,9 +299,21 @@ final class TerminalSessionConnection: @unchecked Sendable {
         writer?.cancel(); writer = nil
         reader?.cancel(); reader = nil
         output.removeAll(); buffer.removeAll(); ready = nil
-        if isForcedTermination { cleanupTerminatedFolder() }
         let callback = terminated; terminated = nil
-        callback?()
+        if let callback { finishTermination(until: .now() + 1, completion: callback) }
+    }
+
+    private func finishTermination(until deadline: DispatchTime, completion: @escaping () -> Void) {
+        // The socket closes before the daemon exits and is reaped. Keep the PID even
+        // when its executable identity could not be verified for sending signals.
+        if let helperPID, kill(helperPID, 0) == 0, .now() < deadline {
+            queue.asyncAfter(deadline: .now() + 0.02) { [self] in
+                finishTermination(until: deadline, completion: completion)
+            }
+            return
+        }
+        if isForcedTermination { cleanupTerminatedFolder() }
+        completion()
     }
 
     func disconnect() { queue.async { [self] in closeConnection() } }
@@ -322,14 +338,29 @@ final class TerminalSessionConnection: @unchecked Sendable {
         }
     }
 
-    static func terminateDetached(_ sessionID: String) {
-        guard let folder = TerminalSessionConnection.folder(for: sessionID) else { return }
+    static func terminateDetached(_ sessionID: String, completion: @escaping () -> Void = {}) {
+        terminateDetached(sessionID, until: .now() + 8, completion: completion)
+    }
+
+    private static func terminateDetached(_ sessionID: String, until deadline: DispatchTime,
+                                          completion: @escaping () -> Void) {
+        guard let folder = folder(for: sessionID), hasSession(sessionID) else { completion(); return }
         let connection = TerminalSessionConnection()
         connection.queue.async {
-            guard let fd = TerminalSessionConnection.connectSocket(folder + "/s") else { return }
+            let retryIfLive = {
+                if DispatchTime.now() < deadline, hasSession(sessionID) {
+                    // A previous client may still be disconnecting, or already stopping the helper.
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+                        terminateDetached(sessionID, until: deadline, completion: completion)
+                    }
+                } else {
+                    completion()
+                }
+            }
+            guard let fd = connectSocket(folder + "/s") else { retryIfLive(); return }
             connection.sessionFolder = folder
             connection.observe(fd)
-            connection.terminate()
+            connection.terminate(completion: retryIfLive)
         }
     }
 

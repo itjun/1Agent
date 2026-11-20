@@ -47,7 +47,11 @@ quit_bundle_path() {
     return 0
   fi
   echo "→ ${label} is running; quitting…"
-  osascript -e "tell application \"${app_path}\" to quit" 2>/dev/null || true
+  local quit_command="quit"
+  if grep -q 'code="tsKP"' "$app_path/Contents/Resources/1Agent.sdef" 2>/dev/null; then
+    quit_command="quit preserving terminal sessions true"
+  fi
+  osascript -e "tell application \"${app_path}\" to $quit_command" 2>/dev/null || true
   for _ in $(seq 1 30); do
     if ! pgrep -f "$pattern" >/dev/null 2>&1; then
       return 0

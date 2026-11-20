@@ -117,6 +117,8 @@ final class AppModel: ObservableObject {
     var isQuitting = false
     /// Set by Restart; the relaunch starts only once termination is certain.
     var isRestarting = false
+    /// The installer replaces the bundle and opens the new build itself.
+    var isQuittingForInstallation = false
     private var lastExternalKey = ""
     private var lastExternalAt = Date.distantPast
     /// Writes wait until the saved session has been read, so an empty launch cannot erase it.
@@ -1282,9 +1284,23 @@ final class AppModel: ObservableObject {
     /// Flush the final output while native surfaces still exist, then commit
     /// the matching session metadata. No disk export runs during normal typing.
     func prepareForApplicationExit(detachProcesses: Bool = true) async throws {
-        try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
+        if acceptSessionWrites || !tabs.isEmpty {
+            try SSHTerminalRegistry.saveOutputForApplicationExit(tabs: tabs)
+        }
         persistSession()
         if detachProcesses { SSHTerminalRegistry.detachProcessesForApplicationExit() }
+    }
+
+    func terminateSessionsForQuit() async {
+        var sessionIDs = Set(tabs.filter(\.hasTerminal).map(\.sessionID))
+        // The previous sessions may still be awaiting attachment if Quit follows launch immediately.
+        if !acceptSessionWrites, let snapshot = SessionSnapshot.load() {
+            for tab in snapshot.tabs where tab.preview == nil && tab.files == nil {
+                sessionIDs.insert("\(tab.id.uuidString)#\(tab.generation ?? 0)")
+            }
+        }
+        await SSHTerminalRegistry.terminateProcessesForApplicationExit(sessionIDs: sessionIDs)
+        await RemoteShell.closeSharedConnections()
     }
 
     func showSettings() {
@@ -1306,7 +1322,7 @@ final class AppModel: ObservableObject {
         alert.addButton(withTitle: String(localized: "Restart"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         alert.beginSheetModal(for: window) { response in
-            guard response == .alertFirstButtonReturn else { return }
+            guard response == .alertFirstButtonReturn, !self.isQuitting else { return }
             self.isRestarting = true
             NSApp.terminate(nil)
         }
@@ -1420,7 +1436,7 @@ final class AppModel: ObservableObject {
     /// A shell exit closes the same pane as the context menu. SSH transport failures
     /// (255 or a signal) keep their output and reconnect path instead.
     func terminalDidExit(_ tabID: UUID, code: Int32?, lived: TimeInterval) {
-        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        guard !isQuitting, let tab = tabs.first(where: { $0.id == tabID }) else { return }
         if tab.isLocal || (code != nil && code != 255) {
             closeTab(tabID)
         } else {
@@ -1453,7 +1469,7 @@ final class AppModel: ObservableObject {
 
     /// Runs ssh again inside the same terminal. The old output stays on screen above a divider.
     private func beginReconnect(_ tabID: UUID, automatic: Bool) {
-        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        guard !isQuitting, let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         guard tabs[index].hasTerminal, !tabs[index].isLocal else { return }
         let notice: String
         if automatic {

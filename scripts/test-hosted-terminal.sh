@@ -32,8 +32,8 @@ sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path
     -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/MacOS" \
     "$products_dir/1Agent.app/Contents/MacOS/1Agent.debug.dylib" "$repo_dir/Tests/HostedTerminalTests.swift" \
     -o "$bundle/MacOS/tests"
-phases=(--layout --save --restore --close)
-if [[ "${1:-}" == "--layout" ]]; then phases=(--layout); fi
+phases=(--layout --save --restore --close --quit)
+if [[ "${1:-}" == "--layout" || "${1:-}" == "--quit" ]]; then phases=("$1"); fi
 for phase in "${phases[@]}"; do
     CFFIXED_USER_HOME="$test_dir/home" "$bundle/MacOS/tests" "$phase" "$test_dir" "$session_id" "$repo_dir/Tests/session-host-fixture.py" "$(command -v python3)"
 done

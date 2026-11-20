@@ -98,10 +98,14 @@ def stop_running():
         if not running_pids(app):
             continue
         print(f"    退出 {app}", flush=True)
-        # 正常退出会保存会话与终端历史；无响应时再强杀。
+        # 开发安装保留终端。旧版没有这个参数，其普通退出本来就会保留。
+        dictionary = app / "Contents/Resources/1Agent.sdef"
+        quit_command = "quit"
+        if dictionary.is_file() and 'code="tsKP"' in dictionary.read_text():
+            quit_command = "quit preserving terminal sessions true"
         try:
             subprocess.run(
-                ["/usr/bin/osascript", "-e", f'tell application "{app}" to quit'],
+                ["/usr/bin/osascript", "-e", f'tell application "{app}" to {quit_command}'],
                 capture_output=True, timeout=5, check=False,
             )
         except subprocess.TimeoutExpired:

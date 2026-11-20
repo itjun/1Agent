@@ -429,16 +429,21 @@ final class TerminalProcessHost {
     /// next authenticated SSH launch without sending anything to the current process.
     func updateLaunch(_ next: TerminalLaunch) { launch = next }
 
-    func terminate() {
+    func terminate(completion: @escaping () -> Void = {}) {
         terminated = true
         remotePreparation?.cancel()
-        // 接回前仍是占位进程，关闭标签也必须结束原后台会话。
-        if !process.isHosted, let persistentSessionID {
-            TerminalSessionConnection.terminateDetached(persistentSessionID)
-        }
-        process.terminate()
+        remotePreparation = nil
         cancelForwarding?(); cancelForwarding = nil
         commandBridge = nil
+        let persistentSessionID = persistentSessionID
+        process.terminate {
+            // A terminal may still be awaiting reattachment or have lost its client connection.
+            if let persistentSessionID {
+                TerminalSessionConnection.terminateDetached(persistentSessionID, completion: completion)
+            } else {
+                completion()
+            }
+        }
     }
 
     func updateHostedColors() {
@@ -609,6 +614,8 @@ enum SSHTerminalRegistry {
     /// Session IDs are never reused, so a closed one must never get a terminal again.
     private static var closedIDs: Set<String> = []
     private static var cancelledConnectionIDs: Set<String> = []
+    private static var isStoppingProcesses = false
+    private static let pendingProcessStops = DispatchGroup()
 
     static func startMonitoring() {
         if directoryTimer == nil {
@@ -628,7 +635,7 @@ enum SSHTerminalRegistry {
         if let existing = views[id] {
             return existing
         }
-        if closedIDs.contains(id) {
+        if isStoppingProcesses || closedIDs.contains(id) {
             return nil
         }
         let created = make()
@@ -641,15 +648,22 @@ enum SSHTerminalRegistry {
     /// The tab closed. Ends the process and drops the view.
     static func destroy(_ id: String) {
         cancelledConnectionIDs.remove(id)
-        closedIDs.insert(id)
+        guard closedIDs.insert(id).inserted else { return }
         TerminalSecureInput.shared.forget(id)
-        guard let view = views.removeValue(forKey: id) else {
-            TerminalSessionConnection.terminateDetached(id)
-            return
+        let stops = pendingProcessStops
+        stops.enter()
+        let complete = { stops.leave() }
+        if let view = views.removeValue(forKey: id) {
+            if let host = view.processHost {
+                host.terminate(completion: complete)
+            } else {
+                TerminalSessionConnection.terminateDetached(id, completion: complete)
+            }
+            TerminalProgramStatus.shared.update(nil, sessionID: id)
+            view.removeFromSuperview()
+        } else {
+            TerminalSessionConnection.terminateDetached(id, completion: complete)
         }
-        view.processHost?.terminate()
-        TerminalProgramStatus.shared.update(nil, sessionID: id)
-        view.removeFromSuperview()
     }
 
     static func focus(_ id: String) {
@@ -718,6 +732,16 @@ enum SSHTerminalRegistry {
 
     static func detachProcessesForApplicationExit() {
         for view in views.values { view.processHost?.detachForApplicationExit() }
+    }
+
+    static func terminateProcessesForApplicationExit(sessionIDs: Set<String>) async {
+        isStoppingProcesses = true
+        directoryTimer?.invalidate()
+        directoryTimer = nil
+        for id in sessionIDs.union(views.keys) { destroy(id) }
+        await withCheckedContinuation { continuation in
+            pendingProcessStops.notify(queue: .main) { continuation.resume() }
+        }
     }
 
     static func saveOutputForApplicationExit(tabs: [TerminalTab], store: TerminalOutputStore = .shared) throws {
@@ -1857,7 +1881,7 @@ struct SSHTerminalView: NSViewRepresentable {
 
     /// A brand-new terminal with its own process. Only called once per session.
     private func makeTerminal() -> SSHTerminalNSView {
-        let host = TerminalProcessHost(sessionID: Bundle.main.bundleIdentifier == "com.itjun.1agent" ? sessionID : nil)
+        let host = TerminalProcessHost(sessionID: TerminalSessionConnection.isAvailable ? sessionID : nil)
         let view = SSHTerminalNSView(frame: .zero)
         view.sessionID = sessionID
         view.processHost = host

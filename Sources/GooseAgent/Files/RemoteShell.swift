@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// `/usr/bin/ssh` for file work. The terminal's own ssh is the connection master (see
@@ -6,6 +7,7 @@ enum RemoteShell {
     /// Unix sockets allow 104 bytes, and ssh adds a 17-character suffix while it creates one, so
     /// the 40-character `%C` hash needs a short folder: `~/.ssh`, not `~/Library/Caches/…`.
     static let controlDirectory = (NSHomeDirectory() as NSString).appendingPathComponent(".ssh")
+    private static let controlPrefix = "ghostty-"
 
     static func multiplexOptions() -> [String] {
         try? FileManager.default.createDirectory(
@@ -13,9 +15,30 @@ enum RemoteShell {
         )
         return [
             "-o", "ControlMaster=auto",
-            "-o", "ControlPath=\(controlDirectory)/ghostty-%C",
+            "-o", "ControlPath=\(controlDirectory)/\(controlPrefix)%C",
             "-o", "ControlPersist=600",
         ]
+    }
+
+    /// Close the app's local multiplexers, including idle masters left by file operations.
+    static func closeSharedConnections(in directory: String = controlDirectory) async {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? []
+        await withTaskGroup(of: Void.self) { group in
+            for name in names where name.hasPrefix(controlPrefix) {
+                let hash = name.utf8.dropFirst(controlPrefix.utf8.count)
+                guard hash.count == 40, hash.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { continue }
+                let path = directory + "/" + name
+                var info = stat()
+                guard lstat(path, &info) == 0, info.st_uid == getuid(), info.st_mode & S_IFMT == S_IFSOCK else { continue }
+                group.addTask {
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+                    // Use the exact local socket, without reading config or dialing the host.
+                    process.arguments = ["-F", "/dev/null", "-S", path, "-O", "exit", "--", "localhost"]
+                    _ = try? await ProcessRunner.run(process)
+                }
+            }
+        }
     }
 
     /// Never prompts: a host that needs a password fails at once with ssh's message.

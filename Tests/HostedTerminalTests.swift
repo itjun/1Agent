@@ -21,6 +21,10 @@ import GhosttyTerminal
             }
             return
         }
+        if phase == "--quit" {
+            try await terminateAllSessions(folder: folder)
+            return
+        }
         let id = CommandLine.arguments[3] + "#3"
         let fixture = CommandLine.arguments[4], python = CommandLine.arguments[5]
         let log = folder + "/launches"
@@ -91,6 +95,51 @@ import GhosttyTerminal
     }
 
     enum LayoutAction { case resize, close, exit }
+
+    @MainActor static func terminateAllSessions(folder: String) async throws {
+        var sessions: [(id: String, child: pid_t, helper: pid_t)] = []
+        var windows: [NSWindow] = []
+        defer { for window in windows { window.close() } }
+        for index in 0..<3 {
+            let id = UUID().uuidString + "#0"
+            try recordSession(id, folder: folder)
+            let host = TerminalProcessHost(sessionID: id)
+            let view = SSHTerminalNSView(frame: NSRect(x: 0, y: 0, width: 800, height: 400))
+            view.sessionID = id
+            view.processHost = host
+            view.controller = GhosttyRuntime.controller
+            view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
+            let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.contentView = view
+            window.orderFront(nil)
+            windows.append(window)
+            host.start(TerminalLaunch(executable: "/bin/cat", args: [], environment: [], directory: folder))
+            try await wait("quit fixture started") { host.process.shellPid > 0 }
+            let child = host.process.shellPid
+            var info = proc_bsdinfo()
+            precondition(proc_pidinfo(child, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout.size(ofValue: info))) > 0)
+            sessions.append((id, child, pid_t(info.pbi_ppid)))
+            if index == 1 {
+                host.detachForApplicationExit()
+            } else {
+                precondition(SSHTerminalRegistry.view(for: id, make: { view }) === view)
+                if index == 2 { SSHTerminalRegistry.destroy(id) }
+            }
+        }
+
+        // Quit waits for the mounted session, an unmounted session, and a tab already closing.
+        await SSHTerminalRegistry.terminateProcessesForApplicationExit(sessionIDs: Set(sessions.prefix(2).map(\.id)))
+        for (index, session) in sessions.enumerated() {
+            let helperAlive = kill(session.helper, 0) == 0
+            let childAlive = kill(session.child, 0) == 0
+            precondition(!helperAlive && !childAlive,
+                         "Quit returned before fixture \(index) ended (helper: \(helperAlive), child: \(childAlive))")
+            precondition(!TerminalSessionConnection.hasSession(session.id))
+        }
+        let reopened = SSHTerminalRegistry.view(for: UUID().uuidString + "#0") { SSHTerminalNSView(frame: .zero) }
+        precondition(reopened == nil, "Quit allowed a terminal to restart")
+    }
 
     @MainActor static func reattachDuringLayout(folder: String, python: String, action: LayoutAction) async throws {
         let id = UUID().uuidString + "#0"

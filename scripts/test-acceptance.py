@@ -51,7 +51,7 @@ SUITES = {
         ("bash", "scripts/test-terminal-font.sh"),
         ("bash", "scripts/test-app-notification.sh"),
     ]),
-    "restore": ("存档、后台 PTY、重新挂载和命令栏恢复", [
+    "restore": ("存档、后台 PTY、重新挂载、退出清理和命令栏恢复", [
         ("bash", "scripts/test-terminal-restoration.sh"),
         ("make", "test-session-host"),
         ("bash", "scripts/test-hosted-terminal.sh"),

@@ -334,6 +334,7 @@ final class TerminalProcess: @unchecked Sendable {
         kill(pid, SIGHUP)
         DispatchQueue.global(qos: .utility).async {
             var status: Int32 = 0
+            defer { completion() }
             for _ in 0..<20 {
                 if waitpid(pid, &status, WNOHANG) != 0 { return }
                 usleep(100_000)
@@ -341,7 +342,6 @@ final class TerminalProcess: @unchecked Sendable {
             kill(pid, SIGKILL)
             waitpid(pid, &status, 0)
         }
-        completion()
     }
 
     private func drainOutput() {

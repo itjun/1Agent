@@ -270,6 +270,9 @@
     </command>
     <command name="quit" code="aevtquit" description="Quit the application.">
       <cocoa class="NSQuitCommand" />
+      <parameter name="preserving terminal sessions" code="tsKP" type="boolean" optional="yes" hidden="yes" description="Keep sessions alive while replacing the app.">
+        <cocoa key="PreserveTerminalSessions" />
+      </parameter>
     </command>
   </suite>
 </dictionary>
