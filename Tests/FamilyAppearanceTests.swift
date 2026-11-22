@@ -162,8 +162,8 @@ enum FamilyAppearanceTests {
                 let material = findBackdrop(in: settingsWindow.contentView!)
                 expect(material?.preset == preset && material?.isDark == isDark,
                        "settings refreshes its material for every selected preset and mode")
-                expect(material?.isTransparent == driver.isShellTransparent,
-                       "settings passes the underlying transparency policy into its material")
+                expect(material?.isTransparent == driver.isShellTransparent && material?.showsTerminalCards == true,
+                       "settings uses the terminal's gradient strength and transparency policy")
             }
         }
         for name in ["Springfield Resident", "Prismatica", "Nord"] {

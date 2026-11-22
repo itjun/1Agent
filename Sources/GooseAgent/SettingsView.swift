@@ -129,7 +129,6 @@ struct SettingsView: View {
 
     private var chrome: WindowChrome { WindowChrome.workspace(isDark: appearanceDriver.isDark) }
     private var sidebarChrome: WindowChrome { chrome }
-    private var settingsBackground: Color { chrome.readingBackground }
     private let onRestart: () -> Void
 
     init(onRestart: @escaping () -> Void) {
@@ -157,6 +156,7 @@ struct SettingsView: View {
             isDividerHidden: true,
             dividerWidth: ShellLayout.workspaceInset,
             sidebarCornerRadius: ShellLayout.contentRadius,
+            usesSystemSidebarMaterial: false,
             toolbarIdentifier: "settings.navigationSplit",
             width: CGFloat(savedSidebarWidth),
             minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
@@ -168,7 +168,7 @@ struct SettingsView: View {
                     .frame(height: isShellTransparent ? ShellLayout.compactTitlebarHeight : Theme.PaneStyle.titlebarHeight)
                 settingsNavigation
             }
-                .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
+                .background(TerminalCardFill(color: sidebarChrome.sidebarBackground))
                 .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                 .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
@@ -199,7 +199,7 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .coordinateSpace(name: "settings.detail")
-            .background(settingsBackground)
+            .background(TerminalCardFill(color: chrome.readingBackground))
             .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
             .ignoresSafeArea(edges: .top)
             // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
@@ -212,6 +212,7 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             ShellBackdrop(isTransparent: isShellTransparent, isDark: appearanceDriver.isDark,
+                          usesTerminalBackground: true, showsTerminalCards: true,
                           preset: AppThemePreset(rawValue: presetRaw) ?? AppTheme.defaultPreset, chrome: chrome)
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
