@@ -174,11 +174,12 @@ struct TerminalThemePreview: View {
         .padding(.horizontal, Theme.Space.m)
         .padding(.vertical, Theme.Space.s)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(chrome.background, in: RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+        .background(TerminalCardFill(color: chrome.readingBackground))
+        .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
         .padding(ShellLayout.workspaceInset)
         .background {
             ShellBackdrop(isTransparent: isShellTransparent, isDark: chrome.isDark,
-                          usesTerminalBackground: true, chrome: chrome)
+                          usesTerminalBackground: true, showsTerminalCards: true, chrome: chrome)
         }
         .clipShape(RoundedRectangle(cornerRadius: Self.outerRadius))
         .aspectRatio(SettingsLayout.themePreviewAspectRatio, contentMode: .fit)

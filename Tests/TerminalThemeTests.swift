@@ -218,7 +218,8 @@ enum TerminalThemeTests {
         }
         // 可见滚动条会占用栅格空间，覆盖略窄于列宽阈值的实际卡片。
         for (themeID, width) in [("ghostty:Afterimage", CGFloat(255)),
-                                 ("ghostty:Argonaut", previewWidth)] {
+                                 ("ghostty:Argonaut", previewWidth),
+                                 ("ghostty:GitHub Light Default", previewWidth)] {
             let candidate = catalog.theme(id: themeID)!.palette!
             let previewSize = CGSize(width: width, height: width / SettingsLayout.themePreviewAspectRatio)
             previewWindow.setContentSize(previewSize)
@@ -226,7 +227,8 @@ enum TerminalThemeTests {
             FamilyAppearanceTests.drain()
             preview.layoutSubtreeIfNeeded()
             let backdrop = findBackdrop(in: preview)
-            expect(backdrop?.chrome == candidate.workspaceChrome && backdrop?.usesTerminalBackground == true,
+            expect(backdrop?.chrome == candidate.workspaceChrome && backdrop?.usesTerminalBackground == true
+                   && backdrop?.showsTerminalCards == true,
                    "preview shows the candidate's workspace backdrop: " + themeID)
             expect(backdrop?.bounds.size == previewSize, "preview backdrop fills the 3:2 card: " + themeID)
             if let backdrop { checkLightDirection(backdrop, name: themeID) }
@@ -235,6 +237,21 @@ enum TerminalThemeTests {
             preview.cacheDisplay(in: preview.bounds, to: bitmap)
             let scale = CGFloat(bitmap.pixelsHigh) / previewSize.height
             let x = bitmap.pixelsWide - Int(20 * CGFloat(bitmap.pixelsWide) / previewSize.width)
+            // 在同一列取圆角以外的 5pt 外框及正文空白，确保样本文字下也透出候选主题。
+            let base = NSColor(candidate.workspaceChrome.readingBackground).usingColorSpace(bitmap.colorSpace)!
+            func distanceFromBase(y: CGFloat) -> CGFloat {
+                let pixel = bitmap.colorAt(x: x, y: Int(y * scale))!
+                return max(abs(pixel.redComponent - base.redComponent), abs(pixel.greenComponent - base.greenComponent),
+                           abs(pixel.blueComponent - base.blueComponent))
+            }
+            let rim = distanceFromBase(y: 2)
+            let paper = distanceFromBase(y: 9)
+            if NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {
+                expect(paper < 0.01, "accessible preview uses the solid candidate background: " + themeID)
+            } else {
+                expect(paper > 0.01 && paper < rim - 0.005,
+                       "preview content transmits a softer tint than its rim: \(themeID), body=\(paper), rim=\(rim)")
+            }
             // 表格右侧的空白也有 ANSI 背景，取样避开字形。
             let tableRows = [2, 6].map { slot in
                 let color = GooseAgent.RGBColor(ghosttyHex: candidate.ansi[slot])!.color
