@@ -194,7 +194,7 @@ enum GhosttyRuntime {
     ) -> TerminalConfiguration {
         let entries = (settings.configEntries() + snippet).filter { !TerminalSettings.presetColorKeys.contains($0.key) }
         return TerminalConfiguration { builder in
-            // 不透明底板由 TerminalCanvas 绘制，Metal 只保留文字与 ANSI 单元格。
+            // 面板只在 TerminalCanvas 铺一次底色，Metal 负责文字与显式 ANSI 色块。
             builder.withBackgroundOpacity(0)
             for entry in entries {
                 builder.withCustom(entry.key, entry.value)

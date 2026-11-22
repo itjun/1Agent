@@ -3,10 +3,21 @@ import QuartzCore
 import SwiftUI
 
 enum ShellStyle {
-    // 系统透明度偏好影响控件与外框柔光；主工作区始终使用不透明的主题底板。
+    // 透明材质只透出应用自己的主题底板。
     // 系统“减少透明度”仍提供实色回退。
     static var isTransparent: Bool {
         !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+    }
+}
+
+/// 三块终端工作区面板共用底色和透色比例，渐变只在窗口底层绘制一次。
+struct TerminalCardFill: View {
+    let color: Color
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        color.opacity(ShellLayout.terminalCardOpacity(reduceTransparency: reduceTransparency, contrast: contrast))
     }
 }
 
@@ -67,6 +78,7 @@ enum ShellLayout {
     static let controlOpacity: Double = 0.45
     /// 整张主题渐变统一透出底色，避免青色叠层在交汇处重新变亮。
     static let lightBackdropOpacity: CGFloat = 0.50
+    static let lightTerminalBackdropOpacity: CGFloat = 0.80
     static let darkBackdropOpacity: CGFloat = 0.45
     static let systemLightBackdropOpacity: CGFloat = 0.60
     static let systemDarkBackdropOpacity: CGFloat = 0.58
@@ -78,6 +90,10 @@ enum ShellLayout {
     static let shadowRadius: CGFloat = 4
     static let shadowOffset: CGFloat = 2
     static let shadowOpacity: Double = 0.14
+
+    static func terminalCardOpacity(reduceTransparency: Bool, contrast: ColorSchemeContrast) -> Double {
+        reduceTransparency || contrast == .increased ? 1 : 0.58
+    }
 
     static func backdropColors(isDark: Bool, preset: AppThemePreset = AppTheme.stored()) -> [Color] {
         let colors = AppTheme.colors(isDark: isDark, preset: preset)
@@ -136,6 +152,7 @@ struct ShellBackdrop: NSViewRepresentable {
     var isTransparent: Bool
     var isDark: Bool
     var usesTerminalBackground = false
+    var showsTerminalCards = false
     var preset: AppThemePreset = AppTheme.stored()
     var chrome: WindowChrome?
 
@@ -147,6 +164,7 @@ struct ShellBackdrop: NSViewRepresentable {
         view.isTransparent = isTransparent
         view.isDark = isDark
         view.usesTerminalBackground = usesTerminalBackground
+        view.showsTerminalCards = showsTerminalCards
         view.preset = preset
         view.chrome = chrome
         view.applyStyle()
@@ -157,6 +175,7 @@ final class ShellBackdropView: NSView {
     var isTransparent = false
     var isDark = false
     var usesTerminalBackground = false
+    var showsTerminalCards = false
     var preset = AppTheme.stored()
     var chrome: WindowChrome?
     private let washView = NSView()
@@ -226,11 +245,11 @@ final class ShellBackdropView: NSView {
         appearance = SystemTheme.appearance(isDark: chrome.isDark)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        // 实色底板承托半透明的主题色层，玻璃感只出现在外框和间隙。
+        // 间隙露出完整底色，卡片以同一层轻雾透出这张渐变。
         // 保留主题自身的冷暖，不降低正文透明度，也不采样其他窗口。
         layer?.backgroundColor = NSColor(chrome.background).cgColor
-        washView.layer?.opacity = Float(chrome.isDark
-            ? ShellLayout.darkBackdropOpacity : ShellLayout.lightBackdropOpacity)
+        let lightOpacity = showsTerminalCards ? ShellLayout.lightTerminalBackdropOpacity : ShellLayout.lightBackdropOpacity
+        washView.layer?.opacity = Float(chrome.isDark ? ShellLayout.darkBackdropOpacity : lightOpacity)
         washView.layer?.mask = chrome.isGradientEnabled ? lightMask : nil
         if let colors = chrome.gradientColors {
             bottomLight.colors = [NSColor.black.withAlphaComponent(chrome.isDark ? 0.90 : 0.55).cgColor,

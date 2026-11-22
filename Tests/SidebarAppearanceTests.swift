@@ -3,7 +3,7 @@ import ObjectiveC
 import SwiftUI
 @testable import GooseAgent
 
-/// 主导航使用原生材质，工具箱不占主窗口列；不启动终端或 SSH。
+/// 工作区导航与终端共用应用内渐变；不启动终端或 SSH。
 @main enum SidebarAppearanceTests {
     @MainActor static func main() {
         let suite = "oneagent.sidebar-appearance.\(UUID())"
@@ -29,6 +29,7 @@ import SwiftUI
         window.orderFront(nil)
         defer { window.orderOut(nil) }
         let driver = AppearanceDriver.shared
+        checkTerminalCardFill()
         for isDark in [false, true] {
             defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             for preset in AppThemePreset.allCases {
@@ -39,13 +40,10 @@ import SwiftUI
                     window.contentView?.layoutSubtreeIfNeeded()
                     guard let split = SidebarAppearanceTests.navigationSplit(in: host.view),
                           let item = split.splitViewItems.first else { fatalError("missing production navigation split") }
-                    SidebarAppearanceTests.expect(item.behavior == .sidebar, "native sidebar behavior")
-                    let materials = SidebarAppearanceTests.materials(in: split.splitView)
-                    SidebarAppearanceTests.expect(!materials.isEmpty, "主导航必须实际使用原生磨砂")
-                    SidebarAppearanceTests.expect(materials.contains { $0.material == .sidebar && $0.blendingMode == .behindWindow },
-                        "导航使用 AppKit 自带的原生侧栏材质")
-                    SidebarAppearanceTests.expect(!materials.contains { $0.identifier?.rawValue == "workspace.sidebarMaterial" },
-                        "主导航不叠加自绘材质背景")
+                    SidebarAppearanceTests.expect(item.canCollapse, "工作区导航仍可折叠")
+                    let materials = SidebarAppearanceTests.materials(in: split.splitView.arrangedSubviews[0])
+                    SidebarAppearanceTests.expect(!materials.contains { $0.material == .sidebar && $0.blendingMode == .behindWindow },
+                        "导航底下没有遮挡整窗渐变的独立侧栏材质")
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
                         && split.splitView.dividerThickness == 5,
                         "navigation hides its separator while preserving the resize geometry: section=\(section), width=\(split.splitView.dividerThickness), alpha=\(split.splitView.dividerColor.alphaComponent)")
@@ -57,7 +55,7 @@ import SwiftUI
                         SidebarAppearanceTests.expect(window.toolbar == nil, "各页标题与操作留在各自的岛内")
                         SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.first?.layer?.cornerRadius == 10
                             && split.splitView.arrangedSubviews.first?.layer?.masksToBounds == true,
-                            "native sidebar material is clipped along with the island surface")
+                            "navigation is clipped to the rounded island")
                         let content = window.contentView!
                         let frame = split.splitView.convert(split.splitView.bounds, to: content)
                         SidebarAppearanceTests.expect(abs(frame.minX - content.bounds.minX - 5) < 1
@@ -72,7 +70,23 @@ import SwiftUI
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         driver.reapply()
         SidebarAppearanceTests.expect(driver.isDark == TerminalAppearance.systemIsDark, "follow system appearance")
-        print("SidebarAppearanceTests passed: native sidebar material, no right column, integrated island titles, light/dark and terminal/files/commands")
+        print("SidebarAppearanceTests passed: translucent reading cards, accessibility fallback, rounded navigation and native split geometry")
+    }
+
+    @MainActor static func checkTerminalCardFill() {
+        let fill = TerminalCardFill(color: .white).frame(width: 16, height: 16)
+        let image = ImageRenderer(content: fill).cgImage!
+        let pixel = NSBitmapImageRep(cgImage: image).colorAt(x: 8, y: 8)!
+        let workspace = NSWorkspace.shared
+        let expected = ShellLayout.terminalCardOpacity(
+            reduceTransparency: workspace.accessibilityDisplayShouldReduceTransparency,
+            contrast: workspace.accessibilityDisplayShouldIncreaseContrast ? .increased : .standard)
+        expect(abs(pixel.alphaComponent - expected) < 0.01, "卡片材质实际绘制一次主题底色")
+        expect((0.5..<0.7).contains(ShellLayout.terminalCardOpacity(reduceTransparency: false, contrast: .standard)),
+               "透色同时保留圆角卡片与间隙的明度差")
+        expect(ShellLayout.terminalCardOpacity(reduceTransparency: true, contrast: .standard) == 1 &&
+               ShellLayout.terminalCardOpacity(reduceTransparency: false, contrast: .increased) == 1,
+               "减少透明度和增强对比度均使用实色阅读底板")
     }
 
     @MainActor static func materials(in view: NSView) -> [NSVisualEffectView] {

@@ -3,7 +3,7 @@ import GhosttyTerminal
 import SwiftUI
 
 extension WindowChrome {
-    /// 工作区与设置沿用聚焦终端的原色，渐变只用于岛之间的间隙。
+    /// 工作区与设置沿用聚焦终端的底色和整窗渐变。
     @MainActor static func workspace(isDark: Bool) -> WindowChrome {
         let colors = TerminalThemePreferences.selected(isDark: isDark).colors(interfaceIsDark: isDark)
         return colors.workspaceChrome
@@ -40,7 +40,7 @@ struct TerminalThemeColors: Equatable {
         }
     }
 
-    /// 仅用于无正文的边框与间隙，取当前主题的蓝、紫、青槽位。
+    /// 窗口底层渐变取当前主题的蓝、紫、青槽位。
     var gradientColors: [RGBColor] {
         let base = RGBColor(ghosttyHex: background)!
         func tint(_ index: Int, amount: Double) -> RGBColor {

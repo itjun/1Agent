@@ -82,6 +82,7 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     var isDividerHidden: Bool = false
     var dividerWidth: CGFloat = 1
     var sidebarCornerRadius: CGFloat = 0
+    var usesSystemSidebarMaterial = true
     var isTrailing: Bool = false
     var toolbarIdentifier: String?
     var extendsSidebarIntoTitlebar = true
@@ -94,7 +95,8 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     @ViewBuilder var detail: () -> Detail
 
     func makeNSViewController(context: Context) -> NativeSidebarSplitController<Sidebar, Detail> {
-        let controller = NativeSidebarSplitController(sidebar: sidebar(), detail: detail(), isTrailing: isTrailing)
+        let controller = NativeSidebarSplitController(sidebar: sidebar(), detail: detail(), isTrailing: isTrailing,
+                                                     usesSystemSidebarMaterial: usesSystemSidebarMaterial)
         configure(controller)
         return controller
     }
@@ -130,7 +132,7 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
     private var widthChanged: (CGFloat) -> Void = { _ in }
     private var defaultWidth: CGFloat = 0
 
-    init(sidebar: Sidebar, detail: Detail, isTrailing: Bool = false) {
+    init(sidebar: Sidebar, detail: Detail, isTrailing: Bool = false, usesSystemSidebarMaterial: Bool = true) {
         self.isTrailing = isTrailing
         sidebarHost = NSHostingController(rootView: sidebar)
         detailHost = NSHostingController(rootView: detail)
@@ -144,10 +146,9 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         nativeSplit.drawsDividerBelowTitlebar = isTrailing
         nativeSplit.onResetWidth = { [weak self] in self?.restoreDefaultWidth() }
         splitView = nativeSplit
-        // 左侧导航采用原生侧栏语义，由 AppKit 将材质延伸到红绿灯所在的标题栏。
-        // 右侧仍是工作区工具面板，不套用左侧导航的独立材质。
-        let sidebarItem = isTrailing ? NSSplitViewItem(viewController: sidebarHost)
-            : NSSplitViewItem(sidebarWithViewController: sidebarHost)
+        // 原生 sidebar 项会在内容下面另铺系统材质；工作区导航需要直接透出窗口渐变。
+        let sidebarItem = usesSystemSidebarMaterial && !isTrailing
+            ? NSSplitViewItem(sidebarWithViewController: sidebarHost) : NSSplitViewItem(viewController: sidebarHost)
         if !isTrailing { addSplitViewItem(sidebarItem) }
         let content = NSSplitViewItem(viewController: detailHost)
         sidebarItem.titlebarSeparatorStyle = .none

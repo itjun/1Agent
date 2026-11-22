@@ -202,12 +202,8 @@ struct TerminalFindBar: View {
             }
             .padding(.horizontal, Theme.Space.m)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                VStack(spacing: 0) {
-                    chrome.sidebarBackground
-                    chrome.hairline
-                        .frame(height: 1)
-                }
+            .overlay(alignment: .bottom) {
+                chrome.hairline.frame(height: 1).allowsHitTesting(false)
             }
             .contentShape(Rectangle())
         }

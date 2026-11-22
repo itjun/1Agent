@@ -50,6 +50,7 @@ struct RootView: View {
                     collapsed: collapsed, isDividerHidden: true,
                     dividerWidth: ShellLayout.workspaceInset,
                     sidebarCornerRadius: ShellLayout.contentRadius,
+                    usesSystemSidebarMaterial: false,
                     toolbarIdentifier: "workspace.navigationSplit",
                     extendsSidebarIntoTitlebar: true, width: shownSidebarWidth,
                     minimumWidth: SidebarLayout.minWidth, maximumWidth: SidebarLayout.maxWidth,
@@ -65,7 +66,13 @@ struct RootView: View {
                             .accessibilityHidden(true)
                         sidebar
                     }
-                    .background(sidebarChrome.sidebarBackground.ignoresSafeArea())
+                    .background {
+                        if filesMode || commandsMode {
+                            sidebarChrome.sidebarBackground
+                        } else {
+                            TerminalCardFill(color: sidebarChrome.sidebarBackground)
+                        }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                     .scrollIndicators(.never)
                     .environment(\.windowChrome, sidebarChrome)
@@ -104,6 +111,7 @@ struct RootView: View {
                     isTransparent: appearanceDriver.isShellTransparent,
                     isDark: appearanceDriver.isDark,
                     usesTerminalBackground: true,
+                    showsTerminalCards: !filesMode && !commandsMode,
                     chrome: chrome
                 )
                 .ignoresSafeArea()

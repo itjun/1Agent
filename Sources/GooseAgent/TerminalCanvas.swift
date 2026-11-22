@@ -93,7 +93,7 @@ struct TerminalCanvas: View {
                         height: max(drawn.height, 1)
                     )
                     .padding(.top, cardHeader)
-                    .background(theme.colors(interfaceIsDark: interfaceIsDark).paneBackground(isFocused: true).color)
+                    .background(TerminalCardFill(color: chrome.readingBackground))
                     .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                     .environment(\.windowChrome, chrome)
                     .position(
@@ -251,7 +251,6 @@ struct TerminalCanvas: View {
                 .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
                 .frame(width: frame.width, height: headerHeight)
                 .background(WindowDragArea().accessibilityHidden(true))
-                .background(paneChrome.readingBackground)
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: ShellLayout.contentRadius,
                                                  topTrailingRadius: ShellLayout.contentRadius))
                 .environment(\.windowChrome, paneChrome)
