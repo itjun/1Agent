@@ -10,7 +10,7 @@ enum ShellStyle {
     }
 }
 
-/// 终端、设置面板与主题预览共用透色比例，只在各自的底层绘制一次渐变。
+/// 工作区、设置面板与主题预览共用透色比例，只在各自的底层绘制一次渐变。
 struct TerminalCardFill: View {
     let color: Color
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency

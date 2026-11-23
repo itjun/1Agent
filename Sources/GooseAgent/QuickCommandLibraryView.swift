@@ -397,7 +397,13 @@ struct QuickCommandLibraryView: View {
             .accessibilityIdentifier("quickCommands.library.edit")
     }
 
-    private var commandPaneBackground: Color { chrome.background }
+    @ViewBuilder private var commandPaneBackground: some View {
+        if isWorkspace {
+            TerminalCardFill(color: chrome.readingBackground)
+        } else {
+            chrome.background
+        }
+    }
 
     private func rowActions(_ item: QuickCommand) -> [FamilyMenuItem] {
         [FamilyMenuItem(title: String(localized: "Copy to Host"), children: hostCopyActions(item)),

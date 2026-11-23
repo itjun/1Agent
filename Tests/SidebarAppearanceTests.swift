@@ -3,7 +3,7 @@ import ObjectiveC
 import SwiftUI
 @testable import GooseAgent
 
-/// 工作区导航与终端共用应用内渐变；不启动终端或 SSH。
+/// 切换工作区时，各栏共用整窗渐变；不启动终端或 SSH。
 @main enum SidebarAppearanceTests {
     @MainActor static func main() {
         let suite = "oneagent.sidebar-appearance.\(UUID())"
@@ -41,7 +41,10 @@ import SwiftUI
                     guard let split = SidebarAppearanceTests.navigationSplit(in: host.view),
                           let item = split.splitViewItems.first else { fatalError("missing production navigation split") }
                     SidebarAppearanceTests.expect(item.canCollapse, "工作区导航仍可折叠")
-                    let materials = SidebarAppearanceTests.materials(in: split.splitView.arrangedSubviews[0])
+                    let backdrops = views(of: ShellBackdropView.self, in: host.view)
+                    expect(backdrops.count == 1 && backdrops.first?.showsTerminalCards == true,
+                           "\(section) 使用一张与终端相同强度的整窗渐变")
+                    let materials = views(of: NSVisualEffectView.self, in: split.splitView.arrangedSubviews[0])
                     SidebarAppearanceTests.expect(!materials.contains { $0.material == .sidebar && $0.blendingMode == .behindWindow },
                         "导航底下没有遮挡整窗渐变的独立侧栏材质")
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
@@ -89,9 +92,9 @@ import SwiftUI
                "减少透明度和增强对比度均使用实色阅读底板")
     }
 
-    @MainActor static func materials(in view: NSView) -> [NSVisualEffectView] {
-        let own = view as? NSVisualEffectView
-        return (own.map { [$0] } ?? []) + view.subviews.flatMap(materials)
+    @MainActor static func views<T: NSView>(of type: T.Type, in view: NSView) -> [T] {
+        let children = view.subviews.flatMap { views(of: type, in: $0) }
+        return (view as? T).map { [$0] + children } ?? children
     }
 
     @MainActor static func navigationSplit(in view: NSView, identifier: String = "workspace.navigationSplit") -> NSSplitViewController? {

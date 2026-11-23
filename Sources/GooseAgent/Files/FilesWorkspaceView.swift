@@ -160,7 +160,7 @@ private struct FileEndpointWithPreview: View {
                 TextPreviewDrawer(column: column, onClose: { column.preview = nil }, isWorkspaceCard: true)
                     .id(column.id)
                     .frame(width: cardWidth)
-                    .background(chrome.background)
+                    .background(TerminalCardFill(color: chrome.readingBackground))
                     .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                     .modifier(FloatingContentSurface())
                     .accessibilityElement(children: .contain)
@@ -216,7 +216,7 @@ private struct FileEndpointPanel: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
-        .background(chrome.background)
+        .background(TerminalCardFill(color: chrome.readingBackground))
         .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
         .modifier(FloatingContentSurface())
         .background(BoundsAnchor {

@@ -66,13 +66,7 @@ struct RootView: View {
                             .accessibilityHidden(true)
                         sidebar
                     }
-                    .background {
-                        if filesMode || commandsMode {
-                            sidebarChrome.sidebarBackground
-                        } else {
-                            TerminalCardFill(color: sidebarChrome.sidebarBackground)
-                        }
-                    }
+                    .background(TerminalCardFill(color: sidebarChrome.sidebarBackground))
                     .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                     .scrollIndicators(.never)
                     .environment(\.windowChrome, sidebarChrome)
@@ -111,7 +105,7 @@ struct RootView: View {
                     isTransparent: appearanceDriver.isShellTransparent,
                     isDark: appearanceDriver.isDark,
                     usesTerminalBackground: true,
-                    showsTerminalCards: !filesMode && !commandsMode,
+                    showsTerminalCards: true,
                     chrome: chrome
                 )
                 .ignoresSafeArea()
