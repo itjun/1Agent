@@ -16,7 +16,7 @@ EXPECTED = ['update', 'two words', '', '中文', '--flag=value']
 
 
 def apple(body):
-    result = subprocess.run(['osascript', '-e', 'tell application id "com.itjun.1agent"\n' + body + '\nend tell'],
+    result = subprocess.run(['osascript', '-e', 'tell application id "com.itjun.agent"\n' + body + '\nend tell'],
                             text=True, capture_output=True, timeout=20)
     assert result.returncode == 0, result.stderr
     return result.stdout.strip()

@@ -1,46 +1,44 @@
 import Foundation
 
-/// Moves this app's settings into the `com.itjun.1agent` defaults domain.
-///
-/// While the app was installed as Ghostty, new values were written into `com.mitchellh.ghostty`,
-/// mixed with the official app's own keys. On launch as 1Agent, our keys are copied back once.
-/// The Ghostty domain is only read, so the official app's settings stay where they are.
-/// Must run before anything reads `UserDefaults`.
+/// Copies settings and the session snapshot into the current app domain before the model loads.
 enum LegacyDefaultsMigration {
-    static let ownDomain = "com.itjun.1agent"
-    /// Domain used while this app replaced official Ghostty.
-    static let ghosttyDomain = "com.mitchellh.ghostty"
+    static let ownDomain = "com.itjun.agent"
+    private static let previousDomain = "com.itjun.1agent"
+    private static let ghosttyDomain = "com.mitchellh.ghostty"
     /// Written into the Ghostty domain by the old copy-forward migration.
-    static let ghosttyDoneKey = "migration.from1Agent.done"
-    /// Written into our domain after the copy back, so a later launch does not overwrite settings.
-    static let broughtBackKey = "migration.fromGhosttyBundle.done"
+    private static let ghosttyDoneKey = "migration.from1Agent.done"
+    private static let broughtBackKey = "migration.fromGhosttyBundle.done"
+    private static let previousDomainDoneKey = "migration.fromPreviousBundle.done"
 
     static func runIfNeeded() {
+        guard Bundle.main.bundleIdentifier == ownDomain else { return }
         let defaults = UserDefaults.standard
-        guard let bundleID = Bundle.main.bundleIdentifier else { return }
-        if bundleID != LegacyDefaultsMigration.ownDomain {
-            LegacyDefaultsMigration.copyMissing(
-                from: LegacyDefaultsMigration.ownDomain,
-                into: defaults,
-                doneKey: LegacyDefaultsMigration.ghosttyDoneKey
-            )
-            return
-        }
-        if defaults.bool(forKey: LegacyDefaultsMigration.broughtBackKey) {
-            return
-        }
-        let ghosttyValues = defaults.persistentDomain(forName: LegacyDefaultsMigration.ghosttyDomain) ?? [:]
-        let usedByThisApp = LegacyDefaultsMigration.isTruthy(ghosttyValues[LegacyDefaultsMigration.ghosttyDoneKey])
-        if usedByThisApp {
-            for (key, value) in ghosttyValues where LegacyDefaultsMigration.isAppKey(key) {
-                defaults.set(value, forKey: key)
+        let current = defaults.persistentDomain(forName: ownDomain) ?? [:]
+        guard let migrated = migratedDefaults(
+            current: current,
+            previous: defaults.persistentDomain(forName: previousDomain) ?? [:],
+            ghostty: defaults.persistentDomain(forName: ghosttyDomain) ?? [:]
+        ) else { return }
+        defaults.setPersistentDomain(migrated, forName: ownDomain)
+    }
+
+    static func migratedDefaults(current: [String: Any], previous: [String: Any],
+                                 ghostty: [String: Any]) -> [String: Any]? {
+        guard !isTruthy(current[previousDomainDoneKey]) else { return nil }
+        var migrated = previous.merging(current) { _, currentValue in currentValue }
+        // Some versions ran under Ghostty's domain. Recover only our keys if that copy was used.
+        if !isTruthy(migrated[broughtBackKey]), isTruthy(ghostty[ghosttyDoneKey]) {
+            for (key, value) in ghostty where isAppKey(key) && migrated[key] == nil {
+                migrated[key] = value
             }
         }
-        defaults.set(true, forKey: LegacyDefaultsMigration.broughtBackKey)
+        migrated[broughtBackKey] = true
+        migrated[previousDomainDoneKey] = true
+        return migrated
     }
 
     /// Keys this app writes. Official Ghostty keys (Sparkle `SU*`, its window frames) are left out.
-    static func isAppKey(_ key: String) -> Bool {
+    private static func isAppKey(_ key: String) -> Bool {
         switch key {
         case "sidebar.width", "AppleLanguages":
             return true
@@ -64,19 +62,5 @@ enum LegacyDefaultsMigration {
             return number.boolValue
         }
         return false
-    }
-
-    /// Copies keys the destination does not have yet. The source domain is not modified.
-    private static func copyMissing(from domain: String, into defaults: UserDefaults, doneKey: String) {
-        if defaults.bool(forKey: doneKey) {
-            return
-        }
-        guard let bundleID = Bundle.main.bundleIdentifier, bundleID != domain else { return }
-        let source = defaults.persistentDomain(forName: domain) ?? [:]
-        let current = defaults.persistentDomain(forName: bundleID) ?? [:]
-        for (key, value) in source where current[key] == nil {
-            defaults.set(value, forKey: key)
-        }
-        defaults.set(true, forKey: doneKey)
     }
 }

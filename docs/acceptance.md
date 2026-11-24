@@ -113,7 +113,7 @@ python3 scripts/test-acceptance.py all automation compatibility stress
 
 用户已授权开发改动后直接安装重启，执行约定见 [AGENTS.md](../AGENTS.md)。每次仍须先检查所有窗口的本地和 SSH 会话，记录运行/等待命令及未提交输入，使用现有持久化机制保留它们；不要为安装终止 Shell、关闭用户会话或重启远程服务。
 
-需要安装本次应用改动时执行 `make build`。完成后同时核对：构建成功、安装成功、实际进程来自 `/Applications/1Agent.app`、安装包与构建产物一致，以及 R01 的会话恢复结果。编译成功不能替代安装或实机通过。
+需要安装本次应用改动时执行 `make build`。完成后同时核对：构建成功、安装成功、实际进程来自 `/Applications/1Agent.app`、安装包与构建产物一致，以及 R01 的会话恢复结果。涉及 Bundle ID 时，用 `make test-defaults-migration` 验证迁移规则，实机再从旧包安装新版并核对原偏好、窗口布局和会话。编译成功不能替代安装或实机通过。
 
 ## 验收记录模板
 

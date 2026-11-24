@@ -31,7 +31,7 @@
 make build
 ```
 
-构建脚本会安装并启动 `/Applications/1Agent.app`。应用的 Bundle ID 为 `com.itjun.1agent`，URL 协议为 `oneagent://`。
+构建脚本会安装并启动 `/Applications/1Agent.app`。应用的 Bundle ID 为 `com.itjun.agent`，URL 协议为 `oneagent://`。
 
 应用源码位于 `Sources/OneAgent/`，Swift 模块名为 `agent`，Xcode 工程和 target 名为 `1Agent`。官方 Ghostty 使用独立的 `com.mitchellh.ghostty` 与 `ghostty://` 身份。
 
@@ -67,7 +67,7 @@ macOS, Xcode, XcodeGen, and a stable Zig 0.17.x release (0.17.0 or a later patch
 make build
 ```
 
-The build script installs and launches `/Applications/1Agent.app`. The bundle ID is `com.itjun.1agent`, and the URL scheme is `oneagent://`.
+The build script installs and launches `/Applications/1Agent.app`. The bundle ID is `com.itjun.agent`, and the URL scheme is `oneagent://`.
 
 The app source is in `Sources/OneAgent/`. The Swift module is `agent`, and the Xcode project and target are named `1Agent`. Official Ghostty keeps its own `com.mitchellh.ghostty` bundle ID and `ghostty://` scheme.
 

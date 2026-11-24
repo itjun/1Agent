@@ -10,6 +10,7 @@ final class QuickCommandStore: ObservableObject {
     let url: URL
 
     init(url: URL? = nil) {
+        // This data directory predates the current bundle identifier.
         self.url = url ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("com.itjun.1agent/quick-commands.json")
         guard FileManager.default.fileExists(atPath: self.url.path) else { return }

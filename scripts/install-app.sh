@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# After a Debug build: install 1Agent.app (bundle id com.itjun.1agent) into /Applications.
+# After a Debug build: install 1Agent.app (bundle id com.itjun.agent) into /Applications.
 # Official Ghostty keeps /Applications/Ghostty.app, bundle id com.mitchellh.ghostty, and ghostty://.
 # A previous build of this app that replaced Ghostty (executable "Ghostty", not "ghostty",
 # and not signed by Ghostty's team) is quit and removed. Only when removing that old build, if
@@ -8,7 +8,8 @@ set -euo pipefail
 
 APP_NAME="1Agent"
 APP_BUNDLE="${APP_NAME}.app"
-BUNDLE_ID="com.itjun.1agent"
+BUNDLE_ID="com.itjun.agent"
+PREVIOUS_BUNDLE_ID="com.itjun.1agent"
 DST="/Applications/$APP_BUNDLE"
 OUR_PROCESS="^${DST}/Contents/MacOS/${APP_NAME}( |$)"
 
@@ -113,6 +114,10 @@ if [[ ! -d "$GHOSTTY_DST" && "$restore_official" == 1 ]]; then
 fi
 
 quit_bundle_path "$DST" "$OUR_PROCESS" "$APP_NAME"
+
+if [[ "$(plist_value "$DST" CFBundleIdentifier)" == "$PREVIOUS_BUNDLE_ID" ]]; then
+  "$LSREGISTER" -u "$DST" 2>/dev/null || true
+fi
 
 echo "→ installing to ${DST}"
 rm -rf "$DST"

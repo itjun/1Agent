@@ -11,6 +11,7 @@ struct TerminalOutputStore {
     let directory: URL
 
     init(directory: URL? = nil) {
+        // Keep saved output reachable across bundle identifier changes.
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("com.itjun.1agent/terminal-output", isDirectory: true)
     }

@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 APP_NAME = "1Agent"
-BUNDLE_ID = "com.itjun.1agent"
+BUNDLE_ID = "com.itjun.agent"
 INSTALLED_APP = Path("/Applications/1Agent.app")
 BUILT_APP = ROOT / "build/DerivedData.noindex/Build/Products/Debug/1Agent.app"
 STAGE_TIMES = []

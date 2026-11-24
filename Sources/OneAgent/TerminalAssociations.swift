@@ -183,7 +183,7 @@ final class TerminalAssociationStore: ObservableObject {
     static let backupKey = "app.systemIntegration.associationBackup.v1"
     static let shared = TerminalAssociationStore(
         system: MacTerminalAssociationSystem(),
-        target: TerminalEntryApplication(bundleID: "com.itjun.1agent", name: "1Agent", url: Bundle.main.bundleURL),
+        target: TerminalEntryApplication(bundleID: "com.itjun.agent", name: "1Agent", url: Bundle.main.bundleURL),
         defaults: .standard
     )
 

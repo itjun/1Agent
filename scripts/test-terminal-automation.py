@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import time
 
-APP = 'com.itjun.1agent'
+APP = 'com.itjun.agent'
 
 def apple(body):
     source = f'tell application id "{APP}"\n{body}\nend tell'

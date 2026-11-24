@@ -75,7 +75,7 @@ targets:
           - en
           - zh-Hans
         CFBundleURLTypes:
-          - CFBundleURLName: com.itjun.1agent
+          - CFBundleURLName: com.itjun.agent
             CFBundleURLSchemes:
               - oneagent
         CFBundleDocumentTypes:
@@ -124,7 +124,7 @@ targets:
       base:
         SPARKLE_PUBLIC_KEY: ""
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
-        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.1agent
+        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.agent
         PRODUCT_NAME: "1Agent"
         PRODUCT_MODULE_NAME: agent
         MACOSX_DEPLOYMENT_TARGET: "14.0"

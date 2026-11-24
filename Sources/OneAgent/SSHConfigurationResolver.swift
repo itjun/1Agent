@@ -69,7 +69,7 @@ final class SSHConfigurationResolver {
 
 /// 状态只在 queue 上访问；读取不阻塞，超时/取消会关闭管道并结束自有进程组。
 final class SSHConfigurationQuery: @unchecked Sendable {
-    private let queue = DispatchQueue(label: "com.itjun.1agent.ssh-config", qos: .utility)
+    private let queue = DispatchQueue(label: "com.itjun.agent.ssh-config", qos: .utility)
     private let process = Process()
     private let pipe = Pipe()
     private let timeout: TimeInterval

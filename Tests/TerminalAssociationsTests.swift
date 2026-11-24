@@ -40,7 +40,7 @@ private final class AssociationSystemDouble: TerminalAssociationSystem {
 
 @main
 enum TerminalAssociationsTests {
-    static let target = app("com.itjun.1agent", "1Agent")
+    static let target = app("com.itjun.agent", "1Agent")
     static let ghostty = app("com.mitchellh.ghostty", "Ghostty")
     static let terminal = app("com.apple.Terminal", "Terminal")
 

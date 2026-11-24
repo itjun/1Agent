@@ -31,6 +31,8 @@
 
 构建编号由 release workflow 的运行编号递增。Sparkle 私钥保存在本机钥匙串的独立账号 `com.itjun.1agent.sparkle`，并配置到 GitHub Actions Secrets；不能丢失或随意轮换，否则已有客户端无法验签。旧版签名密钥保持不变。发布时仍须检查真实安装包、更新源签名和旧版兼容清单；本地 fixture 不能替代实际客户端升级验收。
 
+从 Bundle ID 为 `com.itjun.1agent` 的版本切换到 `com.itjun.agent` 时，使用安装包替换 `/Applications/1Agent.app`。旧包跨标识的应用内更新须单独验收。有关 Sparkle 对 Bundle ID 变更的说明，见 [上游维护者答复](https://github.com/sparkle-project/Sparkle/issues/1600)。
+
 ## 终端补丁与 Shell 来源
 
 有序补丁见 [Patches/README.md](../Vendor/libghostty-spm/Patches/README.md)。先应用旧/新补丁逐文件比较 5,932 个文件完全相同，再删除 replay 专属流水线、viewport selection 接口和不需要的精确坐标覆盖。构建缓存纳入全部补丁及顺序。内部 renderer/prompt_redraw 与 host-managed I/O 有真实调用，继续保留。

@@ -484,7 +484,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// file in a folder only this user can open, and the notification carries just its name. The running
 /// copy also checks that the ticket's pid runs this same executable.
 enum CommandLineLaunch {
-    static let handOffNotification = Notification.Name("com.itjun.1agent.handOffRunRequest")
+    static let handOffNotification = Notification.Name("com.itjun.agent.handOffRunRequest")
     static let ticketKey = "ticket"
     /// The receiver reads the ticket while the sender is still alive; after this the sender gives up.
     static let handOffTimeout: TimeInterval = 2
@@ -494,7 +494,7 @@ enum CommandLineLaunch {
 
     static var handOffDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/com.itjun.1agent/handoff", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/com.itjun.agent/handoff", isDirectory: true)
     }
 
     /// A distributed notification reaches exactly the running copy. LaunchServices might hand a
@@ -502,7 +502,7 @@ enum CommandLineLaunch {
     static func handOffIfAnotherInstanceRuns() {
         guard let request = CommandLineLaunch.request else { return }
         let me = ProcessInfo.processInfo.processIdentifier
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.itjun.1agent"
+        let bundleID = Bundle.main.bundleIdentifier ?? LegacyDefaultsMigration.ownDomain
         let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).filter {
             $0.processIdentifier != me && !$0.isTerminated
         }

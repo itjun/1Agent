@@ -2,6 +2,7 @@
 .PHONY: test-command-transparency
 .PHONY: test-modal-appearance
 .PHONY: test-system-integration
+.PHONY: test-defaults-migration
 .PHONY: test-terminal-windows test-scripting-replies
 .PHONY: test-terminal-automation
 .PHONY: test-terminal-compatibility test-terminal-stress
@@ -37,6 +38,10 @@ test-scripting-replies:
 test-system-integration:
 	swiftc -parse-as-library Sources/OneAgent/TerminalAssociations.swift Tests/TerminalAssociationsTests.swift -o /tmp/oneagent-system-integration-tests
 	/tmp/oneagent-system-integration-tests
+
+test-defaults-migration:
+	swiftc -parse-as-library Sources/OneAgent/LegacyDefaultsMigration.swift Tests/LegacyDefaultsMigrationTests.swift -o /tmp/oneagent-defaults-migration-tests
+	/tmp/oneagent-defaults-migration-tests
 
 test-command-transparency:
 	python3 scripts/test-command-transparency.py
@@ -83,7 +88,7 @@ install:
 run: build
 	open "/Applications/$(APP_BUNDLE)"
 
-test: test-release-signing test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies
+test: test-release-signing test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies test-defaults-migration
 	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/OneAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
 	/tmp/oneagent-terminal-output-store-tests
 	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/OneAgent/QuickCommand.swift Sources/OneAgent/CommandBridgeSocket.swift Sources/OneAgent/RemoteCommandBridge.swift Sources/OneAgent/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift

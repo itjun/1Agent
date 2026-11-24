@@ -86,7 +86,7 @@ struct QuickCommandPasteRequest: Identifiable {
 
 @MainActor
 enum QuickCommandClipboard {
-    static let type = NSPasteboard.PasteboardType("com.itjun.1agent.quick-command-transfer")
+    static let type = NSPasteboard.PasteboardType("com.itjun.agent.quick-command-transfer")
 
     static func copy(_ commands: [QuickCommand], to pasteboard: NSPasteboard = .general) throws {
         let transfer = try QuickCommandTransfer(commands: commands)

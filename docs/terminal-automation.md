@@ -1,6 +1,8 @@
 # 终端窗口与自动化
 
-1Agent 使用自己的应用身份 `com.itjun.1agent`、`oneagent://` 和 `/Applications/1Agent.app`。终端引擎随应用打包，运行窗口、命令行与 AppleScript 不需要安装 Ghostty。
+1Agent 使用自己的应用身份 `com.itjun.agent`、`oneagent://` 和 `/Applications/1Agent.app`。终端引擎随应用打包，运行窗口、命令行与 AppleScript 不需要安装 Ghostty。
+
+从 `com.itjun.1agent` 版本安装后，首次启动会读取原来的偏好和会话快照。通过 Bundle ID 寻址的 AppleScript 或 `open -b` 命令应改用 `com.itjun.agent`。
 
 ## 单窗口
 
@@ -26,7 +28,7 @@
 “集成”可整体关闭终端自动化。窗口、标签和终端均有稳定 UUID；输入和操作必须指定终端。失效 ID、无效目录与配置返回脚本错误。
 
 ```applescript
-tell application id "com.itjun.1agent"
+tell application id "com.itjun.agent"
     set cfg to new surface configuration
     set initial working directory of cfg to "/tmp"
     set newTab to new tab with configuration cfg

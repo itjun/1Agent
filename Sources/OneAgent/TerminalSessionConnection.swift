@@ -6,7 +6,7 @@ final class TerminalSessionConnection: @unchecked Sendable {
     static let frameLimit = 32 * 1024 * 1024
     private static let helperURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/1AgentSessionHost")
     static var isAvailable: Bool { FileManager.default.isExecutableFile(atPath: helperURL.path) }
-    private let queue = DispatchQueue(label: "com.itjun.1agent.session")
+    private let queue = DispatchQueue(label: "com.itjun.agent.session")
     private var fd: Int32 = -1
     private var reader: DispatchSourceRead?
     private var writer: DispatchSourceWrite?

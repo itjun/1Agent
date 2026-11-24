@@ -67,7 +67,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.itjun.1agent</string>
+			<string>com.itjun.agent</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>oneagent</string>
