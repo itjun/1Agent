@@ -187,7 +187,6 @@ final class ShellBackdropView: NSView {
     private let gradientLayer = CAGradientLayer()
     private let tealLayer = CAGradientLayer()
     private let lightMask = CAGradientLayer()
-    private let bottomLight = CAGradientLayer()
     private let sheenLayer = CAGradientLayer()
     override var isOpaque: Bool { true }
 
@@ -197,29 +196,22 @@ final class ShellBackdropView: NSView {
         washView.wantsLayer = true
         washView.layer?.name = "workspace.gradientTint"
         washView.layer?.allowsGroupOpacity = true
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 1)
-        gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
+        // 主题色、青色柔光和反光沿同一条左上至右下的光轴过渡。
+        for layer in [gradientLayer, tealLayer, lightMask, sheenLayer] {
+            layer.startPoint = CGPoint(x: 0, y: 1)
+            layer.endPoint = CGPoint(x: 1, y: 0)
+        }
         gradientLayer.locations = ShellLayout.backdropLocations.map { NSNumber(value: Double($0)) }
         washView.layer?.addSublayer(gradientLayer)
         tealLayer.type = .radial
-        tealLayer.startPoint = CGPoint(x: 0, y: 0)
-        tealLayer.endPoint = CGPoint(x: 0.85, y: 0.85)
         washView.layer?.addSublayer(tealLayer)
         washView.frame = bounds
         washView.autoresizingMask = [.width, .height]
         addSubview(washView)
         sheenLayer.name = "workspace.gradientSheen"
-        // 左上主光沿顶边缓慢减弱，并向下柔和扩散。
-        for layer in [lightMask, sheenLayer] {
-            layer.type = .radial
-            layer.startPoint = CGPoint(x: 0, y: 1)
-            layer.endPoint = CGPoint(x: 1.7, y: 0)
-        }
-        // 背光侧保留主题色，底边再逐渐抬高遮罩强度。
-        lightMask.colors = [NSColor.black.cgColor, NSColor.black.withAlphaComponent(0.60).cgColor]
-        bottomLight.startPoint = CGPoint(x: 0.5, y: 0)
-        bottomLight.endPoint = CGPoint(x: 0.5, y: 0.28)
-        lightMask.addSublayer(bottomLight)
+        lightMask.type = .radial
+        lightMask.colors = [NSColor.black.cgColor, NSColor.black.withAlphaComponent(0.80).cgColor]
+        sheenLayer.type = .radial
         sheenLayer.locations = [0, 0.4, 1]
         wantsLayer = true
         layer?.addSublayer(sheenLayer)
@@ -239,7 +231,6 @@ final class ShellBackdropView: NSView {
         gradientLayer.frame = washView.bounds
         tealLayer.frame = washView.bounds
         lightMask.frame = washView.bounds
-        bottomLight.frame = lightMask.bounds
         sheenLayer.frame = bounds
         CATransaction.commit()
     }
@@ -250,33 +241,25 @@ final class ShellBackdropView: NSView {
         appearance = SystemTheme.appearance(isDark: chrome.isDark)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        // 间隙露出完整底色，卡片以同一层轻雾透出这张渐变。
         // 保留主题自身的冷暖，不降低正文透明度，也不采样其他窗口。
         layer?.backgroundColor = NSColor(chrome.background).cgColor
         let lightOpacity = showsTerminalCards ? ShellLayout.lightTerminalBackdropOpacity : ShellLayout.lightBackdropOpacity
         washView.layer?.opacity = Float(chrome.isDark ? ShellLayout.darkBackdropOpacity : lightOpacity)
         washView.layer?.mask = chrome.isGradientEnabled ? lightMask : nil
         if let colors = chrome.gradientColors {
-            bottomLight.colors = [NSColor.black.withAlphaComponent(chrome.isDark ? 0.90 : 0.55).cgColor,
-                                  NSColor.black.withAlphaComponent(0).cgColor]
             gradientLayer.isHidden = false
-            gradientLayer.startPoint = CGPoint(x: 0, y: 1)
-            gradientLayer.endPoint = CGPoint(x: 1, y: 0)
             gradientLayer.colors = colors.prefix(3).map { NSColor($0).cgColor }
             let teal = NSColor(colors[3])
             tealLayer.colors = [teal.cgColor, teal.withAlphaComponent(0).cgColor]
             tealLayer.isHidden = false
         } else {
             gradientLayer.isHidden = usesTerminalBackground
-            gradientLayer.startPoint = CGPoint(x: 0.5, y: 1)
-            gradientLayer.endPoint = CGPoint(x: 0.5, y: 0)
             gradientLayer.colors = [chrome.sidebarBackground, chrome.background, chrome.background].map { NSColor($0).cgColor }
             tealLayer.isHidden = true
         }
         gradientLayer.frame = washView.bounds
         tealLayer.frame = washView.bounds
         lightMask.frame = washView.bounds
-        bottomLight.frame = lightMask.bounds
         sheenLayer.colors = [NSColor.white.withAlphaComponent(chrome.isDark ? 0.025 : 0.10).cgColor,
                              NSColor.white.withAlphaComponent(0).cgColor,
                              NSColor.white.withAlphaComponent(0).cgColor]

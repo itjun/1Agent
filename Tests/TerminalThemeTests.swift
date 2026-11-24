@@ -86,10 +86,14 @@ enum TerminalThemeTests {
             let bottomRight = strength(width - 3, height - 3)
             expect(topLeft > 0.9 && topLeft > topRight && topLeft > middleLeft && topLeft > bottomRight,
                    "top-left remains the strongest light source: " + name)
-            expect([bottomLeft, bottomMiddle, bottomRight].allSatisfy { $0 > 0.75 },
-                   "bottom fill reaches the entire lower gap: " + name)
+            expect(middleLeft >= bottomLeft && bottomLeft >= bottomMiddle && bottomMiddle >= bottomRight
+                   && topRight >= bottomRight && bottomRight > 0.7,
+                   "light falls off toward the bottom right without a second light along the bottom: " + name)
+            let gradients = tint.sublayers!.compactMap { $0 as? CAGradientLayer }
+            expect(gradients.allSatisfy { $0.startPoint == CGPoint(x: 0, y: 1) && $0.endPoint == CGPoint(x: 1, y: 0) },
+                   "all theme colors follow the same light direction: " + name)
         }
-        func checkRenderedFrame(name: String, minimumBottomDifference: Double = 0.055) {
+        func checkRenderedFrame(name: String) {
             let root = frameBackdrop.layer!
             let tint = frameBackdrop.subviews.first!.layer!
             let sheen = root.sublayers!.first { $0.name == "workspace.gradientSheen" }!
@@ -124,14 +128,19 @@ enum TerminalThemeTests {
             }
             expect(original.contains { difference($0) > 0.03 },
                    "rendered fixture includes visible frame color: " + name)
-            let weakestBottomDifference = softened.suffix(3).map(difference).min()!
-            expect(weakestBottomDifference >= minimumBottomDifference,
-                   "bottom gap remains visible across the frame: \(name), measured \(weakestBottomDifference)")
+            func diagonalSpan(_ samples: [NSColor]) -> CGFloat {
+                let source = samples.first!, farCorner = samples.last!
+                return abs(source.redComponent - farCorner.redComponent)
+                    + abs(source.greenComponent - farCorner.greenComponent)
+                    + abs(source.blueComponent - farCorner.blueComponent)
+            }
+            expect(diagonalSpan(softened) > 0.04 && diagonalSpan(softened) >= diagonalSpan(original) * 0.25,
+                   "theme colors remain distinct along the light axis after softening: " + name)
             for index in original.indices {
                 let visibleDifference = difference(softened[index])
                 expect(visibleDifference >= difference(original[index]) * 0.22 - 0.01
                        && visibleDifference >= 0.055,
-                       "frame stays distinct from the island background at perimeter sample \(index): " + name)
+                       "window gradient remains visible over the theme base at perimeter sample \(index): " + name)
                 expect(difference(softened[index]) <= difference(original[index]) * 0.60 + 0.025,
                        "rendered frame and teal corner lose their former color intensity together: " + name)
                 expect(softened[index].alphaComponent == 1,
@@ -174,7 +183,7 @@ enum TerminalThemeTests {
         for name in ["Spring", "Argonaut"] {
             let colors = catalog.themes.first { $0.name == name }!.palette!
             checkSoftFrame(colors, name: name)
-            checkRenderedFrame(name: name, minimumBottomDifference: colors.isDark ? 0.24 : 0.055)
+            checkRenderedFrame(name: name)
         }
         for background in ["000000", "FFFFFF", "FF0000", "00FF00"] {
             var ansi = Array(repeating: "808080", count: 16)
