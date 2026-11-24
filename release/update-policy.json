@@ -1,3 +1,4 @@
 {
-  "minSupportedVersion": "v1.0.0"
+  "minSupportedVersion": "v1.0.0",
+  "sparkleMinimumInstallBuild": 1019
 }

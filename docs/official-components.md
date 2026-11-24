@@ -31,7 +31,7 @@
 
 构建编号由 release workflow 的运行编号递增。Sparkle 私钥保存在本机钥匙串的独立账号 `com.itjun.1agent.sparkle`，并配置到 GitHub Actions Secrets；不能丢失或随意轮换，否则已有客户端无法验签。旧版签名密钥保持不变。发布时仍须检查真实安装包、更新源签名和旧版兼容清单；本地 fixture 不能替代实际客户端升级验收。
 
-从 Bundle ID 为 `com.itjun.1agent` 的版本切换到 `com.itjun.agent` 时，使用安装包替换 `/Applications/1Agent.app`。旧包跨标识的应用内更新须单独验收。有关 Sparkle 对 Bundle ID 变更的说明，见 [上游维护者答复](https://github.com/sparkle-project/Sparkle/issues/1600)。
+从 Bundle ID 为 `com.itjun.1agent` 的版本切换到 `com.itjun.agent` 时，使用安装包替换 `/Applications/1Agent.app`。Sparkle 为低于构建 `1019` 的旧版提供手动下载入口，从构建 `1019` 起可在应用内正常安装更新。有关该更新类型，见 [Sparkle 发布说明](https://sparkle-project.org/documentation/publishing/#downloading-from-a-web-site)。
 
 ## 终端补丁与 Shell 来源
 

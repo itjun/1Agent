@@ -108,11 +108,34 @@ jobs:
           trap 'rm -f "$key"' EXIT
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$key"
           package="1Agent-${GITHUB_REF_NAME}-mac-arm64"
+          minimum_build="$(python3 -c 'import json; print(json.load(open("release/update-policy.json"))["sparkleMinimumInstallBuild"])')"
+          if [[ ! "$minimum_build" =~ ^[1-9][0-9]*$ ]] || (( minimum_build > 1000 + GITHUB_RUN_NUMBER )); then
+            echo '::error::Sparkle 可安装的最低构建号无效'
+            exit 1
+          fi
+          release_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
           cp dist/notes.txt "dist/$package.txt"
           tools="build/SourcePackages/artifacts/sparkle/Sparkle/bin"
-          "$tools/generate_appcast" --ed-key-file "$key" --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" --embed-release-notes --maximum-deltas 0 dist
+          "$tools/generate_appcast" \
+            --ed-key-file "$key" \
+            --download-url-prefix "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            --link "$release_url" \
+            --informational-update-versions "<$minimum_build" \
+            --embed-release-notes --maximum-deltas 0 dist
           "$tools/sign_update" --verify --ed-key-file "$key" dist/appcast.xml
-          signature="$(python3 -c 'import sys, xml.etree.ElementTree as E; e=E.parse("dist/appcast.xml").find("./channel/item/enclosure"); s=e.get("{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature", ""); assert s, "更新包缺少 Sparkle 签名"; print(s)')"
+          signature="$(python3 - "$minimum_build" "$release_url" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          sparkle = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
+          item = ET.parse('dist/appcast.xml').find('./channel/item')
+          assert item.findtext(f'{sparkle}informationalUpdate/{sparkle}belowVersion') == sys.argv[1], '旧版跨标识更新应提供手动下载入口'
+          assert item.findtext('link') == sys.argv[2], '手动下载链接与发版标签不匹配'
+          signature = item.find('enclosure').get(f'{sparkle}edSignature')
+          assert signature, '更新包缺少 Sparkle 签名'
+          print(signature)
+          PY
+          )"
           "$tools/sign_update" --verify --ed-key-file "$key" "dist/$package.dmg" "$signature"
           # 再用客户端内置公钥验证，避免公私钥配置不匹配却发布成功。
           swift - "$SPARKLE_PUBLIC_KEY" "dist/$package.dmg" "$signature" <<'SWIFT'
