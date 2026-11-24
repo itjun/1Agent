@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 /// Production drop routing with native terminal views, isolated storage and no PTYs.
 @main enum QuickCommandDropTests {

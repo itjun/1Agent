@@ -18,6 +18,6 @@ zsh 改写自 Kitty，GPLv3 声明保留在脚本中；fish/elvish/nushell 使�
 
 App 按文件夹打包这些脚本。`ShellIntegrationEnvironment` 设置 `ZDOTDIR` 并通过 `GHOSTTY_ZSH_ZDOTDIR` 保留用户原配置；fish/elvish/nushell 用临时 XDG_DATA_DIRS 入口，在启动后清理。Nushell 额外执行 `use ghostty *`。Apple `/bin/bash` 沿用现有规则跳过自动检测。
 
-`ssh-env` / `ssh-terminfo` 不转到外部 `ghostty +ssh`；1Agent 的远程终端由系统 OpenSSH 和项目远端引导负责。桥接生成逻辑在 `Sources/GooseAgent/RemoteShellIntegration.swift` 等应用文件中，不混记为官方 Shell 脚本。
+`ssh-env` / `ssh-terminfo` 不转到外部 `ghostty +ssh`；1Agent 的远程终端由系统 OpenSSH 和项目远端引导负责。桥接生成逻辑在 `Sources/OneAgent/RemoteShellIntegration.swift` 等应用文件中，不混记为官方 Shell 脚本。
 
 修改时分别维护上游差异和 1Agent 桥接；更新来源必须重新逐文件比较。环境/参数测试和真实 Shell 运行分开报告，未安装的 Shell 不计为实际验证通过。

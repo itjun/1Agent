@@ -1,7 +1,7 @@
 import AppKit
 import Darwin
 import GhosttyTerminal
-@testable import GooseAgent
+@testable import agent
 
 @main enum TerminalVisibilityMemoryTests {
     struct Failure: Error, CustomStringConvertible { let description: String }

@@ -4,7 +4,7 @@ import Darwin
 import Foundation
 import GhosttyTerminal
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 /// Runs AppKit's real resize/layout callbacks, including callbacks outside a Swift task.
 @main enum TerminalWindowsTests {

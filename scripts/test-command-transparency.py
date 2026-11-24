@@ -87,7 +87,7 @@ def main():
                 apple('close tab (tab id ' + json.dumps(tab) + ')')
         else:
             runner = root / 'remote-shell-tests'
-            subprocess.run(['swiftc', '-o', str(runner), str(ROOT / 'Sources/GooseAgent/RemoteShellIntegration.swift'),
+            subprocess.run(['swiftc', '-o', str(runner), str(ROOT / 'Sources/OneAgent/RemoteShellIntegration.swift'),
                             str(ROOT / 'Tests/RemoteShellIntegrationTests.swift')], check=True)
             for lane in ('local-zsh', 'local-bash', 'remote-zsh', 'remote-bash'):
                 folder = root / lane; folder.mkdir(); helper = fixture(folder)

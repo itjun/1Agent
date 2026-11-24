@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 /// 使用生产快捷键入口和原生菜单，所有会话都是不启动进程的临时预览。
 @main enum CloseTerminalShortcutTests {

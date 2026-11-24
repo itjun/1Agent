@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 /// Render production dialog content in the production modal host, with isolated
 /// preferences/files and no shell, SSH, command execution, save or import actions.

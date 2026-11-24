@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 /// Exercises the production AppKit focus bridge with native, process-free terminal views.
 /// The runner also denies network and process execution and gives this app an isolated home.

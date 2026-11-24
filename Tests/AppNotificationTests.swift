@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 @main enum AppNotificationTests {
     @MainActor static func main() {

@@ -4,7 +4,7 @@ import Foundation
 import GhosttyTerminal
 import GhosttyKit
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 /// Uses the shipped engine and the application's real PTY, without the user's rc files.
 @MainActor enum TerminalCompatibilityTests {

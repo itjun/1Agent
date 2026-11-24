@@ -1,7 +1,7 @@
 import AppKit
 import GhosttyTerminal
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 @main
 enum TerminalRestorationTests {

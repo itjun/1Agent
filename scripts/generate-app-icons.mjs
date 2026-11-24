@@ -46,11 +46,11 @@ function compileIcon(iconDir, id, icon) {
   const originalIcon = structuredClone(template);
   originalIcon.fill.solid = 'srgb:1.00000,1.00000,1.00000,1.00000';
   compileIcon(originalIconDir, 'Original', originalIcon);
-  const square = path.join(source, 'goose-agent-icon-1024.png');
-  const rounded = path.join(source, 'goose-agent-icon-rounded.png');
+  const square = path.join(source, 'oneagent-icon-1024.png');
+  const rounded = path.join(source, 'oneagent-icon-rounded.png');
   run('magick', ['-size', '1024x1024', 'xc:#FFFFFF', original, '-composite', square]);
   run('magick', [square, '(', rounded, '-alpha', 'extract', ')', '-alpha', 'off', '-compose', 'CopyOpacity', '-composite', rounded]);
-  fs.writeFileSync(path.join(source, 'goose-agent-icon.svg'), `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  fs.writeFileSync(path.join(source, 'oneagent-icon.svg'), `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <rect width="1024" height="1024" fill="#FFFFFF"/>
   <image href="ghostty-source.svg" x="152" y="152" width="720" height="720"
          preserveAspectRatio="xMidYMid meet"/>

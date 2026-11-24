@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 /// 在隔离窗口里拖动真实分屏标题栏，不启动 shell 或 SSH。
 @main enum TerminalPaneDragTests {

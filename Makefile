@@ -31,11 +31,11 @@ test-command-drag:
 	bash scripts/test-terminal-windows.sh "" --command-drag
 
 test-scripting-replies:
-	clang -fobjc-arc -framework Foundation -I Sources/GooseAgent Sources/GooseAgent/ScriptingReplyBridge.m Tests/ScriptingReplyBridgeTests.m -o /tmp/oneagent-scripting-reply-tests
+	clang -fobjc-arc -framework Foundation -I Sources/OneAgent Sources/OneAgent/ScriptingReplyBridge.m Tests/ScriptingReplyBridgeTests.m -o /tmp/oneagent-scripting-reply-tests
 	/tmp/oneagent-scripting-reply-tests
 
 test-system-integration:
-	swiftc -parse-as-library Sources/GooseAgent/TerminalAssociations.swift Tests/TerminalAssociationsTests.swift -o /tmp/oneagent-system-integration-tests
+	swiftc -parse-as-library Sources/OneAgent/TerminalAssociations.swift Tests/TerminalAssociationsTests.swift -o /tmp/oneagent-system-integration-tests
 	/tmp/oneagent-system-integration-tests
 
 test-command-transparency:
@@ -84,66 +84,66 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test: test-release-signing test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies
-	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/GooseAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
+	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/OneAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
 	/tmp/oneagent-terminal-output-store-tests
-	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/CommandBridgeSocket.swift Sources/GooseAgent/RemoteCommandBridge.swift Sources/GooseAgent/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/OneAgent/QuickCommand.swift Sources/OneAgent/CommandBridgeSocket.swift Sources/OneAgent/RemoteCommandBridge.swift Sources/OneAgent/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift
 	/tmp/oneagent-remote-bridge-tests
-	swiftc -parse-as-library -o /tmp/oneagent-local-bridge-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/CommandBridgeSocket.swift Sources/GooseAgent/LocalCommandBridge.swift Sources/GooseAgent/TerminalSessionConnection.swift Tests/LocalCommandBridgeTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-local-bridge-tests Sources/OneAgent/QuickCommand.swift Sources/OneAgent/CommandBridgeSocket.swift Sources/OneAgent/LocalCommandBridge.swift Sources/OneAgent/TerminalSessionConnection.swift Tests/LocalCommandBridgeTests.swift
 	/tmp/oneagent-local-bridge-tests
-	swiftc -o /tmp/oneagent-remote-shell-tests Sources/GooseAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
+	swiftc -o /tmp/oneagent-remote-shell-tests Sources/OneAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
 	/tmp/oneagent-remote-shell-tests
 	python3 scripts/test-remote-shell-cleanup.py
-	swiftc -parse-as-library -o /tmp/oneagent-remote-palette-tests Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/Theme.swift Tests/RemotePaletteTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-remote-palette-tests Sources/OneAgent/ApplicationIcon.swift Sources/OneAgent/Theme.swift Tests/RemotePaletteTests.swift
 	/tmp/oneagent-remote-palette-tests
-	swiftc -parse-as-library -o /tmp/oneagent-app-update-tests Sources/GooseAgent/AppUpdate.swift Tests/AppUpdateTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-app-update-tests Sources/OneAgent/AppUpdate.swift Tests/AppUpdateTests.swift
 	/tmp/oneagent-app-update-tests
 	ONEAGENT_REMOTE_INTEGRATION_TEST=1 python3 scripts/test-quick-command-bridge.py
-	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/GooseAgent/QuickCommand.swift Sources/GooseAgent/QuickCommandTransfer.swift Sources/GooseAgent/QuickCommandStore.swift Sources/GooseAgent/QuickCommandHistory.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/OneAgent/QuickCommand.swift Sources/OneAgent/QuickCommandTransfer.swift Sources/OneAgent/QuickCommandStore.swift Sources/OneAgent/QuickCommandHistory.swift Sources/OneAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
 	/tmp/oneagent-quick-command-tests
 	python3 scripts/test-quick-command-bridge.py
 	python3 scripts/test-quick-command-startup.py
-	swiftc -parse-as-library -o /tmp/oneagent-command-literal-editor-test Sources/GooseAgent/CommandLiteralEditor.swift Tests/CommandLiteralEditorTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-command-literal-editor-test Sources/OneAgent/CommandLiteralEditor.swift Tests/CommandLiteralEditorTests.swift
 	/tmp/oneagent-command-literal-editor-test
-	swiftc -parse-as-library -o /tmp/oneagent-family-dialog-tests Sources/GooseAgent/Theme.swift Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/FocusRing.swift Sources/GooseAgent/SheetLayout.swift Sources/GooseAgent/FamilyModal.swift Sources/GooseAgent/FamilyAlert.swift Tests/FamilyDialogTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-family-dialog-tests Sources/OneAgent/Theme.swift Sources/OneAgent/ApplicationIcon.swift Sources/OneAgent/FocusRing.swift Sources/OneAgent/SheetLayout.swift Sources/OneAgent/FamilyModal.swift Sources/OneAgent/FamilyAlert.swift Tests/FamilyDialogTests.swift
 	/tmp/oneagent-family-dialog-tests
-	swiftc -parse-as-library -o /tmp/oneagent-family-menu-test Sources/GooseAgent/Theme.swift Sources/GooseAgent/ApplicationIcon.swift Sources/GooseAgent/FamilyMenu.swift Tests/FamilyMenuTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-family-menu-test Sources/OneAgent/Theme.swift Sources/OneAgent/ApplicationIcon.swift Sources/OneAgent/FamilyMenu.swift Tests/FamilyMenuTests.swift
 	/tmp/oneagent-family-menu-test
 	bash scripts/test-preview-syntax.sh
-	swiftc -parse-as-library -o /tmp/oneagent-pinned-locations-test Sources/GooseAgent/Files/PinnedLocations.swift Tests/PinnedLocationsTests.swift
+	swiftc -parse-as-library -o /tmp/oneagent-pinned-locations-test Sources/OneAgent/Files/PinnedLocations.swift Tests/PinnedLocationsTests.swift
 	/tmp/oneagent-pinned-locations-test
-	swiftc -o /tmp/oneagent-workspace-presentation-test Sources/GooseAgent/WorkspacePresentation.swift Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspacePresentationTests.swift
+	swiftc -o /tmp/oneagent-workspace-presentation-test Sources/OneAgent/WorkspacePresentation.swift Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Tests/WorkspacePresentationTests.swift
 	/tmp/oneagent-workspace-presentation-test
-	swiftc -o /tmp/goose-native-sidebar-test Sources/GooseAgent/NativeSidebarSplit.swift Sources/GooseAgent/WorkspacePresentation.swift Tests/NativeSidebarSplitTests.swift
-	/tmp/goose-native-sidebar-test
-	swiftc -o /tmp/goose-ssh-config-test Sources/GooseAgent/SSHConfig.swift Tests/SSHConfigTests.swift
-	/tmp/goose-ssh-config-test
-	swiftc -framework AppKit -o /tmp/goose-external-open-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Sources/GooseAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift
-	/tmp/goose-external-open-test
-	swiftc -o /tmp/goose-pane-layout-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/PaneLayoutTests.swift
-	/tmp/goose-pane-layout-test
-	swiftc -o /tmp/goose-workspace-board-test Sources/GooseAgent/PaneLayout.swift Sources/GooseAgent/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
-	/tmp/goose-workspace-board-test
-	swiftc -o /tmp/goose-main-window-frame-test Sources/GooseAgent/MainWindowFrame.swift Tests/MainWindowFrameTests.swift
-	/tmp/goose-main-window-frame-test
-	swiftc -o /tmp/goose-terminal-settings-test Sources/GooseAgent/TerminalSettings.swift Tests/TerminalSettingsTests.swift
-	/tmp/goose-terminal-settings-test
-	swiftc -o /tmp/goose-command-finished-policy-test Sources/GooseAgent/TerminalSettings.swift Sources/GooseAgent/CommandFinishedPolicy.swift Tests/CommandFinishedPolicyTests.swift
-	/tmp/goose-command-finished-policy-test
-	swiftc -o /tmp/goose-shell-escape-test Sources/GooseAgent/ShellEscape.swift Tests/ShellEscapeTests.swift
-	/tmp/goose-shell-escape-test
-	swiftc -o /tmp/goose-shell-integration-test Sources/GooseAgent/TerminalSettings.swift Sources/GooseAgent/ShellIntegration.swift Tests/ShellIntegrationTests.swift
-	/tmp/goose-shell-integration-test
-	swiftc -o /tmp/goose-ghostty-config-importer-test Sources/GooseAgent/TerminalSettings.swift Sources/GooseAgent/GhosttyConfigImporter.swift Tests/GhosttyConfigImporterTests.swift
-	/tmp/goose-ghostty-config-importer-test
-	swiftc -o /tmp/goose-keyboard-shortcuts-test Sources/GooseAgent/KeyboardShortcuts.swift Tests/KeyboardShortcutsTests.swift
-	/tmp/goose-keyboard-shortcuts-test
-	swiftc -o /tmp/goose-drop-zone-layout-test Sources/GooseAgent/DropZoneLayout.swift Tests/DropZoneLayoutTests.swift
-	/tmp/goose-drop-zone-layout-test
-	swiftc -o /tmp/goose-file-rules-test Sources/GooseAgent/Files/FileRules.swift Tests/FileRulesTests.swift
-	/tmp/goose-file-rules-test
-	swiftc -o /tmp/goose-text-file-test Sources/GooseAgent/Files/TextFile.swift Tests/TextFileTests.swift
-	/tmp/goose-text-file-test
-	swiftc -o /tmp/oneagent-ssh-launch-test Sources/GooseAgent/SSHLaunch.swift Tests/SSHLaunchTests.swift
+	swiftc -o /tmp/oneagent-native-sidebar-test Sources/OneAgent/NativeSidebarSplit.swift Sources/OneAgent/WorkspacePresentation.swift Tests/NativeSidebarSplitTests.swift
+	/tmp/oneagent-native-sidebar-test
+	swiftc -o /tmp/oneagent-ssh-config-test Sources/OneAgent/SSHConfig.swift Tests/SSHConfigTests.swift
+	/tmp/oneagent-ssh-config-test
+	swiftc -framework AppKit -o /tmp/oneagent-external-open-test Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Sources/OneAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift
+	/tmp/oneagent-external-open-test
+	swiftc -o /tmp/oneagent-pane-layout-test Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Tests/PaneLayoutTests.swift
+	/tmp/oneagent-pane-layout-test
+	swiftc -o /tmp/oneagent-workspace-board-test Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
+	/tmp/oneagent-workspace-board-test
+	swiftc -o /tmp/oneagent-main-window-frame-test Sources/OneAgent/MainWindowFrame.swift Tests/MainWindowFrameTests.swift
+	/tmp/oneagent-main-window-frame-test
+	swiftc -o /tmp/oneagent-terminal-settings-test Sources/OneAgent/TerminalSettings.swift Tests/TerminalSettingsTests.swift
+	/tmp/oneagent-terminal-settings-test
+	swiftc -o /tmp/oneagent-command-finished-policy-test Sources/OneAgent/TerminalSettings.swift Sources/OneAgent/CommandFinishedPolicy.swift Tests/CommandFinishedPolicyTests.swift
+	/tmp/oneagent-command-finished-policy-test
+	swiftc -o /tmp/oneagent-shell-escape-test Sources/OneAgent/ShellEscape.swift Tests/ShellEscapeTests.swift
+	/tmp/oneagent-shell-escape-test
+	swiftc -o /tmp/oneagent-shell-integration-test Sources/OneAgent/TerminalSettings.swift Sources/OneAgent/ShellIntegration.swift Tests/ShellIntegrationTests.swift
+	/tmp/oneagent-shell-integration-test
+	swiftc -o /tmp/oneagent-ghostty-config-importer-test Sources/OneAgent/TerminalSettings.swift Sources/OneAgent/GhosttyConfigImporter.swift Tests/GhosttyConfigImporterTests.swift
+	/tmp/oneagent-ghostty-config-importer-test
+	swiftc -o /tmp/oneagent-keyboard-shortcuts-test Sources/OneAgent/KeyboardShortcuts.swift Tests/KeyboardShortcutsTests.swift
+	/tmp/oneagent-keyboard-shortcuts-test
+	swiftc -o /tmp/oneagent-drop-zone-layout-test Sources/OneAgent/DropZoneLayout.swift Tests/DropZoneLayoutTests.swift
+	/tmp/oneagent-drop-zone-layout-test
+	swiftc -o /tmp/oneagent-file-rules-test Sources/OneAgent/Files/FileRules.swift Tests/FileRulesTests.swift
+	/tmp/oneagent-file-rules-test
+	swiftc -o /tmp/oneagent-text-file-test Sources/OneAgent/Files/TextFile.swift Tests/TextFileTests.swift
+	/tmp/oneagent-text-file-test
+	swiftc -o /tmp/oneagent-ssh-launch-test Sources/OneAgent/SSHLaunch.swift Tests/SSHLaunchTests.swift
 	/tmp/oneagent-ssh-launch-test
 	./scripts/test-file-safety.sh
 	bash scripts/test-upload-check.sh
@@ -196,7 +196,7 @@ test-close-terminal-shortcut:
 	bash scripts/test-close-terminal-shortcut.sh
 
 clean:
-	rm -rf build 1Agent.xcodeproj GooseAgent.xcodeproj
+	rm -rf build 1Agent.xcodeproj
 
 # Production transport replay with isolated preferences and no SSH/network access.
 test-remote-directory:
@@ -209,7 +209,7 @@ test-host-information:
 
 .PHONY: test-ssh-configuration
 test-ssh-configuration:
-	swiftc -parse-as-library Sources/GooseAgent/SSHConfigurationResolver.swift Tests/SSHConfigurationResolverTests.swift -o /tmp/oneagent-ssh-resolution-tests
+	swiftc -parse-as-library Sources/OneAgent/SSHConfigurationResolver.swift Tests/SSHConfigurationResolverTests.swift -o /tmp/oneagent-ssh-resolution-tests
 	/tmp/oneagent-ssh-resolution-tests
 
 # Production reconnect model and network recovery, isolated from user sessions.
@@ -219,7 +219,7 @@ test-terminal-reconnect:
 
 .PHONY: test-terminal-program test-session-host test-hosted-terminal
 test-terminal-program:
-	swiftc -parse-as-library Sources/GooseAgent/TerminalProgram.swift Tests/TerminalProgramTests.swift -o /tmp/oneagent-program-tests
+	swiftc -parse-as-library Sources/OneAgent/TerminalProgram.swift Tests/TerminalProgramTests.swift -o /tmp/oneagent-program-tests
 	/tmp/oneagent-program-tests
 
 test-session-host:

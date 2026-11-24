@@ -1,6 +1,6 @@
 import AppKit
 import Sparkle
-@testable import GooseAgent
+@testable import agent
 
 @main
 enum AppUpdateControllerTests {

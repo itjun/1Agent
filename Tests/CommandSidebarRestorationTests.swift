@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 /// 使用真实保存和恢复入口；隔离偏好，不启动 Shell 或 SSH。
 @main enum CommandSidebarRestorationTests {

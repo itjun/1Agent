@@ -3,7 +3,7 @@ import Combine
 import GhosttyTerminal
 import ObjectiveC
 import QuartzCore
-@testable import GooseAgent
+@testable import agent
 
 /// 完整预设、原生窗口与两个无进程终端；不启动 shell 或 SSH。
 @main

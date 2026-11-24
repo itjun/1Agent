@@ -621,7 +621,7 @@ enum CommandLineLaunch {
 }
 
 @main
-struct GooseAgentApp: App {
+struct OneAgentApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     /// Menu key equivalents are read while `commands` is built; this rebuilds them when a shortcut changes.
     @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0

@@ -1,6 +1,6 @@
 import AppKit
 import GhosttyTerminal
-@testable import GooseAgent
+@testable import agent
 
 @main enum TerminalFontTests {
     @MainActor static func main() {

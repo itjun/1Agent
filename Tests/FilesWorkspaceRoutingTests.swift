@@ -3,7 +3,7 @@ import Combine
 import Foundation
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 private struct TestFailure: Error, CustomStringConvertible {
     let description: String

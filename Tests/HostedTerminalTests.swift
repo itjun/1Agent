@@ -1,6 +1,6 @@
 import AppKit
 import GhosttyTerminal
-@testable import GooseAgent
+@testable import agent
 
 @main enum HostedTerminalTests {
     @MainActor static func main() {

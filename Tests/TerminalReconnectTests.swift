@@ -1,5 +1,5 @@
 import AppKit
-@testable import GooseAgent
+@testable import agent
 
 @main enum TerminalReconnectTests {
     @MainActor static func main() {

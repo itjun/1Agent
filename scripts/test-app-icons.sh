@@ -29,7 +29,7 @@ if [[ "$app_bundle" == "/Applications/1Agent.app" ]]; then
     "$test_dir/system-icon-tests" "$app_bundle" --registered
 fi
 xcrun swiftc -parse-as-library -module-cache-path "$repo_dir/build/AppIconTestsModuleCache.noindex" \
-    "$repo_dir/Sources/GooseAgent/ApplicationIcon.swift" \
+    "$repo_dir/Sources/OneAgent/ApplicationIcon.swift" \
     "$repo_dir/Tests/ApplicationIconTests.swift" \
     -o "$test_dir/app-icon-tests"
 for phase in test save restore; do

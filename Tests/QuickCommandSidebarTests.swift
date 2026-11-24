@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import ObjectiveC
-@testable import GooseAgent
+@testable import agent
 
 @main enum QuickCommandSidebarTests {
     @MainActor static func main() {

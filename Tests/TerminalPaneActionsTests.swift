@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 /// Command-model checks against the production module. No shell or SSH session is launched.
 @main

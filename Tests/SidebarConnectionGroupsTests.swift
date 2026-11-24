@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 /// Exercises the production model and session codec with isolated storage, no PTYs or network.
 @main enum SidebarConnectionGroupsTests {

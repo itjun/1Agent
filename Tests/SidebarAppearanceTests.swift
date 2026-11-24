@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 /// 切换工作区时，各栏共用整窗渐变；不启动终端或 SSH。
 @main enum SidebarAppearanceTests {

@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import GooseAgent
+@testable import agent
 
 /// Exercises production sidebar hit testing and delivery without shells or network access.
 @main enum SidebarPanelDropTests {

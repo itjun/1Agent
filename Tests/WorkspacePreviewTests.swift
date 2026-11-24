@@ -3,7 +3,7 @@ import Quartz
 import GhosttyTerminal
 import SwiftUI
 import WebKit
-@testable import GooseAgent
+@testable import agent
 
 @main struct WorkspacePreviewTests {
     @MainActor static func main() {
