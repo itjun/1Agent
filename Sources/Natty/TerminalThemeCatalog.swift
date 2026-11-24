@@ -53,23 +53,17 @@ struct TerminalThemeColors: Equatable {
                 tint(6, amount: isDark ? 0.55 : 0.30)]
     }
 
-    func paneBackground(isFocused: Bool) -> RGBColor {
-        let base = RGBColor(ghosttyHex: background)!
-        guard !isFocused else { return base }
-        return base.mixed(with: RGBColor(red: 0, green: 0, blue: 0), amount: ShellLayout.inactivePaneDimming)
-    }
-
     /// 主题卡片和实际工作区都用同一套终端底色与外框渐变。
     var workspaceChrome: WindowChrome {
-        var chrome = paneChrome(isFocused: true)
+        var chrome = paneChrome
         chrome.gradientColors = gradientColors.map(\.color)
         return chrome
     }
 
     /// 标题、搜索和命令栏保留终端原色。
-    func paneChrome(isFocused: Bool) -> WindowChrome {
+    var paneChrome: WindowChrome {
         var chrome = applicationChrome()
-        let base = paneBackground(isFocused: isFocused)
+        let base = RGBColor(ghosttyHex: background)!
         let themeText = RGBColor(ghosttyHex: foreground)!
         let black = RGBColor(red: 0, green: 0, blue: 0)
         let white = RGBColor(red: 1, green: 1, blue: 1)

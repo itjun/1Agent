@@ -173,7 +173,7 @@ enum FamilyAppearanceTests {
             expect(TerminalThemePreferences.shared.select(theme.id), "apply complete application theme: " + name)
             for _ in 0..<5 { drain() }
             let chrome = WindowChrome.workspace(isDark: driver.isDark)
-            expect(chrome.background == theme.colors(interfaceIsDark: driver.isDark).paneChrome(isFocused: true).background
+            expect(chrome.background == theme.colors(interfaceIsDark: driver.isDark).paneChrome.background
                 && chrome.sidebarBackground == chrome.background,
                 "settings and navigation keep the focused terminal background: " + name)
             let backing = findBackdrop(in: settingsWindow.contentView!)?.layer?.backgroundColor

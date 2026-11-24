@@ -65,7 +65,6 @@ struct RootView: View {
                             .accessibilityHidden(true)
                         sidebar
                     }
-                    .background(WorkspaceSidebarFill(color: sidebarChrome.sidebarBackground))
                     .clipped()
                     .scrollIndicators(.never)
                     .environment(\.windowChrome, sidebarChrome)
@@ -98,17 +97,15 @@ struct RootView: View {
         .ignoresSafeArea(edges: .top)
         .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
         .background {
-            ZStack(alignment: .top) {
-                ShellBackdrop(
-                    isTransparent: appearanceDriver.isShellTransparent,
-                    isDark: appearanceDriver.isDark,
-                    usesTerminalBackground: true,
-                    showsTerminalCards: true,
-                    chrome: chrome
-                )
-                .ignoresSafeArea()
-
-            }
+            ShellBackdrop(
+                isTransparent: appearanceDriver.isShellTransparent,
+                isDark: appearanceDriver.isDark,
+                usesTerminalBackground: true,
+                showsTerminalCards: true,
+                chrome: chrome
+            )
+            .overlay(TerminalCardFill(color: chrome.readingBackground))
+            .ignoresSafeArea()
             .accessibilityHidden(true)
         }
         .onChange(of: appearanceRaw) { _, _ in

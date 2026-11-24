@@ -265,7 +265,7 @@ struct QuickCommandLibraryView: View {
                 return .handled
             }
         }
-        .background(commandPaneBackground)
+        .background(isWorkspace ? Color.clear : chrome.background)
         .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? 0 : Theme.Radius.row))
         .modifier(FloatingContentSurface())
     }
@@ -320,7 +320,7 @@ struct QuickCommandLibraryView: View {
                 commandInspector
             }
         }
-        .background(commandPaneBackground)
+        .background(isWorkspace ? Color.clear : chrome.background)
         .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? 0 : Theme.Radius.row))
         .modifier(FloatingContentSurface())
     }
@@ -395,14 +395,6 @@ struct QuickCommandLibraryView: View {
         Button { requestEdit(item) } label: { Label("Edit", systemImage: "pencil") }
             .buttonStyle(FamilyButtonStyle(kind: .primary))
             .accessibilityIdentifier("quickCommands.library.edit")
-    }
-
-    @ViewBuilder private var commandPaneBackground: some View {
-        if isWorkspace {
-            TerminalCardFill(color: chrome.readingBackground)
-        } else {
-            chrome.background
-        }
     }
 
     private func rowActions(_ item: QuickCommand) -> [FamilyMenuItem] {

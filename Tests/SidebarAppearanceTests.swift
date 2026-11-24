@@ -31,7 +31,6 @@ import SwiftUI
         defer { window.orderOut(nil) }
         let driver = AppearanceDriver.shared
         checkTerminalCardFill()
-        checkWorkspaceSidebarFill()
         for isDark in [false, true] {
             defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             for preset in AppThemePreset.allCases {
@@ -52,6 +51,7 @@ import SwiftUI
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
                         && split.splitView.dividerThickness == 0,
                         "navigation hides its separator while preserving the resize geometry: section=\(section), width=\(split.splitView.dividerThickness), alpha=\(split.splitView.dividerColor.alphaComponent)")
+                    if section == .terminals { checkSidebarSeam(in: host.view, split: split.splitView) }
                     let edge = split.splitView.arrangedSubviews[0].frame.maxX
                     let drawn = NSRect(x: edge, y: 0, width: 0, height: split.splitView.bounds.height)
                     let handle = split.splitView(split.splitView, effectiveRect: drawn, forDrawnRect: drawn, ofDividerAt: 0)
@@ -108,29 +108,20 @@ import SwiftUI
                "减少透明度和增强对比度均使用实色阅读底板")
     }
 
-    @MainActor static func checkWorkspaceSidebarFill() {
-        let workspace = NSWorkspace.shared
-        for scheme in [ColorScheme.light, .dark] {
-            let base = Color(white: scheme == .dark ? 0.20 : 0.95)
-            let sample = HStack(spacing: 0) {
-                TerminalCardFill(color: base).frame(width: 16)
-                WorkspaceSidebarFill(color: base).frame(width: 16)
-            }
-            .frame(height: 32)
-            .background(LinearGradient(colors: [.blue, .orange], startPoint: .top, endPoint: .bottom))
-            .environment(\.colorScheme, scheme)
-            let bitmap = NSBitmapImageRep(cgImage: ImageRenderer(content: sample).cgImage!)
-            func red(_ x: Int, _ y: Int) -> CGFloat {
-                bitmap.colorAt(x: x, y: y)!.usingColorSpace(.sRGB)!.redComponent
-            }
-            for y in [4, 27] {
-                expect(red(24, y) < red(8, y), "左右侧栏的底色应略深于同处渐变上的终端")
-            }
-            if !workspace.accessibilityDisplayShouldReduceTransparency && !workspace.accessibilityDisplayShouldIncreaseContrast {
-                let terminalSpan = abs(red(8, 27) - red(8, 4))
-                let sidebarSpan = abs(red(24, 27) - red(24, 4))
-                expect(terminalSpan > 0.1 && sidebarSpan > terminalSpan * 0.8, "浅色和深色侧栏均可透出原窗渐变")
-            }
+    @MainActor static func checkSidebarSeam(in root: NSView, split: NSSplitView) {
+        let sidebar = split.arrangedSubviews[0]
+        let edge = sidebar.convert(sidebar.bounds, to: root).maxX
+        let bitmap = root.bitmapImageRepForCachingDisplay(in: root.bounds)!
+        root.cacheDisplay(in: root.bounds, to: bitmap)
+        let x = Int((edge - root.bounds.minX) * CGFloat(bitmap.pixelsWide) / root.bounds.width)
+        for y in [bitmap.pixelsHigh / 4, bitmap.pixelsHigh * 3 / 4] {
+            let left = bitmap.colorAt(x: x - 2, y: y)!.usingColorSpace(.sRGB)!
+            let right = bitmap.colorAt(x: x + 2, y: y)!.usingColorSpace(.sRGB)!
+            expect(left.alphaComponent > 0.99 && right.alphaComponent > 0.99
+                   && abs(left.redComponent - right.redComponent) < 0.01
+                   && abs(left.greenComponent - right.greenComponent) < 0.01
+                   && abs(left.blueComponent - right.blueComponent) < 0.01,
+                   "导航与终端之间的渐变应连续，交界处不应压暗")
         }
     }
 

@@ -25,7 +25,7 @@ enum TerminalThemeTests {
         frameBackdrop.displayIfNeeded()
         defer { frameWindow.close() }
         func checkSoftFrame(_ colors: TerminalThemeColors, name: String) {
-            var chrome = colors.paneChrome(isFocused: true)
+            var chrome = colors.paneChrome
             chrome.gradientColors = colors.gradientColors.map(\.color)
             frameBackdrop.chrome = chrome
             frameBackdrop.isDark = !colors.isDark
@@ -166,14 +166,8 @@ enum TerminalThemeTests {
             let base = Natty.RGBColor(ghosttyHex: colors.background)!
             expect(colors.gradientColors.count == 4, "theme supplies frame and corner colors")
             checkSoftFrame(colors, name: theme.name)
-            let focused = colors.paneBackground(isFocused: true)
-            expect(focused.red == base.red && focused.green == base.green && focused.blue == base.blue,
-                   "focused terminal keeps the original theme background")
-            let inactive = colors.paneBackground(isFocused: false)
-            expect(abs(inactive.red - base.red * 0.92) < 0.0001
-                   && abs(inactive.green - base.green * 0.92) < 0.0001
-                   && abs(inactive.blue - base.blue * 0.92) < 0.0001,
-                   "inactive terminal dims every theme equally without a blue or white tint")
+            expect(colors.paneChrome.background == base.color && colors.workspaceChrome.sidebarBackground == base.color,
+                   "terminal and sidebar use the same theme base: " + theme.name)
         }
         for isDark in [false, true] {
             let name = isDark ? "Default Dark" : "Default Light"
@@ -356,9 +350,6 @@ enum TerminalThemeTests {
                 expect(sessions[index].readScreenText()?.text.contains("family-session-marker") == true,
                        "theme switching keeps existing buffer and surface")
                 expect(TerminalThemePreferences.selected().id == theme.id, "active selection follows appearance")
-                let background = colors.paneBackground(isFocused: false)
-                expect(background.relativeLuminance <= colors.paneBackground(isFocused: true).relativeLuminance,
-                       "inactive pane never becomes brighter, including pure-black themes")
             }
         }
         func switchAppearance(_ isDark: Bool) {

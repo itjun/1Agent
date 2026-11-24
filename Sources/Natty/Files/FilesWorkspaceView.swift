@@ -148,7 +148,6 @@ private struct FileEndpointWithPreview: View {
                 TextPreviewDrawer(column: column, onClose: { column.preview = nil }, isWorkspaceCard: true)
                     .id(column.id)
                     .frame(width: cardWidth)
-                    .background(TerminalCardFill(color: chrome.readingBackground))
                     .modifier(FloatingContentSurface())
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("files.preview.\(column.id)")
@@ -217,7 +216,6 @@ private struct FileEndpointPanel: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
-        .background(TerminalCardFill(color: chrome.readingBackground))
         .modifier(FloatingContentSurface())
         .background(BoundsAnchor {
             relay.filesSideAnchors[.group(groupID)] = AnchorBox($0)

@@ -89,7 +89,6 @@ struct TerminalCanvas: View {
                         height: max(drawn.height, 1)
                     )
                     .padding(.top, cardHeader)
-                    .background(TerminalCardFill(color: chrome.readingBackground))
                     .clipped()
                     .environment(\.windowChrome, chrome)
                     .position(
@@ -132,8 +131,7 @@ struct TerminalCanvas: View {
                 ForEach(model.tabs.filter { frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
                         paneChrome(tab, frame: ShellLayout.contentFrame(frame, isFloating: isShellTransparent),
-                                   headerHeight: tab.hasTerminal ? paneHeaderHeight : 0,
-                                   isSplit: isSplit, isZoomed: zoomed == tab.id)
+                                   headerHeight: tab.hasTerminal ? paneHeaderHeight : 0)
                     }
                 }
                 ForEach(dividers) { divider in
@@ -206,8 +204,7 @@ struct TerminalCanvas: View {
     }
 
     @ViewBuilder
-    private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat, isSplit: Bool, isZoomed: Bool) -> some View {
-        let isSelected = window.selectedTabID == tab.id && window.section == .terminals
+    private func paneChrome(_ tab: TerminalTab, frame: CGRect, headerHeight: CGFloat) -> some View {
         let theme = TerminalThemePreferences.selected(isDark: interfaceIsDark)
         let paneChrome = themedPaneChrome(theme)
         if tab.hasTerminal && headerHeight > 0 {
@@ -234,20 +231,11 @@ struct TerminalCanvas: View {
                 .position(x: frame.midX, y: findTop + Theme.PaneStyle.findBarHeight / 2)
                 .zIndex(4)
         }
-        if tab.hasTerminal && !isSelected {
-            Rectangle()
-                .fill(Color.black.opacity(ShellLayout.inactivePaneDimming))
-                .frame(width: frame.width, height: frame.height)
-                .position(x: frame.midX, y: frame.midY)
-                .allowsHitTesting(false).accessibilityHidden(true)
-                .zIndex(6)
-        }
     }
 
     /// 整个分屏共用的命令栏，占画布最右一列，内容跟着当前终端走。
     @ViewBuilder
     private func commandSidebar(_ tab: TerminalTab, width: CGFloat, in bounds: CGRect, isSplit: Bool) -> some View {
-        let isSelected = window.selectedTabID == tab.id && window.section == .terminals
         let paneChrome = themedPaneChrome(TerminalThemePreferences.selected(isDark: interfaceIsDark))
         QuickCommandSidebar(model: model, window: window, tabID: tab.id,
                             targetTitle: isSplit ? numberedPaneTitle(tab) : nil)
@@ -256,10 +244,6 @@ struct TerminalCanvas: View {
             .environment(\.windowChrome, paneChrome)
             .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
             .frame(width: width, height: bounds.height)
-            .overlay {
-                Color.black.opacity(isSelected ? 0 : ShellLayout.inactivePaneDimming)
-                    .allowsHitTesting(false).accessibilityHidden(true)
-            }
             .clipped()
             .position(x: bounds.maxX - width / 2, y: bounds.midY)
             .zIndex(3)
@@ -280,7 +264,7 @@ struct TerminalCanvas: View {
     }
 
     private func themedPaneChrome(_ theme: TerminalThemeDescriptor) -> WindowChrome {
-        theme.colors(interfaceIsDark: interfaceIsDark).paneChrome(isFocused: true)
+        theme.colors(interfaceIsDark: interfaceIsDark).paneChrome
     }
 
     private func terminalHeader(_ tab: TerminalTab, chrome: WindowChrome) -> some View {
