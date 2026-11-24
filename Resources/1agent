@@ -10,7 +10,7 @@ case "${1-}" in
   --working-directory  指定工作目录
   --wait-after-command 命令结束后保留终端
   --version            显示版本
-自动化：使用 AppleScript 的 1Agent 字典或系统快捷指令。
+自动化可使用 AppleScript 的 1Agent 字典。
 HELP
     exit 0 ;;
   --version)

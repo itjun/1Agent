@@ -88,13 +88,8 @@ struct SystemIntegrationSettingsPage: View {
                     .foregroundStyle(chrome.text)
                 VStack(alignment: .leading, spacing: Theme.Space.m) {
                     Toggle("Enable Terminal Automation", isOn: $automationEnabled).clickableCursor()
-                    Text("AppleScript and Shortcuts address windows and terminals by ID.")
+                    Text("AppleScript addresses windows and terminals by ID.")
                         .font(Theme.Font.rowMeta).foregroundStyle(chrome.secondary)
-                    if !TerminalAutomation.hasDeveloperTeamSignature {
-                        Text("This local build supports AppleScript. Native Shortcuts actions require Apple developer signing.")
-                            .font(Theme.Font.rowMeta).foregroundStyle(chrome.warning)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                     Toggle("Secure Keyboard Input", isOn: $secureInput.manual).clickableCursor()
                         .help("Secure input is released when the terminal loses focus.")
                     Button("Install Command Line Tool") {

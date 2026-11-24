@@ -1,7 +1,6 @@
 import AppKit
 import GhosttyTerminal
 import GhosttyKit
-import Security
 
 struct TerminalCreationConfiguration {
     var directory: String?
@@ -74,16 +73,6 @@ enum TerminalAutomation {
     static weak var model: AppModel?
     static let enabledKey = "app.systemIntegration.automationEnabled"
     static var isEnabled: Bool { UserDefaults.standard.object(forKey: enabledKey) == nil || UserDefaults.standard.bool(forKey: enabledKey) }
-    static var hasDeveloperTeamSignature: Bool {
-        var code: SecCode?
-        guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return false }
-        var staticCode: SecStaticCode?
-        guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode else { return false }
-        var information: CFDictionary?
-        guard SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &information) == errSecSuccess,
-              let team = (information as? [String: Any])?[kSecCodeInfoTeamIdentifier as String] as? String else { return false }
-        return !team.isEmpty
-    }
 
     static func specifier(key: String, id: String) -> NSScriptObjectSpecifier? {
         guard let description = NSScriptSuiteRegistry.shared().classDescription(withAppleEventCode: 0x63617070) else { return nil }
