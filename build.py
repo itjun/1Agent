@@ -11,7 +11,6 @@ import os
 import plistlib
 import re
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
@@ -110,16 +109,8 @@ def stop_running():
             )
         except subprocess.TimeoutExpired:
             pass
-        if wait_for_exit(app, timeout=5):
-            continue
-        for pid in running_pids(app):
-            print(f"    强制结束旧进程 {pid}", flush=True)
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        if not wait_for_exit(app, timeout=3):
-            raise RuntimeError(f"旧应用未退出：{app}")
+        if not wait_for_exit(app, timeout=15):
+            raise RuntimeError(f"旧应用未完成会话保存和退出：{app}")
 
 
 def verify_running_build():

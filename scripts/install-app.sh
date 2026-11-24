@@ -40,7 +40,7 @@ plist_value() {
   /usr/libexec/PlistBuddy -c "Print :$2" "$1/Contents/Info.plist" 2>/dev/null || true
 }
 
-# Quit the app at this path. Waits up to ~15s, then force-quits processes matching the pattern.
+# Quit the app at this path. Allow the installed 1Agent to keep running if it cannot save its sessions.
 quit_bundle_path() {
   local app_path="$1" pattern="$2" label="$3"
   if ! pgrep -f "$pattern" >/dev/null 2>&1; then
@@ -58,10 +58,21 @@ quit_bundle_path() {
     fi
     sleep 0.5
   done
+  if [[ "$app_path" == "$DST" ]]; then
+    echo "error: ${label} did not finish saving terminal sessions; installation stopped" >&2
+    return 1
+  fi
   echo "→ ${label} still running; force quit"
   pkill -f "$pattern" 2>/dev/null || true
   sleep 0.5
 }
+
+built_id="$(plist_value "$SRC" CFBundleIdentifier)"
+built_name="$(plist_value "$SRC" CFBundleDisplayName)"
+if [[ "$built_id" != "$BUNDLE_ID" || "$built_name" != "$APP_NAME" ]]; then
+  echo "error: built app is ${built_name} (${built_id}), expected ${APP_NAME} (${BUNDLE_ID})" >&2
+  exit 1
+fi
 
 # Our old build used Ghostty's name and bundle id. The official executable is lowercase "ghostty".
 if [[ -d "$GHOSTTY_DST" ]]; then
