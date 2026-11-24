@@ -1626,17 +1626,6 @@ final class TerminalHostView: NSView {
         CATransaction.commit()
     }
 
-    func setContentCorners(radius: CGFloat, isHeaderIntegrated: Bool) {
-        wantsLayer = true
-        layer?.cornerRadius = radius
-        layer?.cornerCurve = .continuous
-        // 标题已经占据卡片上沿，Metal 内容只裁切底角，避免拼接处出现缺口。
-        layer?.maskedCorners = isHeaderIntegrated
-            ? (isFlipped ? [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] : [.layerMinXMinYCorner, .layerMaxXMinYCorner])
-            : [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        layer?.masksToBounds = radius > 0
-    }
-
     func setFocusTarget(_ selected: Bool, requestKeyboardFocus: Bool = true) {
         if !selected || !requestKeyboardFocus { focusPending = false }
         else if !isFocusTarget { focusPending = true }
@@ -1786,8 +1775,6 @@ struct SSHTerminalView: NSViewRepresentable {
     var isPresented: Bool = true
     /// Selection is an ongoing focus intent, including views mounted after the open action.
     var isSelected: Bool = true
-    var contentCornerRadius: CGFloat = 0
-    var isHeaderIntegrated: Bool = false
     var canFocus: () -> Bool = { true }
     /// Asked once when the process first starts. Its text goes to the pty, where it waits
     /// until the shell reads it, as if typed ahead.
@@ -1835,9 +1822,10 @@ struct SSHTerminalView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> TerminalHostView {
         let container = TerminalHostView(frame: .zero)
+        container.wantsLayer = true
+        container.clipsToBounds = true
         container.sessionID = sessionID
         container.canFocus = canFocus
-        container.setContentCorners(radius: contentCornerRadius, isHeaderIntegrated: isHeaderIntegrated)
         container.setPresented(isPresented)
         container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {
@@ -1852,7 +1840,6 @@ struct SSHTerminalView: NSViewRepresentable {
 
     func updateNSView(_ container: TerminalHostView, context: Context) {
         container.canFocus = canFocus
-        container.setContentCorners(radius: contentCornerRadius, isHeaderIntegrated: isHeaderIntegrated)
         container.setPresented(isPresented)
         container.setFocusTarget(isSelected && isPresented)
         guard let terminal = SSHTerminalRegistry.view(for: sessionID, make: { makeTerminal() }) else {

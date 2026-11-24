@@ -67,8 +67,8 @@ struct WorkspaceToolbar: NSViewRepresentable {
             // 使用窗口坐标，避免每次布局在已移动的位置上累计偏移。
             for (index, kind) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
                 guard let button = window.standardWindowButton(kind), let parent = button.superview else { continue }
-                let center = parent.convert(NSPoint(x: ShellLayout.workspaceInset + 18 + CGFloat(index) * 20,
-                    y: window.frame.height - ShellLayout.workspaceInset - ShellLayout.compactHeaderHeight / 2), from: nil)
+                let center = parent.convert(NSPoint(x: 18 + CGFloat(index) * 20,
+                    y: window.frame.height - ShellLayout.compactHeaderHeight / 2), from: nil)
                 button.setFrameOrigin(NSPoint(x: center.x - button.frame.width / 2,
                                               y: center.y - button.frame.height / 2))
             }

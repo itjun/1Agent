@@ -48,8 +48,7 @@ struct RootView: View {
             VStack(spacing: 0) {
                 NativeSidebarSplit(
                     collapsed: collapsed, isDividerHidden: true,
-                    dividerWidth: ShellLayout.workspaceInset,
-                    sidebarCornerRadius: ShellLayout.contentRadius,
+                    dividerWidth: 0,
                     usesSystemSidebarMaterial: false,
                     toolbarIdentifier: "workspace.navigationSplit",
                     extendsSidebarIntoTitlebar: true, width: shownSidebarWidth,
@@ -67,7 +66,7 @@ struct RootView: View {
                         sidebar
                     }
                     .background(TerminalCardFill(color: sidebarChrome.sidebarBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+                    .clipped()
                     .scrollIndicators(.never)
                     .environment(\.windowChrome, sidebarChrome)
                     .environment(\.isShellTransparent, appearanceDriver.isShellTransparent)
@@ -96,7 +95,6 @@ struct RootView: View {
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         }
-        .padding(ShellLayout.workspaceInset)
         .ignoresSafeArea(edges: .top)
         .frame(minWidth: MainWindowFrame.minimumSize.width, minHeight: MainWindowFrame.minimumSize.height)
         .background {

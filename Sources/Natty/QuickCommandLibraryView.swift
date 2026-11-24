@@ -153,29 +153,29 @@ struct QuickCommandLibraryView: View {
 
     private var detailContent: some View {
         GeometryReader { geometry in
-            let availableWidth = max(0, geometry.size.width - ShellLayout.workspaceInset)
+            let gap = isWorkspace ? CGFloat.zero : 5
+            let availableWidth = max(0, geometry.size.width - gap)
             let minimumWidth = min(SheetLayout.commandLibraryPaneMinWidth, availableWidth / 2)
             let listWidth = min(availableWidth - minimumWidth,
                 max(minimumWidth, availableWidth * window.commandLibrarySplitRatio))
-            HStack(spacing: 0) {
+            HStack(spacing: gap) {
                 commandList.frame(width: listWidth)
-                Color.clear
-                    .frame(width: ShellLayout.workspaceInset)
-                    .overlay {
-                        PaneDividerHandle(vertical: true, onHover: { isDividerHovered = $0 }, onDragChanged: { delta in
-                            guard availableWidth > 0 else { return }
-                            if splitDragStart == nil { splitDragStart = listWidth }
-                            let width = min(availableWidth - minimumWidth,
-                                max(minimumWidth, (splitDragStart ?? listWidth) + delta))
-                            window.commandLibrarySplitRatio = width / availableWidth
-                        }, onDragEnded: { splitDragStart = nil }, onDoubleClick: {
-                            window.commandLibrarySplitRatio = 0.5
-                        })
-                        .frame(width: 8)
-                        .accessibilityLabel(Text("Resize Command Columns"))
-                        .help("Drag to resize. Double-click to split equally.")
-                    }
                 rightPane.frame(width: max(0, availableWidth - listWidth))
+            }
+            .overlay(alignment: .leading) {
+                PaneDividerHandle(vertical: true, onHover: { isDividerHovered = $0 }, onDragChanged: { delta in
+                    guard availableWidth > 0 else { return }
+                    if splitDragStart == nil { splitDragStart = listWidth }
+                    let width = min(availableWidth - minimumWidth,
+                        max(minimumWidth, (splitDragStart ?? listWidth) + delta))
+                    window.commandLibrarySplitRatio = width / availableWidth
+                }, onDragEnded: { splitDragStart = nil }, onDoubleClick: {
+                    window.commandLibrarySplitRatio = 0.5
+                })
+                .frame(width: 8)
+                .offset(x: listWidth + gap / 2 - 4)
+                .accessibilityLabel(Text("Resize Command Columns"))
+                .help("Drag to resize. Double-click to split equally.")
             }
             .frame(height: geometry.size.height)
             .onDisappear {
@@ -266,7 +266,7 @@ struct QuickCommandLibraryView: View {
             }
         }
         .background(commandPaneBackground)
-        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : Theme.Radius.row))
+        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? 0 : Theme.Radius.row))
         .modifier(FloatingContentSurface())
     }
 
@@ -321,7 +321,7 @@ struct QuickCommandLibraryView: View {
             }
         }
         .background(commandPaneBackground)
-        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? ShellLayout.contentRadius : Theme.Radius.row))
+        .clipShape(RoundedRectangle(cornerRadius: isWorkspace ? 0 : Theme.Radius.row))
         .modifier(FloatingContentSurface())
     }
 

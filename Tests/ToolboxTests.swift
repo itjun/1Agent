@@ -153,13 +153,13 @@ import ObjectiveC
         let width = TerminalCanvas.commandSidebarWidth(expanded, canvasWidth: frame.width)
         let area = TerminalCanvas.paneArea(frame, commandSidebarWidth: width)
         precondition(area.minX == frame.minX && area.minY == frame.minY && area.height == frame.height)
-        precondition(frame.width - area.width == width + 5, "command island keeps the same 5pt gap as the internal splits")
+        precondition(frame.width - area.width == width, "opening the command sidebar reserves only its own width")
         precondition(TerminalCanvas.paneArea(frame, commandSidebarWidth: 0) == frame, "收起后分屏占满整个画布")
         precondition(TerminalCanvas.commandSidebarWidth(nil, canvasWidth: 900) == 0)
         precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(), canvasWidth: 900) == 0)
         precondition(TerminalCanvas.commandSidebarWidth(expanded, canvasWidth: 300) == 0)
         precondition(TerminalCanvas.commandSidebarWidth(expanded, canvasWidth: 900) == width)
-        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(isExpanded: true, width: 2000), canvasWidth: 500) == 315)
+        precondition(TerminalCanvas.commandSidebarWidth(TerminalCommandSidebarState(isExpanded: true, width: 2000), canvasWidth: 500) == 500 - SheetLayout.terminalMinimumContentWidth)
         print("PASS shared sidebar reserves one canvas column without changing pane header/search geometry and restores after narrow layout")
     }
 

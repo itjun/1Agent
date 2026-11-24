@@ -64,9 +64,6 @@ struct SidebarMaterial: NSViewRepresentable {
 }
 
 enum ShellLayout {
-    static let contentRadius: CGFloat = 10
-    /// 面板之间与主窗口四边共用同一间距；外边距只由根布局添加一次。
-    static let workspaceInset: CGFloat = 5
     static let inactivePaneDimming: Double = 0.08
     static let paneInset: CGFloat = 0
     static let paneVerticalInset: CGFloat = 0
@@ -103,18 +100,15 @@ enum ShellLayout {
         }
     }
 
-    static func paneFrames(of node: PaneNode, in bounds: CGRect, isFloating: Bool) -> [UUID: CGRect] {
-        // 保留布局树的分隔中心和拖动比例，只在内部边缘各退半个间隙。
-        // 面板填满根布局已留好外边距的区域，不在这里重复内缩。
-        let inset = (workspaceInset - 1) / 2
+    static func paneFrames(of node: PaneNode, in bounds: CGRect) -> [UUID: CGRect] {
+        // 布局树为分隔器预留 1 pt。两侧共用同一条对齐像素的中线，拖动时也不会透出细缝。
+        let halfDivider = PaneLayout.dividerSpacing / 2
         return PaneLayout.frames(of: node, in: bounds).mapValues { frame in
-            let left = frame.minX > bounds.minX ? inset : 0
-            let top = frame.minY > bounds.minY ? inset : 0
-            let right = frame.maxX < bounds.maxX ? inset : 0
-            let bottom = frame.maxY < bounds.maxY ? inset : 0
-            return CGRect(x: frame.minX + left, y: frame.minY + top,
-                          width: max(1, frame.width - left - right),
-                          height: max(1, frame.height - top - bottom))
+            let left = frame.minX > bounds.minX ? (frame.minX - halfDivider).rounded() : frame.minX
+            let top = frame.minY > bounds.minY ? (frame.minY - halfDivider).rounded() : frame.minY
+            let right = frame.maxX < bounds.maxX ? (frame.maxX + halfDivider).rounded() : frame.maxX
+            let bottom = frame.maxY < bounds.maxY ? (frame.maxY + halfDivider).rounded() : frame.maxY
+            return CGRect(x: left, y: top, width: max(1, right - left), height: max(1, bottom - top))
         }
     }
 

@@ -15,8 +15,6 @@ struct TerminalCanvas: View {
     /// `id` is the dragged divider, `split` the split it resizes (a detached segment gets its own split).
     @State private var commandWidthDrag: (id: UUID, start: CGFloat)?
     @State private var ratioDrag: (id: UUID, split: UUID, start: CGFloat)?
-    /// Divider under the pointer. Its line turns accent while set.
-    @State private var hoveredDividerID: UUID?
     /// Last on-screen content rect per tab. Hidden tabs keep this size/position so Ghostty
     /// does not resize the PTY to 1×1 (which reflows scrollback and jumps the cursor).
     @State private var lastContentFrame: [UUID: CGRect] = [:]
@@ -34,7 +32,7 @@ struct TerminalCanvas: View {
             } ?? 0
             let layout = Self.paneArea(bounds, commandSidebarWidth: commandWidth)
             let zoomed = model.zoomedPane(in: window)
-            let frames = Self.paneFrames(root, zoomed: zoomed, in: layout, isFloating: isShellTransparent)
+            let frames = Self.paneFrames(root, zoomed: zoomed, in: layout)
             let dividers = Self.paneDividers(root, zoomed: zoomed, in: layout)
             let isSplit = frames.count > 1
             let paneHeaderHeight = Self.headerHeight(for: layout)
@@ -66,8 +64,6 @@ struct TerminalCanvas: View {
                         isPresented: visible && window.section == .terminals && !window.presentation.fullFilesWorkspace
 ,
                         isSelected: isSelected,
-                        contentCornerRadius: ShellLayout.contentRadius,
-                        isHeaderIntegrated: true,
                         canFocus: {
                             window.selectedTabID == tab.id && window.section == .terminals &&
                                 !window.presentation.fullFilesWorkspace
@@ -94,7 +90,7 @@ struct TerminalCanvas: View {
                     )
                     .padding(.top, cardHeader)
                     .background(TerminalCardFill(color: chrome.readingBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+                    .clipped()
                     .environment(\.windowChrome, chrome)
                     .position(
                         x: drawn.midX,
@@ -133,15 +129,15 @@ struct TerminalCanvas: View {
                             .zIndex(1)
                     }
                 }
-                ForEach(dividers) { divider in
-                    dividerControl(divider, in: layout)
-                }
                 ForEach(model.tabs.filter { frames[$0.id] != nil }) { tab in
                     if let frame = frames[tab.id] {
                         paneChrome(tab, frame: ShellLayout.contentFrame(frame, isFloating: isShellTransparent),
                                    headerHeight: tab.hasTerminal ? paneHeaderHeight : 0,
                                    isSplit: isSplit, isZoomed: zoomed == tab.id)
                     }
+                }
+                ForEach(dividers) { divider in
+                    dividerControl(divider, in: layout)
                 }
                 if let commandTab, commandWidth > 0 {
                     commandSidebar(commandTab, width: commandWidth, in: bounds, isSplit: isSplit)
@@ -160,64 +156,36 @@ struct TerminalCanvas: View {
 
     private func dividerControl(_ divider: PaneDivider, in layout: CGRect) -> some View {
         let vertical = divider.axis == .vertical
-        let active = hoveredDividerID == divider.id || ratioDrag?.id == divider.id
-        let lineWidth = Theme.PaneStyle.dividerLineWidth
-        return Color.clear
-            .frame(width: divider.frame.width, height: divider.frame.height)
-            .overlay {
-                Rectangle()
-                    .fill(Color(nsColor: .separatorColor))
-                    .opacity(active ? 1 : 0)
-                    .frame(
-                        width: vertical ? lineWidth : divider.frame.width,
-                        height: vertical ? divider.frame.height : lineWidth
-                    )
-                    .allowsHitTesting(false)
-            }
-            .overlay {
-                // AppKit owns the cursor here: the terminal views underneath set their own cursor
-                // on every move, which a SwiftUI hover push cannot win against.
-                PaneDividerHandle(
-                    vertical: vertical,
-                    onHover: { inside in
-                        if inside {
-                            hoveredDividerID = divider.id
-                        } else if hoveredDividerID == divider.id {
-                            hoveredDividerID = nil
-                        }
-                    },
-                    onDragChanged: { delta in
-                        if ratioDrag?.id != divider.id {
-                            let start = currentRatio(divider.splitID)
-                            var split = divider.splitID
-                            if let segment = divider.segment,
-                               let detached = model.detachDividerSegment(segment, of: divider.splitID, in: layout) {
-                                split = detached
-                            }
-                            ratioDrag = (divider.id, split, start)
-                        }
-                        guard let drag = ratioDrag else { return }
-                        guard divider.span > 1 else { return }
-                        model.setSplitRatio(drag.split, to: drag.start + delta / divider.span)
-                    },
-                    onDragEnded: { ratioDrag = nil },
-                    onDoubleClick: {
-                        var split = divider.splitID
-                        if let segment = divider.segment,
-                           let detached = model.detachDividerSegment(segment, of: divider.splitID, in: layout) {
-                            split = detached
-                        }
-                        model.evenOutSplit(split)
+        return PaneDividerHandle(
+            vertical: vertical,
+            onHover: { _ in },
+            onDragChanged: { delta in
+                if ratioDrag?.id != divider.id {
+                    let start = currentRatio(divider.splitID)
+                    var split = divider.splitID
+                    if let segment = divider.segment,
+                       let detached = model.detachDividerSegment(segment, of: divider.splitID, in: layout) {
+                        split = detached
                     }
-                )
-            }
-            .offset(x: divider.frame.minX, y: divider.frame.minY)
-            .onDisappear {
-                if hoveredDividerID == divider.id {
-                    hoveredDividerID = nil
+                    ratioDrag = (divider.id, split, start)
                 }
+                guard let drag = ratioDrag else { return }
+                guard divider.span > 1 else { return }
+                model.setSplitRatio(drag.split, to: drag.start + delta / divider.span)
+            },
+            onDragEnded: { ratioDrag = nil },
+            onDoubleClick: {
+                var split = divider.splitID
+                if let segment = divider.segment,
+                   let detached = model.detachDividerSegment(segment, of: divider.splitID, in: layout) {
+                    split = detached
+                }
+                model.evenOutSplit(split)
             }
-            .zIndex(4)
+        )
+        .frame(width: divider.frame.width, height: divider.frame.height)
+        .offset(x: divider.frame.minX, y: divider.frame.minY)
+        .zIndex(5)
     }
 
     private func currentRatio(_ id: UUID) -> CGFloat {
@@ -251,8 +219,7 @@ struct TerminalCanvas: View {
                 .padding(.horizontal, frame.minY < 1 && frame.minX < 1 ? titlebarLeadingInset : 0)
                 .frame(width: frame.width, height: headerHeight)
                 .background(WindowDragArea().accessibilityHidden(true))
-                .clipShape(UnevenRoundedRectangle(topLeadingRadius: ShellLayout.contentRadius,
-                                                 topTrailingRadius: ShellLayout.contentRadius))
+                .clipped()
                 .environment(\.windowChrome, paneChrome)
                 .environment(\.colorScheme, paneChrome.isDark ? .dark : .light)
                 .position(x: frame.midX, y: frame.minY + headerHeight / 2)
@@ -268,7 +235,7 @@ struct TerminalCanvas: View {
                 .zIndex(4)
         }
         if tab.hasTerminal && !isSelected {
-            RoundedRectangle(cornerRadius: ShellLayout.contentRadius)
+            Rectangle()
                 .fill(Color.black.opacity(ShellLayout.inactivePaneDimming))
                 .frame(width: frame.width, height: frame.height)
                 .position(x: frame.midX, y: frame.midY)
@@ -293,7 +260,7 @@ struct TerminalCanvas: View {
                 Color.black.opacity(isSelected ? 0 : ShellLayout.inactivePaneDimming)
                     .allowsHitTesting(false).accessibilityHidden(true)
             }
-            .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+            .clipped()
             .position(x: bounds.maxX - width / 2, y: bounds.midY)
             .zIndex(3)
         PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
@@ -306,8 +273,8 @@ struct TerminalCanvas: View {
         }, onDragEnded: { commandWidthDrag = nil }, onDoubleClick: {
             model.updateSharedCommandSidebar(for: tab.id) { $0.width = SheetLayout.terminalCommandSidebarWidth }
         })
-        .frame(width: ShellLayout.workspaceInset, height: bounds.height)
-        .position(x: bounds.maxX - width - ShellLayout.workspaceInset / 2, y: bounds.midY)
+        .frame(width: 8, height: bounds.height)
+        .position(x: bounds.maxX - width, y: bounds.midY)
         .accessibilityLabel("Resize Quick Commands")
         .zIndex(5)
     }
@@ -402,17 +369,17 @@ extension TerminalCanvas {
                           headerHeight: Self.headerHeight(for: frame, isFloating: isFloating) + accessoryHeight)
     }
 
-    /// 命令栏占画布最右一列，分屏在剩下的区域里排布，中间留一道和分屏之间相同的间隙。
+    /// 命令栏占画布最右一列，分屏在剩下的区域里排布，与命令栏直接相接。
     static func paneArea(_ bounds: CGRect, commandSidebarWidth: CGFloat) -> CGRect {
         guard commandSidebarWidth > 0 else { return bounds }
         var area = bounds
-        area.size.width = max(1, bounds.width - commandSidebarWidth - ShellLayout.workspaceInset)
+        area.size.width = max(1, bounds.width - commandSidebarWidth)
         return area
     }
 
     static func commandSidebarWidth(_ state: TerminalCommandSidebarState?, canvasWidth: CGFloat) -> CGFloat {
         guard let state, state.isExpanded else { return 0 }
-        let available = canvasWidth - SheetLayout.terminalMinimumContentWidth - ShellLayout.workspaceInset
+        let available = canvasWidth - SheetLayout.terminalMinimumContentWidth
         // 窗口太窄时临时让出正文空间，放大后恢复，不改变展开状态。
         guard available >= SheetLayout.terminalCommandSidebarMinimumWidth else { return 0 }
         return min(max(state.width, SheetLayout.terminalCommandSidebarMinimumWidth),
@@ -421,12 +388,12 @@ extension TerminalCanvas {
 
     /// A zoomed pane takes the whole area. The other panes get no frame, so their terminals stay
     /// alive, hidden at their last size, like any tab that is not shown.
-    static func paneFrames(_ root: PaneNode?, zoomed: UUID?, in layout: CGRect, isFloating: Bool = false) -> [UUID: CGRect] {
+    static func paneFrames(_ root: PaneNode?, zoomed: UUID?, in layout: CGRect) -> [UUID: CGRect] {
         if let zoomed {
             return [zoomed: layout]
         }
         guard let root else { return [:] }
-        return ShellLayout.paneFrames(of: root, in: layout, isFloating: isFloating)
+        return ShellLayout.paneFrames(of: root, in: layout)
     }
 
     static func paneDividers(_ root: PaneNode?, zoomed: UUID?, in layout: CGRect) -> [PaneDivider] {

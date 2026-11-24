@@ -91,7 +91,6 @@ enum Theme {
     /// Geometry of the title bar and status banner above each terminal pane.
     enum PaneStyle {
         /// Divider line between panes, at rest and while hovered or dragged.
-        static let dividerLineWidth: CGFloat = 1
         static let dividerActiveLineWidth: CGFloat = 2
         /// Height of the system title bar band; the traffic lights sit centered in it.
         /// A lone pane gets a strip this tall instead of a title bar, and the sidebar header matches it.

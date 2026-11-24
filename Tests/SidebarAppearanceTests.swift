@@ -3,7 +3,7 @@ import ObjectiveC
 import SwiftUI
 @testable import Natty
 
-/// 切换工作区时，各栏共用整窗渐变；不启动终端或 SSH。
+/// 切换工作区时检查面板交界和窗口边缘；不启动终端或 SSH。
 @main enum SidebarAppearanceTests {
     @MainActor static func main() {
         let suite = "natty.sidebar-appearance.\(UUID())"
@@ -20,6 +20,7 @@ import SwiftUI
         NSApp.setActivationPolicy(.prohibited)
         let model = AppModel()
         let state = model.mainWindow
+        state.commandLibrarySplitRatio = 0.5
         state.presentation.sidebarCollapsed = false
         state.presentation.toolSidebarOpen = true
         let host = NSHostingController(rootView: RootView(model: model, window: state))
@@ -43,29 +44,43 @@ import SwiftUI
                     SidebarAppearanceTests.expect(item.canCollapse, "工作区导航仍可折叠")
                     let backdrops = views(of: ShellBackdropView.self, in: host.view)
                     expect(backdrops.count == 1 && backdrops.first?.showsTerminalCards == true,
-                           "\(section) 使用一张与终端相同强度的整窗渐变")
+                           "\(section) 的面板共用一张整窗渐变")
                     let materials = views(of: NSVisualEffectView.self, in: split.splitView.arrangedSubviews[0])
                     SidebarAppearanceTests.expect(!materials.contains { $0.material == .sidebar && $0.blendingMode == .behindWindow },
                         "导航底下没有遮挡整窗渐变的独立侧栏材质")
                     SidebarAppearanceTests.expect(split.splitView.dividerColor.alphaComponent == 0
-                        && split.splitView.dividerThickness == 5,
+                        && split.splitView.dividerThickness == 0,
                         "navigation hides its separator while preserving the resize geometry: section=\(section), width=\(split.splitView.dividerThickness), alpha=\(split.splitView.dividerColor.alphaComponent)")
+                    let edge = split.splitView.arrangedSubviews[0].frame.maxX
+                    let drawn = NSRect(x: edge, y: 0, width: 0, height: split.splitView.bounds.height)
+                    let handle = split.splitView(split.splitView, effectiveRect: drawn, forDrawnRect: drawn, ofDividerAt: 0)
+                    expect(handle.minX <= edge - 4 && handle.maxX >= edge + 4,
+                           "相接的两栏之间保留可拖动的命中区域")
                     SidebarAppearanceTests.expect(SidebarAppearanceTests.navigationSplit(in: host.view,
                         identifier: "workspace.inspectorSplit") == nil, "旧右栏没有保留隐藏占位")
                     SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.count == 2,
                         "主窗口仅有导航和内容两列")
                     do {
-                        SidebarAppearanceTests.expect(window.toolbar == nil, "各页标题与操作留在各自的岛内")
-                        SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.first?.layer?.cornerRadius == 10
-                            && split.splitView.arrangedSubviews.first?.layer?.masksToBounds == true,
-                            "navigation is clipped to the rounded island")
+                        SidebarAppearanceTests.expect(window.toolbar == nil, "各页标题与操作位于各自面板内")
+                        SidebarAppearanceTests.expect(split.splitView.arrangedSubviews.allSatisfy {
+                            ($0.layer?.cornerRadius ?? 0) == 0
+                        },
+                            "导航与正文在上下两端均为直角")
                         let content = window.contentView!
+                        if section == .commands {
+                            let detail = split.splitView.arrangedSubviews[1]
+                            for distance in [-3, 3] {
+                                let point = CGPoint(x: detail.bounds.midX + CGFloat(distance), y: detail.bounds.midY)
+                                let hit = content.hitTest(content.superview!.convert(point, from: detail))
+                                expect(hit is PaneDividerView, "命令交界的左右两侧均可拖动")
+                            }
+                        }
                         let frame = split.splitView.convert(split.splitView.bounds, to: content)
-                        SidebarAppearanceTests.expect(abs(frame.minX - content.bounds.minX - 5) < 1
-                            && abs(frame.minY - content.bounds.minY - 5) < 1
-                            && abs(content.bounds.maxX - frame.maxX - 5) < 1
-                            && abs(content.bounds.maxY - frame.maxY - 5) < 1,
-                            "terminal, files and commands keep the same 5pt gap on all four window edges")
+                        SidebarAppearanceTests.expect(abs(frame.minX - content.bounds.minX) < 1
+                            && abs(frame.minY - content.bounds.minY) < 1
+                            && abs(content.bounds.maxX - frame.maxX) < 1
+                            && abs(content.bounds.maxY - frame.maxY) < 1,
+                            "terminal, files and commands reach all four window edges")
                     }
                 }
             }
@@ -73,7 +88,7 @@ import SwiftUI
         defaults.set("system", forKey: TerminalAppearance.storageKey)
         driver.reapply()
         SidebarAppearanceTests.expect(driver.isDark == TerminalAppearance.systemIsDark, "follow system appearance")
-        print("SidebarAppearanceTests passed: translucent reading cards, accessibility fallback, rounded navigation and native split geometry")
+        print("SidebarAppearanceTests passed: edge-to-edge gradient panes, accessibility fallback, square navigation and native split geometry")
     }
 
     @MainActor static func checkTerminalCardFill() {
@@ -86,7 +101,7 @@ import SwiftUI
             contrast: workspace.accessibilityDisplayShouldIncreaseContrast ? .increased : .standard)
         expect(abs(pixel.alphaComponent - expected) < 0.01, "卡片材质实际绘制一次主题底色")
         expect((0.5..<0.7).contains(ShellLayout.terminalCardOpacity(reduceTransparency: false, contrast: .standard)),
-               "透色同时保留圆角卡片与间隙的明度差")
+               "面板保留足够的透色比例以显示整窗渐变")
         expect(ShellLayout.terminalCardOpacity(reduceTransparency: true, contrast: .standard) == 1 &&
                ShellLayout.terminalCardOpacity(reduceTransparency: false, contrast: .increased) == 1,
                "减少透明度和增强对比度均使用实色阅读底板")

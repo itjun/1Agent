@@ -42,7 +42,6 @@ import SwiftUI
         }
         guard let tabID = window.selectedTabID else { throw Failure(message: "The fixture selects a terminal") }
         let commandState = model.commandSidebars[tabID]
-        let inset: CGFloat = 5
         // 覆盖导航和当前终端命令栏的展开、收起，悬停不能调整终端尺寸或重建输入视图。
         for (collapsed, commandsOpen) in [(false, false), (false, true), (true, true), (true, false)] {
             window.presentation.sidebarCollapsed = collapsed
@@ -61,10 +60,10 @@ import SwiftUI
                       "The sidebar toggle remains visible without hovering")
             let before = terminal.convert(terminal.bounds, to: nil)
             try check(terminal.window === native && before.width > 0, "The active terminal remains mounted")
-            try check(abs(bounds.maxY - before.maxY - inset - ShellLayout.compactHeaderHeight) < 1,
-                      "The terminal keeps a 5pt outer gap above its integrated title")
-            try check(abs(before.minY - bounds.minY - inset) < 1,
-                      "The reading surface keeps a 5pt bottom window gap")
+            try check(abs(bounds.maxY - before.maxY - ShellLayout.compactHeaderHeight) < 1,
+                      "The terminal places its integrated title at the top window edge")
+            try check(abs(before.minY - bounds.minY) < 1,
+                      "The reading surface reaches the bottom window edge")
             let titleCenterY = before.maxY + ShellLayout.compactHeaderHeight / 2
             let titleCenter = NSPoint(x: before.midX, y: titleCenterY)
             let titlePoint = root.superview!.convert(titleCenter, from: nil)
@@ -81,19 +80,19 @@ import SwiftUI
                     throw Failure(message: "The window keeps its native traffic lights")
                 }
                 let buttonFrame = button.convert(button.bounds, to: nil)
-                try check(abs(buttonFrame.midY - titleCenterY) < 1 && buttonFrame.minX > bounds.minX + inset,
+                try check(abs(buttonFrame.midY - titleCenterY) < 1 && buttonFrame.minX > bounds.minX,
                           "Native traffic lights stay inside the inset island and align with its title")
             }
             if collapsed {
-                try check(abs(before.minX - bounds.minX - inset) < 1,
-                          "Collapsing the sidebar keeps a 5pt left window gap (terminal \(before), content \(bounds), commands \(commandsOpen))")
+                try check(abs(before.minX - bounds.minX) < 1,
+                          "Collapsing the sidebar places the terminal at the left window edge (terminal \(before), content \(bounds), commands \(commandsOpen))")
             } else if let sidebar = window.relay?.sidebarAnchor {
                 let sidebarFrame = sidebar.convert(sidebar.bounds, to: nil)
-                try check(abs(sidebarFrame.minX - bounds.minX - inset) < 1
-                          && abs(sidebarFrame.minY - bounds.minY - inset) < 1,
-                          "The expanded navigation keeps 5pt left and bottom window gaps")
-                try check(abs(before.minX - sidebarFrame.maxX - ShellLayout.workspaceInset) < 1,
-                          "An expanded sidebar keeps the internal island gap")
+                try check(abs(sidebarFrame.minX - bounds.minX) < 1
+                          && abs(sidebarFrame.minY - bounds.minY) < 1,
+                          "The expanded navigation reaches the left and bottom window edges")
+                try check(abs(before.minX - sidebarFrame.maxX) < 1,
+                          "The terminal meets the expanded navigation without a gap")
             }
             if commandsOpen {
                 guard let commands = accessibilityElement(native, identifier: "quickCommands.pane." + tabID.uuidString),
@@ -101,15 +100,15 @@ import SwiftUI
                     throw Failure(message: "The current terminal exposes its expanded command island")
                 }
                 let commandsFrame = native.convertFromScreen(commandsScreenFrame)
-                try check(abs(commandsFrame.minX - before.maxX - inset) < 1,
-                          "The terminal and its command island keep exactly one 5pt gap")
-                try check(abs(bounds.maxX - commandsFrame.maxX - inset) < 1
-                          && abs(bounds.maxY - commandsFrame.maxY - inset) < 1
-                          && abs(commandsFrame.minY - bounds.minY - inset) < 1,
-                          "The command island keeps 5pt top, right and bottom window gaps")
+                try check(abs(commandsFrame.minX - before.maxX) < 1,
+                          "The terminal and its command island meet without a gap")
+                try check(abs(bounds.maxX - commandsFrame.maxX) < 1
+                          && abs(bounds.maxY - commandsFrame.maxY) < 1
+                          && abs(commandsFrame.minY - bounds.minY) < 1,
+                          "The command island reaches the top, right and bottom window edges")
             } else {
-                try check(abs(bounds.maxX - before.maxX - inset) < 1,
-                          "The reading surface keeps a 5pt right window gap")
+                try check(abs(bounds.maxX - before.maxX) < 1,
+                          "The reading surface reaches the right window edge")
             }
             let points = [NSPoint(x: toggleFrame.midX, y: toggleFrame.midY),
                           NSPoint(x: bounds.maxX - 20, y: bounds.maxY - 16),

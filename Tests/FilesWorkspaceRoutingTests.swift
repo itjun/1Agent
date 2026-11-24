@@ -557,7 +557,7 @@ private struct FilesWorkspaceRoutingTests {
 
         let terminalRect = window.convertToScreen(terminals[first.id]!.convert(terminals[first.id]!.bounds, to: nil))
         let rootRect = window.convertToScreen(window.contentView!.convert(window.contentView!.bounds, to: nil))
-        let expectedTopInset = ShellLayout.workspaceInset + ShellLayout.compactHeaderHeight
+        let expectedTopInset = ShellLayout.compactHeaderHeight
         try require(abs(rootRect.maxY - terminalRect.maxY - expectedTopInset) < 1,
                     "A single terminal starts below the outer gap and its own title without a duplicate global toolbar")
         try require(terminals.values.allSatisfy { terminal in
@@ -1457,7 +1457,7 @@ private struct FilesWorkspaceRoutingTests {
         guard window.toolbar == nil, let local = element("files.localLocation") else {
             throw TestFailure(description: "The local file island must own its header without a native toolbar")
         }
-        try require(abs(rootTop - frame(local).midY - ShellLayout.workspaceInset - FileBrowserLayout.tabStripHeight / 2) < 2,
+        try require(abs(rootTop - frame(local).midY - FileBrowserLayout.tabStripHeight / 2) < 2,
                     "The file title stays centered in its island header below the outer gap")
         if let zoom = window.standardWindowButton(.zoomButton) {
             let zoomFrame = window.convertToScreen(zoom.convert(zoom.bounds, to: nil))
@@ -1522,7 +1522,7 @@ private struct FilesWorkspaceRoutingTests {
             try require(split(window.contentView!) === native && native.window === window,
                         "Page changes must not detach or replace the navigation split")
             let bounds = native.convert(native.bounds, to: nil)
-            try require(abs(bounds.maxY + ShellLayout.workspaceInset - window.contentView!.bounds.height) < 2,
+            try require(abs(bounds.maxY - window.contentView!.bounds.height) < 2,
                         "The navigation split extends through the titlebar while preserving the outer gap")
         }
         state.presentation.toolSidebarOpen = savedInspectorOpen
@@ -1544,7 +1544,7 @@ private struct FilesWorkspaceRoutingTests {
                 model.showSection(source, in: state)
                 try await settle()
                 let frames = buttons.map(frame)
-                let headerCenterY = window.frame.height - ShellLayout.workspaceInset - ShellLayout.compactHeaderHeight / 2
+                let headerCenterY = window.frame.height - ShellLayout.compactHeaderHeight / 2
                 try require(frames.allSatisfy { abs($0.midY - headerCenterY) < 1 },
                             "Window buttons in \(source) (collapsed: \(collapsed)) must align at y=\(headerCenterY): \(frames)")
                 var movements: [String] = []
@@ -1626,6 +1626,15 @@ private struct FilesWorkspaceRoutingTests {
             try require(abs(frame(row).width - frame(preview).width) < 8
                         && abs(frame(preview).maxX - pageFrame.maxX) < 8,
                         "Without remote tabs, the local browser and preview split the full file page evenly")
+            let previewFrame = frame(preview)
+            guard let content = window.contentView, let parent = content.superview else {
+                throw TestFailure(description: "Missing mounted file page")
+            }
+            for distance in [-3, 3] {
+                let point = CGPoint(x: previewFrame.minX + CGFloat(distance), y: previewFrame.midY)
+                let hit = content.hitTest(parent.convert(window.convertPoint(fromScreen: point), from: nil))
+                try require(hit is PaneDividerView, "文件列表与预览交界的左右两侧均可拖动")
+            }
         }
         try requireFullWidthBrowser(rowPath: localPath)
         workspace.open(entry, in: local, window: window)
@@ -1700,7 +1709,7 @@ private struct FilesWorkspaceRoutingTests {
             throw TestFailure(description: "Opening a remote tab must retain the local preview")
         }
         try require(element("files.remoteLocation") != nil
-                    && abs(frame(previewBesideRemote).maxX - pageFrame.midX) < ShellLayout.workspaceInset * 2,
+                    && abs(frame(previewBesideRemote).maxX - pageFrame.midX) < 1,
                     "Expanding transfer places the remote pane to the right of the local browser and preview")
         local.preview = nil
         try await settleDrawer()
@@ -1794,7 +1803,7 @@ private struct FilesWorkspaceRoutingTests {
         try require(code.matchedBrackets.count == 2, "Actual drawer highlights bracket pairs")
         guard let left = element("files.preview.\(local.id)") else { throw TestFailure(description: "Local file opens its own preview card") }
         let leftFrame = frame(left)
-        try require(abs(leftFrame.maxX - pageFrame.midX) < ShellLayout.workspaceInset * 2,
+        try require(abs(leftFrame.maxX - pageFrame.midX) < 1,
                     "Local preview sits on the right of its browser, next to the workspace center")
         // macOS 27 起系统给预览卡片额外的垂直内边距（实测约 8pt），只约束量级不再逐点对齐。
         try require(abs(leftFrame.height - (pageFrame.height - ShellLayout.paneVerticalInset * 2)) < 16,
@@ -1841,7 +1850,7 @@ private struct FilesWorkspaceRoutingTests {
         for width in [CGFloat(300), 620, 1200] {
             let previewWidth = WorkspacePreviewLayout.visibleWidth(available: width, isOpen: true,
                 preferred: WorkspacePreviewLayout.defaultWidth)
-            try require(previewWidth > 0 && previewWidth + ShellLayout.workspaceInset < width,
+            try require(previewWidth > 0 && previewWidth < width,
                         "Inline preview leaves the file browsers visible in narrow and wide workspaces")
         }
         workspace.open(entry, in: local, window: window)

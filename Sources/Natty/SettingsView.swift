@@ -9,7 +9,6 @@ enum SettingsLayout {
     static let pageTitleSize: CGFloat = 28
     static let contentMaxWidth: CGFloat = 960
     static let sectionSpacing: CGFloat = Theme.Space.xl
-    static let contentInset: CGFloat = ShellLayout.workspaceInset
     static let cardRadius: CGFloat = Theme.Radius.card
     static let stackedRowBreakpoint: CGFloat = 560
     static let rowMinimumHeight: CGFloat = 44
@@ -154,8 +153,7 @@ struct SettingsView: View {
     var body: some View {
         NativeSidebarSplit(
             isDividerHidden: true,
-            dividerWidth: ShellLayout.workspaceInset,
-            sidebarCornerRadius: ShellLayout.contentRadius,
+            dividerWidth: 0,
             usesSystemSidebarMaterial: false,
             toolbarIdentifier: "settings.navigationSplit",
             width: CGFloat(savedSidebarWidth),
@@ -169,7 +167,7 @@ struct SettingsView: View {
                 settingsNavigation
             }
                 .background(TerminalCardFill(color: sidebarChrome.sidebarBackground))
-                .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+                .clipped()
                 .ignoresSafeArea(edges: .top)
                 .environment(\.windowChrome, sidebarChrome)
                 .environment(\.isShellTransparent, isShellTransparent)
@@ -200,7 +198,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .coordinateSpace(name: "settings.detail")
             .background(TerminalCardFill(color: chrome.readingBackground))
-            .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
+            .clipped()
             .ignoresSafeArea(edges: .top)
             // 原生分栏各有独立的 hosting root，材质和配色须传给所有设置卡片。
             .environment(\.windowChrome, chrome)
@@ -208,7 +206,6 @@ struct SettingsView: View {
             .preferredColorScheme(colorScheme)
                     .tint(chrome.accent).font(Theme.Font.body)
         }
-        .padding(ShellLayout.workspaceInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             ShellBackdrop(isTransparent: isShellTransparent, isDark: appearanceDriver.isDark,

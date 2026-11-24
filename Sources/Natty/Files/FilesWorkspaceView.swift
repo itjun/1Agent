@@ -46,7 +46,6 @@ private struct FilePairGrid: View {
     var relay: CanvasDropRelay
     @ObservedObject var tabDrag: FileTabDragTracker
     @Environment(\.windowChrome) private var chrome
-    @Environment(\.isShellTransparent) private var isShellTransparent
     @Environment(\.workspaceTitlebarLeadingInset) private var titlebarLeadingInset
     @State private var ratioDrag: (id: UUID, start: CGFloat)?
     @State private var hoveredDividerID: UUID?
@@ -56,7 +55,7 @@ private struct FilePairGrid: View {
             let panelInset: CGFloat = 0
             let rect = CGRect(origin: .zero, size: geometry.size)
             let layout = workspace.visibleLayout
-            let frames = ShellLayout.paneFrames(of: layout, in: rect, isFloating: isShellTransparent)
+            let frames = ShellLayout.paneFrames(of: layout, in: rect)
             ZStack(alignment: .topLeading) {
                 ForEach(workspace.groupIDs, id: \.self) { id in
                     if let frame = frames[id] {
@@ -139,29 +138,17 @@ private struct FileEndpointWithPreview: View {
         let isPreviewOpen = column?.preview != nil
         let cardWidth = WorkspacePreviewLayout.visibleWidth(available: width, isOpen: isPreviewOpen,
             preferred: previewWidth, isEqualSplit: isPreviewEqualSplitOverride ?? isPreviewEqualSplitByDefault,
-            spacing: ShellLayout.workspaceInset)
-        let gap = cardWidth > 0 ? ShellLayout.workspaceInset : 0
-        let listWidth = max(0, width - cardWidth - gap)
+            spacing: 0)
+        let listWidth = max(0, width - cardWidth)
         HStack(spacing: 0) {
             FileEndpointPanel(workspace: workspace, groupID: groupID, model: model, window: window,
                               relay: relay, tabDrag: tabDrag, width: listWidth, showsHeader: showsHeader)
                 .frame(width: listWidth, alignment: .leading)
             if let column, isPreviewOpen, cardWidth > 0 {
-                PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
-                    if previewDragStart == nil { previewDragStart = Double(cardWidth) }
-                    isPreviewEqualSplitOverride = false
-                    previewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(cardWidth)) - delta)
-                }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
-                    isPreviewEqualSplitOverride = true
-                })
-                .frame(width: 6)
-                .frame(width: gap)
-                .accessibilityLabel(Text("Resize File Preview"))
                 TextPreviewDrawer(column: column, onClose: { column.preview = nil }, isWorkspaceCard: true)
                     .id(column.id)
                     .frame(width: cardWidth)
                     .background(TerminalCardFill(color: chrome.readingBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
                     .modifier(FloatingContentSurface())
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("files.preview.\(column.id)")
@@ -169,6 +156,20 @@ private struct FileEndpointWithPreview: View {
             }
         }
         .frame(width: width, alignment: .leading)
+        .overlay(alignment: .leading) {
+            if cardWidth > 0 {
+                PaneDividerHandle(vertical: true, onHover: { _ in }, onDragChanged: { delta in
+                    if previewDragStart == nil { previewDragStart = Double(cardWidth) }
+                    isPreviewEqualSplitOverride = false
+                    previewWidth = WorkspacePreviewLayout.storedWidth((previewDragStart ?? Double(cardWidth)) - delta)
+                }, onDragEnded: { previewDragStart = nil }, onDoubleClick: {
+                    isPreviewEqualSplitOverride = true
+                })
+                .frame(width: 8)
+                .offset(x: listWidth - 4)
+                .accessibilityLabel(Text("Resize File Preview"))
+            }
+        }
         .onChange(of: isPreviewOpen) { _, _ in
             previewWidth = WorkspacePreviewLayout.defaultWidth
             previewDragStart = nil
@@ -217,7 +218,6 @@ private struct FileEndpointPanel: View {
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         .background(TerminalCardFill(color: chrome.readingBackground))
-        .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
         .modifier(FloatingContentSurface())
         .background(BoundsAnchor {
             relay.filesSideAnchors[.group(groupID)] = AnchorBox($0)

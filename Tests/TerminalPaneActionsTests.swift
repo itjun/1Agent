@@ -313,14 +313,14 @@ enum TerminalPaneActionsTests {
         defaults.set(310.0, forKey: SidebarLayout.widthKey)
         window.presentation.sidebarCollapsed = false
         window.sidebarRevealed = false
-        native.setContentSize(NSSize(width: 920, height: native.contentView!.bounds.height))
+        native.setContentSize(NSSize(width: 910, height: native.contentView!.bounds.height))
         for _ in 0..<5 { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
         native.contentView?.layoutSubtreeIfNeeded()
         guard let split = navigationSplit(in: native.contentView!),
               let sidebar = split.arrangedSubviews.first else { fatalError("missing production sidebar split") }
-        expect(abs(native.contentView!.bounds.width - 920) < 1 && abs(split.bounds.width - 910) < 1,
-               "the real 920pt window gives RootView 910pt after the two outer gaps")
-        expect(split.isSubviewCollapsed(sidebar), "the production files layout collapses at the outer-inset boundary")
+        expect(abs(native.contentView!.bounds.width - 910) < 1 && abs(split.bounds.width - 910) < 1,
+               "the root uses the full 910pt window width")
+        expect(split.isSubviewCollapsed(sidebar), "the production files layout collapses in a narrow window")
         expect(model.sidebarIsCollapsed(in: window)
                && model.sidebarIsCollapsed(in: window, totalWidth: split.bounds.width),
                "the sidebar action and RootView agree on the current collapsed state")
@@ -328,7 +328,7 @@ enum TerminalPaneActionsTests {
         for _ in 0..<5 { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
         native.contentView?.layoutSubtreeIfNeeded()
         expect(window.sidebarRevealed && !window.presentation.sidebarCollapsed && !split.isSubviewCollapsed(sidebar),
-               "one toggle reveals the temporarily collapsed sidebar at the outer-inset boundary")
+               "one toggle reveals the temporarily collapsed sidebar in a narrow window")
         expect(defaults.double(forKey: SidebarLayout.widthKey) == 310,
                "revealing the boundary-width sidebar preserves its saved expanded width")
     }
@@ -362,7 +362,7 @@ enum TerminalPaneActionsTests {
                                      leading: .leaf(panes[0]), trailing: .leaf(panes[1]))),
             trailing: .split(SplitNode(id: UUID(), axis: .vertical, ratio: 0.5,
                                       leading: .leaf(panes[2]), trailing: .leaf(panes[3])))))
-        let frames = TerminalCanvas.paneFrames(grid, zoomed: nil, in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
+        let frames = TerminalCanvas.paneFrames(grid, zoomed: nil, in: CGRect(x: 0, y: 0, width: 1000, height: 700))
         let cards = frames.mapValues { ShellLayout.contentFrame($0, isFloating: true) }
         for id in panes {
             let card = cards[id]!
@@ -379,12 +379,12 @@ enum TerminalPaneActionsTests {
         }
         let horizontalGap = cards[panes[1]]!.minX - cards[panes[0]]!.maxX
         let verticalGap = cards[panes[2]]!.minY - cards[panes[0]]!.maxY
-        expect(horizontalGap == ShellLayout.workspaceInset && verticalGap == ShellLayout.workspaceInset,
-               "horizontal and vertical pane gaps equal the outer workspace inset")
+        expect(horizontalGap == 0 && verticalGap == 0,
+               "both axes meet at a shared edge with no visible gap")
         expect(cards[panes[0]]!.minX == 0 && cards[panes[0]]!.minY == 0 &&
                cards[panes[3]]!.maxX == 1000 && cards[panes[3]]!.maxY == 700,
                "interior pane gaps do not add a second outer inset")
-        let zoomed = TerminalCanvas.paneFrames(grid, zoomed: panes[0], in: CGRect(x: 0, y: 0, width: 1000, height: 700), isFloating: true)
+        let zoomed = TerminalCanvas.paneFrames(grid, zoomed: panes[0], in: CGRect(x: 0, y: 0, width: 1000, height: 700))
         expect(zoomed.count == 1 && TerminalCanvas.headerHeight(for: zoomed[panes[0]]!, isFloating: true) == ShellLayout.compactHeaderHeight,
                "single and zoomed terminals use the same integrated title")
         let menu = FamilyMenuPresenter.menu([FamilyMenuItem(title: "fixture-host", enabled: false)])

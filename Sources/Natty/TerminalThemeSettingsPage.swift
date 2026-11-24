@@ -142,7 +142,9 @@ struct TerminalThemeSettingsPage: View {
 
 struct TerminalThemePreview: View {
     @Environment(\.isShellTransparent) private var isShellTransparent
-    private static let outerRadius = ShellLayout.contentRadius + ShellLayout.workspaceInset
+    private static let sampleRadius: CGFloat = 10
+    private static let sampleInset: CGFloat = 5
+    private static let outerRadius = sampleRadius + sampleInset
     private static let sampleFontSize = CGFloat(TerminalDefaults.defaultFontSize)
     let colors: TerminalThemeColors
     let title: String
@@ -175,8 +177,8 @@ struct TerminalThemePreview: View {
         .padding(.vertical, Theme.Space.s)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(TerminalCardFill(color: chrome.readingBackground))
-        .clipShape(RoundedRectangle(cornerRadius: ShellLayout.contentRadius))
-        .padding(ShellLayout.workspaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: Self.sampleRadius))
+        .padding(Self.sampleInset)
         .background {
             ShellBackdrop(isTransparent: isShellTransparent, isDark: chrome.isDark,
                           usesTerminalBackground: true, showsTerminalCards: true, chrome: chrome)

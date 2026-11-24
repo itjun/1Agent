@@ -57,6 +57,8 @@ struct PaneDivider: Equatable, Identifiable {
 }
 
 enum PaneLayout {
+    static let dividerSpacing: CGFloat = 1
+
     static func contains(_ id: UUID, in node: PaneNode) -> Bool {
         switch node {
         case .leaf(let leaf):
@@ -343,7 +345,7 @@ enum PaneLayout {
         let aligned = PaneLayout.alignedCells(split, in: rect)
         switch split.axis {
         case .vertical:
-            let x = pair.0.maxX - (hit - 1) / 2
+            let x = pair.0.maxX - (hit - dividerSpacing) / 2
             guard let aligned else {
                 result.append(PaneDivider(
                     id: split.id,
@@ -373,7 +375,7 @@ enum PaneLayout {
                 ))
             }
         case .horizontal:
-            let y = pair.0.maxY - (hit - 1) / 2
+            let y = pair.0.maxY - (hit - dividerSpacing) / 2
             guard let aligned else {
                 result.append(PaneDivider(
                     id: split.id,
@@ -510,7 +512,7 @@ enum PaneLayout {
 
     private static func childRects(_ split: SplitNode, in rect: CGRect) -> (CGRect, CGRect) {
         let ratio = clamp(split.ratio)
-        let gap: CGFloat = 1
+        let gap = dividerSpacing
         switch split.axis {
         case .vertical:
             let lead = (rect.width - gap) * ratio

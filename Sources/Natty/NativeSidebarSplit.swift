@@ -81,7 +81,6 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
     var collapsed: Bool = false
     var isDividerHidden: Bool = false
     var dividerWidth: CGFloat = 1
-    var sidebarCornerRadius: CGFloat = 0
     var usesSystemSidebarMaterial = true
     var isTrailing: Bool = false
     var toolbarIdentifier: String?
@@ -112,7 +111,6 @@ struct NativeSidebarSplit<Sidebar: View, Detail: View>: NSViewControllerRepresen
         controller.configure(width: width, minimum: minimumWidth,
                              maximum: maximumWidth, defaultWidth: defaultWidth, collapsed: collapsed,
                              isDividerHidden: isDividerHidden, dividerWidth: dividerWidth,
-                             sidebarCornerRadius: sidebarCornerRadius,
                              extendsSidebarIntoTitlebar: extendsSidebarIntoTitlebar,
                              onWidthChange: onWidthChange)
     }
@@ -181,7 +179,6 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
     func configure(width: CGFloat, minimum: CGFloat, maximum: CGFloat,
                    defaultWidth: CGFloat, collapsed: Bool = false, isDividerHidden: Bool = false,
                    dividerWidth: CGFloat = 1,
-                   sidebarCornerRadius: CGFloat = 0,
                    extendsSidebarIntoTitlebar: Bool = true,
                    onWidthChange: @escaping (CGFloat) -> Void) {
         applying = true
@@ -197,14 +194,7 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         if #available(macOS 26.0, *) {
             sidebarItem.automaticallyAdjustsSafeAreaInsets = dividerWidth == 1
         }
-        (sidebarHost.view as? NSHostingView<Sidebar>)?.safeAreaRegions = dividerWidth > 1 ? [] : .all
-        // AppKit 在 hosting view 外另包了一层侧栏材质，也需裁切，避免圆角外露出方形底板。
-        if let sidebar = (isTrailing ? splitView.arrangedSubviews.last : splitView.arrangedSubviews.first) {
-            sidebar.wantsLayer = true
-            sidebar.layer?.cornerRadius = sidebarCornerRadius
-            sidebar.layer?.cornerCurve = .continuous
-            sidebar.layer?.masksToBounds = sidebarCornerRadius > 0
-        }
+        (sidebarHost.view as? NSHostingView<Sidebar>)?.safeAreaRegions = dividerWidth == 1 ? .all : []
         widthChanged = onWidthChange
         self.defaultWidth = defaultWidth
         let desired = min(max(width, minimum), maximum)
@@ -253,6 +243,15 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         applying = true
         splitView.setPosition(isTrailing ? splitView.bounds.width - width - splitView.dividerThickness : width, ofDividerAt: 0)
         applying = wasApplying
+    }
+
+    override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
+                            forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
+        let effective = super.splitView(splitView, effectiveRect: proposedEffectiveRect,
+                                        forDrawnRect: drawnRect, ofDividerAt: dividerIndex)
+        guard !collapsed, splitView.dividerThickness == 0 else { return effective }
+        // 两栏直接相接时，边界两侧仍能抓住原生分隔条。
+        return effective.union(drawnRect.insetBy(dx: -4, dy: 0))
     }
 
     override func splitViewDidResizeSubviews(_ notification: Notification) {

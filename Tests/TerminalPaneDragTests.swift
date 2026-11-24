@@ -84,7 +84,7 @@ import SwiftUI
             let root = native.contentView!.superview!
             return root.hitTest(root.convert(point, from: nil))
         }
-        func gesture(from start: NSPoint, to end: NSPoint?) async throws {
+        func gesture(from start: NSPoint, to end: NSPoint?, clickCount: Int = 1) async throws {
             var events: [(NSEvent.EventType, NSPoint)] = [(.leftMouseDown, start)]
             if let end {
                 events += [(.leftMouseDragged, NSPoint(x: start.x, y: start.y - 12)), (.leftMouseDragged, end)]
@@ -93,7 +93,7 @@ import SwiftUI
             let nativeEvents = events.map { type, location in
                 NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
                     timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: native.windowNumber,
-                    context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)!
+                    context: nil, eventNumber: 0, clickCount: clickCount, pressure: type == .leftMouseUp ? 0 : 1)!
             }
             for event in nativeEvents.dropFirst() { NSApp.postEvent(event, atStart: false) }
             native.sendEvent(nativeEvents[0])
@@ -117,24 +117,59 @@ import SwiftUI
             return (find(native)?.value(forKey: "accessibilityFrame") as? NSValue).map { native.convertFromScreen($0.rectValue) }
         }
         let canvas = relay.catcher!.bounds
+        // 先改变左列上下比例，再拖整条竖边；两次双击后应回到原来的四宫格。
+        let grid = relay.frames
+        let first = grid[ids[0]]!
+        let horizontal = point(ids[0], x: first.width / 2, y: first.height)
+        for offset: CGFloat in [-3, 0, 3] {
+            let target = hit(NSPoint(x: horizontal.x, y: horizontal.y + offset))
+            try check((target as? PaneDividerView)?.vertical == false,
+                      "Horizontal resize target at offset \(offset): \(String(describing: target))")
+        }
+        try await gesture(from: horizontal, to: NSPoint(x: horizontal.x, y: horizontal.y - 40))
+        let taller = relay.frames[ids[0]]!
+        try check(abs(taller.height - first.height - 40) <= 1 && taller.maxY == relay.frames[ids[1]]!.minY,
+                  "Dragging the shared edge changes both heights without opening a gap")
+        let vertical = point(ids[0], x: taller.width, y: taller.height / 2)
+        for offset: CGFloat in [-3, 0, 3] {
+            let target = hit(NSPoint(x: vertical.x + offset, y: vertical.y))
+            try check((target as? PaneDividerView)?.vertical == true,
+                      "Vertical resize target at offset \(offset): \(String(describing: target))")
+        }
+        try await gesture(from: vertical, to: NSPoint(x: vertical.x + 50, y: vertical.y))
+        let wider = relay.frames[ids[0]]!
+        try check(abs(wider.width - taller.width - 50) <= 1 && wider.maxX == relay.frames[ids[2]]!.minX,
+                  "Dragging the shared edge changes both widths without opening a gap")
+        func doubleClick(at point: NSPoint) async throws {
+            try await gesture(from: point, to: nil)
+            try await gesture(from: point, to: nil, clickCount: 2)
+        }
+        try await doubleClick(at: point(ids[0], x: wider.width, y: wider.height / 2))
+        try await doubleClick(at: point(ids[0], x: first.width / 2, y: taller.height))
+        try check(relay.frames == grid, "Double-clicking both invisible boundaries restores the original grid")
         let framesWithoutCommands = relay.frames
         model.commandSidebars[ids[0], default: .init()].isExpanded = true
         try await settle()
         let paneWidth = relay.frames[ids[0]]!.width
         let commandsWidth = TerminalCanvas.commandSidebarWidth(model.sharedCommandSidebar(for: ids[0]), canvasWidth: canvas.width)
         try check(commandsWidth > 0, "The fixture shows the split's shared command sidebar")
-        let paneEdge = canvas.width - commandsWidth - ShellLayout.workspaceInset
+        let paneEdge = canvas.width - commandsWidth
         try check(ids.allSatisfy { relay.frames[$0]!.maxX <= paneEdge + 1 } && abs(relay.frames[ids[2]]!.maxX - paneEdge) < 1,
-                  "Every pane sits left of the one shared command island with a single gap")
+                  "Every pane sits left of the one shared command island without a gap")
         try check(paneWidth < framesWithoutCommands[ids[0]]!.width && relay.frames[ids[2]]!.width < framesWithoutCommands[ids[2]]!.width,
                   "The shared island takes its width from the whole split, not from one pane")
         guard let island = accessibilityFrame("quickCommands.pane." + ids[0].uuidString) else {
             throw Failure(message: "The shared command island shows the focused terminal's commands")
         }
         let canvasFrame = relay.catcher!.convert(canvas, to: nil)
-        try check(abs(island.minX - (canvasFrame.minX + paneEdge + ShellLayout.workspaceInset)) < 1
+        try check(abs(island.minX - (canvasFrame.minX + paneEdge)) < 1
                   && abs(island.maxX - canvasFrame.maxX) < 1 && abs(island.height - canvasFrame.height) < 1,
                   "The shared command island fills the canvas's right column from top to bottom")
+        for offset: CGFloat in [-2, 0, 2] {
+            let grabPoint = NSPoint(x: island.minX + offset, y: island.midY)
+            try check(hit(grabPoint) is PaneDividerView,
+                      "The invisible command boundary can be grabbed from either side")
+        }
         try check(accessibilityFrame("quickCommands.target." + ids[0].uuidString) != nil,
                   "In a split the island's title names the terminal that receives commands")
         let headerBottom = ShellLayout.compactHeaderHeight - 2
