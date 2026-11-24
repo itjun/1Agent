@@ -174,9 +174,10 @@ import ObjectiveC
             let block = try accessibilityFrame(try requiredElement(codeBlockID, in: native))
             let preview = try accessibilityFrame(try requiredElement("quickCommands.preview." + original.id.uuidString, in: native))
             let copy = try accessibilityFrame(try requiredElement(copyID, in: native))
+            // AppKit can report the small button's accessibility edge one point inside its layout bounds.
             try require(block.contains(copy) && copy.maxY <= preview.minY
-                        && abs(block.maxX - copy.maxX - 12) < 1 && abs(copy.minY - block.minY - 12) < 1,
-                        "拷贝位于代码块右下角，正文区域在按钮上方")
+                        && abs(block.maxX - copy.maxX - 12) <= 1 && abs(copy.minY - block.minY - 12) <= 1,
+                        "拷贝位于代码块右下角，正文区域在按钮上方 (block \(block), preview \(preview), copy \(copy))")
             return copy
         }
         let nearbyCopyFrame = try verifyCopyPlacement()
