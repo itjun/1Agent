@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import time
 
-APP = 'com.itjun.agent'
+APP = 'com.itjun.natty'
 
 def apple(body):
     source = f'tell application id "{APP}"\n{body}\nend tell'
@@ -27,17 +27,17 @@ def quoted(text):
     return json.dumps(str(text), ensure_ascii=False)
 
 before_windows, before_terminals = ids('window'), ids('terminal')
-with tempfile.TemporaryDirectory(prefix='oneagent-automation-验收 空格-', dir='/private/tmp') as folder:
+with tempfile.TemporaryDirectory(prefix='natty-automation-验收 空格-', dir='/private/tmp') as folder:
     root = pathlib.Path(folder)
     tab_ids = []
     try:
-        assert len(before_windows) == 1, '1Agent has exactly one window'
+        assert len(before_windows) == 1, 'Natty has exactly one window'
         window_id = next(iter(before_windows))
-        command = 'printf "%s" "$ONEAGENT_AUTOMATION_TEST" > env-marker; read -r value; printf "%s" "$value" > key-marker; exec /bin/cat'
+        command = 'printf "%s" "$NATTY_AUTOMATION_TEST" > env-marker; read -r value; printf "%s" "$value" > key-marker; exec /bin/cat'
         first_tab = apple(f'''set cfg to new surface configuration
 set initial working directory of cfg to {quoted(folder)}
 set command of cfg to {quoted(command)}
-set environment variables of cfg to {{"ONEAGENT_AUTOMATION_TEST=verified"}}
+set environment variables of cfg to {{"NATTY_AUTOMATION_TEST=verified"}}
 set firstTab to new tab with configuration cfg
 return id of firstTab''')
         assert first_tab
@@ -54,7 +54,7 @@ set secondTerm to focused terminal of nextTab
 set splitTerm to split secondTerm direction down with configuration cfg
 if (count of terminals of nextTab) is not 2 then error "Split must contain two terminals"
 focus firstTerm
-perform action "set_tab_title:1Agent 自动化验收" on firstTerm
+perform action "set_tab_title:Natty 自动化验收" on firstTerm
 select tab nextTab
 activate window win
 send key "f5" to splitTerm

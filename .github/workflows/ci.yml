@@ -22,8 +22,8 @@ jobs:
       - name: Build
         run: |
           xcodebuild \
-            -project 1Agent.xcodeproj \
-            -scheme 1Agent \
+            -project Natty.xcodeproj \
+            -scheme Natty \
             -configuration Debug \
             -derivedDataPath build/DerivedData.noindex \
             -clonedSourcePackagesDirPath build/SourcePackages \

@@ -148,10 +148,10 @@ def main():
         return 0
     if sys.platform != "darwin":
         parser.error("验收脚本需要 macOS、完整 Xcode 和登录中的图形桌面")
-    if any(name not in ("core", "automation") for name in names) and not (PRODUCTS / "1Agent.app/Contents/MacOS/1Agent.debug.dylib").is_file():
+    if any(name not in ("core", "automation") for name in names) and not (PRODUCTS / "Natty.app/Contents/MacOS/Natty.debug.dylib").is_file():
         parser.error("缺少 Debug 应用模块；先按验收文档完成构建。此入口不会自动安装或重启")
-    if "automation" in names and not Path("/Applications/1Agent.app/Contents/MacOS/1Agent").is_file():
-        parser.error("automation 需要已安装的 /Applications/1Agent.app；先按验收文档完成安装")
+    if "automation" in names and not Path("/Applications/Natty.app/Contents/MacOS/Natty").is_file():
+        parser.error("automation 需要已安装的 /Applications/Natty.app；先按验收文档完成安装")
     # make 会设置此变量，直接调用 bash 的测试也需要相同的 Xcode 工具链。
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]

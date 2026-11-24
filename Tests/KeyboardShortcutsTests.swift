@@ -16,7 +16,7 @@ enum KeyboardShortcutsTests {
         reservedKeys()
         modifierRule()
         browserTabKeys()
-        expect(!AppShortcutID.allCases.contains { $0.rawValue == "newWindow" || $0.rawValue == "quickTerminal" }, "1Agent has no shortcut that opens another window")
+        expect(!AppShortcutID.allCases.contains { $0.rawValue == "newWindow" || $0.rawValue == "quickTerminal" }, "Natty has no shortcut that opens another window")
         print("ok")
     }
 

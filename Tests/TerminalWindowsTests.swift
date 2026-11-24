@@ -4,7 +4,7 @@ import Darwin
 import Foundation
 import GhosttyTerminal
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 /// Runs AppKit's real resize/layout callbacks, including callbacks outside a Swift task.
 @main enum TerminalWindowsTests {
@@ -52,14 +52,14 @@ import ObjectiveC
         if !value() { throw Failure(message: message) }
     }
     @MainActor static func run() async throws {
-        guard let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"] else {
+        guard let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"] else {
             throw Failure(message: "Missing isolated test home")
         }
         let homeURL = URL(fileURLWithPath: home).resolvingSymlinksInPath()
         let temporaryURL = URL(fileURLWithPath: "/private/tmp").resolvingSymlinksInPath()
-        try check(homeURL.deletingLastPathComponent().deletingLastPathComponent() == temporaryURL && homeURL.deletingLastPathComponent().lastPathComponent.hasPrefix("oneagent-terminal-windows."), "Test home must be isolated")
+        try check(homeURL.deletingLastPathComponent().deletingLastPathComponent() == temporaryURL && homeURL.deletingLastPathComponent().lastPathComponent.hasPrefix("natty-terminal-windows."), "Test home must be isolated")
         try check(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath() == homeURL, "Foundation must use the isolated test home")
-        let suite = "oneagent.window-tests.\(UUID())"
+        let suite = "natty.window-tests.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, #selector(getter: UserDefaults.standard))!
         let old = method_setImplementation(getter, imp_implementationWithBlock({ _ in defaults } as @convention(block) (AnyObject) -> UserDefaults))
@@ -77,7 +77,7 @@ import ObjectiveC
         MainWindowManager.shared.attach(model: model)
         model.restoreLastSession()
         for _ in 0..<500 { if model.tabs.count == 2 { break }; try await Task.sleep(nanoseconds: 10_000_000) }
-        try check(model.windows.count == 1, "Saved windows merge into the one 1Agent window")
+        try check(model.windows.count == 1, "Saved windows merge into the one Natty window")
         let main = model.mainWindow
         try check(main.id == firstWindow && model.keyWindow?.id == firstWindow, "The merged window keeps the first saved window identity")
         try check(Set(model.sidebarOrder(in: main)) == [firstTab, secondTab], "Every saved terminal is listed in the one sidebar")
@@ -151,7 +151,7 @@ import ObjectiveC
         host.updateLaunch(TerminalLaunch(executable: "/bin/zsh", args: ["-d", "-i"], environment: environment,
             directory: home, shellIntegrationEnvironment: integration))
         host.restart(notice: "拖拽验证")
-        let item = QuickCommand(alias: "切换窗口拖拽验证", command: "((ONEAGENT_DRAG_COUNT+=1)); printf '\\nDRAG_CHECK_%s\\n' \"$ONEAGENT_DRAG_COUNT\"", scope: .local)
+        let item = QuickCommand(alias: "切换窗口拖拽验证", command: "((NATTY_DRAG_COUNT+=1)); printf '\\nDRAG_CHECK_%s\\n' \"$NATTY_DRAG_COUNT\"", scope: .local)
         try QuickCommandStore.shared.save(item)
         model.commandSidebars[id, default: TerminalCommandSidebarState()].isExpanded = true
         native.setContentSize(NSSize(width: 1100, height: 750))

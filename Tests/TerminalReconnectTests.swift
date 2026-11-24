@@ -1,5 +1,5 @@
 import AppKit
-@testable import agent
+@testable import Natty
 
 @main enum TerminalReconnectTests {
     @MainActor static func main() {

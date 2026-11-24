@@ -3,7 +3,7 @@ import Combine
 import Foundation
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 private struct TestFailure: Error, CustomStringConvertible {
     let description: String
@@ -58,15 +58,15 @@ private struct FilesWorkspaceRoutingTests {
     @MainActor
     private static func run() async throws {
         let environment = ProcessInfo.processInfo.environment
-        guard let home = environment["ONEAGENT_TEST_HOME"],
-              home.hasPrefix("/private/tmp/oneagent-files-routing."),
+        guard let home = environment["NATTY_TEST_HOME"],
+              home.hasPrefix("/private/tmp/natty-files-routing."),
               URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
                 == URL(fileURLWithPath: home).resolvingSymlinksInPath(),
               FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath()
                 == URL(fileURLWithPath: home).resolvingSymlinksInPath() else {
             throw TestFailure(description: "A temporary isolated home is required")
         }
-        let suiteName = "oneagent.files-routing.\(UUID().uuidString)"
+        let suiteName = "natty.files-routing.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName),
               let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults")) else {
             throw TestFailure(description: "Could not install isolated defaults")
@@ -118,30 +118,30 @@ private struct FilesWorkspaceRoutingTests {
         let labels = accessibilityLabels(chromeWindow.contentView!)
         try require(labels.contains(String(localized: "Terminal")) && labels.contains(String(localized: "Files")),
                     "The real SwiftUI toolbar must be reachable through the fixture's accessibility tree")
-        if environment["ONEAGENT_TEST_DEFAULT_SELECTION"] == "1" {
+        if environment["NATTY_TEST_DEFAULT_SELECTION"] == "1" {
             try await verifyDefaultSelection(model: model, state: state, window: chromeWindow, home: home)
             chromeWindow.orderOut(nil)
             chromeWindow.contentView = nil
             return
         }
-        if environment["ONEAGENT_TEST_FILE_FILTER_HEADER"] == "1" {
+        if environment["NATTY_TEST_FILE_FILTER_HEADER"] == "1" {
             try await verifyFileHeaderFilterFocus(model: model, state: state, window: chromeWindow, home: home)
             chromeWindow.orderOut(nil)
             chromeWindow.contentView = nil
             return
         }
-        if environment["ONEAGENT_TEST_COMPACT_HEADER"] == "1" {
+        if environment["NATTY_TEST_COMPACT_HEADER"] == "1" {
             try await verifyCompactHeaderGeometry(model: model, state: state, window: chromeWindow)
             try await verifyStableWindowButtons(model: model, state: state, window: chromeWindow)
             chromeWindow.orderOut(nil)
             chromeWindow.contentView = nil
             return
         }
-        if environment["ONEAGENT_TEST_HOST_PICKER"] == "1" {
+        if environment["NATTY_TEST_HOST_PICKER"] == "1" {
             try await verifyHostPickerAccessibility(model: model, state: state, window: chromeWindow, home: home)
             return
         }
-        if environment["ONEAGENT_TEST_PINNED_DRAG"] == "1" {
+        if environment["NATTY_TEST_PINNED_DRAG"] == "1" {
             model.selectFilesLayout(.sideBySide, in: state)
             try await settle()
             try await verifyPinnedFolderDrag(window: chromeWindow, workspace: model.fileWorkspace(for: state))
@@ -149,14 +149,14 @@ private struct FilesWorkspaceRoutingTests {
             chromeWindow.contentView = nil
             return
         }
-        if environment["ONEAGENT_TEST_COMMAND_FOLDER_PICKER"] == "1" {
+        if environment["NATTY_TEST_COMMAND_FOLDER_PICKER"] == "1" {
             try await verifyCommandFolderPickers(window: chromeWindow, home: home)
             return
         }
         try await verifyStableWindowButtons(model: model, state: state, window: chromeWindow)
         try verifySingleFilesEntry(chromeWindow, visible: false)
         try await verifyNativeFolderPicker(window: chromeWindow, home: home)
-        if environment["ONEAGENT_TEST_NATIVE_FOLDER"] == "1" { return }
+        if environment["NATTY_TEST_NATIVE_FOLDER"] == "1" { return }
         for layout in [FileWorkspaceLayout.belowTerminal, .sideBySide, .belowTerminal] {
             model.selectFilesLayout(layout, in: state)
             try await settle()
@@ -192,7 +192,7 @@ private struct FilesWorkspaceRoutingTests {
                     "Ordinary page switches must retain filter, sort and visibility")
         try require(initialLocal.scrollAnchor == savedScrollAnchor, "Remounting the file page must retain its scroll anchor")
         try await verifySidePreviews(model: model, state: state, window: chromeWindow, home: home)
-        if environment["ONEAGENT_TEST_FILE_PREVIEWS"] == "1" {
+        if environment["NATTY_TEST_FILE_PREVIEWS"] == "1" {
             chromeWindow.orderOut(nil)
             chromeWindow.contentView = nil
             return

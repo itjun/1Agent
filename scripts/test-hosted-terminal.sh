@@ -2,7 +2,7 @@
 set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 products_dir="$repo_dir/build/DerivedData.noindex/Build/Products/Debug"
-test_dir="$(mktemp -d /private/tmp/oneagent-hosted.XXXXXX)"
+test_dir="$(mktemp -d /private/tmp/natty-hosted.XXXXXX)"
 session_id="$(uuidgen)"
 cleanup() {
     python3 - "$session_id" "$test_dir" <<'PY'
@@ -21,16 +21,16 @@ PY
 trap cleanup EXIT
 bundle="$test_dir/HostedTerminalTests.app/Contents"
 mkdir -p "$bundle/MacOS" "$test_dir/home"
-ln -s "$products_dir/1Agent.app/Contents/Resources" "$bundle/Resources"
+ln -s "$products_dir/Natty.app/Contents/Resources" "$bundle/Resources"
 # 可指定旧 helper，验证升级时仍在运行的后台会话也能正确恢复。
-ln -s "${ONEAGENT_TEST_HELPERS:-$products_dir/1Agent.app/Contents/Helpers}" "$bundle/Helpers"
+ln -s "${NATTY_TEST_HELPERS:-$products_dir/Natty.app/Contents/Helpers}" "$bundle/Helpers"
 developer_dir=/Applications/Xcode.app/Contents/Developer
 sdk_dir="$(env DEVELOPER_DIR="$developer_dir" xcrun --sdk macosx --show-sdk-path)"
 "$developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc" -parse-as-library -target arm64-apple-macosx14.0 -sdk "$sdk_dir" \
     -module-cache-path "$test_dir/module-cache" -F "$products_dir" \
-    -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/Frameworks" -I "$products_dir" -I "$products_dir/include/libghostty" \
-    -Xlinker -rpath -Xlinker "$products_dir/1Agent.app/Contents/MacOS" \
-    "$products_dir/1Agent.app/Contents/MacOS/1Agent.debug.dylib" "$repo_dir/Tests/HostedTerminalTests.swift" \
+    -Xlinker -rpath -Xlinker "$products_dir/Natty.app/Contents/Frameworks" -I "$products_dir" -I "$products_dir/include/libghostty" \
+    -Xlinker -rpath -Xlinker "$products_dir/Natty.app/Contents/MacOS" \
+    "$products_dir/Natty.app/Contents/MacOS/Natty.debug.dylib" "$repo_dir/Tests/HostedTerminalTests.swift" \
     -o "$bundle/MacOS/tests"
 phases=(--layout --save --restore --close --quit)
 if [[ "${1:-}" == "--layout" || "${1:-}" == "--quit" ]]; then phases=("$1"); fi

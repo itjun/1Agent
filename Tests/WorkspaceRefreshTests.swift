@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 @main struct WorkspaceRefreshTests {
     @MainActor static func main() {
@@ -15,7 +15,7 @@ import SwiftUI
     }
 
     @MainActor static func run() async throws {
-        let root = URL(fileURLWithPath: "/private/tmp").appendingPathComponent("oneagent-refresh-\(UUID())").resolvingSymlinksInPath()
+        let root = URL(fileURLWithPath: "/private/tmp").appendingPathComponent("natty-refresh-\(UUID())").resolvingSymlinksInPath()
         try FileManager.default.createDirectory(at: root.appendingPathComponent("nested"), withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try Data("old\n".utf8).write(to: root.appendingPathComponent("old.txt"))

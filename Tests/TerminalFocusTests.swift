@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 /// Exercises the production AppKit focus bridge with native, process-free terminal views.
 /// The runner also denies network and process execution and gives this app an isolated home.
@@ -58,15 +58,15 @@ enum TerminalFocusTests {
             }
         }
         defer { NotificationCenter.default.removeObserver(activationObserver) }
-        guard let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"],
-              home.hasPrefix("/private/tmp/oneagent-terminal-focus."),
+        guard let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"],
+              home.hasPrefix("/private/tmp/natty-terminal-focus."),
               URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
                 == URL(fileURLWithPath: home).resolvingSymlinksInPath(),
               FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath()
                 == URL(fileURLWithPath: home).resolvingSymlinksInPath() else {
             throw Failure(description: "A temporary isolated home is required")
         }
-        let suite = "oneagent.terminal-focus.\(UUID().uuidString)"
+        let suite = "natty.terminal-focus.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)

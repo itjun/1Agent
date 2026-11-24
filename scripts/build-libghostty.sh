@@ -49,7 +49,7 @@ if [[ ! -f "$work/source-stamp" || "$(cat "$work/source-stamp")" != "$source_sta
     rm -rf "$source_dir"
     mkdir -p "$source_dir"
     tar -xzf "$archive" --strip-components=1 -C "$source_dir"
-    # The source lives under the 1Agent checkout. Isolate it so git apply
+    # The source lives under the Natty checkout. Isolate it so git apply
     # cannot silently skip every patch path relative to the parent repository.
     git -C "$source_dir" init -q
     for patch in "${patches[@]}"; do

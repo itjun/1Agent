@@ -16,11 +16,11 @@
 
 ## Sparkle 发布配置（2026-11-14 更新）
 
-新客户端只读取 `https://github.com/itjun/1Agent/releases/latest/download/appcast.xml`。启用 `SURequireSignedFeed` 和 `SUVerifyUpdateBeforeExtraction`；自动检查与自动下载安装分开，后两者关闭，安装由用户在 Sparkle 标准窗口触发。
+新客户端只读取 `https://github.com/itjun/natty/releases/latest/download/appcast.xml`。启用 `SURequireSignedFeed` 和 `SUVerifyUpdateBeforeExtraction`；自动检查与自动下载安装分开，后两者关闭，安装由用户在 Sparkle 标准窗口触发。
 
 首次启动只迁移旧 `1Agent/update/prefs.json` 的 `autoCheck`。已有 Sparkle 选择不覆盖；旧提醒/强制阻断状态不参与新流程。仅清理已知普通缓存文件，不递归删除下载目录。开发构建没有正式公钥时明确显示“此构建未内置验签公钥”，检查按钮禁用。
 
-更新安装回调先完成会话保存，再允许 Sparkle 继续。更新、开发安装及「重启应用」会保留终端进程以便重新接回。普通「退出」保存日志后关闭本地与 SSH 终端，并释放 1Agent 的共享 SSH 连接。保存失败时应用继续运行并显示错误，允许重试。Sparkle 委托否决可能以 nil error 结束，因此同时处理 update cycle 结束以允许重试。
+更新安装回调先完成会话保存，再允许 Sparkle 继续。更新、开发安装及「重启应用」会保留终端进程以便重新接回。普通「退出」保存日志后关闭本地与 SSH 终端，并释放 Natty 的共享 SSH 连接。保存失败时应用继续运行并显示错误，允许重试。Sparkle 委托否决可能以 nil error 结束，因此同时处理 update cycle 结束以允许重试。
 
 发布前须在 GitHub Actions 配置以下 Secrets：
 
@@ -31,7 +31,7 @@
 
 构建编号由 release workflow 的运行编号递增。Sparkle 私钥保存在本机钥匙串的独立账号 `com.itjun.1agent.sparkle`，并配置到 GitHub Actions Secrets；不能丢失或随意轮换，否则已有客户端无法验签。旧版签名密钥保持不变。发布时仍须检查真实安装包、更新源签名和旧版兼容清单；本地 fixture 不能替代实际客户端升级验收。
 
-从 Bundle ID 为 `com.itjun.1agent` 的版本切换到 `com.itjun.agent` 时，使用安装包替换 `/Applications/1Agent.app`。Sparkle 为低于构建 `1019` 的旧版提供手动下载入口，从构建 `1019` 起可在应用内正常安装更新。有关该更新类型，见 [Sparkle 发布说明](https://sparkle-project.org/documentation/publishing/#downloading-from-a-web-site)。
+1Agent 曾使用 `com.itjun.1agent` 和 `com.itjun.agent`。切换到 Natty（`com.itjun.natty`）需要手动安装 Natty DMG。首个 Natty 发版起，Sparkle 对旧身份的构建（低于 `1021`）显示手动下载入口，后续同身份版本可在应用内安装。有关该更新类型，见 [Sparkle 发布说明](https://sparkle-project.org/documentation/publishing/#downloading-from-a-web-site)。
 
 ## 终端补丁与 Shell 来源
 
@@ -41,7 +41,7 @@
 
 ## 本地验证记录
 
-- 三阶段均执行 `make build`。最终产物安装至 `/Applications/1Agent.app` 并启动；签名 deep/strict 校验通过。编译和安装成功不等同于下面未覆盖的项目已经通过。
+- 三阶段均执行 `make build`。最终产物安装至 `/Applications/Natty.app` 并启动；签名 deep/strict 校验通过。编译和安装成功不等同于下面未覆盖的项目已经通过。
 - `make test`：通过，包括归档过滤/限量、SSH 参数、文件安全、快捷指令、历史存储、系统集成等。
 - `make test-appearance` / `make test-modal-appearance`：通过，系统深浅色、旧偏好兼容、原生控件和终端缓冲保留，以及主窗口确认、嵌套编辑、全部弹窗外观。
 - `make test-host-information` / `make test-ssh-configuration`：通过，隔离配置 Include、通配符、Match、中文空格路径、超时、取消、输出上限、请求合并/订阅者取消以及复制有效配置；没有批量连接真实服务器。
@@ -54,12 +54,12 @@
 - 发布端公钥检查：直接执行 workflow 中的 CryptoKit 验证代码，匹配的公钥接受已签名 DMG，错误公钥拒绝。最终安装包与构建产物的动态库 SHA-256 一致，Sparkle 许可证与官方 artifact 原文一致且已进入安装包。
 - 尚未实际验收：正式旧客户端 → 新客户端 → 下一正式版本链路、Developer ID 分发/权限拒绝、完整 VoiceOver。上述需要正式签名配置或人工系统授权场景，不能以本地 fixture 替代。
 
-本地详细日志在 `/tmp/1agent-*.log`，临时 Sparkle 验证记录在 `build/SparkleQA.noindex/`（不入库，临时私钥已删除，不用于产品）。UI 扩展回归同步了原生工具栏、独立预览面板和 NSAlert 按钮的测试定位；同时补回文件标题/筛选的焦点转移、命令管理弹窗复用的操作栏。
+本地详细日志在 `/tmp/natty-*.log`，临时 Sparkle 验证记录在 `build/SparkleQA.noindex/`（不入库，临时私钥已删除，不用于产品）。UI 扩展回归同步了原生工具栏、独立预览面板和 NSAlert 按钮的测试定位；同时补回文件标题/筛选的焦点转移、命令管理弹窗复用的操作栏。
 
 ## 文件页窄窗口复核（2026-11-11）
 
-- `ONEAGENT_TEST_HOST_PICKER=1 bash scripts/test-file-workspace-routing.sh`：通过，日志 `/tmp/1agent-narrow-observed-layout.log`。
-- `bash scripts/test-file-workspace-routing.sh`：完整通过，日志 `/tmp/1agent-files-revalidated.log`。
-- `make build`：通过，日志 `/tmp/1agent-narrow-final-build.log`；已替换并运行 `/Applications/1Agent.app`，安装动态库与构建产物 SHA-256 相同，deep/strict 验签通过。
+- `NATTY_TEST_HOST_PICKER=1 bash scripts/test-file-workspace-routing.sh`：通过，日志 `/tmp/natty-narrow-observed-layout.log`。
+- `bash scripts/test-file-workspace-routing.sh`：完整通过，日志 `/tmp/natty-files-revalidated.log`。
+- `make build`：通过，日志 `/tmp/natty-narrow-final-build.log`；已替换并运行 `/Applications/Natty.app`，安装动态库与构建产物 SHA-256 相同，deep/strict 验签通过。
 - 实际安装应用：以系统窗口菜单缩为半屏（约 1,226 点宽），检查本地/远程标题、收起/恢复侧栏及终端/文件页切换，截图和辅助功能树均确认标题可见。随后恢复原窗口尺寸、侧栏和工作页面。880 点场景由隔离原生 UI 测试覆盖；没有为测试批量连接真实服务器或修改远程文件。
 - 未保留临时尺寸修复或诊断日志。生产文件仅将悬停状态开放为模块内只读，供测试读取；界面绘制和布局逻辑不变。

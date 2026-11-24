@@ -1,6 +1,6 @@
 import AppKit
 import GhosttyTerminal
-@testable import agent
+@testable import Natty
 
 @main enum TerminalFontTests {
     @MainActor static func main() {
@@ -19,8 +19,8 @@ import GhosttyTerminal
     }
 
     @MainActor static func run() async {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-terminal-font."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-terminal-font."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath() == URL(fileURLWithPath: home).resolvingSymlinksInPath())
         let installed = Set(NSFontManager.shared.availableFontFamilies)
         let families = TerminalFontSettings.availableFamilies()
@@ -31,9 +31,9 @@ import GhosttyTerminal
             let font = TerminalFontSettings.previewFont(family: family, size: 14)
             expect(font?.familyName == family, "Preview must resolve the selected family: \(family)")
         }
-        expect(TerminalFontSettings.previewFont(family: "OneAgent Missing Font Test", size: 14) == nil, "Missing fonts must not silently produce a preview")
-        UserDefaults.standard.set("OneAgent Missing Font Test", forKey: TerminalFontSettings.familyKey)
-        expect(!TerminalFontSettings.availableFamilies().contains("OneAgent Missing Font Test"), "A saved missing font must not become an available choice")
+        expect(TerminalFontSettings.previewFont(family: "Natty Missing Font Test", size: 14) == nil, "Missing fonts must not silently produce a preview")
+        UserDefaults.standard.set("Natty Missing Font Test", forKey: TerminalFontSettings.familyKey)
+        expect(!TerminalFontSettings.availableFamilies().contains("Natty Missing Font Test"), "A saved missing font must not become an available choice")
         let menlo = TerminalFontSettings.previewFont(family: "Menlo", size: 14)!
         let monaco = TerminalFontSettings.previewFont(family: "Monaco", size: 14)!
         expect(menlo.fontName != monaco.fontName, "Switching installed fonts must change the preview face")

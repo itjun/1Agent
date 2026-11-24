@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 /// Render production dialog content in the production modal host, with isolated
 /// preferences/files and no shell, SSH, command execution, save or import actions.
@@ -24,10 +24,10 @@ import SwiftUI
     }
 
     @MainActor static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-modal-appearance."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-modal-appearance."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath().path == URL(fileURLWithPath: home).resolvingSymlinksInPath().path)
-        let defaults = UserDefaults(suiteName: "oneagent.modal-appearance.\(UUID())")!
+        let defaults = UserDefaults(suiteName: "natty.modal-appearance.\(UUID())")!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)
         let block: @convention(block) (AnyObject) -> UserDefaults = { _ in defaults }
@@ -43,7 +43,7 @@ import SwiftUI
         state.commandLibrarySelection = item.id
         let paste = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [item]), context: context)
         let plan = GhosttyConfigImport.makePlan()
-        if let language = ProcessInfo.processInfo.environment["ONEAGENT_TEST_LANGUAGE"] {
+        if let language = ProcessInfo.processInfo.environment["NATTY_TEST_LANGUAGE"] {
             let expectedImport = language == "zh-Hans" ? "导入" : "Import"
             let expectedExport = language == "zh-Hans" ? "导出" : "Export"
             expect(String(localized: "Import…") == expectedImport, "\(language) import label is complete")

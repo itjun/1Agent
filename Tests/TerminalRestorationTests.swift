@@ -1,7 +1,7 @@
 import AppKit
 import GhosttyTerminal
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 @main
 enum TerminalRestorationTests {
@@ -30,7 +30,7 @@ enum TerminalRestorationTests {
     }
 
     static func outputStore() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("oneagent-output-store-" + UUID().uuidString)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("natty-output-store-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = TerminalOutputStore(directory: folder)
         let first = UUID(), second = UUID()
@@ -64,10 +64,10 @@ enum TerminalRestorationTests {
 
     /// Two separate processes exercise the production quit snapshot and cold launch.
     @MainActor static func persistedOutput() async throws {
-        guard let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"], home.hasPrefix("/private/tmp/oneagent-restoration.") else {
+        guard let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"], home.hasPrefix("/private/tmp/natty-restoration.") else {
             throw NSError(domain: "RestorationTests", code: 1)
         }
-        let defaults = UserDefaults(suiteName: "oneagent.output-restoration.tests")!
+        let defaults = UserDefaults(suiteName: "natty.output-restoration.tests")!
         let getter = class_getClassMethod(UserDefaults.self, #selector(getter: UserDefaults.standard))!
         let old = method_setImplementation(getter, imp_implementationWithBlock({ _ in defaults } as @convention(block) (AnyObject) -> UserDefaults))
         defer { method_setImplementation(getter, old) }

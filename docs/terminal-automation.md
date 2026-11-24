@@ -1,34 +1,34 @@
 # 终端窗口与自动化
 
-1Agent 使用自己的应用身份 `com.itjun.agent`、`oneagent://` 和 `/Applications/1Agent.app`。终端引擎随应用打包，运行窗口、命令行与 AppleScript 不需要安装 Ghostty。
+Natty 使用自己的应用身份 `com.itjun.natty`、`natty://` 和 `/Applications/Natty.app`。终端引擎随应用打包，运行窗口、命令行与 AppleScript 不需要安装 Ghostty。
 
-从 `com.itjun.1agent` 版本安装后，首次启动会读取原来的偏好和会话快照。通过 Bundle ID 寻址的 AppleScript 或 `open -b` 命令应改用 `com.itjun.agent`。
+从 1Agent（`com.itjun.agent` 或 `com.itjun.1agent`）升级后，首次启动会读取原来的偏好和会话快照。通过 Bundle ID 寻址的 AppleScript 或 `open -b` 命令应改用 `com.itjun.natty`。
 
 ## 单窗口
 
-- 1Agent 只有一个终端窗口。所有终端都在这个窗口里，用左侧侧栏的垂直标签切换；不提供横向标签（macOS 标题栏标签），也不提供新建窗口或浮动的快速终端。
+- Natty 只有一个终端窗口。所有终端都在这个窗口里，用左侧侧栏的垂直标签切换；不提供横向标签（macOS 标题栏标签），也不提供新建窗口或浮动的快速终端。
 - 关闭窗口（红色按钮、⇧⌘W）不确认，只隐藏窗口，会话继续运行；点 Dock 图标恢复。⌘Q 先保存输出、会话快照并停止 Agent 会话，再结束所有终端会话及其进程（包括忽略挂断信号的后台任务），下次启动时恢复。旧版本保存的多个窗口（含快速终端）在启动时合并进这个窗口。
-- Finder 的“在 1Agent 中打开”每次在窗口中新建终端；选择文件时进入其父目录。
-- GitHub Desktop、`open` 和 Finder 打开的文件夹都作为新终端加入窗口。GitHub Desktop 自定义 Shell：Path 为 `/Applications/1Agent.app`，Arguments 为 `%TARGET_PATH%`。旧的 `--new-window`、`--tab` 和 `window=` 参数会被忽略。
+- Finder 的“在 Natty 中打开”每次在窗口中新建终端；选择文件时进入其父目录。
+- GitHub Desktop、`open` 和 Finder 打开的文件夹都作为新终端加入窗口。GitHub Desktop 自定义 Shell：Path 为 `/Applications/Natty.app`，Arguments 为 `%TARGET_PATH%`。旧的 `--new-window`、`--tab` 和 `window=` 参数会被忽略。
 - 安全键盘输入支持本机规范模式下的密码输入检测，也可手动打开。输入框、弹窗、其他应用获得焦点，或退出时，释放本应用持有的安全输入引用。远端密码可手动启用。
 
 ## 命令行
 
-在“集成 → 自动化”安装命令行工具，位置为 `~/.local/bin/1agent`。
+在“集成 → 自动化”安装命令行工具，位置为 `~/.local/bin/natty`。
 
 ```sh
-1agent --working-directory="$PWD"
-1agent --wait-after-command -e /usr/bin/printf '%s\n' '带 空格的参数'
+natty --working-directory="$PWD"
+natty --wait-after-command -e /usr/bin/printf '%s\n' '带 空格的参数'
 ```
 
-每次在 1Agent 窗口中新建终端。运行中的实例确认接收后返回，交接超时会返回失败。冷启动返回 LaunchServices 的启动请求状态。程序参数在 `-e` 后保留原有边界与引用。
+每次在 Natty 窗口中新建终端。运行中的实例确认接收后返回，交接超时会返回失败。冷启动返回 LaunchServices 的启动请求状态。程序参数在 `-e` 后保留原有边界与引用。
 
 ## AppleScript
 
 “集成”可整体关闭终端自动化。窗口、标签和终端均有稳定 UUID；输入和操作必须指定终端。失效 ID、无效目录与配置返回脚本错误。
 
 ```applescript
-tell application id "com.itjun.agent"
+tell application id "com.itjun.natty"
     set cfg to new surface configuration
     set initial working directory of cfg to "/tmp"
     set newTab to new tab with configuration cfg

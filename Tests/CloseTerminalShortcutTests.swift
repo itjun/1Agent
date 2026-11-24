@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 /// 使用生产快捷键入口和原生菜单，所有会话都是不启动进程的临时预览。
 @main enum CloseTerminalShortcutTests {
@@ -22,7 +22,7 @@ import ObjectiveC
     }
 
     @MainActor static func run() async {
-        let suite = "oneagent.close-shortcut.\(UUID())"
+        let suite = "natty.close-shortcut.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, #selector(getter: UserDefaults.standard))!
         let previous = method_setImplementation(getter,

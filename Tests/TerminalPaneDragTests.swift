@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 /// 在隔离窗口里拖动真实分屏标题栏，不启动 shell 或 SSH。
 @main enum TerminalPaneDragTests {
@@ -20,11 +20,11 @@ import SwiftUI
     }
 
     @MainActor static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-terminal-pane-drag."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-terminal-pane-drag."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
                      == URL(fileURLWithPath: home).resolvingSymlinksInPath())
-        let suite = "oneagent.terminal-pane-drag.\(UUID())"
+        let suite = "natty.terminal-pane-drag.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)

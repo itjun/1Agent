@@ -35,6 +35,21 @@ enum LegacyDefaultsMigrationTests {
         precondition(alreadyRecovered["session.openTabs"] as? Data == snapshot)
         precondition(alreadyRecovered["terminal.fontSize"] == nil, "Do not restore obsolete Ghostty settings twice")
 
+        let upgraded = LegacyDefaultsMigration.migratedDefaults(
+            current: [:], previous: ["migration.fromPreviousBundle.done": true, "session.openTabs": snapshot],
+            original: ["obsolete": true], ghostty: [:]
+        )!
+        precondition(upgraded["session.openTabs"] as? Data == snapshot && upgraded["obsolete"] == nil)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let old = root.appendingPathComponent("com.itjun.1agent")
+        try! FileManager.default.createDirectory(at: old, withIntermediateDirectories: true)
+        try! snapshot.write(to: old.appendingPathComponent("quick-commands.json"))
+        let file = LegacyDefaultsMigration.supportURL("quick-commands.json", root: root)
+        precondition(file.deletingLastPathComponent().lastPathComponent == "com.itjun.natty")
+        precondition((try? Data(contentsOf: file)) == snapshot)
+        precondition(LegacyDefaultsMigration.supportURL("quick-commands.json", root: root) == file)
+
         let fresh = LegacyDefaultsMigration.migratedDefaults(
             current: [:], previous: [:], ghostty: ["terminal.fontSize": 20]
         )!

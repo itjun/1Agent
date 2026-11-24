@@ -14,7 +14,7 @@ struct FileSafetyTests {
 
     static func main() async throws {
         let manager = FileManager.default
-        let root = manager.temporaryDirectory.appendingPathComponent("oneagent-file-safety-tests-" + UUID().uuidString)
+        let root = manager.temporaryDirectory.appendingPathComponent("natty-file-safety-tests-" + UUID().uuidString)
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
         let fs = LocalFileSystem()
@@ -66,7 +66,7 @@ struct FileSafetyTests {
         require(try String(contentsOf: target.appendingPathComponent("config.txt"), encoding: .utf8) == "existing", "cancel leaves destination")
         _ = try await FileTransfer.copy([item], from: fs, to: fs, into: target.path, choice: .overwrite, progress: { _ in })
         require(try String(contentsOf: target.appendingPathComponent("config.txt"), encoding: .utf8) == "new", "completed staged transfer replaces destination")
-        require(try manager.contentsOfDirectory(atPath: target.path).allSatisfy { !$0.hasPrefix(".oneagent-") }, "successful transfer cleans staging")
+        require(try manager.contentsOfDirectory(atPath: target.path).allSatisfy { !$0.hasPrefix(".natty-") }, "successful transfer cleans staging")
 
         let stagedFolder = root.appendingPathComponent("staged-folder"), existingFolder = root.appendingPathComponent("existing-folder")
         try manager.createDirectory(at: stagedFolder, withIntermediateDirectories: true)

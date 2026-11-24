@@ -1,8 +1,8 @@
 # Agent 对话恢复调研
 
-> 历史方案，已于 2026-10-25 移除。1Agent 仅提供普通终端，不再包装 AI CLI、注入扩展或参数、记录和自动恢复 Agent 对话。以下内容保留为历史调研记录。
+> 历史方案，已于 2026-10-25 移除。Natty 仅提供普通终端，不再包装 AI CLI、注入扩展或参数、记录和自动恢复 Agent 对话。以下内容保留为历史调研记录。
 
-核查日期：2026-10-19。目标行为：退出 1Agent 时停止 Agent；重开时载入该终端原来的对话，等待用户继续。恢复不重放启动 prompt，不自动续跑被打断的任务，也不以“当前目录最近会话”猜测身份。
+核查日期：2026-10-19。目标行为：退出 Natty 时停止 Agent；重开时载入该终端原来的对话，等待用户继续。恢复不重放启动 prompt，不自动续跑被打断的任务，也不以“当前目录最近会话”猜测身份。
 
 本机只运行了帮助、版本等只读命令；没有发起模型请求，没有修改 Agent 配置或会话。已安装 Pi 1.3.0（`@earendil-works/pi-coding-agent`）和 Grok 1.0.62（`1474f9cbdd91`）；OMP、Claude 当前未找到可执行文件，以下对它们的结论来自官方文档或源码，仍需安装后的端到端验收。
 
@@ -20,7 +20,7 @@
 ## Pi：用每次调用的扩展准确绑定终端
 
 - 本机默认文件形如 `~/.pi/agent/sessions/--<encoded-cwd>--/<timestamp>_<id>.jsonl`；首行 header 字段为 `type: session`、`version`、`id`、`timestamp`、`cwd`，可选 `parentSession`。自定义存储可通过 `--session-dir`、`PI_CODING_AGENT_SESSION_DIR`、设置项覆盖，应保存真实路径，避免硬推导目录。
-- 1.3.0 的 `session_start` 在 `startup/reload/new/resume/fork` 后触发；从 `ctx.sessionManager.getSessionFile()`、`getSessionId()` 与 `ctx.cwd` 取身份。用命令级 `-e <1Agent 扩展绝对路径>` 加载，不必改用户的全局扩展列表。
+- 1.3.0 的 `session_start` 在 `startup/reload/new/resume/fork` 后触发；从 `ctx.sessionManager.getSessionFile()`、`getSessionId()` 与 `ctx.cwd` 取身份。用命令级 `-e <Natty 扩展绝对路径>` 加载，不必改用户的全局扩展列表。
 - 会话文件在第一条 user/assistant message 出现后才落盘；仅打开空会话就退出可能没有文件。记录路径不等于已保存，恢复前必须验证文件存在、header ID 匹配。
 - 同步追加的是已经形成的消息；不能承诺保存仍在流式生成中的每一个字符。
 
@@ -58,26 +58,26 @@ Codex 使用 `codex resume <UUID>`，不附加 prompt。当前本机 CLI 0.163.0
 
 本机新版本 Codex 未使用的空会话不会持久保存。实现只读该进程已打开的 `state_*.sqlite`，按精确 ID 查询 `threads.cwd` 且要求 `has_user_event = 1`，以免保存仅有进程锁、尚无历史的会话；旧版以所属 JSONL header 提供 cwd。数据库表结构同样属于版本适配，未知结构时拒绝猜测，不读取 prompt 正文。
 
-1. 只将终端 UUID、Agent 类型、当前会话 ID/路径、cwd、可执行入口以及校验信息保存在 1Agent 状态中；不复制对话正文、凭据或完整启动 argv。
+1. 只将终端 UUID、Agent 类型、当前会话 ID/路径、cwd、可执行入口以及校验信息保存在 Natty 状态中；不复制对话正文、凭据或完整启动 argv。
 2. 用该终端独有的私有状态文件/随机标识接收扩展报告，并校验报告进程属于终端。子进程继承环境不意味着它可以替换主会话；重新进入 shell 时清理活动标记。
 3. 应用退出前先取最终身份，再给 Agent 首次 `SIGTERM` 或 `SIGHUP`，保留 PTY 读取和进程等待窗口，最后才清理终端。Pi 1.3.0 的这些信号先 dispose runtime 并发出 `session_shutdown`；Grok 首次信号走与 `/exit` 相同的 graceful quit，第二信号才强退。不能立即关闭 PTY 后声称所有会话完整保存。
 4. Grok 使用共享 leader；不要用 `grok leader kill` 或全局按名称杀进程。客户端断开时 leader 会驱逐不再被观看的会话，其他客户端仍可能使用同一 leader。
 5. 恢复前检查路径存在、ID 匹配、目录和宿主对应、Agent 可执行；缺失或歧义时留在 shell 并说明原因，不降级到 latest、不静默新建会话。
 6. 恢复时仅启动精确 resume 命令；输入留空。若退出时有未完成的外部命令，其副作用不能靠对话恢复回滚；验收应覆盖正在生成时退出与停止后的持久化边界。
 
-信号依据：[Pi interactive shutdown](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/interactive/interactive-mode.ts)、[Grok graceful signal handling](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/src/app/signal_handler.rs)、[Grok shared leader disconnect](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/src/leader/server.rs)。其余为基于上述能力提出的 1Agent 实现建议。
+信号依据：[Pi interactive shutdown](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/interactive/interactive-mode.ts)、[Grok graceful signal handling](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/src/app/signal_handler.rs)、[Grok shared leader disconnect](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/src/leader/server.rs)。其余为基于上述能力提出的 Natty 实现建议。
 
 ## 验收边界
 
-至少验证同目录的两个终端各自恢复不同会话、运行中 `/new`/`/resume`/fork 后恢复新身份、Agent 正常退出回 shell 后不误复活、无会话持久化选项不被覆盖、会话缺失或命令缺失有明确提示；并实际退出和重开 `/Applications/1Agent.app`，分别报告编译结果与运行验证。SSH 上的 Agent 若未部署相应宿主桥接，不应声称已具备本机会话恢复能力。
+至少验证同目录的两个终端各自恢复不同会话、运行中 `/new`/`/resume`/fork 后恢复新身份、Agent 正常退出回 shell 后不误复活、无会话持久化选项不被覆盖、会话缺失或命令缺失有明确提示；并实际退出和重开 `/Applications/Natty.app`，分别报告编译结果与运行验证。SSH 上的 Agent 若未部署相应宿主桥接，不应声称已具备本机会话恢复能力。
 
 ## 本次实现与验证
 
 - 实现范围包括启用 Shell 集成的本机 zsh，以及普通 SSH 登录终端的 Bash/Zsh。SSH 主机需有 Python 3.9 或更新版本；私有适配资源只放在当前连接的临时目录内，不改用户的 shell 配置。尊重同名 function、自定义 RemoteCommand/tmux；绝对路径直接调用和禁用持久化的调用不自动接管。
 - 已运行 `make test-agent-sessions`（五种模拟 CLI 的真实子进程/信号/恢复集成测试、Pi/OMP 扩展事件隔离）、`scripts/test-terminal-restoration.sh`、Shell 集成专项测试。模拟适配测试不等同于五种真实 CLI 全部验收。
-- 已对用户正在使用的 Pi 会话实际退出、重开安装版 1Agent。会话 ID `01a1528d-194b-71aa-94be-b9ed8928d569` 保持一致，原 11 个终端保留，旧 Pi/监督进程退出；界面重新呈现原来的对话，输入为空。未重放用户任务。
+- 已对用户正在使用的 Pi 会话实际退出、重开安装版 Natty。会话 ID `01a1528d-194b-71aa-94be-b9ed8928d569` 保持一致，原 11 个终端保留，旧 Pi/监督进程退出；界面重新呈现原来的对话，输入为空。未重放用户任务。
 - 已在独立临时目录让真实 Codex 完成一条无工具的短验证消息，停止后按精确 ID 恢复；内核 writer lock 与该 ID 一致，恢复前后 turn 数仍为 1。没有改动用户项目。
 - Grok 依据本机帮助和官方注册表格式完成适配及模拟集成测试；OMP、Claude 本机缺少可执行文件，尚未做真实 CLI 恢复验收。
 - SSH 已运行真实 Linux PTY 的启动、私有 Unix socket 转发、定向停止、精确会话重连测试；Bash/Zsh 的隔离 PTY 验证包含中文及 `?/#/%` 目录、正常登录脚本加载和恢复后回 shell 继续适配。
-- 已在安装版 1Agent 的新建 SSH 测试终端运行远端现有 Claude 2.1.112，临时 wrapper 只使用主机已有 Node 20，未升级 Node 或安装 Agent。上游 MiniMax 请求发生超时重试，因此在重试期间实际退出应用：原监督进程及 Claude 进程均已退出。重开后原会话 ID `004bd4e9-3e55-4db9-ab2b-44aeb9abd62e` 一致，原消息保留、输入为空，用户消息数仍为 1，重试记录未增加。此验收证明运行中停止及恢复等待输入，不代表模型服务响应成功。
+- 已在安装版 Natty 的新建 SSH 测试终端运行远端现有 Claude 2.1.112，临时 wrapper 只使用主机已有 Node 20，未升级 Node 或安装 Agent。上游 MiniMax 请求发生超时重试，因此在重试期间实际退出应用：原监督进程及 Claude 进程均已退出。重开后原会话 ID `004bd4e9-3e55-4db9-ab2b-44aeb9abd62e` 一致，原消息保留、输入为空，用户消息数仍为 1，重试记录未增加。此验收证明运行中停止及恢复等待输入，不代表模型服务响应成功。
 - 已移除本次新建的 SSH 测试终端、清理临时运行目录，并回到原 Pi 终端；原有 11 个终端均保留。`make build` 成功，安装版主程序、原生 helper 及远程 Python 资源与本次构建一致，安装版正在运行。

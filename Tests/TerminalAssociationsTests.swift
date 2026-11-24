@@ -40,7 +40,7 @@ private final class AssociationSystemDouble: TerminalAssociationSystem {
 
 @main
 enum TerminalAssociationsTests {
-    static let target = app("com.itjun.agent", "1Agent")
+    static let target = app("com.itjun.natty", "Natty")
     static let ghostty = app("com.mitchellh.ghostty", "Ghostty")
     static let terminal = app("com.apple.Terminal", "Terminal")
 
@@ -172,7 +172,7 @@ enum TerminalAssociationsTests {
 
     @MainActor
     private static func withStore(_ body: (TerminalAssociationStore, AssociationSystemDouble, UserDefaults) async throws -> Void) async throws {
-        let suite = "oneagent-terminal-associations-tests-\(UUID().uuidString)"
+        let suite = "natty-terminal-associations-tests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let system = AssociationSystemDouble()

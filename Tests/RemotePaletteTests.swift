@@ -5,7 +5,7 @@ import SwiftUI
 enum RemotePaletteTests {
     static func main() {
         _ = NSApplication.shared
-        let suite = "oneagent.system-theme.\(UUID())"
+        let suite = "natty.system-theme.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         expect(AppThemePreset.allCases == [.system], "Only the system theme is available")

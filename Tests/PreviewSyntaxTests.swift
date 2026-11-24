@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 @main
 struct PreviewSyntaxTests {
@@ -81,7 +81,7 @@ struct PreviewSyntaxTests {
         let selected = NSRange(location: 7, length: 2)
         view.setSelectedRange(selected)
         expect(view.selectedTextAttributes[.backgroundColor] as? NSColor == view.style.selection, "native selected text uses the current theme")
-        let board = NSPasteboard(name: NSPasteboard.Name("oneagent.preview-test.\(UUID())"))
+        let board = NSPasteboard(name: NSPasteboard.Name("natty.preview-test.\(UUID())"))
         expect(view.selectedRange() == selected, "selection is established before native copy")
         expect(view.writeSelection(to: board, types: view.writablePasteboardTypes), "native copy writes selected text")
         expect(board.string(forType: .string) == "os", "copy contains original text without gutters or markup")

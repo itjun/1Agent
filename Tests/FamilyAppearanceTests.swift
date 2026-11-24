@@ -3,13 +3,13 @@ import Combine
 import GhosttyTerminal
 import ObjectiveC
 import QuartzCore
-@testable import agent
+@testable import Natty
 
 /// 完整预设、原生窗口与两个无进程终端；不启动 shell 或 SSH。
 @main
 enum FamilyAppearanceTests {
     @MainActor static func main() {
-        let suite = "oneagent.family.\(UUID().uuidString)"
+        let suite = "natty.family.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let block: @convention(block) (AnyObject) -> UserDefaults = { _ in defaults }
@@ -180,7 +180,7 @@ enum FamilyAppearanceTests {
             expect(backing == NSColor(chrome.background).cgColor, "open settings repaints with the active theme: " + name)
             expect((settingsWindow.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == theme.palette!.isDark,
                    "open settings native controls follow the palette: " + name)
-            if let output = ProcessInfo.processInfo.environment["ONEAGENT_SETTINGS_QA_DIR"],
+            if let output = ProcessInfo.processInfo.environment["NATTY_SETTINGS_QA_DIR"],
                let view = settingsWindow.contentView,
                let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                 view.cacheDisplay(in: view.bounds, to: bitmap)
@@ -493,7 +493,7 @@ enum FamilyAppearanceTests {
                     expect(!identifiers.contains("settings.navigation.appIcon"), "no separate icon settings remain")
                 }
 
-                if let output = ProcessInfo.processInfo.environment["ONEAGENT_SETTINGS_QA_DIR"],
+                if let output = ProcessInfo.processInfo.environment["NATTY_SETTINGS_QA_DIR"],
                    let view = window.contentView,
                    let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                     view.cacheDisplay(in: view.bounds, to: bitmap)

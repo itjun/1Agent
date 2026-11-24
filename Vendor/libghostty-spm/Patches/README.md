@@ -1,6 +1,6 @@
 # Ghostty v1.4.0 补丁清单
 
-依照 `series` 顺序应用。引擎是 Ghostty 官方源码；这些补丁不是官方发布包的一部分。共同来源是 Lakr233/libghostty-spm `2.2.2026102101` 的补丁栈及 1Agent 对 v1.4.0 / Zig 0.17 的移植。不要直接修改生成的 `build/libghostty/source`。
+依照 `series` 顺序应用。引擎是 Ghostty 官方源码；这些补丁不是官方发布包的一部分。共同来源是 Lakr233/libghostty-spm `2.2.2026102101` 的补丁栈及 Natty 对 v1.4.0 / Zig 0.17 的移植。不要直接修改生成的 `build/libghostty/source`。
 
 | 补丁 | 用途及调用方 | 删除条件 |
 | --- | --- | --- |

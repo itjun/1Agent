@@ -11,12 +11,12 @@ import subprocess
 import tempfile
 import time
 
-fixture = "/tmp/oneagent-quick-command-tests"
+fixture = "/tmp/natty-quick-command-tests"
 shells = ["/bin/zsh", "/bin/bash"]
 if shutil.which("fish"):
     shells.append(shutil.which("fish"))
 
-with tempfile.TemporaryDirectory(prefix="1Agent startup 中文 '") as root:
+with tempfile.TemporaryDirectory(prefix="Natty startup 中文 '") as root:
     root = pathlib.Path(root)
     for shell in shells:
         for case in ["quotes", "syntax", "missing", "interrupt"]:
@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix="1Agent startup 中文 '") as root:
                 # Rich fish/VT negotiation is exercised by test-terminal-compatibility.
                 env = dict(os.environ, HOME=str(home), ZDOTDIR=str(home), SHELL=shell, TERM="dumb")
                 for key in list(env):
-                    if key.startswith("ONEAGENT_QC_") or key in ["BASH_ENV", "ENV", "HISTFILE"]:
+                    if key.startswith("NATTY_QC_") or key in ["BASH_ENV", "ENV", "HISTFILE"]:
                         del env[key]
                 os.execve("/bin/sh", ["sh", "-c", startup], env)
             output = bytearray()

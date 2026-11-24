@@ -1,13 +1,13 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 /// Command-model checks against the production module. No shell or SSH session is launched.
 @main
 enum TerminalPaneActionsTests {
     @MainActor static func main() {
-        let suite = "oneagent.pane-actions.\(UUID().uuidString)"
+        let suite = "natty.pane-actions.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)
@@ -239,9 +239,9 @@ enum TerminalPaneActionsTests {
         let model = AppModel()
         let window = model.mainWindow
         // Preview panes exercise the actual tab/panel tree without launching any process.
-        model.open(.preview(path: "/tmp/oneagent-sidebar-a"), placement: .newTab, beside: UUID(), in: window)
+        model.open(.preview(path: "/tmp/natty-sidebar-a"), placement: .newTab, beside: UUID(), in: window)
         let first = window.selectedTabID!
-        model.open(.preview(path: "/tmp/oneagent-sidebar-b"), placement: .split(.right), beside: first, in: window)
+        model.open(.preview(path: "/tmp/natty-sidebar-b"), placement: .split(.right), beside: first, in: window)
         let tabs = model.tabs
         let layouts = model.workspaces
         let selected = window.selectedTabID
@@ -266,7 +266,7 @@ enum TerminalPaneActionsTests {
         let previewMenu = SidebarActions.panelItems(previewRow, model: model, window: window, onRename: {})
         expect(previewMenu.first?.isSeparator == false && previewMenu.first?.children.first?.isSeparator == false,
                "preview panel menus do not start with a separator")
-        expect(previewMenu.first?.title == String(format: String(localized: "Current Preview: %@"), "oneagent-sidebar-b"),
+        expect(previewMenu.first?.title == String(format: String(localized: "Current Preview: %@"), "natty-sidebar-b"),
                "a focused preview is identified as a preview")
         expect(previewMenu.first?.children.first?.title == String(localized: "Close Current Preview"),
                "the preview submenu identifies its close action")

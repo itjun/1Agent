@@ -5,7 +5,7 @@
 # 证书只在登录钥匙串里首次创建一次，不需要信任设置，也不参与任何分发。
 set -euo pipefail
 
-APP="${1:?usage: local-codesign.sh path/to/1Agent.app}"
+APP="${1:?usage: local-codesign.sh path/to/Natty.app}"
 IDENTITY="Ghostty Local Signing"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
@@ -41,8 +41,8 @@ fi
 
 "$(dirname "$0")/sign-sparkle.sh" "$APP" "$hash"
 
-if [[ -f "$APP/Contents/Helpers/1AgentSessionHost" ]]; then
-  codesign --force --sign "$hash" --timestamp=none "$APP/Contents/Helpers/1AgentSessionHost"
+if [[ -f "$APP/Contents/Helpers/NattySessionHost" ]]; then
+  codesign --force --sign "$hash" --timestamp=none "$APP/Contents/Helpers/NattySessionHost"
 fi
 
 for dylib in "$APP"/Contents/MacOS/*.dylib; do

@@ -46,8 +46,8 @@ jobs:
       - name: Build
         run: |
           xcodebuild \
-            -project 1Agent.xcodeproj \
-            -scheme 1Agent \
+            -project Natty.xcodeproj \
+            -scheme Natty \
             -configuration Release \
             -derivedDataPath build/DerivedData.noindex \
             -clonedSourcePackagesDirPath build/SourcePackages \
@@ -65,15 +65,15 @@ jobs:
 
       - name: Package
         run: |
-          app="build/DerivedData.noindex/Build/Products/Release/1Agent.app"
+          app="build/DerivedData.noindex/Build/Products/Release/Natty.app"
           ./scripts/sign-sparkle.sh "$app" -
           codesign --force --options runtime --timestamp=none --sign - --entitlements Resources/AdHoc.entitlements "$app"
           codesign --verify --deep --strict "$app"
           stage="$(mktemp -d)"
           mkdir -p dist
-          ditto "$app" "$stage/1Agent.app"
+          ditto "$app" "$stage/Natty.app"
           ln -s /Applications "$stage/Applications"
-          hdiutil create -volname "1Agent" -srcfolder "$stage" -ov -format UDZO -quiet "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.dmg"
+          hdiutil create -volname "Natty" -srcfolder "$stage" -ov -format UDZO -quiet "dist/Natty-${GITHUB_REF_NAME}-mac-arm64.dmg"
           rm -rf "$stage"
 
       - name: Sign update manifest
@@ -92,7 +92,7 @@ jobs:
           min="$(python3 -c 'import json; print(json.load(open("release/update-policy.json")).get("minSupportedVersion", ""))')"
           swift scripts/update-manifest.swift \
             --version "$GITHUB_REF_NAME" \
-            --package "dist/1Agent-${GITHUB_REF_NAME}-mac-arm64.dmg" \
+            --package "dist/Natty-${GITHUB_REF_NAME}-mac-arm64.dmg" \
             --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}" \
             --notes-file dist/notes.txt \
             --min "$min" \
@@ -107,7 +107,7 @@ jobs:
           key="$RUNNER_TEMP/sparkle.key"
           trap 'rm -f "$key"' EXIT
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$key"
-          package="1Agent-${GITHUB_REF_NAME}-mac-arm64"
+          package="Natty-${GITHUB_REF_NAME}-mac-arm64"
           minimum_build="$(python3 -c 'import json; print(json.load(open("release/update-policy.json"))["sparkleMinimumInstallBuild"])')"
           if [[ ! "$minimum_build" =~ ^[1-9][0-9]*$ ]] || (( minimum_build > 1000 + GITHUB_RUN_NUMBER )); then
             echo '::error::Sparkle 可安装的最低构建号无效'
@@ -155,10 +155,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="$GITHUB_REF_NAME"
-          dmg="dist/1Agent-${tag}-mac-arm64.dmg"
+          dmg="dist/Natty-${tag}-mac-arm64.dmg"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "dist/appcast.xml" "dist/latest.json" "dist/latest.json.sig" "$dmg" --clobber
-            gh release delete-asset "$tag" "1Agent-${tag}-mac-arm64.zip" --yes || true
+            gh release delete-asset "$tag" "Natty-${tag}-mac-arm64.zip" --yes || true
           else
             args=(release create "$tag" "dist/appcast.xml" "dist/latest.json" "dist/latest.json.sig" "$dmg" --title "$tag" --notes-file dist/notes.txt)
             if [[ "$tag" == *-* ]]; then

@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 /// Exercises production sidebar hit testing and delivery without shells or network access.
 @main enum SidebarPanelDropTests {
@@ -129,11 +129,11 @@ import SwiftUI
     }
 
     @MainActor static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-sidebar-panel-drop."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-sidebar-panel-drop."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
                      == URL(fileURLWithPath: home).resolvingSymlinksInPath())
-        let suite = "oneagent.sidebar-panel-drop.\(UUID())"
+        let suite = "natty.sidebar-panel-drop.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)
@@ -271,7 +271,7 @@ import SwiftUI
         gapSnapshot.apply(to: restoredWindow, keeping: Set(model.tabs.map(\.id)))
         try check(restoredWindow.looseMembers[.localGroup] == [outsider, first, second, otherFirst, otherSecond],
                   "The gap drop order survives saving and session restoration")
-        if let output = ProcessInfo.processInfo.environment["ONEAGENT_SIDEBAR_DROP_PREVIEW_OUTPUT"],
+        if let output = ProcessInfo.processInfo.environment["NATTY_SIDEBAR_DROP_PREVIEW_OUTPUT"],
            let view = native.contentView, let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
             view.cacheDisplay(in: view.bounds, to: image)
             try image.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output))

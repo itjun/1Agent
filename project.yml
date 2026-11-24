@@ -1,4 +1,4 @@
-name: 1Agent
+name: Natty
 options:
   bundleIdPrefix: com.itjun
   deploymentTarget:
@@ -19,11 +19,11 @@ packages:
     # Reviewed Swift wrapper; the macOS binary is built from pinned, patched source.
     path: Vendor/libghostty-spm
 targets:
-  1Agent:
+  Natty:
     type: application
     platform: macOS
     sources:
-      - Sources/OneAgent
+      - Sources/Natty
       - path: Resources
         buildPhase: resources
         excludes:
@@ -50,33 +50,34 @@ targets:
       - package: GhosttyTerminal
         product: GhosttyTerminal
     info:
-      path: Sources/OneAgent/Info.plist
+      path: Sources/Natty/Info.plist
       properties:
-        SUFeedURL: https://github.com/itjun/1Agent/releases/latest/download/appcast.xml
+        SUFeedURL: https://github.com/itjun/natty/releases/latest/download/appcast.xml
         SUPublicEDKey: "$(SPARKLE_PUBLIC_KEY)"
         SUEnableAutomaticChecks: true
         SUAutomaticallyUpdate: false
         SUAllowsAutomaticUpdates: false
         SURequireSignedFeed: true
         SUVerifyUpdateBeforeExtraction: true
-        CFBundleName: "1Agent"
-        CFBundleDisplayName: "1Agent"
-        CFBundleIconName: OneAgentIcon
+        CFBundleName: "Natty"
+        CFBundleDisplayName: "Natty"
+        CFBundleIconName: NattyIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSApplicationCategoryType: public.app-category.developer-tools
         LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
         NSPrincipalClass: NSApplication
         NSAppleScriptEnabled: true
-        OSAScriptingDefinition: 1Agent.sdef
+        OSAScriptingDefinition: Natty.sdef
         NSHumanReadableCopyright: "© 2026 eachann1024"
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - en
           - zh-Hans
         CFBundleURLTypes:
-          - CFBundleURLName: com.itjun.agent
+          - CFBundleURLName: com.itjun.natty
             CFBundleURLSchemes:
+              - natty
               - oneagent
         CFBundleDocumentTypes:
           - CFBundleTypeExtensions:
@@ -98,8 +99,8 @@ targets:
               - public.unix-executable
         NSServices:
           - NSMenuItem:
-              default: Open in 1Agent
-              zh-Hans: "在 1Agent 中打开"
+              default: Open in Natty
+              zh-Hans: "在 Natty 中打开"
             NSMessage: openTab
             NSRequiredContext:
               NSTextContent: FilePath
@@ -113,26 +114,26 @@ targets:
     postBuildScripts:
       - name: Build terminal session host
         basedOnDependencyAnalysis: false
-        script: 'bash "${SRCROOT}/scripts/build-session-host.sh" "${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/1AgentSessionHost"'
+        script: 'bash "${SRCROOT}/scripts/build-session-host.sh" "${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/NattySessionHost"'
       - name: Install readable fallback icon
         basedOnDependencyAnalysis: false
         script: |
           # 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。
           # 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。
-          cp "${SRCROOT}/Resources/ApplicationIcons/Original.icns" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/OneAgentIcon.icns"
+          cp "${SRCROOT}/Resources/ApplicationIcons/Original.icns" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/NattyIcon.icns"
     settings:
       base:
         SPARKLE_PUBLIC_KEY: ""
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
-        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.agent
-        PRODUCT_NAME: "1Agent"
-        PRODUCT_MODULE_NAME: agent
+        PRODUCT_BUNDLE_IDENTIFIER: com.itjun.natty
+        PRODUCT_NAME: "Natty"
+        PRODUCT_MODULE_NAME: Natty
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         SWIFT_VERSION: "5.10"
-        SWIFT_OBJC_BRIDGING_HEADER: Sources/OneAgent/OneAgent-Bridging-Header.h
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Natty/Natty-Bridging-Header.h
         MARKETING_VERSION: "1.1.17"
         CURRENT_PROJECT_VERSION: "18"
-        ASSETCATALOG_COMPILER_APPICON_NAME: OneAgentIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: NattyIcon
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_APP_SANDBOX: NO
         COMBINE_HIDPI_IMAGES: YES

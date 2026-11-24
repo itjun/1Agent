@@ -234,7 +234,7 @@ extension QuickCommandTests {
         let longRequest = try QuickCommandPasteRequest(transfer: QuickCommandTransfer(commands: [long, long, long]), context: target)
         let longCopies = try longRequest.copies(existing: [])
         assert(Set(longCopies.map(\.alias)).count == 3 && longCopies.allSatisfy { $0.alias.count <= 200 })
-        let pasteboard = NSPasteboard(name: NSPasteboard.Name("1agent-transfer-test-" + UUID().uuidString))
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("natty-transfer-test-" + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
         try QuickCommandClipboard.copy([original, second], to: pasteboard)
         assert(pasteboard.string(forType: .string) == transfer.plainText)
@@ -361,7 +361,7 @@ extension QuickCommandTests {
         assert(QuickCommandLexer.extractLongFlags("source ./init.sh").isEmpty)
 
         let complexLines = [
-            #"ONEAGENT_ENV=prod sudo nginx -t && printf '%s\n' "--quoted-not-flag" | cat # trailing comment"#,
+            #"NATTY_ENV=prod sudo nginx -t && printf '%s\n' "--quoted-not-flag" | cat # trailing comment"#,
             "# 独立注释行 --ignored value",
             "git log -8 --oneline --graph --author=\"Alice Bob\""
         ]

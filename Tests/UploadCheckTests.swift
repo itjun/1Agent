@@ -16,7 +16,7 @@ struct UploadCheckTests {
 
     static func main() throws {
         let manager = FileManager.default
-        let root = manager.temporaryDirectory.appendingPathComponent("oneagent-upload-check-tests-" + UUID().uuidString)
+        let root = manager.temporaryDirectory.appendingPathComponent("natty-upload-check-tests-" + UUID().uuidString)
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
         func write(_ relative: String, _ value: String) throws -> URL {

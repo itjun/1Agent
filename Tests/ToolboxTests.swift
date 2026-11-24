@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 @main enum ToolboxTests {
     @MainActor static func main() {
@@ -16,7 +16,7 @@ import ObjectiveC
     }
 
     @MainActor static func run() async throws {
-        let suite = "oneagent.toolbox.\(UUID())"
+        let suite = "natty.toolbox.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)

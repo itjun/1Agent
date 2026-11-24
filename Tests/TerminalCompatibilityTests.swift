@@ -4,7 +4,7 @@ import Foundation
 import GhosttyTerminal
 import GhosttyKit
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 /// Uses the shipped engine and the application's real PTY, without the user's rc files.
 @MainActor enum TerminalCompatibilityTests {
@@ -76,7 +76,7 @@ import ObjectiveC
             view.controller = GhosttyRuntime.controller
             view.configuration = TerminalSurfaceOptions(backend: .inMemory(session))
             window = (simulatedDisplay ? ScaleWindow.self : NSWindow.self).init(contentRect: view.frame, styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-            window.title = "1Agent 兼容性验收"
+            window.title = "Natty 兼容性验收"
             window.isReleasedWhenClosed = false
             window.contentView = view
             window.center()
@@ -95,8 +95,8 @@ import ObjectiveC
     }
 
     static func run() async throws {
-        guard let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"], home.contains("oneagent-terminal-windows.") else { throw Failure("Missing isolated test home") }
-        let suite = "oneagent.compatibility.\(UUID())"
+        guard let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"], home.contains("natty-terminal-windows.") else { throw Failure("Missing isolated test home") }
+        let suite = "natty.compatibility.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, #selector(getter: UserDefaults.standard))!
         let old = method_setImplementation(getter, imp_implementationWithBlock({ _ in defaults } as @convention(block) (AnyObject) -> UserDefaults))
@@ -115,7 +115,7 @@ import ObjectiveC
 
     static func shells(home: String) async throws {
         guard let resources = Bundle.main.resourcePath else { throw Failure("Missing bundled resources") }
-        let names = ProcessInfo.processInfo.environment["ONEAGENT_COMPATIBILITY_SHELLS"]?.components(separatedBy: ",") ?? ["zsh", "bash", "fish", "elvish", "nu"]
+        let names = ProcessInfo.processInfo.environment["NATTY_COMPATIBILITY_SHELLS"]?.components(separatedBy: ",") ?? ["zsh", "bash", "fish", "elvish", "nu"]
         for name in names {
             let executable = name == "zsh" ? "/bin/zsh" : "/opt/homebrew/bin/\(name)"
             try check(FileManager.default.isExecutableFile(atPath: executable), "Missing runtime \(executable)")
@@ -124,7 +124,7 @@ import ObjectiveC
             try FileManager.default.createDirectory(at: changed, withIntermediateDirectories: true)
             let environment = ["HOME=\(folder.path)", "XDG_CONFIG_HOME=\(folder.path)/config", "XDG_DATA_HOME=\(folder.path)/data", "XDG_CACHE_HOME=\(folder.path)/cache", "XDG_DATA_DIRS=/usr/local/share:/usr/share", "PATH=/opt/homebrew/bin:/usr/bin:/bin", "TERM=xterm-256color", "LANG=en_US.UTF-8", "SHELL=\(executable)", "GHOSTTY_SHELL_FEATURES=title,ssh-env"]
             var settings = TerminalSettings.defaults
-            if ProcessInfo.processInfo.environment["ONEAGENT_COMPATIBILITY_NO_FEATURES"] == "1" { settings.shellIntegrationFeatures = [] }
+            if ProcessInfo.processInfo.environment["NATTY_COMPATIBILITY_NO_FEATURES"] == "1" { settings.shellIntegrationFeatures = [] }
             let variables = ShellIntegrationEnvironment.variables(settings: settings, shellPath: executable, resourcesPath: resources, environment: environment)
             let process = TerminalProcess()
             let terminal = Fixture(process: process)
@@ -210,8 +210,8 @@ import ObjectiveC
         try await fixture.feed("\u{1b}_Ga=q,i=42,s=1,v=1,f=24;AP8A\u{1b}\\")
         try check(fixture.outgoing.text.contains("\u{1b}_Gi=42;OK\u{1b}\\"), "Kitty graphics query failed: \(fixture.outgoing.text.debugDescription)")
         fixture.outgoing.clear()
-        try await fixture.feed("\u{1b}]2;1Agent 协议验收\u{7}\u{1b}]7;file://localhost/tmp/oneagent-protocol\u{7}\u{1b}]9;4;1;37\u{7}\u{1b}]10;#123456\u{7}\u{1b}]10;?\u{7}")
-        try await wait("OSC title, cwd, progress or truecolor callbacks failed") { callbacks.title == "1Agent 协议验收" && callbacks.directory == "/tmp/oneagent-protocol" && callbacks.progress == 37 && !callbacks.colors.isEmpty }
+        try await fixture.feed("\u{1b}]2;Natty 协议验收\u{7}\u{1b}]7;file://localhost/tmp/natty-protocol\u{7}\u{1b}]9;4;1;37\u{7}\u{1b}]10;#123456\u{7}\u{1b}]10;?\u{7}")
+        try await wait("OSC title, cwd, progress or truecolor callbacks failed") { callbacks.title == "Natty 协议验收" && callbacks.directory == "/tmp/natty-protocol" && callbacks.progress == 37 && !callbacks.colors.isEmpty }
         try check(fixture.outgoing.text.contains("rgb:1212/3434/5656"), "Truecolor query must retain all channels: \(fixture.outgoing.text.debugDescription)")
         fixture.outgoing.clear()
         try await fixture.feed("\u{1b}[?1004h")
@@ -227,9 +227,9 @@ import ObjectiveC
         fixture.view.insertText("中文✓", replacementRange: NSRange(location: NSNotFound, length: 0))
         try await wait("IME commit was lost") { fixture.outgoing.text.contains("中文✓") }
         try check(!fixture.view.hasMarkedText() && fixture.outgoing.text.components(separatedBy: "中文✓").count == 2, "IME commit must clear composition and emit once")
-        try await fixture.feed("\u{1b}[2J\u{1b}[H\u{1b}]8;;https://example.org/oneagent\u{7}LINKLABEL\u{1b}]8;;\u{7}")
+        try await fixture.feed("\u{1b}[2J\u{1b}[H\u{1b}]8;;https://example.org/natty\u{7}LINKLABEL\u{1b}]8;;\u{7}")
         fixture.view.sendMousePos(x: 20, y: 10, modifiers: .super_)
-        try await wait("OSC8 hyperlink hover lost its URL") { callbacks.hoveredURL == "https://example.org/oneagent" }
+        try await wait("OSC8 hyperlink hover lost its URL") { callbacks.hoveredURL == "https://example.org/natty" }
         try await clipboard(fixture, callbacks: callbacks)
         // Split a multibyte sequence across transport chunks, as SSH/PTY reads routinely do.
         try await fixture.feed("\u{1b}[2J\u{1b}[H")
@@ -246,7 +246,7 @@ import ObjectiveC
             for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
             return copy
         } ?? []
-        let marker = "1Agent OSC52 " + UUID().uuidString
+        let marker = "Natty OSC52 " + UUID().uuidString
         defer {
             // Never overwrite a concurrent clipboard change from another application.
             if board.string(forType: .string) == marker { board.clearContents(); board.writeObjects(original) }
@@ -356,7 +356,7 @@ import ObjectiveC
         let full = Fixture()
         defer { full.close() }
         try await full.ready()
-        try await full.feed("\u{1b}[2J\u{1b}[H1Agent 全屏验收：原终端内容必须保留")
+        try await full.feed("\u{1b}[2J\u{1b}[HNatty 全屏验收：原终端内容必须保留")
         try await wait("Fullscreen fixture did not display its initial contents") { full.session.readViewportText()?.contains("原终端内容必须保留") == true }
         var entered = false, exited = false
         let center = NotificationCenter.default
@@ -383,7 +383,7 @@ import ObjectiveC
     }
 
     static func hold(suffix: String) async throws {
-        guard let path = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOLD_PATH"], path.hasPrefix("/private/tmp/oneagent-") else { return }
+        guard let path = ProcessInfo.processInfo.environment["NATTY_TEST_HOLD_PATH"], path.hasPrefix("/private/tmp/natty-") else { return }
         let deadline = Date().addingTimeInterval(45)
         while FileManager.default.fileExists(atPath: path + suffix), Date() < deadline { try await Task.sleep(for: .milliseconds(100)) }
     }

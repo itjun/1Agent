@@ -8,8 +8,8 @@
 static int guarded_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *actions,
                          const posix_spawnattr_t *attributes, char *const argv[], char *const envp[]) {
     if (strcmp(path, "/usr/bin/ssh") == 0) {
-        const char *fixture = getenv("ONEAGENT_REMOTE_FIXTURE");
-        const char *prefix = "/private/tmp/oneagent-files-routing.";
+        const char *fixture = getenv("NATTY_REMOTE_FIXTURE");
+        const char *prefix = "/private/tmp/natty-files-routing.";
         if (!fixture || strncmp(fixture, prefix, strlen(prefix)) != 0) return EPERM;
         return posix_spawn(pid, fixture, actions, attributes, argv, envp);
     }

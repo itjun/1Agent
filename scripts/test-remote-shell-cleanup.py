@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check cleanup of the real remote bootstrap on exit and terminal hangup.
 
-Set ONEAGENT_REMOTE_CLEANUP_TEST_HOST to an explicitly designated test host
+Set NATTY_REMOTE_CLEANUP_TEST_HOST to an explicitly designated test host
 to also exercise a real SSH disconnect. The test creates and removes one
 random, private directory on that host.
 """
@@ -18,8 +18,8 @@ import time
 import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUNNER = "/tmp/oneagent-remote-shell-tests"
-HOST = os.environ.get("ONEAGENT_REMOTE_CLEANUP_TEST_HOST")
+RUNNER = "/tmp/natty-remote-shell-tests"
+HOST = os.environ.get("NATTY_REMOTE_CLEANUP_TEST_HOST")
 SSH = ["/usr/bin/ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
        "-o", "ControlMaster=no", "-o", "ControlPath=none", "-o", "RemoteCommand=none"]
 

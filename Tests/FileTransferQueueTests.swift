@@ -39,7 +39,7 @@ struct FileTransferQueueTests {
     }
 
     @MainActor static func main() async throws {
-        let suite = "oneagent-file-queue-tests-" + UUID().uuidString
+        let suite = "natty-file-queue-tests-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let manager = FileManager.default

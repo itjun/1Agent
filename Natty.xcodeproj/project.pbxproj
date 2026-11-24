@@ -1,0 +1,1123 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		017F691C296366856C7B046E /* QuickCommandHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6178D530DED84FD37479C6E0 /* QuickCommandHistoryView.swift */; };
+		0210B1AD8AF6F8748E16D034 /* AppUpdateSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3FBAAD22EDF65B88F84C056 /* AppUpdateSettings.swift */; };
+		042A070C3664249A072B2607 /* WorkspacePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C254D419D3C23690E0AB80D /* WorkspacePresentation.swift */; };
+		0747DB6B3383115A2554208E /* LegacyDefaultsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EDF773F01EF05BC5F1642AE /* LegacyDefaultsMigration.swift */; };
+		0A14DB29F68C34622C793306 /* NattyIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = F03F3F46B8CBA4E3DD8DD821 /* NattyIcon.icon */; };
+		0AC147C4B6097646541552B1 /* Sparkle.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 2DCBCD4E582A47A0F38C6101 /* Sparkle.LICENSE.txt */; };
+		0AF2C2AC0F59B5DF1F5C893F /* natty-icon-rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 1F0CB846D22F89539E7730F8 /* natty-icon-rounded.png */; };
+		0BFD2AC8F437BCAF2A0B09D9 /* FamilyAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = D16D9347387F28FF1B524D13 /* FamilyAlert.swift */; };
+		0CC8E2586AA402C8ACF8DCB4 /* natty in Resources */ = {isa = PBXBuildFile; fileRef = C088AB2B49B5968A4E897391 /* natty */; };
+		0D23EB6A1A39C3D2726C853E /* FamilyControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = B123AA70814EBB92F874AD98 /* FamilyControls.swift */; };
+		0E4C3D038FB62FF65332F364 /* HostPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA6C4EE9C7C9A8AA4EEFFE6 /* HostPicker.swift */; };
+		0F0ACA647FBA434BE24B988B /* FileWorkspaceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95C36458DC670DCA8E48BBB2 /* FileWorkspaceState.swift */; };
+		0FDEF810C1C3F391F121D938 /* CommandFinishedPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A1C6710CB9C7C3E81BA1CA /* CommandFinishedPolicy.swift */; };
+		13A7FC0105DA5C1B0A43603A /* QuickCommandTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61C5FCF0B173B058E2740C9 /* QuickCommandTransfer.swift */; };
+		1590F5E1B64AB72FE49228AA /* FileTypeIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A15087ED4C800FB787C7935 /* FileTypeIcon.swift */; };
+		171FA53FBB532A9C89A582D2 /* TerminalPanelIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2548D57113F44625EE73921D /* TerminalPanelIcon.swift */; };
+		179D1AC1FDF829AF2B139339 /* SwiftCMark.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 6498AF8FF7F6F1F6FA15AB1E /* SwiftCMark.LICENSE.txt */; };
+		1AB34CD85C44F936F95EF9E6 /* GhosttyThemes in Resources */ = {isa = PBXBuildFile; fileRef = 01B330BB45D9F1BE26C955C1 /* GhosttyThemes */; };
+		1B0B667279164A08E91A858A /* SSHConfigurationResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4077D0DE8C90D905717E054 /* SSHConfigurationResolver.swift */; };
+		1F3A60F439736B1A4A60301A /* FilePreviewPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04334A6E8B48596C72927285 /* FilePreviewPane.swift */; };
+		219E2A169CC35161245988AF /* ghostty-source.svg in Resources */ = {isa = PBXBuildFile; fileRef = 0677F43F28DE073FF10050F0 /* ghostty-source.svg */; };
+		21AB0C474B2C9D2EDC76C7DE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0086A541C02BE1810E9A36BB /* SettingsView.swift */; };
+		235A610244D44C7306A22F46 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2CED1D66FF8472D67ED9B1 /* Theme.swift */; };
+		27C3ED82FAC9945C34A60D62 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E66224733F9B944D9376C21 /* ContentView.swift */; };
+		2C08A4A63B618C2A2A07D85E /* QuickCommandSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3301FA1C12F9DD77E6B8DB4D /* QuickCommandSidebar.swift */; };
+		2E3B6B151E2807ED59271F19 /* TerminalRestoration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232C3A0661F20329ADAE3CE7 /* TerminalRestoration.swift */; };
+		30C21B2B177D8B5FD56358BF /* SheetLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD689EDFBC8555BD4CBD8CEE /* SheetLayout.swift */; };
+		31267333B7FF29A09EA7163D /* TerminalProgram.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2937B02ABEB1DF48D8F8B340 /* TerminalProgram.swift */; };
+		3342F80E9CF3FD0B44F19E7F /* FileBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DE1EE330577534AF1AB45EC /* FileBrowserModel.swift */; };
+		348584DAF9BD8A8D75B0EF22 /* PinnedLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FE2E653B6ED9DA0238B1EC5 /* PinnedLocations.swift */; };
+		35BB880D784461CA451DDD53 /* QuickCommandCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDBF80EA35A14CE07F678223 /* QuickCommandCards.swift */; };
+		3765AA83192DE5F71C8FB537 /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 565B72A0341D3EC0D4ABF10F /* FileIcons-UPSTREAM-MIT-LICENSE.txt */; };
+		393544C2B7C6C715ADC86F08 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C6F6D212E8B526017D844A7 /* Assets.xcassets */; };
+		3C972CA0F757825EFBB1F6ED /* CommandLiteralEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A46E97410E93D1FFFCF8F7 /* CommandLiteralEditor.swift */; };
+		3D42EDA4A0A08EA662BEBF23 /* HostInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70E7976AF0B4B7A4C1D0AA15 /* HostInformationView.swift */; };
+		3E504832B5F249FA6171CC6F /* FileTransferQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23FA74FFA3B741B9810C27F4 /* FileTransferQueue.swift */; };
+		3F18CD0FDF5CDC31D0357EFF /* TerminalCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5020B9955D8BBD70213C7E /* TerminalCanvas.swift */; };
+		40FB121021FE0CA1D87BC1C8 /* NativeFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28CFF891E32D22AF24F6867B /* NativeFolderPicker.swift */; };
+		41FDD3DA9DCB063DC7C8979A /* UploadCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFDA7B46CCE103F62745F68 /* UploadCheck.swift */; };
+		42BD381AF45C59526833AFA7 /* QuickCommandPasteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F847EEC937F981DF27F59EF0 /* QuickCommandPasteView.swift */; };
+		435F49A04B8EC58B311E4EFF /* TextFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9569BC7721D137DADA46A66 /* TextFile.swift */; };
+		440A446F024A33E83F377FAB /* PreviewSyntax.js in Resources */ = {isa = PBXBuildFile; fileRef = DF281D52FCDE67CC767C8690 /* PreviewSyntax.js */; };
+		443EFB458604FF8523F68ECD /* WorkspaceToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30AD25CE94E6CCDBCB9A7303 /* WorkspaceToolbar.swift */; };
+		4522A829651077E2E11CD2C9 /* TerminalAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3285BD1999CC6F66308928 /* TerminalAutomation.swift */; };
+		452E6E73972F652120DA4D32 /* TerminalOutputStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF736A1BD720142FC5D5FD2 /* TerminalOutputStore.swift */; };
+		4655DD9CC70A891AC0887A26 /* WorkspaceActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59E223C84D21657E067C888 /* WorkspaceActions.swift */; };
+		467CDC4D6DCCDB645A8CEE29 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248902534CF933C768D9B3C3 /* ServiceProvider.swift */; };
+		4745A1A1EA211CA8A79C2ABA /* Debug.entitlements in Resources */ = {isa = PBXBuildFile; fileRef = A0FAD9CECBE185FA218D8D88 /* Debug.entitlements */; };
+		489215DACBA607DC1AD48117 /* PreviewSyntax.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = C82878ACF9932EFD40210EC2 /* PreviewSyntax.LICENSE.txt */; };
+		48A0DC3EFABA09BE020BE2A9 /* MainWindowFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 136999A2612E270AA272344E /* MainWindowFrame.swift */; };
+		48D2731A51889CE14374DE21 /* QuickCommandLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9371A538294D02A3BBEB25A1 /* QuickCommandLibraryView.swift */; };
+		49F53638DF4881003D9A45E3 /* WindowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00867729E96449AE7944C94D /* WindowState.swift */; };
+		4A2C1431E3EA9A4898449290 /* WorkspaceExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16980F84CDA5E7022724A53E /* WorkspaceExternalOpen.swift */; };
+		4A4C17696E644FDC02EF4BBF /* AppNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E32FF52789DFEBE798D08A /* AppNotification.swift */; };
+		4B036E0A5AA0DF99C348695A /* ExternalOpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95F36311F7F468E8A0D7C206 /* ExternalOpen.swift */; };
+		4E22763C9D3F2FBB15A1A7FC /* TextPreviewDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2CA6F567FB5F255A66E1279 /* TextPreviewDrawer.swift */; };
+		4EBB55B175DF63E74B51CCD6 /* ghostty-source.png in Resources */ = {isa = PBXBuildFile; fileRef = 99C819F3D7638C01B4978339 /* ghostty-source.png */; };
+		54BCF36945BCAFEA57D6C1B6 /* WindowAtmosphere.png in Resources */ = {isa = PBXBuildFile; fileRef = 23B089FD7CEB1BEEE175EACE /* WindowAtmosphere.png */; };
+		54F9E3E9CC766E6BE75A9F0F /* RemoteShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26E19308F101249E15F04D85 /* RemoteShell.swift */; };
+		562A64ED32BAB03DA5F0A10A /* FileIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 44D49146480EFFC5AA0A1AFB /* FileIcons.xcassets */; };
+		58A90387FA7332B267C938C5 /* TerminalEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F47C849228B2288B46A819 /* TerminalEvents.swift */; };
+		59496A851F63311F5C09D322 /* PreviewSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BEDA78B0A4D0F6A4D44F39 /* PreviewSyntax.swift */; };
+		5A2141140E06CA5192D7979C /* ApplicationIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208FFE2AD36EB117CB4AB850 /* ApplicationIcon.swift */; };
+		5AB1080B6352E506244824A5 /* WindowTitleSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1712F71CB458B7F69E543F9 /* WindowTitleSync.swift */; };
+		5B4D28BC2F9ECA4A3F15205A /* ShellEscape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8DD51913404FB18B83F3B2 /* ShellEscape.swift */; };
+		5F23A5E67E58140575F53A13 /* SSHLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F78F5F9985328420D76902B2 /* SSHLaunch.swift */; };
+		62126587C9AB69B92149C180 /* NetworkRecoveryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD16BAF23F92082FBD651194 /* NetworkRecoveryMonitor.swift */; };
+		626016B9715F1C443058D903 /* FilePreviewEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B59480CF4C103D182830F75 /* FilePreviewEditor.swift */; };
+		6387AF34335E4A8E8B8924BF /* SSHConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EE723B303C9058A6CE300FF /* SSHConfig.swift */; };
+		63A8B97D2BDAB983426BD104 /* QuickCommandPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9A7F040F861851955E91F68 /* QuickCommandPreview.swift */; };
+		64DF3848E34679862B86B27A /* NattyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C5F1071B905E743824BE4C2 /* NattyApp.swift */; };
+		65F8DE9F3B0AFF99BB8A6F3E /* FileTabDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05BB20C1D2943A825D5B112 /* FileTabDrag.swift */; };
+		66D75F80A6BFBBF6AEEB7F1E /* macaron-original-mark.png in Resources */ = {isa = PBXBuildFile; fileRef = 50C011D34474D1E4198E2D3E /* macaron-original-mark.png */; };
+		6BD796BFA8C782AAAC82CA82 /* WindowDragArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3511ECECB32F58816662D4E /* WindowDragArea.swift */; };
+		6D0D5D9750BD0974CA0E7515 /* SymbolsNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5A7A3768A98AF189B91D6DA8 /* SymbolsNerdFont-LICENSE.txt */; };
+		6DC66901D8465B93527FC7A2 /* TerminalProgramIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F1A630E35F74FDC66032E3 /* TerminalProgramIcon.swift */; };
+		6F64DA843737DCE60753C44E /* ProgramIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 28DAD5836387AB13CB44712A /* ProgramIcons.xcassets */; };
+		74FE1D93646C5E9198809B3D /* WorkspaceGit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B44D4A62EE330FA3627DBF53 /* WorkspaceGit.swift */; };
+		7562E8CB239832C149139EB4 /* SidebarActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9269123C604BAC1FA5C1289 /* SidebarActions.swift */; };
+		75F0B3F286A709CA550A01A7 /* QuickCommandStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 268DFD89F114B1196E5B21CB /* QuickCommandStore.swift */; };
+		763E866010FE8298B7D82C6F /* FocusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F88E6DA3828348DCE1817EA /* FocusRing.swift */; };
+		76B0DB145FB00205B9AA6583 /* RemoteShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07FF64CEF33DA66411E4AF05 /* RemoteShellIntegration.swift */; };
+		77EC4B9C16B31B2B1C06F0B7 /* DropZoneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71ED6276BF85A33B534849B6 /* DropZoneLayout.swift */; };
+		792AA8C54D51C8F011ABADD8 /* DropZones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5019ED7329F39C0D4288563C /* DropZones.swift */; };
+		7C7EB388117EC8D44213C4BB /* FileSafety.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB83C2C680E7A00BFA260637 /* FileSafety.swift */; };
+		7E9B5AF64889D72190EF58E2 /* QuickCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82D1BD2C3C58B1E66A9E8617 /* QuickCommand.swift */; };
+		847A697A8010B74332114801 /* TerminalPlatformIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA576C7AEC95C6E9477085F7 /* TerminalPlatformIntegration.swift */; };
+		84AA2B735791B4AB55C2B8CA /* TerminalCommandLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0535CED51F46CCF6A4F0CBF3 /* TerminalCommandLine.swift */; };
+		87399565FE88F2E9D083EE21 /* TerminalThemes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F767B7FE75A27DB8E38E25 /* TerminalThemes.swift */; };
+		8758D9EA14BF88DF7E84339D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 82EA13EB1D3C3A919C37AF77 /* Localizable.xcstrings */; };
+		8803CA34FD702C17B9B03580 /* WorkspaceToolSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C639A178609DF988541B3E59 /* WorkspaceToolSidebar.swift */; };
+		890A941F15E65671BBE1F133 /* DragDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534F76CC1238E5236F0F1C1A /* DragDrop.swift */; };
+		89901F377405944133314F86 /* TerminalAssociations.swift in Sources */ = {isa = PBXBuildFile; fileRef = D592CC5714316C847E83E87D /* TerminalAssociations.swift */; };
+		89E02D8DCB78DBD450CE2E70 /* LocalCommandBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ECDAAA12BD684EFAD7D7981 /* LocalCommandBridge.swift */; };
+		8A7F734FB8D0A65FF2A7097A /* TerminalDark.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = 2CFD23706AAF6B4E2243C1DF /* TerminalDark.ghostty */; };
+		8CF136F2810181B48184E75F /* QuickCommandActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF06ACC377AFC4FAB9BDAD8 /* QuickCommandActions.swift */; };
+		8DD4D731D6F9AFAE36D5348E /* ProgramIcons-UPSTREAM-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 3215047C3AC3CD783DDF9F08 /* ProgramIcons-UPSTREAM-LICENSE.txt */; };
+		8DE720A544DB2CF8395CA9DC /* GhosttyConfigImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FACC1E4C0979BC92222AD26 /* GhosttyConfigImport.swift */; };
+		8F1DA4731E9D36AA8F57FC9F /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E54569B7A75B27E3517C87B2 /* AppModel.swift */; };
+		8F6B2C73265D1F213B899117 /* natty-icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7557D86F06F2D50CA6B6E34C /* natty-icon.svg */; };
+		90F4858C4080E1AE98C878A4 /* GhosttyConfigImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA823FA4B6776C192EBF454A /* GhosttyConfigImporter.swift */; };
+		91B78383D7668BA731A50AE3 /* NativeTextPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A5ED3C840383317AB04261 /* NativeTextPreview.swift */; };
+		9528998362455191D1A03747 /* FileRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11745F38F638322E0F6F067 /* FileRules.swift */; };
+		965BDBA256DCE7AA52E8FCD5 /* SidebarMenus.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AFDEA929702C30296DB091 /* SidebarMenus.swift */; };
+		98BF8A010ECBBF8CA448F3DA /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC2F120781C30BF205F10CD /* FileBrowserView.swift */; };
+		9A221E9DA69EC571A70DBB2A /* Natty.sdef in Resources */ = {isa = PBXBuildFile; fileRef = 094DB651573D7CEF25DBFC0A /* Natty.sdef */; };
+		9B09D14B90BA86C04457BCF6 /* TerminalFind.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AFD85172BAF5B6E89A2120 /* TerminalFind.swift */; };
+		9CA8B1CDCE50E23C94418B27 /* RemoteCommandBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F535BFB1ABD57BFA874D6A3 /* RemoteCommandBridge.swift */; };
+		A43DA9DF59A14899ED6AB6B0 /* AppUpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A744D74CB0E16700BC3D763 /* AppUpdateController.swift */; };
+		A6FD563BBFE713CF9434E3A6 /* TerminalCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68CE9A1568CDFF8C05AC03A7 /* TerminalCommands.swift */; };
+		A7253A849EE0B1D659E3A3D8 /* TerminalSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C25EB98330C462417FBD6B9 /* TerminalSettingsPage.swift */; };
+		A80C3A6ABFDC79B7FC66BE1F /* AppUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D4C5922208D8407DC7C6192 /* AppUpdate.swift */; };
+		AF70A0CBF621AE5E51DDCB12 /* cmark-gfm-extensions in Frameworks */ = {isa = PBXBuildFile; productRef = F02533ED46F0C4C260A58BF0 /* cmark-gfm-extensions */; };
+		B06D5785BE2F5983A865D906 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 151FC145C1FAD436293C54CE /* Sparkle */; };
+		B0B6F6A8FDA91B42CF3758F8 /* FileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B28E54C4D4697AE21C77A2 /* FileTransfer.swift */; };
+		B1105749A96C163D8DB41235 /* natty-icon-1024.png in Resources */ = {isa = PBXBuildFile; fileRef = 4016C21A1D8AC03BB4625275 /* natty-icon-1024.png */; };
+		B1FC07ACBEB4DB8BEEC4EBF4 /* DropTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31B8B54F74CE77E4F963C95 /* DropTransfer.swift */; };
+		B5C6023D19C96AF1A28D38EB /* QuickCommandDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DA8DEC65E2D588F8EF51437 /* QuickCommandDrag.swift */; };
+		BA5E32687EE8D62DE8166C06 /* CommandBridgeSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6CB5E65CB644BD8F6C50D0C /* CommandBridgeSocket.swift */; };
+		BAC06F0448110E996A5E9756 /* QuickCommandHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8FF5ACD983A9E3C0A3BDCC2 /* QuickCommandHistory.swift */; };
+		BD7C600FDEE541B4E12C0145 /* ScriptingReplyBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 6242468EE8B6E931751259D2 /* ScriptingReplyBridge.m */; };
+		BEB9850441F68F64746D4805 /* TerminalPaneActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5E9E9E3353F120EC867CC5 /* TerminalPaneActions.swift */; };
+		BFA3DC5997DB53A3D3C9CF99 /* NativeSidebarSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D419979EE250F7B0A265A3DD /* NativeSidebarSplit.swift */; };
+		C0048EF252FB4296ED69C1CB /* AdvancedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1D8B44728A7F47DB56FC4B /* AdvancedSettingsView.swift */; };
+		C04EABCD0300BAB52D01E37D /* PinnedLocationsSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4330F86F670C54937481BDED /* PinnedLocationsSidebar.swift */; };
+		C0D6CF1ADB19E4B78C893E5C /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5845D01F2FCBD5215CF67BCB /* PaneLayout.swift */; };
+		C155ABD92A9EEFA5B9578F1C /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E27F4CAA1FF0E20707EAC3 /* AppLanguage.swift */; };
+		C203C1D08B694AD15437DCAE /* DocumentPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9EF4CB2EBDC79CDA936DEE6 /* DocumentPreview.swift */; };
+		C274E75CD2FE603111586113 /* FileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335543A19A0C22CCEE8AE025 /* FileSystem.swift */; };
+		C2A6481F9DAF2F923A26AF82 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7420C1349E9A8A3B2D10580 /* TerminalView.swift */; };
+		C4EDFB1C81DA7458647D34CA /* shell-integration in Resources */ = {isa = PBXBuildFile; fileRef = 89356C18976F818276B91F3F /* shell-integration */; };
+		C5C0D5BEDCAA809EA3E98DC3 /* QuickCommandRemoteFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8943287509CA5F5F672B063E /* QuickCommandRemoteFolderPicker.swift */; };
+		C5DCEE3A953B80BF8906DC32 /* ApplicationIcons in Resources */ = {isa = PBXBuildFile; fileRef = F90C7DF2582141099000BD17 /* ApplicationIcons */; };
+		C68231640F7B31F2FAFB593F /* FamilyMenuControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A5575A9C20444828D3294A0 /* FamilyMenuControls.swift */; };
+		C8EF51C8FB7C9BA854FAD01A /* PinnedLocationDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3136752E460A43C966CA0C4 /* PinnedLocationDrag.swift */; };
+		C909158C78FF143916A4E50A /* FamilyMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635720F0FC0D9101056C1087 /* FamilyMenu.swift */; };
+		C99F0B8D1E50966B83CA4C3D /* TerminalLight.ghostty in Resources */ = {isa = PBXBuildFile; fileRef = 53465AC9B7D6A4D6E28533E6 /* TerminalLight.ghostty */; };
+		CD0BA0C07921C41460855166 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7FCD550557FDCAB89FBB1AA /* KeyboardShortcuts.swift */; };
+		CD247C0EC3B43FE5FB5EF6F4 /* SystemIntegrationSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16500407CABE2686B7A57F9C /* SystemIntegrationSettingsPage.swift */; };
+		CF1BA8993BB0C15CF209ABC6 /* ShortcutsSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F3DC4EE753C244D8A50BBF5 /* ShortcutsSettingsPage.swift */; };
+		CF633F076E9989018394F00F /* TerminalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524A89D18350424126D53365 /* TerminalSettings.swift */; };
+		D50958DC5AAA53FBBC73A6DC /* FileIconCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = FE37D00659B19F7473B22C94 /* FileIconCatalog.json */; };
+		D51053662867C73B91ACC9D0 /* FilePreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56B4A67D08B6DABE53191D85 /* FilePreviewPolicy.swift */; };
+		DA4AD5AF2DEE81F9013E52C3 /* QuickCommandSidebarExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F99FD4930ED08D8202EBF50 /* QuickCommandSidebarExecution.swift */; };
+		E2C2C3AFDAFB8CC304575966 /* TerminalThemeSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32ACF556E964C45A687933D5 /* TerminalThemeSettingsPage.swift */; };
+		E30D7D476EDB922D0438CD2E /* WorkspaceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005FE3013292CE08BDA3D7D6 /* WorkspaceBoard.swift */; };
+		E689E65E37829887729977E6 /* TerminalThemeCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31DE144A00684D859DD62234 /* TerminalThemeCatalog.swift */; };
+		EA58F76714063ED6E47D0DF1 /* ShellStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D236AA4F3CE4DA1B8C5F04 /* ShellStyle.swift */; };
+		ED42F9DB766855ECCA644F29 /* SymbolsNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0C9165C9277B3298C5BD3B0 /* SymbolsNerdFontMono-Regular.ttf */; };
+		ED605B7D094440121B412F50 /* TerminalProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB4A0E6A772B68C9AAD74DAF /* TerminalProcess.swift */; };
+		ED633ACAC7EB2FB38EB26213 /* QuickCommandDialogs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97676118ACDC1F1009F06F5B /* QuickCommandDialogs.swift */; };
+		ED6C23A54D3235BC930FDBB8 /* FilesWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE8E8925F35FD0A058B22B0B /* FilesWorkspaceView.swift */; };
+		EF05551B06841E3891B2AD4F /* ShellIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2470E16F11683602F13B08A1 /* ShellIntegration.swift */; };
+		EFEE3D6D88CEEA4027689E0D /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E59278767E10FA5F8132B94 /* PaneContent.swift */; };
+		F21CD82532F8C5134139552C /* TerminalConnectionNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAF997C97DC4E19DB8D6295 /* TerminalConnectionNotice.swift */; };
+		F22437C7E16DC862FAF95043 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 9B03F52D9492312DC24E1880 /* GhosttyTerminal */; };
+		F6C0D341ACD54B521A85AB2C /* FileIcons-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B5C7319F06010D229C09D7C3 /* FileIcons-NOTICE.txt */; };
+		FB554798EA8786043345B3B9 /* TerminalSessionConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4566769DC901AB90F9B046 /* TerminalSessionConnection.swift */; };
+		FD5ED0C6044E835580D18D1D /* FamilyModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB56CA03261810011913F62A /* FamilyModal.swift */; };
+		FED394C67B38BE782E6091BB /* TransferToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731B28910CE9ADF305CA7F68 /* TransferToast.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		005FE3013292CE08BDA3D7D6 /* WorkspaceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBoard.swift; sourceTree = "<group>"; };
+		00867729E96449AE7944C94D /* WindowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowState.swift; sourceTree = "<group>"; };
+		0086A541C02BE1810E9A36BB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		016537C71584B3F5D11EF8E5 /* Natty-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Natty-Bridging-Header.h"; sourceTree = "<group>"; };
+		01B330BB45D9F1BE26C955C1 /* GhosttyThemes */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GhosttyThemes; path = Resources/GhosttyThemes; sourceTree = SOURCE_ROOT; };
+		04334A6E8B48596C72927285 /* FilePreviewPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewPane.swift; sourceTree = "<group>"; };
+		0535CED51F46CCF6A4F0CBF3 /* TerminalCommandLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommandLine.swift; sourceTree = "<group>"; };
+		0677F43F28DE073FF10050F0 /* ghostty-source.svg */ = {isa = PBXFileReference; path = "ghostty-source.svg"; sourceTree = "<group>"; };
+		06D9B473AE554F193000FAAE /* ScriptingReplyBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ScriptingReplyBridge.h; sourceTree = "<group>"; };
+		07FF64CEF33DA66411E4AF05 /* RemoteShellIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShellIntegration.swift; sourceTree = "<group>"; };
+		094DB651573D7CEF25DBFC0A /* Natty.sdef */ = {isa = PBXFileReference; path = Natty.sdef; sourceTree = "<group>"; };
+		0BFDA7B46CCE103F62745F68 /* UploadCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadCheck.swift; sourceTree = "<group>"; };
+		0C6F6D212E8B526017D844A7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0E59278767E10FA5F8132B94 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
+		0EE723B303C9058A6CE300FF /* SSHConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfig.swift; sourceTree = "<group>"; };
+		0F3DC4EE753C244D8A50BBF5 /* ShortcutsSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettingsPage.swift; sourceTree = "<group>"; };
+		12A5ED3C840383317AB04261 /* NativeTextPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTextPreview.swift; sourceTree = "<group>"; };
+		136999A2612E270AA272344E /* MainWindowFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowFrame.swift; sourceTree = "<group>"; };
+		13C615FF2E9601298F640EA1 /* Natty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Natty.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		16500407CABE2686B7A57F9C /* SystemIntegrationSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemIntegrationSettingsPage.swift; sourceTree = "<group>"; };
+		16980F84CDA5E7022724A53E /* WorkspaceExternalOpen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceExternalOpen.swift; sourceTree = "<group>"; };
+		1C5E9E9E3353F120EC867CC5 /* TerminalPaneActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPaneActions.swift; sourceTree = "<group>"; };
+		1CA6C4EE9C7C9A8AA4EEFFE6 /* HostPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPicker.swift; sourceTree = "<group>"; };
+		1CAF997C97DC4E19DB8D6295 /* TerminalConnectionNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConnectionNotice.swift; sourceTree = "<group>"; };
+		1E66224733F9B944D9376C21 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1EDF773F01EF05BC5F1642AE /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyDefaultsMigration.swift; sourceTree = "<group>"; };
+		1F0CB846D22F89539E7730F8 /* natty-icon-rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "natty-icon-rounded.png"; sourceTree = "<group>"; };
+		208FFE2AD36EB117CB4AB850 /* ApplicationIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationIcon.swift; sourceTree = "<group>"; };
+		232C3A0661F20329ADAE3CE7 /* TerminalRestoration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRestoration.swift; sourceTree = "<group>"; };
+		23B089FD7CEB1BEEE175EACE /* WindowAtmosphere.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = WindowAtmosphere.png; sourceTree = "<group>"; };
+		23FA74FFA3B741B9810C27F4 /* FileTransferQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransferQueue.swift; sourceTree = "<group>"; };
+		2470E16F11683602F13B08A1 /* ShellIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellIntegration.swift; sourceTree = "<group>"; };
+		248902534CF933C768D9B3C3 /* ServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProvider.swift; sourceTree = "<group>"; };
+		2548D57113F44625EE73921D /* TerminalPanelIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPanelIcon.swift; sourceTree = "<group>"; };
+		268DFD89F114B1196E5B21CB /* QuickCommandStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandStore.swift; sourceTree = "<group>"; };
+		26E19308F101249E15F04D85 /* RemoteShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteShell.swift; sourceTree = "<group>"; };
+		28CFF891E32D22AF24F6867B /* NativeFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFolderPicker.swift; sourceTree = "<group>"; };
+		28DAD5836387AB13CB44712A /* ProgramIcons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = ProgramIcons.xcassets; sourceTree = "<group>"; };
+		2937B02ABEB1DF48D8F8B340 /* TerminalProgram.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProgram.swift; sourceTree = "<group>"; };
+		293F6A6F26EAAC899019A346 /* libghostty-spm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "libghostty-spm"; path = "Vendor/libghostty-spm"; sourceTree = SOURCE_ROOT; };
+		2C8DD51913404FB18B83F3B2 /* ShellEscape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEscape.swift; sourceTree = "<group>"; };
+		2CFD23706AAF6B4E2243C1DF /* TerminalDark.ghostty */ = {isa = PBXFileReference; path = TerminalDark.ghostty; sourceTree = "<group>"; };
+		2DCBCD4E582A47A0F38C6101 /* Sparkle.LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Sparkle.LICENSE.txt; sourceTree = "<group>"; };
+		2F99FD4930ED08D8202EBF50 /* QuickCommandSidebarExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandSidebarExecution.swift; sourceTree = "<group>"; };
+		2FACC1E4C0979BC92222AD26 /* GhosttyConfigImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImport.swift; sourceTree = "<group>"; };
+		30AD25CE94E6CCDBCB9A7303 /* WorkspaceToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceToolbar.swift; sourceTree = "<group>"; };
+		31DE144A00684D859DD62234 /* TerminalThemeCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalThemeCatalog.swift; sourceTree = "<group>"; };
+		3215047C3AC3CD783DDF9F08 /* ProgramIcons-UPSTREAM-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ProgramIcons-UPSTREAM-LICENSE.txt"; sourceTree = "<group>"; };
+		32ACF556E964C45A687933D5 /* TerminalThemeSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalThemeSettingsPage.swift; sourceTree = "<group>"; };
+		3301FA1C12F9DD77E6B8DB4D /* QuickCommandSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandSidebar.swift; sourceTree = "<group>"; };
+		335543A19A0C22CCEE8AE025 /* FileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystem.swift; sourceTree = "<group>"; };
+		33BEDA78B0A4D0F6A4D44F39 /* PreviewSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSyntax.swift; sourceTree = "<group>"; };
+		36F1A630E35F74FDC66032E3 /* TerminalProgramIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProgramIcon.swift; sourceTree = "<group>"; };
+		3D4C5922208D8407DC7C6192 /* AppUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdate.swift; sourceTree = "<group>"; };
+		3F1D8B44728A7F47DB56FC4B /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsView.swift; sourceTree = "<group>"; };
+		4016C21A1D8AC03BB4625275 /* natty-icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "natty-icon-1024.png"; sourceTree = "<group>"; };
+		4330F86F670C54937481BDED /* PinnedLocationsSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationsSidebar.swift; sourceTree = "<group>"; };
+		44D49146480EFFC5AA0A1AFB /* FileIcons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = FileIcons.xcassets; sourceTree = "<group>"; };
+		4A15087ED4C800FB787C7935 /* FileTypeIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTypeIcon.swift; sourceTree = "<group>"; };
+		4A744D74CB0E16700BC3D763 /* AppUpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateController.swift; sourceTree = "<group>"; };
+		5019ED7329F39C0D4288563C /* DropZones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZones.swift; sourceTree = "<group>"; };
+		50C011D34474D1E4198E2D3E /* macaron-original-mark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "macaron-original-mark.png"; sourceTree = "<group>"; };
+		524A89D18350424126D53365 /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
+		53465AC9B7D6A4D6E28533E6 /* TerminalLight.ghostty */ = {isa = PBXFileReference; path = TerminalLight.ghostty; sourceTree = "<group>"; };
+		534F76CC1238E5236F0F1C1A /* DragDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragDrop.swift; sourceTree = "<group>"; };
+		565B72A0341D3EC0D4ABF10F /* FileIcons-UPSTREAM-MIT-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-UPSTREAM-MIT-LICENSE.txt"; sourceTree = "<group>"; };
+		56B4A67D08B6DABE53191D85 /* FilePreviewPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewPolicy.swift; sourceTree = "<group>"; };
+		5845D01F2FCBD5215CF67BCB /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
+		5A7A3768A98AF189B91D6DA8 /* SymbolsNerdFont-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SymbolsNerdFont-LICENSE.txt"; sourceTree = "<group>"; };
+		5ECDAAA12BD684EFAD7D7981 /* LocalCommandBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCommandBridge.swift; sourceTree = "<group>"; };
+		6178D530DED84FD37479C6E0 /* QuickCommandHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistoryView.swift; sourceTree = "<group>"; };
+		6242468EE8B6E931751259D2 /* ScriptingReplyBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ScriptingReplyBridge.m; sourceTree = "<group>"; };
+		635720F0FC0D9101056C1087 /* FamilyMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenu.swift; sourceTree = "<group>"; };
+		6498AF8FF7F6F1F6FA15AB1E /* SwiftCMark.LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SwiftCMark.LICENSE.txt; sourceTree = "<group>"; };
+		68CE9A1568CDFF8C05AC03A7 /* TerminalCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommands.swift; sourceTree = "<group>"; };
+		6F535BFB1ABD57BFA874D6A3 /* RemoteCommandBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCommandBridge.swift; sourceTree = "<group>"; };
+		70E7976AF0B4B7A4C1D0AA15 /* HostInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostInformationView.swift; sourceTree = "<group>"; };
+		71ED6276BF85A33B534849B6 /* DropZoneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropZoneLayout.swift; sourceTree = "<group>"; };
+		731B28910CE9ADF305CA7F68 /* TransferToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferToast.swift; sourceTree = "<group>"; };
+		7557D86F06F2D50CA6B6E34C /* natty-icon.svg */ = {isa = PBXFileReference; path = "natty-icon.svg"; sourceTree = "<group>"; };
+		76D236AA4F3CE4DA1B8C5F04 /* ShellStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellStyle.swift; sourceTree = "<group>"; };
+		79E27F4CAA1FF0E20707EAC3 /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
+		7A5575A9C20444828D3294A0 /* FamilyMenuControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyMenuControls.swift; sourceTree = "<group>"; };
+		7C5F1071B905E743824BE4C2 /* NattyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NattyApp.swift; sourceTree = "<group>"; };
+		7F5020B9955D8BBD70213C7E /* TerminalCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCanvas.swift; sourceTree = "<group>"; };
+		7F88E6DA3828348DCE1817EA /* FocusRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusRing.swift; sourceTree = "<group>"; };
+		82D1BD2C3C58B1E66A9E8617 /* QuickCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommand.swift; sourceTree = "<group>"; };
+		82EA13EB1D3C3A919C37AF77 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		86F767B7FE75A27DB8E38E25 /* TerminalThemes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalThemes.swift; sourceTree = "<group>"; };
+		89356C18976F818276B91F3F /* shell-integration */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "shell-integration"; path = "Resources/shell-integration"; sourceTree = SOURCE_ROOT; };
+		8943287509CA5F5F672B063E /* QuickCommandRemoteFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandRemoteFolderPicker.swift; sourceTree = "<group>"; };
+		8B59480CF4C103D182830F75 /* FilePreviewEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewEditor.swift; sourceTree = "<group>"; };
+		8BC2F120781C30BF205F10CD /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
+		8C254D419D3C23690E0AB80D /* WorkspacePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePresentation.swift; sourceTree = "<group>"; };
+		8C25EB98330C462417FBD6B9 /* TerminalSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsPage.swift; sourceTree = "<group>"; };
+		8DA8DEC65E2D588F8EF51437 /* QuickCommandDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandDrag.swift; sourceTree = "<group>"; };
+		8DE1EE330577534AF1AB45EC /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
+		8FE2E653B6ED9DA0238B1EC5 /* PinnedLocations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocations.swift; sourceTree = "<group>"; };
+		9371A538294D02A3BBEB25A1 /* QuickCommandLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandLibraryView.swift; sourceTree = "<group>"; };
+		95C36458DC670DCA8E48BBB2 /* FileWorkspaceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWorkspaceState.swift; sourceTree = "<group>"; };
+		95F36311F7F468E8A0D7C206 /* ExternalOpen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalOpen.swift; sourceTree = "<group>"; };
+		97676118ACDC1F1009F06F5B /* QuickCommandDialogs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandDialogs.swift; sourceTree = "<group>"; };
+		99C819F3D7638C01B4978339 /* ghostty-source.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ghostty-source.png"; sourceTree = "<group>"; };
+		A0FAD9CECBE185FA218D8D88 /* Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Debug.entitlements; sourceTree = "<group>"; };
+		A2CA6F567FB5F255A66E1279 /* TextPreviewDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewDrawer.swift; sourceTree = "<group>"; };
+		A3511ECECB32F58816662D4E /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
+		A3A1C6710CB9C7C3E81BA1CA /* CommandFinishedPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandFinishedPolicy.swift; sourceTree = "<group>"; };
+		A6CB5E65CB644BD8F6C50D0C /* CommandBridgeSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandBridgeSocket.swift; sourceTree = "<group>"; };
+		A9EF4CB2EBDC79CDA936DEE6 /* DocumentPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPreview.swift; sourceTree = "<group>"; };
+		AB83C2C680E7A00BFA260637 /* FileSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSafety.swift; sourceTree = "<group>"; };
+		AD689EDFBC8555BD4CBD8CEE /* SheetLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLayout.swift; sourceTree = "<group>"; };
+		AF3285BD1999CC6F66308928 /* TerminalAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAutomation.swift; sourceTree = "<group>"; };
+		B123AA70814EBB92F874AD98 /* FamilyControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyControls.swift; sourceTree = "<group>"; };
+		B1712F71CB458B7F69E543F9 /* WindowTitleSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowTitleSync.swift; sourceTree = "<group>"; };
+		B3FBAAD22EDF65B88F84C056 /* AppUpdateSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateSettings.swift; sourceTree = "<group>"; };
+		B44D4A62EE330FA3627DBF53 /* WorkspaceGit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceGit.swift; sourceTree = "<group>"; };
+		B5C7319F06010D229C09D7C3 /* FileIcons-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FileIcons-NOTICE.txt"; sourceTree = "<group>"; };
+		B8F47C849228B2288B46A819 /* TerminalEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalEvents.swift; sourceTree = "<group>"; };
+		B8FF5ACD983A9E3C0A3BDCC2 /* QuickCommandHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandHistory.swift; sourceTree = "<group>"; };
+		BB4566769DC901AB90F9B046 /* TerminalSessionConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionConnection.swift; sourceTree = "<group>"; };
+		C088AB2B49B5968A4E897391 /* natty */ = {isa = PBXFileReference; path = natty; sourceTree = "<group>"; };
+		C639A178609DF988541B3E59 /* WorkspaceToolSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceToolSidebar.swift; sourceTree = "<group>"; };
+		C7E32FF52789DFEBE798D08A /* AppNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotification.swift; sourceTree = "<group>"; };
+		C7FCD550557FDCAB89FBB1AA /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
+		C82878ACF9932EFD40210EC2 /* PreviewSyntax.LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = PreviewSyntax.LICENSE.txt; sourceTree = "<group>"; };
+		C9569BC7721D137DADA46A66 /* TextFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFile.swift; sourceTree = "<group>"; };
+		C9A7F040F861851955E91F68 /* QuickCommandPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandPreview.swift; sourceTree = "<group>"; };
+		CA576C7AEC95C6E9477085F7 /* TerminalPlatformIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPlatformIntegration.swift; sourceTree = "<group>"; };
+		CDBF80EA35A14CE07F678223 /* QuickCommandCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandCards.swift; sourceTree = "<group>"; };
+		CE8E8925F35FD0A058B22B0B /* FilesWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesWorkspaceView.swift; sourceTree = "<group>"; };
+		D05BB20C1D2943A825D5B112 /* FileTabDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTabDrag.swift; sourceTree = "<group>"; };
+		D16D9347387F28FF1B524D13 /* FamilyAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyAlert.swift; sourceTree = "<group>"; };
+		D31B8B54F74CE77E4F963C95 /* DropTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropTransfer.swift; sourceTree = "<group>"; };
+		D4077D0DE8C90D905717E054 /* SSHConfigurationResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigurationResolver.swift; sourceTree = "<group>"; };
+		D419979EE250F7B0A265A3DD /* NativeSidebarSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSidebarSplit.swift; sourceTree = "<group>"; };
+		D592CC5714316C847E83E87D /* TerminalAssociations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAssociations.swift; sourceTree = "<group>"; };
+		D61C5FCF0B173B058E2740C9 /* QuickCommandTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandTransfer.swift; sourceTree = "<group>"; };
+		D7420C1349E9A8A3B2D10580 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
+		D9269123C604BAC1FA5C1289 /* SidebarActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarActions.swift; sourceTree = "<group>"; };
+		DD16BAF23F92082FBD651194 /* NetworkRecoveryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkRecoveryMonitor.swift; sourceTree = "<group>"; };
+		DF281D52FCDE67CC767C8690 /* PreviewSyntax.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = PreviewSyntax.js; sourceTree = "<group>"; };
+		E0A46E97410E93D1FFFCF8F7 /* CommandLiteralEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLiteralEditor.swift; sourceTree = "<group>"; };
+		E0AFD85172BAF5B6E89A2120 /* TerminalFind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFind.swift; sourceTree = "<group>"; };
+		E2B28E54C4D4697AE21C77A2 /* FileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTransfer.swift; sourceTree = "<group>"; };
+		E54569B7A75B27E3517C87B2 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		EA823FA4B6776C192EBF454A /* GhosttyConfigImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigImporter.swift; sourceTree = "<group>"; };
+		ECF06ACC377AFC4FAB9BDAD8 /* QuickCommandActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandActions.swift; sourceTree = "<group>"; };
+		EEF736A1BD720142FC5D5FD2 /* TerminalOutputStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalOutputStore.swift; sourceTree = "<group>"; };
+		F03F3F46B8CBA4E3DD8DD821 /* NattyIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = NattyIcon.icon; sourceTree = "<group>"; };
+		F0A47C2B4925369AFA79AE5D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F0C9165C9277B3298C5BD3B0 /* SymbolsNerdFontMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SymbolsNerdFontMono-Regular.ttf"; sourceTree = "<group>"; };
+		F11745F38F638322E0F6F067 /* FileRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRules.swift; sourceTree = "<group>"; };
+		F3136752E460A43C966CA0C4 /* PinnedLocationDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedLocationDrag.swift; sourceTree = "<group>"; };
+		F4AFDEA929702C30296DB091 /* SidebarMenus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMenus.swift; sourceTree = "<group>"; };
+		F59E223C84D21657E067C888 /* WorkspaceActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceActions.swift; sourceTree = "<group>"; };
+		F78F5F9985328420D76902B2 /* SSHLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLaunch.swift; sourceTree = "<group>"; };
+		F847EEC937F981DF27F59EF0 /* QuickCommandPasteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCommandPasteView.swift; sourceTree = "<group>"; };
+		F90C7DF2582141099000BD17 /* ApplicationIcons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ApplicationIcons; path = Resources/ApplicationIcons; sourceTree = SOURCE_ROOT; };
+		FB2CED1D66FF8472D67ED9B1 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		FB4A0E6A772B68C9AAD74DAF /* TerminalProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProcess.swift; sourceTree = "<group>"; };
+		FB56CA03261810011913F62A /* FamilyModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyModal.swift; sourceTree = "<group>"; };
+		FE37D00659B19F7473B22C94 /* FileIconCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = FileIconCatalog.json; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F5FDC90C57EC6152EE9987F6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF70A0CBF621AE5E51DDCB12 /* cmark-gfm-extensions in Frameworks */,
+				B06D5785BE2F5983A865D906 /* Sparkle in Frameworks */,
+				F22437C7E16DC862FAF95043 /* GhosttyTerminal in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		133DD66DA020F83FA5891114 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				5A7A3768A98AF189B91D6DA8 /* SymbolsNerdFont-LICENSE.txt */,
+				F0C9165C9277B3298C5BD3B0 /* SymbolsNerdFontMono-Regular.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		53756ADFE78262B9401B9D3D /* Files */ = {
+			isa = PBXGroup;
+			children = (
+				A9EF4CB2EBDC79CDA936DEE6 /* DocumentPreview.swift */,
+				D31B8B54F74CE77E4F963C95 /* DropTransfer.swift */,
+				8DE1EE330577534AF1AB45EC /* FileBrowserModel.swift */,
+				8BC2F120781C30BF205F10CD /* FileBrowserView.swift */,
+				8B59480CF4C103D182830F75 /* FilePreviewEditor.swift */,
+				56B4A67D08B6DABE53191D85 /* FilePreviewPolicy.swift */,
+				F11745F38F638322E0F6F067 /* FileRules.swift */,
+				AB83C2C680E7A00BFA260637 /* FileSafety.swift */,
+				CE8E8925F35FD0A058B22B0B /* FilesWorkspaceView.swift */,
+				335543A19A0C22CCEE8AE025 /* FileSystem.swift */,
+				D05BB20C1D2943A825D5B112 /* FileTabDrag.swift */,
+				E2B28E54C4D4697AE21C77A2 /* FileTransfer.swift */,
+				23FA74FFA3B741B9810C27F4 /* FileTransferQueue.swift */,
+				4A15087ED4C800FB787C7935 /* FileTypeIcon.swift */,
+				95C36458DC670DCA8E48BBB2 /* FileWorkspaceState.swift */,
+				28CFF891E32D22AF24F6867B /* NativeFolderPicker.swift */,
+				12A5ED3C840383317AB04261 /* NativeTextPreview.swift */,
+				F3136752E460A43C966CA0C4 /* PinnedLocationDrag.swift */,
+				8FE2E653B6ED9DA0238B1EC5 /* PinnedLocations.swift */,
+				4330F86F670C54937481BDED /* PinnedLocationsSidebar.swift */,
+				33BEDA78B0A4D0F6A4D44F39 /* PreviewSyntax.swift */,
+				26E19308F101249E15F04D85 /* RemoteShell.swift */,
+				C9569BC7721D137DADA46A66 /* TextFile.swift */,
+				A2CA6F567FB5F255A66E1279 /* TextPreviewDrawer.swift */,
+				731B28910CE9ADF305CA7F68 /* TransferToast.swift */,
+				0BFDA7B46CCE103F62745F68 /* UploadCheck.swift */,
+			);
+			path = Files;
+			sourceTree = "<group>";
+		};
+		831D985195B0377BA4280024 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A0FAD9CECBE185FA218D8D88 /* Debug.entitlements */,
+				FE37D00659B19F7473B22C94 /* FileIconCatalog.json */,
+				B5C7319F06010D229C09D7C3 /* FileIcons-NOTICE.txt */,
+				565B72A0341D3EC0D4ABF10F /* FileIcons-UPSTREAM-MIT-LICENSE.txt */,
+				44D49146480EFFC5AA0A1AFB /* FileIcons.xcassets */,
+				82EA13EB1D3C3A919C37AF77 /* Localizable.xcstrings */,
+				C088AB2B49B5968A4E897391 /* natty */,
+				094DB651573D7CEF25DBFC0A /* Natty.sdef */,
+				DF281D52FCDE67CC767C8690 /* PreviewSyntax.js */,
+				C82878ACF9932EFD40210EC2 /* PreviewSyntax.LICENSE.txt */,
+				3215047C3AC3CD783DDF9F08 /* ProgramIcons-UPSTREAM-LICENSE.txt */,
+				28DAD5836387AB13CB44712A /* ProgramIcons.xcassets */,
+				2DCBCD4E582A47A0F38C6101 /* Sparkle.LICENSE.txt */,
+				6498AF8FF7F6F1F6FA15AB1E /* SwiftCMark.LICENSE.txt */,
+				2CFD23706AAF6B4E2243C1DF /* TerminalDark.ghostty */,
+				53465AC9B7D6A4D6E28533E6 /* TerminalLight.ghostty */,
+				23B089FD7CEB1BEEE175EACE /* WindowAtmosphere.png */,
+				D3913422304D78706FEAD4AE /* AppIcon */,
+				133DD66DA020F83FA5891114 /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		AEBF75B951A6121D259B9CBB /* Natty */ = {
+			isa = PBXGroup;
+			children = (
+				3F1D8B44728A7F47DB56FC4B /* AdvancedSettingsView.swift */,
+				79E27F4CAA1FF0E20707EAC3 /* AppLanguage.swift */,
+				208FFE2AD36EB117CB4AB850 /* ApplicationIcon.swift */,
+				E54569B7A75B27E3517C87B2 /* AppModel.swift */,
+				C7E32FF52789DFEBE798D08A /* AppNotification.swift */,
+				3D4C5922208D8407DC7C6192 /* AppUpdate.swift */,
+				4A744D74CB0E16700BC3D763 /* AppUpdateController.swift */,
+				B3FBAAD22EDF65B88F84C056 /* AppUpdateSettings.swift */,
+				0C6F6D212E8B526017D844A7 /* Assets.xcassets */,
+				A6CB5E65CB644BD8F6C50D0C /* CommandBridgeSocket.swift */,
+				A3A1C6710CB9C7C3E81BA1CA /* CommandFinishedPolicy.swift */,
+				E0A46E97410E93D1FFFCF8F7 /* CommandLiteralEditor.swift */,
+				1E66224733F9B944D9376C21 /* ContentView.swift */,
+				534F76CC1238E5236F0F1C1A /* DragDrop.swift */,
+				71ED6276BF85A33B534849B6 /* DropZoneLayout.swift */,
+				5019ED7329F39C0D4288563C /* DropZones.swift */,
+				95F36311F7F468E8A0D7C206 /* ExternalOpen.swift */,
+				D16D9347387F28FF1B524D13 /* FamilyAlert.swift */,
+				B123AA70814EBB92F874AD98 /* FamilyControls.swift */,
+				635720F0FC0D9101056C1087 /* FamilyMenu.swift */,
+				7A5575A9C20444828D3294A0 /* FamilyMenuControls.swift */,
+				FB56CA03261810011913F62A /* FamilyModal.swift */,
+				04334A6E8B48596C72927285 /* FilePreviewPane.swift */,
+				7F88E6DA3828348DCE1817EA /* FocusRing.swift */,
+				2FACC1E4C0979BC92222AD26 /* GhosttyConfigImport.swift */,
+				EA823FA4B6776C192EBF454A /* GhosttyConfigImporter.swift */,
+				70E7976AF0B4B7A4C1D0AA15 /* HostInformationView.swift */,
+				1CA6C4EE9C7C9A8AA4EEFFE6 /* HostPicker.swift */,
+				F0A47C2B4925369AFA79AE5D /* Info.plist */,
+				C7FCD550557FDCAB89FBB1AA /* KeyboardShortcuts.swift */,
+				1EDF773F01EF05BC5F1642AE /* LegacyDefaultsMigration.swift */,
+				5ECDAAA12BD684EFAD7D7981 /* LocalCommandBridge.swift */,
+				136999A2612E270AA272344E /* MainWindowFrame.swift */,
+				D419979EE250F7B0A265A3DD /* NativeSidebarSplit.swift */,
+				016537C71584B3F5D11EF8E5 /* Natty-Bridging-Header.h */,
+				7C5F1071B905E743824BE4C2 /* NattyApp.swift */,
+				F03F3F46B8CBA4E3DD8DD821 /* NattyIcon.icon */,
+				DD16BAF23F92082FBD651194 /* NetworkRecoveryMonitor.swift */,
+				0E59278767E10FA5F8132B94 /* PaneContent.swift */,
+				5845D01F2FCBD5215CF67BCB /* PaneLayout.swift */,
+				82D1BD2C3C58B1E66A9E8617 /* QuickCommand.swift */,
+				ECF06ACC377AFC4FAB9BDAD8 /* QuickCommandActions.swift */,
+				CDBF80EA35A14CE07F678223 /* QuickCommandCards.swift */,
+				97676118ACDC1F1009F06F5B /* QuickCommandDialogs.swift */,
+				8DA8DEC65E2D588F8EF51437 /* QuickCommandDrag.swift */,
+				B8FF5ACD983A9E3C0A3BDCC2 /* QuickCommandHistory.swift */,
+				6178D530DED84FD37479C6E0 /* QuickCommandHistoryView.swift */,
+				9371A538294D02A3BBEB25A1 /* QuickCommandLibraryView.swift */,
+				F847EEC937F981DF27F59EF0 /* QuickCommandPasteView.swift */,
+				C9A7F040F861851955E91F68 /* QuickCommandPreview.swift */,
+				8943287509CA5F5F672B063E /* QuickCommandRemoteFolderPicker.swift */,
+				3301FA1C12F9DD77E6B8DB4D /* QuickCommandSidebar.swift */,
+				2F99FD4930ED08D8202EBF50 /* QuickCommandSidebarExecution.swift */,
+				268DFD89F114B1196E5B21CB /* QuickCommandStore.swift */,
+				D61C5FCF0B173B058E2740C9 /* QuickCommandTransfer.swift */,
+				6F535BFB1ABD57BFA874D6A3 /* RemoteCommandBridge.swift */,
+				07FF64CEF33DA66411E4AF05 /* RemoteShellIntegration.swift */,
+				06D9B473AE554F193000FAAE /* ScriptingReplyBridge.h */,
+				6242468EE8B6E931751259D2 /* ScriptingReplyBridge.m */,
+				248902534CF933C768D9B3C3 /* ServiceProvider.swift */,
+				0086A541C02BE1810E9A36BB /* SettingsView.swift */,
+				AD689EDFBC8555BD4CBD8CEE /* SheetLayout.swift */,
+				2C8DD51913404FB18B83F3B2 /* ShellEscape.swift */,
+				2470E16F11683602F13B08A1 /* ShellIntegration.swift */,
+				76D236AA4F3CE4DA1B8C5F04 /* ShellStyle.swift */,
+				0F3DC4EE753C244D8A50BBF5 /* ShortcutsSettingsPage.swift */,
+				D9269123C604BAC1FA5C1289 /* SidebarActions.swift */,
+				F4AFDEA929702C30296DB091 /* SidebarMenus.swift */,
+				0EE723B303C9058A6CE300FF /* SSHConfig.swift */,
+				D4077D0DE8C90D905717E054 /* SSHConfigurationResolver.swift */,
+				F78F5F9985328420D76902B2 /* SSHLaunch.swift */,
+				16500407CABE2686B7A57F9C /* SystemIntegrationSettingsPage.swift */,
+				D592CC5714316C847E83E87D /* TerminalAssociations.swift */,
+				AF3285BD1999CC6F66308928 /* TerminalAutomation.swift */,
+				7F5020B9955D8BBD70213C7E /* TerminalCanvas.swift */,
+				0535CED51F46CCF6A4F0CBF3 /* TerminalCommandLine.swift */,
+				68CE9A1568CDFF8C05AC03A7 /* TerminalCommands.swift */,
+				1CAF997C97DC4E19DB8D6295 /* TerminalConnectionNotice.swift */,
+				B8F47C849228B2288B46A819 /* TerminalEvents.swift */,
+				E0AFD85172BAF5B6E89A2120 /* TerminalFind.swift */,
+				EEF736A1BD720142FC5D5FD2 /* TerminalOutputStore.swift */,
+				1C5E9E9E3353F120EC867CC5 /* TerminalPaneActions.swift */,
+				2548D57113F44625EE73921D /* TerminalPanelIcon.swift */,
+				CA576C7AEC95C6E9477085F7 /* TerminalPlatformIntegration.swift */,
+				FB4A0E6A772B68C9AAD74DAF /* TerminalProcess.swift */,
+				2937B02ABEB1DF48D8F8B340 /* TerminalProgram.swift */,
+				36F1A630E35F74FDC66032E3 /* TerminalProgramIcon.swift */,
+				232C3A0661F20329ADAE3CE7 /* TerminalRestoration.swift */,
+				BB4566769DC901AB90F9B046 /* TerminalSessionConnection.swift */,
+				524A89D18350424126D53365 /* TerminalSettings.swift */,
+				8C25EB98330C462417FBD6B9 /* TerminalSettingsPage.swift */,
+				31DE144A00684D859DD62234 /* TerminalThemeCatalog.swift */,
+				86F767B7FE75A27DB8E38E25 /* TerminalThemes.swift */,
+				32ACF556E964C45A687933D5 /* TerminalThemeSettingsPage.swift */,
+				D7420C1349E9A8A3B2D10580 /* TerminalView.swift */,
+				FB2CED1D66FF8472D67ED9B1 /* Theme.swift */,
+				A3511ECECB32F58816662D4E /* WindowDragArea.swift */,
+				00867729E96449AE7944C94D /* WindowState.swift */,
+				B1712F71CB458B7F69E543F9 /* WindowTitleSync.swift */,
+				F59E223C84D21657E067C888 /* WorkspaceActions.swift */,
+				005FE3013292CE08BDA3D7D6 /* WorkspaceBoard.swift */,
+				16980F84CDA5E7022724A53E /* WorkspaceExternalOpen.swift */,
+				B44D4A62EE330FA3627DBF53 /* WorkspaceGit.swift */,
+				8C254D419D3C23690E0AB80D /* WorkspacePresentation.swift */,
+				30AD25CE94E6CCDBCB9A7303 /* WorkspaceToolbar.swift */,
+				C639A178609DF988541B3E59 /* WorkspaceToolSidebar.swift */,
+				53756ADFE78262B9401B9D3D /* Files */,
+			);
+			name = Natty;
+			path = Sources/Natty;
+			sourceTree = "<group>";
+		};
+		D1DF9401F08CCEBA536F11EF = {
+			isa = PBXGroup;
+			children = (
+				F90C7DF2582141099000BD17 /* ApplicationIcons */,
+				01B330BB45D9F1BE26C955C1 /* GhosttyThemes */,
+				89356C18976F818276B91F3F /* shell-integration */,
+				AEBF75B951A6121D259B9CBB /* Natty */,
+				F45B43B8FD4E24B8A1E6789C /* Packages */,
+				831D985195B0377BA4280024 /* Resources */,
+				F93E849E1C9DAD484081F0AF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D3913422304D78706FEAD4AE /* AppIcon */ = {
+			isa = PBXGroup;
+			children = (
+				99C819F3D7638C01B4978339 /* ghostty-source.png */,
+				0677F43F28DE073FF10050F0 /* ghostty-source.svg */,
+				50C011D34474D1E4198E2D3E /* macaron-original-mark.png */,
+				4016C21A1D8AC03BB4625275 /* natty-icon-1024.png */,
+				1F0CB846D22F89539E7730F8 /* natty-icon-rounded.png */,
+				7557D86F06F2D50CA6B6E34C /* natty-icon.svg */,
+			);
+			path = AppIcon;
+			sourceTree = "<group>";
+		};
+		F45B43B8FD4E24B8A1E6789C /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				293F6A6F26EAAC899019A346 /* libghostty-spm */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		F93E849E1C9DAD484081F0AF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				13C615FF2E9601298F640EA1 /* Natty.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		40FB50EC5E95E5249DDA949B /* Natty */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6326AC2BD5E51E93844F66BA /* Build configuration list for PBXNativeTarget "Natty" */;
+			buildPhases = (
+				9CC5EB693EF6D1DED0D658AA /* Validate release signing */,
+				0D61D706E2C10244B53570D3 /* Sources */,
+				97CCF0C2FE40A202357CF3C1 /* Resources */,
+				F5FDC90C57EC6152EE9987F6 /* Frameworks */,
+				51C6ADDE296B4648014FE41C /* Build terminal session host */,
+				C1F3833208ED9AB25408559F /* Install readable fallback icon */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Natty;
+			packageProductDependencies = (
+				F02533ED46F0C4C260A58BF0 /* cmark-gfm-extensions */,
+				151FC145C1FAD436293C54CE /* Sparkle */,
+				9B03F52D9492312DC24E1880 /* GhosttyTerminal */,
+			);
+			productName = Natty;
+			productReference = 13C615FF2E9601298F640EA1 /* Natty.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		399F39EAE7FEDB15F8EC955B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					40FB50EC5E95E5249DDA949B = {
+						DevelopmentTeam = NCFNX3LJ83;
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = AD6F83645845968AD3FDFF46 /* Build configuration list for PBXProject "Natty" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D1DF9401F08CCEBA536F11EF;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				14F669C087A243FD09138794 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				06DB9889D6B71AF2697FA8F0 /* XCRemoteSwiftPackageReference "swift-cmark" */,
+				05E1B05CDEF5D4B2DC726A2C /* XCLocalSwiftPackageReference "Vendor/libghostty-spm" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F93E849E1C9DAD484081F0AF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				40FB50EC5E95E5249DDA949B /* Natty */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		97CCF0C2FE40A202357CF3C1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C5DCEE3A953B80BF8906DC32 /* ApplicationIcons in Resources */,
+				393544C2B7C6C715ADC86F08 /* Assets.xcassets in Resources */,
+				4745A1A1EA211CA8A79C2ABA /* Debug.entitlements in Resources */,
+				D50958DC5AAA53FBBC73A6DC /* FileIconCatalog.json in Resources */,
+				F6C0D341ACD54B521A85AB2C /* FileIcons-NOTICE.txt in Resources */,
+				3765AA83192DE5F71C8FB537 /* FileIcons-UPSTREAM-MIT-LICENSE.txt in Resources */,
+				562A64ED32BAB03DA5F0A10A /* FileIcons.xcassets in Resources */,
+				1AB34CD85C44F936F95EF9E6 /* GhosttyThemes in Resources */,
+				8758D9EA14BF88DF7E84339D /* Localizable.xcstrings in Resources */,
+				9A221E9DA69EC571A70DBB2A /* Natty.sdef in Resources */,
+				0A14DB29F68C34622C793306 /* NattyIcon.icon in Resources */,
+				489215DACBA607DC1AD48117 /* PreviewSyntax.LICENSE.txt in Resources */,
+				440A446F024A33E83F377FAB /* PreviewSyntax.js in Resources */,
+				8DD4D731D6F9AFAE36D5348E /* ProgramIcons-UPSTREAM-LICENSE.txt in Resources */,
+				6F64DA843737DCE60753C44E /* ProgramIcons.xcassets in Resources */,
+				0AC147C4B6097646541552B1 /* Sparkle.LICENSE.txt in Resources */,
+				179D1AC1FDF829AF2B139339 /* SwiftCMark.LICENSE.txt in Resources */,
+				6D0D5D9750BD0974CA0E7515 /* SymbolsNerdFont-LICENSE.txt in Resources */,
+				ED42F9DB766855ECCA644F29 /* SymbolsNerdFontMono-Regular.ttf in Resources */,
+				8A7F734FB8D0A65FF2A7097A /* TerminalDark.ghostty in Resources */,
+				C99F0B8D1E50966B83CA4C3D /* TerminalLight.ghostty in Resources */,
+				54BCF36945BCAFEA57D6C1B6 /* WindowAtmosphere.png in Resources */,
+				4EBB55B175DF63E74B51CCD6 /* ghostty-source.png in Resources */,
+				219E2A169CC35161245988AF /* ghostty-source.svg in Resources */,
+				66D75F80A6BFBBF6AEEB7F1E /* macaron-original-mark.png in Resources */,
+				0CC8E2586AA402C8ACF8DCB4 /* natty in Resources */,
+				B1105749A96C163D8DB41235 /* natty-icon-1024.png in Resources */,
+				0AF2C2AC0F59B5DF1F5C893F /* natty-icon-rounded.png in Resources */,
+				8F6B2C73265D1F213B899117 /* natty-icon.svg in Resources */,
+				C4EDFB1C81DA7458647D34CA /* shell-integration in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		51C6ADDE296B4648014FE41C /* Build terminal session host */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build terminal session host";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash \"${SRCROOT}/scripts/build-session-host.sh\" \"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/NattySessionHost\"";
+		};
+		9CC5EB693EF6D1DED0D658AA /* Validate release signing */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate release signing";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/scripts/validate-release-signing.sh\"";
+		};
+		C1F3833208ED9AB25408559F /* Install readable fallback icon */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install readable fallback icon";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# 分层图标的白色轮廓依赖系统着色；普通 ICNS 使用完整的蓝白图标。\n# 在签名前替换备用资源，保留 Assets.car 中的系统自适应图标。\ncp \"${SRCROOT}/Resources/ApplicationIcons/Original.icns\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/NattyIcon.icns\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0D61D706E2C10244B53570D3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0048EF252FB4296ED69C1CB /* AdvancedSettingsView.swift in Sources */,
+				C155ABD92A9EEFA5B9578F1C /* AppLanguage.swift in Sources */,
+				8F1DA4731E9D36AA8F57FC9F /* AppModel.swift in Sources */,
+				4A4C17696E644FDC02EF4BBF /* AppNotification.swift in Sources */,
+				A80C3A6ABFDC79B7FC66BE1F /* AppUpdate.swift in Sources */,
+				A43DA9DF59A14899ED6AB6B0 /* AppUpdateController.swift in Sources */,
+				0210B1AD8AF6F8748E16D034 /* AppUpdateSettings.swift in Sources */,
+				5A2141140E06CA5192D7979C /* ApplicationIcon.swift in Sources */,
+				BA5E32687EE8D62DE8166C06 /* CommandBridgeSocket.swift in Sources */,
+				0FDEF810C1C3F391F121D938 /* CommandFinishedPolicy.swift in Sources */,
+				3C972CA0F757825EFBB1F6ED /* CommandLiteralEditor.swift in Sources */,
+				27C3ED82FAC9945C34A60D62 /* ContentView.swift in Sources */,
+				C203C1D08B694AD15437DCAE /* DocumentPreview.swift in Sources */,
+				890A941F15E65671BBE1F133 /* DragDrop.swift in Sources */,
+				B1FC07ACBEB4DB8BEEC4EBF4 /* DropTransfer.swift in Sources */,
+				77EC4B9C16B31B2B1C06F0B7 /* DropZoneLayout.swift in Sources */,
+				792AA8C54D51C8F011ABADD8 /* DropZones.swift in Sources */,
+				4B036E0A5AA0DF99C348695A /* ExternalOpen.swift in Sources */,
+				0BFD2AC8F437BCAF2A0B09D9 /* FamilyAlert.swift in Sources */,
+				0D23EB6A1A39C3D2726C853E /* FamilyControls.swift in Sources */,
+				C909158C78FF143916A4E50A /* FamilyMenu.swift in Sources */,
+				C68231640F7B31F2FAFB593F /* FamilyMenuControls.swift in Sources */,
+				FD5ED0C6044E835580D18D1D /* FamilyModal.swift in Sources */,
+				3342F80E9CF3FD0B44F19E7F /* FileBrowserModel.swift in Sources */,
+				98BF8A010ECBBF8CA448F3DA /* FileBrowserView.swift in Sources */,
+				626016B9715F1C443058D903 /* FilePreviewEditor.swift in Sources */,
+				1F3A60F439736B1A4A60301A /* FilePreviewPane.swift in Sources */,
+				D51053662867C73B91ACC9D0 /* FilePreviewPolicy.swift in Sources */,
+				9528998362455191D1A03747 /* FileRules.swift in Sources */,
+				7C7EB388117EC8D44213C4BB /* FileSafety.swift in Sources */,
+				C274E75CD2FE603111586113 /* FileSystem.swift in Sources */,
+				65F8DE9F3B0AFF99BB8A6F3E /* FileTabDrag.swift in Sources */,
+				B0B6F6A8FDA91B42CF3758F8 /* FileTransfer.swift in Sources */,
+				3E504832B5F249FA6171CC6F /* FileTransferQueue.swift in Sources */,
+				1590F5E1B64AB72FE49228AA /* FileTypeIcon.swift in Sources */,
+				0F0ACA647FBA434BE24B988B /* FileWorkspaceState.swift in Sources */,
+				ED6C23A54D3235BC930FDBB8 /* FilesWorkspaceView.swift in Sources */,
+				763E866010FE8298B7D82C6F /* FocusRing.swift in Sources */,
+				8DE720A544DB2CF8395CA9DC /* GhosttyConfigImport.swift in Sources */,
+				90F4858C4080E1AE98C878A4 /* GhosttyConfigImporter.swift in Sources */,
+				3D42EDA4A0A08EA662BEBF23 /* HostInformationView.swift in Sources */,
+				0E4C3D038FB62FF65332F364 /* HostPicker.swift in Sources */,
+				CD0BA0C07921C41460855166 /* KeyboardShortcuts.swift in Sources */,
+				0747DB6B3383115A2554208E /* LegacyDefaultsMigration.swift in Sources */,
+				89E02D8DCB78DBD450CE2E70 /* LocalCommandBridge.swift in Sources */,
+				48A0DC3EFABA09BE020BE2A9 /* MainWindowFrame.swift in Sources */,
+				40FB121021FE0CA1D87BC1C8 /* NativeFolderPicker.swift in Sources */,
+				BFA3DC5997DB53A3D3C9CF99 /* NativeSidebarSplit.swift in Sources */,
+				91B78383D7668BA731A50AE3 /* NativeTextPreview.swift in Sources */,
+				64DF3848E34679862B86B27A /* NattyApp.swift in Sources */,
+				62126587C9AB69B92149C180 /* NetworkRecoveryMonitor.swift in Sources */,
+				EFEE3D6D88CEEA4027689E0D /* PaneContent.swift in Sources */,
+				C0D6CF1ADB19E4B78C893E5C /* PaneLayout.swift in Sources */,
+				C8EF51C8FB7C9BA854FAD01A /* PinnedLocationDrag.swift in Sources */,
+				348584DAF9BD8A8D75B0EF22 /* PinnedLocations.swift in Sources */,
+				C04EABCD0300BAB52D01E37D /* PinnedLocationsSidebar.swift in Sources */,
+				59496A851F63311F5C09D322 /* PreviewSyntax.swift in Sources */,
+				7E9B5AF64889D72190EF58E2 /* QuickCommand.swift in Sources */,
+				8CF136F2810181B48184E75F /* QuickCommandActions.swift in Sources */,
+				35BB880D784461CA451DDD53 /* QuickCommandCards.swift in Sources */,
+				ED633ACAC7EB2FB38EB26213 /* QuickCommandDialogs.swift in Sources */,
+				B5C6023D19C96AF1A28D38EB /* QuickCommandDrag.swift in Sources */,
+				BAC06F0448110E996A5E9756 /* QuickCommandHistory.swift in Sources */,
+				017F691C296366856C7B046E /* QuickCommandHistoryView.swift in Sources */,
+				48D2731A51889CE14374DE21 /* QuickCommandLibraryView.swift in Sources */,
+				42BD381AF45C59526833AFA7 /* QuickCommandPasteView.swift in Sources */,
+				63A8B97D2BDAB983426BD104 /* QuickCommandPreview.swift in Sources */,
+				C5C0D5BEDCAA809EA3E98DC3 /* QuickCommandRemoteFolderPicker.swift in Sources */,
+				2C08A4A63B618C2A2A07D85E /* QuickCommandSidebar.swift in Sources */,
+				DA4AD5AF2DEE81F9013E52C3 /* QuickCommandSidebarExecution.swift in Sources */,
+				75F0B3F286A709CA550A01A7 /* QuickCommandStore.swift in Sources */,
+				13A7FC0105DA5C1B0A43603A /* QuickCommandTransfer.swift in Sources */,
+				9CA8B1CDCE50E23C94418B27 /* RemoteCommandBridge.swift in Sources */,
+				54F9E3E9CC766E6BE75A9F0F /* RemoteShell.swift in Sources */,
+				76B0DB145FB00205B9AA6583 /* RemoteShellIntegration.swift in Sources */,
+				6387AF34335E4A8E8B8924BF /* SSHConfig.swift in Sources */,
+				1B0B667279164A08E91A858A /* SSHConfigurationResolver.swift in Sources */,
+				5F23A5E67E58140575F53A13 /* SSHLaunch.swift in Sources */,
+				BD7C600FDEE541B4E12C0145 /* ScriptingReplyBridge.m in Sources */,
+				467CDC4D6DCCDB645A8CEE29 /* ServiceProvider.swift in Sources */,
+				21AB0C474B2C9D2EDC76C7DE /* SettingsView.swift in Sources */,
+				30C21B2B177D8B5FD56358BF /* SheetLayout.swift in Sources */,
+				5B4D28BC2F9ECA4A3F15205A /* ShellEscape.swift in Sources */,
+				EF05551B06841E3891B2AD4F /* ShellIntegration.swift in Sources */,
+				EA58F76714063ED6E47D0DF1 /* ShellStyle.swift in Sources */,
+				CF1BA8993BB0C15CF209ABC6 /* ShortcutsSettingsPage.swift in Sources */,
+				7562E8CB239832C149139EB4 /* SidebarActions.swift in Sources */,
+				965BDBA256DCE7AA52E8FCD5 /* SidebarMenus.swift in Sources */,
+				CD247C0EC3B43FE5FB5EF6F4 /* SystemIntegrationSettingsPage.swift in Sources */,
+				89901F377405944133314F86 /* TerminalAssociations.swift in Sources */,
+				4522A829651077E2E11CD2C9 /* TerminalAutomation.swift in Sources */,
+				3F18CD0FDF5CDC31D0357EFF /* TerminalCanvas.swift in Sources */,
+				84AA2B735791B4AB55C2B8CA /* TerminalCommandLine.swift in Sources */,
+				A6FD563BBFE713CF9434E3A6 /* TerminalCommands.swift in Sources */,
+				F21CD82532F8C5134139552C /* TerminalConnectionNotice.swift in Sources */,
+				58A90387FA7332B267C938C5 /* TerminalEvents.swift in Sources */,
+				9B09D14B90BA86C04457BCF6 /* TerminalFind.swift in Sources */,
+				452E6E73972F652120DA4D32 /* TerminalOutputStore.swift in Sources */,
+				BEB9850441F68F64746D4805 /* TerminalPaneActions.swift in Sources */,
+				171FA53FBB532A9C89A582D2 /* TerminalPanelIcon.swift in Sources */,
+				847A697A8010B74332114801 /* TerminalPlatformIntegration.swift in Sources */,
+				ED605B7D094440121B412F50 /* TerminalProcess.swift in Sources */,
+				31267333B7FF29A09EA7163D /* TerminalProgram.swift in Sources */,
+				6DC66901D8465B93527FC7A2 /* TerminalProgramIcon.swift in Sources */,
+				2E3B6B151E2807ED59271F19 /* TerminalRestoration.swift in Sources */,
+				FB554798EA8786043345B3B9 /* TerminalSessionConnection.swift in Sources */,
+				CF633F076E9989018394F00F /* TerminalSettings.swift in Sources */,
+				A7253A849EE0B1D659E3A3D8 /* TerminalSettingsPage.swift in Sources */,
+				E689E65E37829887729977E6 /* TerminalThemeCatalog.swift in Sources */,
+				E2C2C3AFDAFB8CC304575966 /* TerminalThemeSettingsPage.swift in Sources */,
+				87399565FE88F2E9D083EE21 /* TerminalThemes.swift in Sources */,
+				C2A6481F9DAF2F923A26AF82 /* TerminalView.swift in Sources */,
+				435F49A04B8EC58B311E4EFF /* TextFile.swift in Sources */,
+				4E22763C9D3F2FBB15A1A7FC /* TextPreviewDrawer.swift in Sources */,
+				235A610244D44C7306A22F46 /* Theme.swift in Sources */,
+				FED394C67B38BE782E6091BB /* TransferToast.swift in Sources */,
+				41FDD3DA9DCB063DC7C8979A /* UploadCheck.swift in Sources */,
+				6BD796BFA8C782AAAC82CA82 /* WindowDragArea.swift in Sources */,
+				49F53638DF4881003D9A45E3 /* WindowState.swift in Sources */,
+				5AB1080B6352E506244824A5 /* WindowTitleSync.swift in Sources */,
+				4655DD9CC70A891AC0887A26 /* WorkspaceActions.swift in Sources */,
+				E30D7D476EDB922D0438CD2E /* WorkspaceBoard.swift in Sources */,
+				4A2C1431E3EA9A4898449290 /* WorkspaceExternalOpen.swift in Sources */,
+				74FE1D93646C5E9198809B3D /* WorkspaceGit.swift in Sources */,
+				042A070C3664249A072B2607 /* WorkspacePresentation.swift in Sources */,
+				8803CA34FD702C17B9B03580 /* WorkspaceToolSidebar.swift in Sources */,
+				443EFB458604FF8523F68ECD /* WorkspaceToolbar.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DD95F0D13B67EA94D9FE013 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		8FFCD30358371B5FAB7C66E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = NattyIcon;
+				CODE_SIGN_ENTITLEMENTS = Resources/Debug.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application: MOE AI LLC (NCFNX3LJ83)";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 18;
+				DEVELOPMENT_TEAM = NCFNX3LJ83;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Sources/Natty/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.1.17;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.itjun.natty;
+				PRODUCT_MODULE_NAME = Natty;
+				PRODUCT_NAME = Natty;
+				SDKROOT = macosx;
+				SPARKLE_PUBLIC_KEY = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/Natty/Natty-Bridging-Header.h";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		C0062A4503252E49845499BF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "arm64 x86_64";
+				ASSETCATALOG_COMPILER_APPICON_NAME = NattyIcon;
+				CODE_SIGN_IDENTITY = "Developer ID Application: MOE AI LLC (NCFNX3LJ83)";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 18;
+				DEVELOPMENT_TEAM = NCFNX3LJ83;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Sources/Natty/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.1.17;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.itjun.natty;
+				PRODUCT_MODULE_NAME = Natty;
+				PRODUCT_NAME = Natty;
+				SDKROOT = macosx;
+				SPARKLE_PUBLIC_KEY = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/Natty/Natty-Bridging-Header.h";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		C675E7BB986A7F0C98169D3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6326AC2BD5E51E93844F66BA /* Build configuration list for PBXNativeTarget "Natty" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8FFCD30358371B5FAB7C66E1 /* Debug */,
+				C0062A4503252E49845499BF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AD6F83645845968AD3FDFF46 /* Build configuration list for PBXProject "Natty" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C675E7BB986A7F0C98169D3B /* Debug */,
+				1DD95F0D13B67EA94D9FE013 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		05E1B05CDEF5D4B2DC726A2C /* XCLocalSwiftPackageReference "Vendor/libghostty-spm" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Vendor/libghostty-spm";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		06DB9889D6B71AF2697FA8F0 /* XCRemoteSwiftPackageReference "swift-cmark" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swiftlang/swift-cmark.git";
+			requirement = {
+				kind = revision;
+				revision = b97d09472e847a416629f026eceae0e2afcfad65;
+			};
+		};
+		14F669C087A243FD09138794 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		151FC145C1FAD436293C54CE /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 14F669C087A243FD09138794 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+		9B03F52D9492312DC24E1880 /* GhosttyTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GhosttyTerminal;
+		};
+		F02533ED46F0C4C260A58BF0 /* cmark-gfm-extensions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 06DB9889D6B71AF2697FA8F0 /* XCRemoteSwiftPackageReference "swift-cmark" */;
+			productName = "cmark-gfm-extensions";
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 399F39EAE7FEDB15F8EC955B /* Project object */;
+}

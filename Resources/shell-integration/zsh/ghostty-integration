@@ -386,8 +386,8 @@ _ghostty_deferred_init() {
         precmd_functions=(${precmd_functions:#_ghostty_deferred_init})
     fi
 
-    if [[ -n $ONEAGENT_QC_SOCKET ]]; then
-        builtin source "${GHOSTTY_RESOURCES_DIR}/shell-integration/zsh/oneagent-quick-commands"
+    if [[ -n $NATTY_QC_SOCKET ]]; then
+        builtin source "${GHOSTTY_RESOURCES_DIR}/shell-integration/zsh/natty-quick-commands"
     fi
 
     # Unfunction _ghostty_deferred_init to save memory. Don't unfunction

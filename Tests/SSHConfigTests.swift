@@ -4,7 +4,7 @@ import Foundation
 enum SSHConfigTests {
     static func main() {
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("oneagent-ssh-config-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("natty-ssh-config-\(UUID().uuidString)", isDirectory: true)
         try! FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 

@@ -76,7 +76,7 @@ enum ShellIntegrationTests {
     }
 
     static func testOtherShells() {
-        let resources = FileManager.default.temporaryDirectory.appendingPathComponent("1agent-shell-modes-\(UUID())")
+        let resources = FileManager.default.temporaryDirectory.appendingPathComponent("natty-shell-modes-\(UUID())")
         defer { try? FileManager.default.removeItem(at: resources) }
         let scripts = ["bash/ghostty.bash", "fish/vendor_conf.d/ghostty-shell-integration.fish", "elvish/lib/ghostty-integration.elv", "nushell/vendor/autoload/ghostty.nu"]
         for file in scripts {

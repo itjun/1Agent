@@ -1,6 +1,6 @@
 import AppKit
 import Sparkle
-@testable import agent
+@testable import Natty
 
 @main
 enum AppUpdateControllerTests {

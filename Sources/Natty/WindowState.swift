@@ -1,0 +1,316 @@
+import AppKit
+import SwiftUI
+
+/// Everything that belongs to the main window: which sidebar blocks it shows, what is selected,
+/// and the drag in progress. Terminals and workspaces themselves live in `AppModel`.
+@MainActor
+final class WindowState: ObservableObject, Identifiable {
+    let id: UUID
+    /// Sidebar block order for this window. The three connection groups are always present.
+    @Published var blocks: [SidebarBlock] = [.localGroup, .ungrouped, .mixedGroup]
+    /// Standalone terminals of this window's connection groups, in sidebar order.
+    @Published var looseMembers: [SidebarBlock: [UUID]] = [.localGroup: [], .ungrouped: [], .mixedGroup: []]
+    @Published var selectedTabID: UUID?
+    /// Panel identity is independent of its focused terminal and optional group.
+    @Published var panelLastFocused: [UUID: UUID] = [:]
+    @Published var panelTitles: [UUID: String] = [:]
+    /// Most recently focused first, used by explicit return-to-existing and cwd-only opens.
+    var terminalMRU: [UUID] = []
+    /// Which area owns keyboard commands; both areas may be visible.
+    @Published var section: AppSection = .terminals
+    @Published var toolGitBranchComparison = false
+    @Published var toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
+    @Published var toolPreviewColumn: FileColumn?
+    @Published var toolGitPreview: GitPreviewRequest?
+    @Published var commandLibraryDraft: QuickCommand? {
+        didSet {
+            if commandLibraryDraft == nil { isCommandLibraryDraftDirty = false }
+        }
+    }
+    var isCommandLibraryDraftDirty = false
+    @Published var commandLibrarySelection: UUID?
+    @Published var commandLibraryCollection: QuickCommandCollection = .common
+    @Published var commandLibraryMessage: String?
+    @Published var commandLibrarySplitRatio: CGFloat = SheetLayout.commandLibraryDefaultSplitRatio
+    @Published var isToolPreviewExpanded = false
+    @Published var toolPreviewFrame: CGRect = .zero
+    @Published var toolPreviewFindRequest = 0
+    // 工具预览只在工具箱内部扩展，永远不遮挡主终端。
+    var isToolReadingExpanded: Bool { false }
+    func closeToolPreview() {
+        isToolPreviewExpanded = false
+        toolPreviewFindRequest = 0
+        toolPreviewColumn?.preview = nil
+        toolPreviewColumn = nil
+        toolGitPreview = nil
+    }
+    @Published var isToolPreviewEqualSplit = false
+    var isToolPreviewOpen: Bool { toolPreviewColumn != nil || toolGitPreview != nil }
+    func openToolGitPreview(_ request: GitPreviewRequest) {
+        if toolPreviewColumn != nil { toolPreviewFindRequest = 0 }
+        prepareToolPreview()
+        toolPreviewColumn = nil
+        toolGitPreview = request
+    }
+    func openToolFilePreview(_ column: FileColumn) {
+        if toolGitPreview != nil { toolPreviewFindRequest = 0 }
+        prepareToolPreview()
+        toolGitPreview = nil
+        toolPreviewColumn = column
+    }
+    private func prepareToolPreview() {
+        guard !isToolPreviewOpen else { return }
+        isToolPreviewExpanded = false
+        toolPreviewWidth = WorkspacePreviewLayout.defaultWidth
+        isToolPreviewEqualSplit = false
+    }
+    private var toolContextSessionID: String?
+    private var toolContextLocation: GitLocation?
+    func synchronizeToolContext(sessionID: String?, location: GitLocation?) {
+        guard toolContextSessionID != sessionID || toolContextLocation != location else { return }
+        toolContextSessionID = sessionID
+        toolContextLocation = location
+        toolGitBranchComparison = false
+        closeToolPreview()
+    }
+    @Published var presentation = WorkspacePresentation()
+    /// An explicit reveal wins over automatic narrow-window collapse until hidden again.
+    @Published var sidebarRevealed = false
+    /// The terminal that opened Host Information, independent of later focus changes.
+    @Published var hostInformationTabID: UUID?
+    /// Transient: dropping a command only opens confirmation, never restores a run.
+    @Published var quickCommandConfirmation: QuickCommandConfirmationTarget?
+    let quickCommandSidebarExecution = QuickCommandSidebarExecution()
+    /// The session that last opened Files. Closing the dock does not reset its browsing state.
+    var filesSourceTabID: UUID?
+    /// Filtering is transient and must not change shortcut positions or saved ordering.
+    /// Sidebar multi-select. Not written into the session snapshot.
+    @Published var sidebarSelection: Set<UUID> = []
+    var sidebarAnchor: UUID?
+    @Published var draggingTabID: UUID?
+    /// Every terminal in the current drag. The first one is `draggingTabID`.
+    @Published var draggingTabIDs: [UUID] = []
+    @Published var draggingBlock: SidebarBlock?
+    @Published var dropHighlight: TabDropHighlight?
+    @Published var hostPickerPresented = false
+    /// What a host chosen in the picker opens. Back to `.terminal` whenever the picker closes.
+    @Published var hostPickerPurpose: HostPickerPurpose = .terminal
+    /// Where a sidebar row dragged over the Files area or the Files button would land.
+    @Published var filesDropTarget: FilesDropTarget?
+    /// Panel ID → the pane drawn alone (⇧⌘↩), restored with the panel layout.
+    @Published var zoomedPanes: [UUID: UUID] = [:]
+    /// Last frame written into the session snapshot. Launch does not restore it.
+    var frame: CGRect?
+    /// The drop relay of this window's view.
+    weak var relay: CanvasDropRelay?
+    var dropEpoch = 0
+
+    init(id: UUID = UUID(), frame: CGRect? = nil) {
+        self.id = id
+        self.frame = frame
+    }
+
+    func confirmDiscardCommandDraftIfNeeded(perform action: @escaping () -> Void) {
+        guard commandLibraryDraft != nil, isCommandLibraryDraftDirty,
+              let owner = MainWindowManager.shared.window(for: self) ?? NSApp.keyWindow,
+              owner.isVisible else {
+            isCommandLibraryDraftDirty = false
+            action()
+            return
+        }
+        let alert = FamilyAlert()
+        alert.messageText = String(localized: "Discard Unsaved Changes?")
+        alert.informativeText = String(localized: "Your edits to this command have not been saved.")
+        alert.addButton(withTitle: String(localized: "Discard Changes"))
+        alert.addButton(withTitle: String(localized: "Keep Editing"))
+        alert.beginSheetModal(for: owner) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            self?.isCommandLibraryDraftDirty = false
+            action()
+        }
+    }
+}
+
+enum HostPickerPurpose {
+    /// New terminals.
+    case terminal
+    /// New remote tabs in the Files area.
+    case files
+    case transfer
+}
+
+enum FilesDropTarget: Hashable {
+    /// A pane of the Files area.
+    case group(UUID)
+    case button
+}
+
+/// Terminals, or the file manager, right of the sidebar.
+enum AppSection: String, Codable {
+    case terminals
+    case files
+    case commands
+
+    /// A saved session may name an area that no longer exists; it opens on Terminals.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AppSection(rawValue: raw) ?? .terminals
+    }
+}
+
+/// Creates and tracks the AppKit window behind the main `WindowState`.
+@MainActor
+final class MainWindowManager: NSObject, NSWindowDelegate {
+    static let shared = MainWindowManager()
+    static let windowID = NSUserInterfaceItemIdentifier("main")
+
+    private var windows: [UUID: NSWindow] = [:]
+    /// Hidden by the close button. The next show opens at 80% of the screen.
+    private var closedWindowIDs: Set<UUID> = []
+    private weak var model: AppModel?
+
+    func attach(model: AppModel) {
+        self.model = model
+    }
+
+    func window(for state: WindowState) -> NSWindow? {
+        windows[state.id]
+    }
+
+    func state(for window: NSWindow) -> WindowState? {
+        guard let entry = windows.first(where: { $0.value === window }) else { return nil }
+        return model?.window(for: entry.key)
+    }
+
+    /// Shows the window for `state`, creating it on first use.
+    func show(_ state: WindowState, model: AppModel) {
+        self.model = model
+        model.windowBecameKey(state)
+        if let window = windows[state.id] {
+            if closedWindowIDs.remove(state.id) != nil {
+                placeOpeningFrame(on: window, state: state)
+            }
+            Self.bringToActiveSpace(window)
+            return
+        }
+        let controller = NSHostingController(rootView: RootView(model: model, window: state))
+        let window = NSWindow(contentViewController: controller)
+        window.identifier = Self.windowID
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        // Natty uses its own sidebar terminals, never AppKit title-bar tabs.
+        window.tabbingMode = .disallowed
+        // Dock / Mission Control: follow the Space the user is looking at.
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        window.isRestorable = false
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.appearance = TerminalAppearance.appKitAppearance(isDark: TerminalAppearance.stored().resolvesDark())
+        window.minSize = MainWindowFrame.minimumSize
+        placeOpeningFrame(on: window, state: state)
+        windows[state.id] = window
+        Self.disableNativeWindowTabs()
+        Self.bringToActiveSpace(window)
+        // AppKit otherwise picks the first sidebar search field when the new
+        // hosting hierarchy becomes key. Restore terminal focus after layout.
+        DispatchQueue.main.async { [weak window, weak model, weak state] in
+            guard let window, let model, let state, !state.presentation.fullFilesWorkspace,
+                  let tab = model.selectedTab(in: state) else { return }
+            window.contentView?.layoutSubtreeIfNeeded()
+            SSHTerminalRegistry.focus(tab.sessionID)
+        }
+    }
+
+    /// AppKit can still merge windows into horizontal title-bar tabs. Keep every Natty window independent.
+    static func disableNativeWindowTabs() {
+        NSWindow.allowsAutomaticWindowTabbing = false
+        for window in NSApp.windows where window.identifier == windowID {
+            window.tabbingMode = .disallowed
+        }
+    }
+
+    /// 80% of the current screen. Used for a new window and for one that was closed.
+    private func placeOpeningFrame(on window: NSWindow, state: WindowState) {
+        let screen = NSScreen.main ?? window.screen ?? NSScreen.screens.first
+        if let screen {
+            let frame = MainWindowFrame.frame(screen: screen.frame, visible: screen.visibleFrame)
+            window.minSize = NSSize(width: min(MainWindowFrame.minimumSize.width, frame.width),
+                                    height: min(MainWindowFrame.minimumSize.height, frame.height))
+            window.setFrame(frame, display: false)
+        } else {
+            window.setContentSize(NSSize(width: 1100, height: 720))
+            window.center()
+        }
+        state.frame = window.frame
+    }
+
+    /// Dock click / reopen: deminiaturize, pull onto the active Space, and force key focus.
+    static func bringToActiveSpace(_ window: NSWindow) {
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func close(_ state: WindowState) {
+        guard let window = windows[state.id] else { return }
+        window.performClose(nil)
+    }
+
+    func closeImmediately(_ state: WindowState) { windows[state.id]?.close() }
+
+    /// Screen point → the Ghostty window under it. `except` skips that window. Nil when the pointer is outside.
+    func windowState(atScreenPoint point: NSPoint, except: UUID?) -> (WindowState, NSWindow)? {
+        for window in NSApp.orderedWindows where window.identifier == Self.windowID && window.isVisible {
+            guard window.frame.contains(point) else { continue }
+            guard let state = state(for: window), state.id != except else { continue }
+            return (state, window)
+        }
+        return nil
+    }
+
+    // MARK: NSWindowDelegate
+
+    func windowDidMove(_ notification: Notification) {
+        rememberFrame(notification)
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        rememberFrame(notification)
+    }
+
+    private func rememberFrame(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, let state = state(for: window) else { return }
+        state.frame = window.frame
+        model?.persistSessionIfReady()
+    }
+
+    /// Closing only hides the one window; its sessions keep running until ⌘Q.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard let model, !model.isQuitting, let state = state(for: sender) else { return true }
+        state.frame = sender.frame
+        closedWindowIDs.insert(state.id)
+        sender.orderOut(nil)
+        model.persistSessionIfReady()
+        return false
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, let state = state(for: window) else { return }
+        Self.disableNativeWindowTabs()
+        model?.windowBecameKey(state)
+    }
+
+    /// Only reached while quitting; the snapshot saved here comes back at next launch.
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        guard let entry = windows.first(where: { $0.value === window }) else { return }
+        windows[entry.key] = nil
+        guard let model, let state = model.window(for: entry.key) else { return }
+        state.frame = window.frame
+        model.windowClosed(state)
+    }
+}

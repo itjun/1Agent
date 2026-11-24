@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""验证自托管构建的进程识别，不退出或构建真实的 1Agent。"""
+"""验证自托管构建的进程识别，不退出或构建真实的 Natty。"""
 import importlib.util
 import json
 from pathlib import Path
@@ -16,18 +16,18 @@ ROOT = Path(__file__).resolve().parents[1]
 @unittest.skipUnless(sys.platform == "darwin", "使用 macOS 的 pgrep 语义")
 class BuildProcessTests(unittest.TestCase):
     def test_build_recognizes_its_host_application(self):
-        with tempfile.TemporaryDirectory(prefix="oneagent-build-测试 空格-") as directory:
-            app = Path(directory) / "1Agent.app"
-            executable = app / "Contents/MacOS/1Agent"
+        with tempfile.TemporaryDirectory(prefix="natty-build-测试 空格-") as directory:
+            app = Path(directory) / "Natty.app"
+            executable = app / "Contents/MacOS/Natty"
             executable.parent.mkdir(parents=True)
             executable.symlink_to("/bin/sh")
-            # 用应用路径启动真实父进程，复现从 1Agent 的终端调用脚本。
+            # 用应用路径启动真实父进程，复现从 Natty 的终端调用脚本。
             probe = f"""
 import importlib.util
 import json
 import os
 from pathlib import Path
-spec = importlib.util.spec_from_file_location("oneagent_build", {str(ROOT / 'build.py')!r})
+spec = importlib.util.spec_from_file_location("natty_build", {str(ROOT / 'build.py')!r})
 build = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
 build.INSTALLED_APP = Path({str(app)!r})
@@ -45,12 +45,12 @@ print(json.dumps(pids))
             self.assertTrue(json.loads(result.stdout))
 
     def test_external_terminal_stays_in_foreground(self):
-        spec = importlib.util.spec_from_file_location("oneagent_build", ROOT / "build.py")
+        spec = importlib.util.spec_from_file_location("natty_build", ROOT / "build.py")
         build = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(build)
-        with tempfile.TemporaryDirectory(prefix="oneagent-build-external-") as directory:
-            app = Path(directory) / "1Agent.app"
-            executable = app / "Contents/MacOS/1Agent"
+        with tempfile.TemporaryDirectory(prefix="natty-build-external-") as directory:
+            app = Path(directory) / "Natty.app"
+            executable = app / "Contents/MacOS/Natty"
             executable.parent.mkdir(parents=True)
             executable.symlink_to("/bin/sleep")
             build.INSTALLED_APP = app

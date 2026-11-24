@@ -1,6 +1,6 @@
 import AppKit
 import GhosttyTerminal
-@testable import agent
+@testable import Natty
 
 /// Replay real remote OSC bytes through the production transport callback and terminal engine.
 @main enum RemoteDirectoryTests {

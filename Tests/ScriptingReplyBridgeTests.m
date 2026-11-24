@@ -18,11 +18,11 @@
 int main(void) {
     @autoreleasepool {
         ReplyCommandFixture *normal = [ReplyCommandFixture new];
-        if (!OneAgentResumeScriptCommand(normal, @YES, @"conversion failed") || normal.replyCount != 1 || ![normal.received isEqual:@YES]) return 1;
+        if (!NattyResumeScriptCommand(normal, @YES, @"conversion failed") || normal.replyCount != 1 || ![normal.received isEqual:@YES]) return 1;
         ReplyCommandFixture *invalid = [ReplyCommandFixture new];
         invalid.rejectResult = YES;
         @try {
-            if (OneAgentResumeScriptCommand(invalid, @"invalid result", @"conversion failed")) return 1;
+            if (NattyResumeScriptCommand(invalid, @"invalid result", @"conversion failed")) return 1;
         } @catch (NSException *exception) {
             fprintf(stderr, "FAIL: reply conversion exception escaped the Objective-C boundary\n");
             return 1;

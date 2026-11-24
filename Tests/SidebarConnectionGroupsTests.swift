@@ -2,13 +2,13 @@ import AppKit
 import Foundation
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 /// Exercises the production model and session codec with isolated storage, no PTYs or network.
 @main enum SidebarConnectionGroupsTests {
     @MainActor static func main() {
         _ = NSApplication.shared
-        if ProcessInfo.processInfo.environment["ONEAGENT_SIDEBAR_PREVIEW"] == "1" { NSApp.setActivationPolicy(.regular) }
+        if ProcessInfo.processInfo.environment["NATTY_SIDEBAR_PREVIEW"] == "1" { NSApp.setActivationPolicy(.regular) }
         Task { @MainActor in
             do { try await run(); print("SidebarConnectionGroupsTests passed"); exit(0) }
             catch { fputs("SidebarConnectionGroupsTests failed: \(error)\n", stderr); exit(1) }
@@ -22,11 +22,11 @@ import SwiftUI
     }
 
     @MainActor static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-sidebar-groups."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-sidebar-groups."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
                      == URL(fileURLWithPath: home).resolvingSymlinksInPath())
-        let suite = "oneagent.sidebar-groups.\(UUID())"
+        let suite = "natty.sidebar-groups.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)
@@ -120,7 +120,7 @@ import SwiftUI
         try check(model.panelRows(in: .workspace(workspaceID), window: window).count == 2, "Mixed workspace remains intact")
         try check(model.workspace(for: workspaceID)?.name == "Mixed workspace", "Workspace name survives")
 
-        if ProcessInfo.processInfo.environment["ONEAGENT_SIDEBAR_PREVIEW"] == "1" {
+        if ProcessInfo.processInfo.environment["NATTY_SIDEBAR_PREVIEW"] == "1" {
             for tab in model.tabs where tab.hasTerminal {
                 _ = SSHTerminalRegistry.view(for: tab.sessionID) {
                     let view = SSHTerminalNSView(frame: .zero)
@@ -139,7 +139,7 @@ import SwiftUI
             native.contentView?.layoutSubtreeIfNeeded()
             if let view = native.contentView,
                let image = view.bitmapImageRepForCachingDisplay(in: view.bounds),
-               let output = ProcessInfo.processInfo.environment["ONEAGENT_SIDEBAR_PREVIEW_OUTPUT"] {
+               let output = ProcessInfo.processInfo.environment["NATTY_SIDEBAR_PREVIEW_OUTPUT"] {
                 view.cacheDisplay(in: view.bounds, to: image)
                 try image.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output))
                 try check(model.tabs.count == 9, "Rendering must not launch or close terminal fixtures")

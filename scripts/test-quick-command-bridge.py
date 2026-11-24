@@ -22,18 +22,18 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
     endpoint = folder + "/s"
     token = str(uuid.uuid4())
-    remote_bootstrap = os.environ.get("ONEAGENT_REMOTE_INTEGRATION_TEST") == "1"
+    remote_bootstrap = os.environ.get("NATTY_REMOTE_INTEGRATION_TEST") == "1"
     bootstrap = None
     if remote_bootstrap:
         endpoint = "/tmp/1a-remote-" + token + "/s"
         pathlib.Path(folder, ".zshrc").write_text("PS1='QC_PROMPT> '\n")
-        bootstrap = subprocess.check_output(["/tmp/oneagent-remote-shell-tests", "--bootstrap", str(ROOT / "Resources"), token], text=True).strip()
+        bootstrap = subprocess.check_output(["/tmp/natty-remote-shell-tests", "--bootstrap", str(ROOT / "Resources"), token], text=True).strip()
     pid, fd = pty.fork()
     if pid == 0:
         os.chdir(folder)
         env = dict(os.environ, HOME=folder, ZDOTDIR=folder, TERM="xterm-256color",
-                   ONEAGENT_QC_SOCKET=endpoint, ONEAGENT_QC_TOKEN=token)
-        env.pop("ONEAGENT_QC_OWNER", None)
+                   NATTY_QC_SOCKET=endpoint, NATTY_QC_TOKEN=token)
+        env.pop("NATTY_QC_OWNER", None)
         if remote_bootstrap:
             env["SHELL"] = "/bin/zsh"
             os.execve("/bin/sh", ["sh", "-c", bootstrap], env)
@@ -78,7 +78,7 @@ with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
         return reply.partition("|")[2]
 
     try:
-        adapter = ROOT / "Resources/shell-integration/zsh/oneagent-quick-commands"
+        adapter = ROOT / "Resources/shell-integration/zsh/natty-quick-commands"
         if not remote_bootstrap:
             os.write(fd, f"PS1='QC_PROMPT> '; source '{adapter}'\n".encode())
         wait_for(lambda: os.path.exists(endpoint) and b"QC_PROMPT> " in output)
@@ -195,7 +195,7 @@ with tempfile.TemporaryDirectory(prefix="1a-qc-test-", dir="/tmp") as folder:
         assert not interrupted.exists(), "Ctrl-C did not stop the command"
         assert request("run", "( eval 'if syntax broken' )") == "accepted-wakeup"
         wait_for(lambda: request() == "ready", seconds=4)
-        assert request("run", "( cd /missing-1agent-quick-command-test && printf BAD > missing )") == "accepted-wakeup"
+        assert request("run", "( cd /missing-natty-quick-command-test && printf BAD > missing )") == "accepted-wakeup"
         wait_for(lambda: request() == "ready", seconds=4)
         assert not (pathlib.Path(folder) / "missing").exists()
         print("ZLE bridge: empty/busy input, cwd, expiry, once-only, subshell exit, sourced initialization, preserved stdout/stderr, multi-line prompt, live resize without clearing, running job, continuation, history search, Ctrl-C and syntax errors passed")

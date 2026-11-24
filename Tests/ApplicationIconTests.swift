@@ -9,7 +9,7 @@ enum ApplicationIconTests {
         let bundle = Bundle(path: args[1])!
         let suite = args[2], phase = args[3]
         let applicationURL = URL(fileURLWithPath: args[4])
-        precondition(applicationURL.path.hasPrefix("/private/tmp/oneagent-app-icons."))
+        precondition(applicationURL.path.hasPrefix("/private/tmp/natty-app-icons."))
         let defaults = UserDefaults(suiteName: suite)!
         let manager = ApplicationIconManager(defaults: defaults, applicationURL: applicationURL)
         if phase == "save" {

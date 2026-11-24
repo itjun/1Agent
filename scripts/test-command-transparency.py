@@ -16,7 +16,7 @@ EXPECTED = ['update', 'two words', '', '中文', '--flag=value']
 
 
 def apple(body):
-    result = subprocess.run(['osascript', '-e', 'tell application id "com.itjun.agent"\n' + body + '\nend tell'],
+    result = subprocess.run(['osascript', '-e', 'tell application id "com.itjun.natty"\n' + body + '\nend tell'],
                             text=True, capture_output=True, timeout=20)
     assert result.returncode == 0, result.stderr
     return result.stdout.strip()
@@ -54,7 +54,7 @@ from pathlib import Path
 Path({str(folder / (kind + '.json'))!r}).write_text(json.dumps({{
     'args': sys.argv[1:],
     'injectedEnvironment': {{k: v for k, v in os.environ.items() if k in
-        ('ONEAGENT_AGENT_INVOCATION', 'ONEAGENT_AGENT_KIND', 'ONEAGENT_AGENT_EXECUTABLE')}}
+        ('NATTY_AGENT_INVOCATION', 'NATTY_AGENT_KIND', 'NATTY_AGENT_EXECUTABLE')}}
 }}))
 sys.exit(23)
 ''')
@@ -66,8 +66,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--installed', action='store_true')
     args = parser.parse_args()
-    resources = Path('/Applications/1Agent.app/Contents/Resources') if args.installed else ROOT / 'Resources'
-    with tempfile.TemporaryDirectory(prefix='oneagent-transparency-', dir='/private/tmp') as directory:
+    resources = Path('/Applications/Natty.app/Contents/Resources') if args.installed else ROOT / 'Resources'
+    with tempfile.TemporaryDirectory(prefix='natty-transparency-', dir='/private/tmp') as directory:
         root = Path(directory)
         if args.installed:
             folder = root / 'installed'
@@ -76,8 +76,8 @@ def main():
             ready = folder / 'ready'
             # Use a real installed PTY with isolated rc files, so aliases cannot select real CLIs.
             (folder / '.zshrc').write_text(
-                'oneagent_test_ready() { : > ' + shlex.quote(str(ready)) + '; }\n'
-                'zle -N zle-line-init oneagent_test_ready\n'
+                'natty_test_ready() { : > ' + shlex.quote(str(ready)) + '; }\n'
+                'zle -N zle-line-init natty_test_ready\n'
             )
             startup = 'exec ' + shlex.join(['/usr/bin/env', 'ZDOTDIR=' + str(folder), '/bin/zsh', '-d', '-i'])
             tab = apple('set cfg to new surface configuration\n'
@@ -101,14 +101,14 @@ def main():
                 apple('close tab (tab id ' + json.dumps(tab) + ')')
         else:
             runner = root / 'remote-shell-tests'
-            subprocess.run(['swiftc', '-o', str(runner), str(ROOT / 'Sources/OneAgent/RemoteShellIntegration.swift'),
+            subprocess.run(['swiftc', '-o', str(runner), str(ROOT / 'Sources/Natty/RemoteShellIntegration.swift'),
                             str(ROOT / 'Tests/RemoteShellIntegrationTests.swift')], check=True)
             for lane in ('local-zsh', 'local-bash', 'remote-zsh', 'remote-bash'):
                 folder = root / lane; folder.mkdir(); helper = fixture(folder)
                 env = dict(os.environ, HOME=str(folder), PATH='/usr/bin:/bin',
-                           ONEAGENT_AGENT_HELPER=str(helper), ONEAGENT_AGENT_STATE=str(folder / 'invocation.json'),
-                           ONEAGENT_AGENT_RESOURCES=str(resources / 'agent-sessions'))
-                for key in ('ZDOTDIR', 'GHOSTTY_ZSH_ZDOTDIR', 'ONEAGENT_AGENT_INVOCATION', 'ONEAGENT_AGENT_KIND', 'ONEAGENT_AGENT_EXECUTABLE'):
+                           NATTY_AGENT_HELPER=str(helper), NATTY_AGENT_STATE=str(folder / 'invocation.json'),
+                           NATTY_AGENT_RESOURCES=str(resources / 'agent-sessions'))
+                for key in ('ZDOTDIR', 'GHOSTTY_ZSH_ZDOTDIR', 'NATTY_AGENT_INVOCATION', 'NATTY_AGENT_KIND', 'NATTY_AGENT_EXECUTABLE'):
                     env.pop(key, None)
                 if lane.startswith('local'):
                     if lane.endswith('zsh'):

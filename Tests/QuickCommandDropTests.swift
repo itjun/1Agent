@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 /// Production drop routing with native terminal views, isolated storage and no PTYs.
 @main enum QuickCommandDropTests {
@@ -15,11 +15,11 @@ import ObjectiveC
     }
 
     @MainActor private static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-quick-command-drop."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-quick-command-drop."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
                      == URL(fileURLWithPath: home).resolvingSymlinksInPath())
-        let suite = "oneagent.command-drop.\(UUID())"
+        let suite = "natty.command-drop.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)

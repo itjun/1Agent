@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 @main
 enum HostInformationTests {
@@ -18,10 +18,10 @@ enum HostInformationTests {
     }
 
     @MainActor static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-host-information."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-host-information."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath().path == URL(fileURLWithPath: home).resolvingSymlinksInPath().path)
-        let defaults = UserDefaults(suiteName: "oneagent.host-information.\(UUID())")!
+        let defaults = UserDefaults(suiteName: "natty.host-information.\(UUID())")!
         let pasteboard = NSPasteboard.general
         let savedPasteboard = (pasteboard.pasteboardItems ?? []).map { item in
             item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }

@@ -5,7 +5,7 @@ enum AppUpdateTests {
     @MainActor static func main() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let suite = "oneagent-update-test-" + UUID().uuidString
+        let suite = "natty-update-test-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { try? FileManager.default.removeItem(at: root); defaults.removePersistentDomain(forName: suite) }
         try Data(#"{"autoCheck":false,"remindVersion":"v9"}"#.utf8).write(to: root.appendingPathComponent("prefs.json"))

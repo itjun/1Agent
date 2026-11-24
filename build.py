@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""一键重新部署 1Agent：停止旧应用 → 编译、签名、安装 → 启动新应用。
+"""一键重新部署 Natty：停止旧应用 → 编译、签名、安装 → 启动新应用。
 
 用法：python3 build.py（也可从其他目录传入本脚本的绝对路径）。
 依赖：macOS、完整 Xcode、xcodegen、make；使用现有 make build 流程。
-在 1Agent 自身终端中执行时，转为独立进程并将输出写入日志，避免退出应用时中断构建。
+在 Natty 自身终端中执行时，转为独立进程并将输出写入日志，避免退出应用时中断构建。
 """
 
 import hashlib
@@ -20,10 +20,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
-APP_NAME = "1Agent"
-BUNDLE_ID = "com.itjun.agent"
-INSTALLED_APP = Path("/Applications/1Agent.app")
-BUILT_APP = ROOT / "build/DerivedData.noindex/Build/Products/Debug/1Agent.app"
+APP_NAME = "Natty"
+BUNDLE_ID = "com.itjun.natty"
+INSTALLED_APP = Path("/Applications/Natty.app")
+BUILT_APP = ROOT / "build/DerivedData.noindex/Build/Products/Debug/Natty.app"
 STAGE_TIMES = []
 
 
@@ -42,7 +42,7 @@ def running_pids(app):
     executable = app / "Contents/MacOS" / APP_NAME
     pattern = "^" + re.escape(str(executable)) + "([[:space:]]|$)"
     result = subprocess.run(
-        # macOS 默认排除祖先进程；在 1Agent 自身终端中运行时也必须找到宿主应用。
+        # macOS 默认排除祖先进程；在 Natty 自身终端中运行时也必须找到宿主应用。
         ["/usr/bin/pgrep", "-af", pattern], capture_output=True, text=True, check=False
     )
     if result.returncode == 1:
@@ -72,8 +72,8 @@ def is_running_inside_app():
 
 
 def launch_detached_build():
-    with tempfile.NamedTemporaryFile(prefix="1agent-build-", suffix=".log", delete=False) as log:
-        print(f"==> 从 1Agent 内启动，构建将在独立进程中继续；日志：{log.name}", flush=True)
+    with tempfile.NamedTemporaryFile(prefix="natty-build-", suffix=".log", delete=False) as log:
+        print(f"==> 从 Natty 内启动，构建将在独立进程中继续；日志：{log.name}", flush=True)
         # 独立会话避开应用退出时对整个 PTY 会话的清理；所有标准流也必须脱离终端。
         worker = subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve()), "--worker"], cwd=ROOT,
@@ -98,7 +98,7 @@ def stop_running():
             continue
         print(f"    退出 {app}", flush=True)
         # 开发安装保留终端。旧版没有这个参数，其普通退出本来就会保留。
-        dictionary = app / "Contents/Resources/1Agent.sdef"
+        dictionary = app / "Contents/Resources/Natty.sdef"
         quit_command = "quit"
         if dictionary.is_file() and 'code="tsKP"' in dictionary.read_text():
             quit_command = "quit preserving terminal sessions true"
@@ -130,13 +130,13 @@ def verify_running_build():
             raise RuntimeError(f"安装后的 {name} 与本次构建不一致")
     pids = running_pids(INSTALLED_APP)
     if not pids:
-        raise RuntimeError("新安装的 1Agent 未运行")
+        raise RuntimeError("新安装的 Natty 未运行")
     print(f"==> 新构建已安装并运行，PID：{', '.join(map(str, pids))}", flush=True)
 
 
 def main():
     if sys.platform != "darwin":
-        raise RuntimeError("1Agent 当前仅支持在 macOS 上构建和运行")
+        raise RuntimeError("Natty 当前仅支持在 macOS 上构建和运行")
     missing = [tool for tool in ("make", "xcodegen", "xcodebuild") if not shutil.which(tool)]
     if missing:
         raise RuntimeError(f"缺少构建工具：{', '.join(missing)}")

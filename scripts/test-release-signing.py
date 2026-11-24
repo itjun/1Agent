@@ -40,7 +40,7 @@ check("拒绝格式错误的更新公钥", False, SPARKLE_PUBLIC_KEY="invalid ke
 check("拒绝长度错误的更新公钥", False,
       SPARKLE_PUBLIC_KEY=base64.b64encode(bytes(31)).decode())
 check("拒绝 ad-hoc Release 缺失权限文件", False, CODE_SIGN_ENTITLEMENTS="")
-with tempfile.TemporaryDirectory(prefix="oneagent-signing-test-") as folder:
+with tempfile.TemporaryDirectory(prefix="natty-signing-test-") as folder:
     path = Path(folder) / "test.entitlements"
     for value in [False, "true"]:
         path.write_bytes(plistlib.dumps({"com.apple.security.cs.disable-library-validation": value}))

@@ -9,7 +9,7 @@ const source = path.join(root, 'Resources/AppIcon');
 const output = path.join(root, 'Resources/ApplicationIcons');
 const work = path.join(root, 'build/ApplicationIcons.noindex');
 const original = path.join(source, 'macaron-original-mark.png');
-// The original icon keeps the outlined mark. The installed OneAgentIcon.icon is a
+// The original icon keeps the outlined mark. The installed NattyIcon.icon is a
 // separate full-color mark so system notifications stay readable; macOS derives adaptive appearances.
 const template = {
   fill: { solid: 'srgb:1.00000,1.00000,1.00000,1.00000' },
@@ -46,11 +46,11 @@ function compileIcon(iconDir, id, icon) {
   const originalIcon = structuredClone(template);
   originalIcon.fill.solid = 'srgb:1.00000,1.00000,1.00000,1.00000';
   compileIcon(originalIconDir, 'Original', originalIcon);
-  const square = path.join(source, 'oneagent-icon-1024.png');
-  const rounded = path.join(source, 'oneagent-icon-rounded.png');
+  const square = path.join(source, 'natty-icon-1024.png');
+  const rounded = path.join(source, 'natty-icon-rounded.png');
   run('magick', ['-size', '1024x1024', 'xc:#FFFFFF', original, '-composite', square]);
   run('magick', [square, '(', rounded, '-alpha', 'extract', ')', '-alpha', 'off', '-compose', 'CopyOpacity', '-composite', rounded]);
-  fs.writeFileSync(path.join(source, 'oneagent-icon.svg'), `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  fs.writeFileSync(path.join(source, 'natty-icon.svg'), `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <rect width="1024" height="1024" fill="#FFFFFF"/>
   <image href="ghostty-source.svg" x="152" y="152" width="720" height="720"
          preserveAspectRatio="xMidYMid meet"/>

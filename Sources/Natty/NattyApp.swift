@@ -1,0 +1,681 @@
+import AppKit
+import SwiftUI
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let model: AppModel
+    private let exitPreparation = ApplicationExitPreparation()
+    private var isTerminationPending = false
+
+    private var shortcutMonitor: Any?
+    private var shortcutsObserver: NSObjectProtocol?
+    private var appliedShortcutsRevision = 0
+    /// Existing paths after `-e`. AppKit also reports them as files to open; each is skipped once.
+    private var commandArgumentPaths: Set<String> = []
+
+    /// `AppModel` reads saved settings, so old defaults must be copied over first.
+    override init() {
+        CommandLineLaunch.handOffIfAnotherInstanceRuns()
+        LegacyDefaultsMigration.runIfNeeded()
+        model = AppModel()
+        commandArgumentPaths = CommandLineLaunch.existingCommandPaths()
+        super.init()
+    }
+
+    /// `natty://` links, plus folders and scripts from `open`, Finder, or the Dock.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        var files: [URL] = []
+        for url in urls {
+            if !url.isFileURL {
+                model.openExternalURL(url)
+                continue
+            }
+            if commandArgumentPaths.remove(url.standardizedFileURL.path) != nil {
+                continue
+            }
+            files.append(url)
+        }
+        if !files.isEmpty {
+            model.openFiles(files)
+        }
+    }
+
+    @objc private func receiveHandedOffRunRequest(_ notification: Notification) {
+        guard let id = notification.userInfo?[CommandLineLaunch.ticketKey] as? String,
+              let ticket = CommandLineLaunch.takeTicket(id: id),
+              let url = URL(string: ticket.url),
+              let request = ExternalOpen.runRequest(from: url) else { return }
+        model.openRunRequest(request)
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = FileTransferQueue.shared
+        TerminalCommandLine.migrateInstalledLauncher()
+        ApplicationIconManager.shared.restoreSystemIcon()
+        AppearanceDriver.shared.reapply()
+        TerminalDefaults.registerBundledFonts()
+        GhosttyRuntime.removeLeftoverConfigFiles()
+        GhosttyRuntime.applyTerminalSettings()
+        MainWindowManager.shared.attach(model: model)
+        MainWindowManager.disableNativeWindowTabs()
+        TerminalAutomation.model = model
+        TerminalActivity.shared.model = model
+        TerminalNotifications.shared.install()
+        AppUpdateController.shared.start(appDelegate: self)
+        // Reading PATH from a login shell takes a moment; do it now so the first ⌘T does not wait.
+        Task.detached(priority: .utility) { _ = await SSHLaunchEnvironment.shared.get() }
+        model.watchSSHConfig()
+        model.restoreLastSession()
+        TerminalSecureInput.shared.start()
+        NSApp.servicesProvider = ServiceProvider(model: model)
+        NSUpdateDynamicServices()
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(receiveHandedOffRunRequest(_:)),
+            name: CommandLineLaunch.handOffNotification,
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        if let request = CommandLineLaunch.request {
+            model.openRunRequest(request)
+        }
+        FocusedTerminal.shared.refresh()
+        // SwiftUI fills in the Edit menu after launch returns.
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                TerminalCommands.applySelectAllShortcut()
+            }
+        }
+        appliedShortcutsRevision = UserDefaults.standard.integer(forKey: AppShortcuts.revisionKey)
+        shortcutsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.shortcutsDidChangeIfNeeded()
+            }
+        }
+        shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            return MainActor.assumeIsolated {
+                self.handleShortcut(event)
+            }
+        }
+        FamilyMenuPresenter.shared.applicationShortcut = { [weak self] in
+            self?.contextMenuCloseItem()
+        }
+    }
+
+    /// Dock icon / `open` without arguments. Always bring the terminal window forward: AppKit may
+    /// report visible windows yet leave another app frontmost unless we activate explicitly.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        model.revealForReopen()
+        return true
+    }
+
+    /// Cmd-Tab / Dock can activate the app while the terminal stays on another Space.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        let key = NSApp.keyWindow
+        let keyOnActiveSpace = key?.isOnActiveSpace == true && key?.isVisible == true && !(key is FamilyModalWindow)
+        if !keyOnActiveSpace {
+            model.revealForReopen()
+        }
+    }
+
+    /// SwiftUI menus follow the revision themselves; Edit → Select All is an AppKit item and is re-bound
+    /// after SwiftUI has rebuilt the menus, so the rebuild cannot put ⌘A back.
+    private func shortcutsDidChangeIfNeeded() {
+        let revision = UserDefaults.standard.integer(forKey: AppShortcuts.revisionKey)
+        if revision == appliedShortcutsRevision {
+            return
+        }
+        appliedShortcutsRevision = revision
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                TerminalCommands.applySelectAllShortcut()
+            }
+        }
+    }
+
+    /// Duplicate right/down and Close Terminal follow their `AppShortcuts` bindings (⌘D, ⇧⌘D, ⌘W by default).
+    /// Close Terminal closes the selected terminal so the window stays open. Ctrl+D is left for the shell.
+    /// Everything acts on the key window.
+    func handleShortcut(_ event: NSEvent) -> NSEvent? {
+        if FamilyMenuPresenter.shared.activeMenu != nil {
+            // 关闭快捷键始终属于当前选中的终端，不能执行右键菜单捕获的其他会话。
+            guard KeyChord.from(event: event) == AppShortcuts.chord(for: .closeTab),
+                  let command = contextMenuCloseItem() else { return event }
+            FamilyMenuPresenter.shared.dismiss()
+            command.action()
+            return nil
+        }
+        if let modal = NSApp.keyWindow as? FamilyModalWindow {
+            if let chord = KeyChord.from(event: event) {
+                if chord == AppShortcuts.chord(for: .closeTab) { modal.cancelOperation(nil); return nil }
+                if AppShortcutID.allCases.contains(where: { $0.group != .terminal && AppShortcuts.chord(for: $0) == chord }) { return nil }
+            }
+            return event
+        }
+        // The Settings recorder swallows the key in its own monitor, which may run after this one.
+        if ShortcutRecorder.isRecording {
+            return event
+        }
+        if NSApp.keyWindow?.identifier == SettingsWindowController.windowID {
+            guard let chord = KeyChord.from(event: event) else { return event }
+            if chord == AppShortcuts.chord(for: .closeTab) || chord == AppShortcuts.chord(for: .closeWindow) {
+                model.dismissSettings()
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .settings) { model.showSettings(); return nil }
+            if togglesFullScreen(chord) { return nil }
+            // 设置窗口处理编辑操作，工作区快捷键只在主窗口生效。
+            let isWorkspaceShortcut = AppShortcutID.allCases.contains {
+                $0.group != .terminal && $0 != .toggleFullScreen && $0 != .closeWindow && AppShortcuts.chord(for: $0) == chord
+            }
+            return isWorkspaceShortcut ? nil : event
+        }
+        let window = model.keyWindow
+        if event.keyCode == 53, let window, window.draggingTabID != nil || window.draggingBlock != nil {
+            model.endDrag(in: window)
+            return nil
+        }
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if event.keyCode == 53, modifiers.isEmpty, TerminalFind.shared.closeForFocusedTerminal() {
+            return nil
+        }
+        guard let chord = KeyChord.from(event: event) else { return event }
+        if let window, !window.hostPickerPresented,
+           NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+            if chord == AppShortcuts.chord(for: .toggleSidebar) {
+                model.toggleSidebar(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .toggleToolSidebar) {
+                model.toggleToolSidebar(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .newLocalTerminal) {
+                model.openLocalTerminal(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .openHost) {
+                model.openHostPicker(in: window, purpose: window.presentation.filesVisible ? .files : .terminal)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .reconnect), window.section == .terminals,
+               let tab = model.selectedTab(in: window), tab.showsDisconnected {
+                if tab.isLocal { model.reopenLocalTerminal(tab.id) } else { model.reconnect(tab.id) }
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .toggleSplitZoom), window.section == .terminals,
+               FocusedTerminal.current != nil {
+                model.toggleSplitZoom(in: window)
+                return nil
+            }
+            if chord == AppShortcuts.chord(for: .clearScreen), window.section == .terminals,
+               FocusedTerminal.perform("clear_screen") {
+                return nil
+            }
+        }
+        if increasesFontSizeByPlusAlias(chord) {
+            return nil
+        }
+        if jumpsToPromptByShiftAlias(chord) {
+            return nil
+        }
+        if chord == AppShortcuts.chord(for: .openFileBrowser) {
+            guard let window, !window.hostPickerPresented,
+                  NSApp.keyWindow?.identifier == MainWindowManager.windowID else { return event }
+            model.toggleSection(in: window)
+            return nil
+        }
+        if let window, window.section == .files, !window.hostPickerPresented,
+           chord == AppShortcuts.chord(for: .closeTab),
+           NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+            _ = model.fileWorkspace(for: window).closeFocusedTab()
+            return nil
+        }
+        if let window, window.section != .terminals, NSApp.keyWindow?.identifier == MainWindowManager.windowID {
+            let terminalChord = AppShortcutID.allCases.contains { id in
+                (id.group == .pane || id.group == .terminal) && AppShortcuts.chord(for: id) == chord
+            }
+            if terminalChord {
+                return event
+            }
+        }
+        if let handled = switchPane(chord, in: window) {
+            return handled ? nil : event
+        }
+        if let handled = switchTerminal(chord, in: window) {
+            return handled ? nil : event
+        }
+        if togglesFullScreen(chord) {
+            return nil
+        }
+        let duplicatesRight = chord == AppShortcuts.chord(for: .duplicateRight)
+        let duplicatesDown = chord == AppShortcuts.chord(for: .duplicateDown)
+        let closesTerminal = chord == AppShortcuts.chord(for: .closeTab)
+        guard duplicatesRight || duplicatesDown || closesTerminal else { return event }
+        guard let window else { return event }
+        if window.hostPickerPresented {
+            if closesTerminal {
+                window.hostPickerPresented = false
+            }
+            return nil
+        }
+        if duplicatesRight || duplicatesDown {
+            guard window.selectedTabID != nil else { return event }
+            model.duplicateFocused(downward: duplicatesDown, in: window)
+            return nil
+        }
+        // Nothing selected: hide the window like any other Mac app's close. The app keeps running.
+        guard window.selectedTabID != nil else {
+            MainWindowManager.shared.close(window)
+            return nil
+        }
+        model.closeSelectedTab(in: window)
+        return nil
+    }
+
+    func contextMenuCloseItem() -> FamilyMenuItem? {
+        guard !ShortcutRecorder.isRecording,
+              NSApp.keyWindow?.identifier == MainWindowManager.windowID,
+              let window = model.keyWindow, window.section == .terminals, !window.hostPickerPresented else { return nil }
+        let chord = AppShortcuts.chord(for: .closeTab)
+        return FamilyMenuItem(title: AppShortcutID.closeTab.title, key: chord.key, modifiers: chord.menuModifierMask) { [weak self, weak window] in
+            guard let self, let window else { return }
+            self.model.closeSelectedTab(in: window)
+        }
+    }
+
+    /// ⌘+ (keypad plus, or ⇧⌘= on a US layout) also enlarges the text, like Ghostty's `super+plus`.
+    /// A shortcut can hold only one chord, so these two stay fixed unless a shortcut claims them.
+    /// `KeyChord.pressed(by:)` reports ⇧⌘= as `=` plus Shift.
+    private func increasesFontSizeByPlusAlias(_ chord: KeyChord) -> Bool {
+        let plus = KeyChord(key: "+", modifiers: .command)
+        let shiftPlus = KeyChord(key: "=", modifiers: [.command, .shift])
+        guard chord == plus || chord == shiftPlus else { return false }
+        if AppShortcutID.allCases.contains(where: { AppShortcuts.chord(for: $0) == chord }) {
+            return false
+        }
+        return FocusedTerminal.perform("increase_font_size:1")
+    }
+
+    /// ⇧⌘↑ / ⇧⌘↓ also jump between prompts, like Ghostty's defaults, unless a shortcut claims them.
+    private func jumpsToPromptByShiftAlias(_ chord: KeyChord) -> Bool {
+        let up = KeyChord(key: KeyChord.upArrow, modifiers: [.command, .shift])
+        let down = KeyChord(key: KeyChord.downArrow, modifiers: [.command, .shift])
+        guard chord == up || chord == down else { return false }
+        if AppShortcutID.allCases.contains(where: { AppShortcuts.chord(for: $0) == chord }) {
+            return false
+        }
+        if chord == up {
+            return FocusedTerminal.perform("jump_to_prompt:-1")
+        }
+        return FocusedTerminal.perform("jump_to_prompt:1")
+    }
+
+    /// Nil when the chord is not a sidebar-switching shortcut. False lets the key through.
+    private func switchTerminal(_ chord: KeyChord, in window: WindowState?) -> Bool? {
+        let terminalShortcuts = AppShortcutID.allCases.filter { $0.group == .sidebar }
+        guard let id = terminalShortcuts.first(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
+        guard let window else { return false }
+        if window.hostPickerPresented {
+            return false
+        }
+        if id == .previousTerminal {
+            return model.selectAdjacentTerminal(forward: false, in: window)
+        }
+        if id == .nextTerminal {
+            return model.selectAdjacentTerminal(forward: true, in: window)
+        }
+        if id == .selectLastTerminal {
+            return model.selectTerminal(number: nil, in: window)
+        }
+        guard let number = id.terminalNumber else { return false }
+        return model.selectTerminal(number: number, in: window)
+    }
+
+    /// ⌃⌘F by default. ⌘↩ does the same, like Ghostty, unless a shortcut claims it.
+    private func togglesFullScreen(_ chord: KeyChord) -> Bool {
+        let returnAlias = KeyChord(key: "\r", modifiers: .command)
+        var matches = chord == AppShortcuts.chord(for: .toggleFullScreen)
+        if !matches && chord == returnAlias {
+            matches = !AppShortcutID.allCases.contains(where: { AppShortcuts.chord(for: $0) == returnAlias })
+        }
+        if !matches {
+            return false
+        }
+        return AppDelegate.toggleFullScreenOfKeyWindow()
+    }
+
+    /// View → Toggle Full Screen and its shortcut. Sheets and settings stay as they are.
+    @discardableResult
+    static func toggleFullScreenOfKeyWindow() -> Bool {
+        guard let window = NSApp.keyWindow,
+              window.sheetParent == nil,
+              !window.collectionBehavior.contains(.fullScreenNone) else { return false }
+        window.toggleFullScreen(nil)
+        return true
+    }
+
+    /// Nil when the chord is not a pane-switching shortcut. False lets the key through.
+    private func switchPane(_ chord: KeyChord, in window: WindowState?) -> Bool? {
+        let paneShortcuts: [AppShortcutID] = [
+            .nextPane, .previousPane, .paneLeft, .paneRight, .paneUp, .paneDown,
+            .movePaneLeft, .movePaneRight, .movePaneUp, .movePaneDown,
+        ]
+        guard paneShortcuts.contains(where: { AppShortcuts.chord(for: $0) == chord }) else { return nil }
+        guard let window else { return false }
+        if window.hostPickerPresented {
+            return false
+        }
+        // Moving comes first: it shares the arrow keys with focusing and adds Shift.
+        if chord == AppShortcuts.chord(for: .movePaneLeft) {
+            return model.movePane(toward: .left, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .movePaneRight) {
+            return model.movePane(toward: .right, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .movePaneUp) {
+            return model.movePane(toward: .up, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .movePaneDown) {
+            return model.movePane(toward: .down, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .nextPane) {
+            return model.focusAdjacentPane(forward: true, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .previousPane) {
+            return model.focusAdjacentPane(forward: false, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .paneLeft) {
+            return model.focusPane(toward: .left, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .paneRight) {
+            return model.focusPane(toward: .right, in: window)
+        }
+        if chord == AppShortcuts.chord(for: .paneUp) {
+            return model.focusPane(toward: .up, in: window)
+        }
+        return model.focusPane(toward: .down, in: window)
+    }
+
+    /// 隐藏主窗口后，终端继续运行。
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    /// Quitting closes every window; mark it first so those closes keep the terminals in the snapshot.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isTerminationPending else { return .terminateLater }
+        isTerminationPending = true
+        Task { @MainActor in
+            do {
+                try await prepareForTermination()
+                if model.isRestarting || model.isQuittingForInstallation || AppUpdateController.shared.isSparkleRestart {
+                    SSHTerminalRegistry.detachProcessesForApplicationExit()
+                } else {
+                    await model.terminateSessionsForQuit()
+                }
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+            catch {
+                model.isQuittingForInstallation = false
+                isTerminationPending = false
+                sender.reply(toApplicationShouldTerminate: false)
+                showExitPreparationError()
+            }
+        }
+        return .terminateLater
+    }
+
+    func prepareForTermination() async throws {
+        try await exitPreparation.prepare { [self] in
+            model.isQuitting = true
+            TerminalSecureInput.shared.stop()
+            model.persistSessionIfReady()
+            FileTransferQueue.shared.interruptForTermination()
+            do { try await model.prepareForApplicationExit(detachProcesses: false) }
+            catch {
+                model.isQuitting = false
+                model.isRestarting = false
+                model.persistSessionIfReady()
+                throw error
+            }
+        }
+    }
+
+    func cancelPreparedTermination() {
+        guard !isTerminationPending else { return }
+        exitPreparation.reset()
+        model.isQuitting = false
+        model.isRestarting = false
+        model.persistSessionIfReady()
+    }
+
+    func showExitPreparationError() {
+        model.revealForReopen()
+        AppNotifications.show(title: String(localized: "Could not save terminal logs"),
+            message: String(localized: "The app is still open to preserve your logs. Check free disk space and folder permissions, then try quitting again."),
+            level: .error, in: MainWindowManager.shared.window(for: model.mainWindow))
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        model.persistSessionIfReady()
+        if model.isRestarting && !AppUpdateController.shared.isSparkleRestart {
+            // Waits for this process to exit, so the new copy does not hand its launch back to us.
+            let relaunch = Process()
+            relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
+            relaunch.arguments = [
+                "-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$2\"",
+                "sh", String(ProcessInfo.processInfo.processIdentifier), Bundle.main.bundlePath,
+            ]
+            try? relaunch.run()
+        }
+    }
+}
+
+/// `open -na Natty.app --args --working-directory=<dir> -e <cmd> …` (VS Code / Cursor debug
+/// "runInTerminal") starts a second copy of the app. That copy hands the request to the copy
+/// already running and exits before it reads or writes the session or shows a window.
+///
+/// Any process can post a distributed notification, so the request itself goes into a `HandOffTicket`
+/// file in a folder only this user can open, and the notification carries just its name. The running
+/// copy also checks that the ticket's pid runs this same executable.
+enum CommandLineLaunch {
+    static let handOffNotification = Notification.Name("com.itjun.natty.handOffRunRequest")
+    static let ticketKey = "ticket"
+    /// The receiver reads the ticket while the sender is still alive; after this the sender gives up.
+    static let handOffTimeout: TimeInterval = 2
+
+    /// This process's own `--working-directory` / `-e` request, if it was started with one.
+    static let request = ExternalOpen.runRequest(fromArguments: CommandLine.arguments)
+
+    static var handOffDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/com.itjun.natty/handoff", isDirectory: true)
+    }
+
+    /// A distributed notification reaches exactly the running copy. LaunchServices might hand a
+    /// `natty://` URL back to this still-launching copy, and would also let any web page run commands.
+    static func handOffIfAnotherInstanceRuns() {
+        guard let request = CommandLineLaunch.request else { return }
+        let me = ProcessInfo.processInfo.processIdentifier
+        let bundleID = Bundle.main.bundleIdentifier ?? LegacyDefaultsMigration.ownDomain
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).filter {
+            $0.processIdentifier != me && !$0.isTerminated
+        }
+        guard !others.isEmpty else {
+            if CommandLine.arguments.contains("--handoff-only") { exit(2) }
+            return
+        }
+        guard let url = ExternalOpen.runURL(for: request) else { exit(1) }
+        let ticket = HandOffTicket(pid: me, url: url.absoluteString)
+        guard let file = CommandLineLaunch.writeTicket(ticket) else {
+            // Starting a second full copy would fight the running one over the saved session.
+            exit(1)
+        }
+        DistributedNotificationCenter.default().postNotificationName(
+            CommandLineLaunch.handOffNotification,
+            object: nil,
+            userInfo: [CommandLineLaunch.ticketKey: file.lastPathComponent],
+            deliverImmediately: true
+        )
+        let deadline = Date().addingTimeInterval(CommandLineLaunch.handOffTimeout)
+        while FileManager.default.fileExists(atPath: file.path) && Date() < deadline {
+            usleep(50_000)
+            // A concurrent cold launch can install its observer after the first notification.
+            DistributedNotificationCenter.default().postNotificationName(
+                CommandLineLaunch.handOffNotification, object: nil,
+                userInfo: [CommandLineLaunch.ticketKey: file.lastPathComponent], deliverImmediately: true
+            )
+        }
+        let acknowledged = !FileManager.default.fileExists(atPath: file.path)
+        try? FileManager.default.removeItem(at: file)
+        exit(acknowledged ? 0 : 1)
+    }
+
+    /// The folder is 0700 and the file 0600, named with a fresh UUID.
+    private static func writeTicket(_ ticket: HandOffTicket) -> URL? {
+        let manager = FileManager.default
+        let directory = CommandLineLaunch.handOffDirectory
+        do {
+            try manager.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            try manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+        } catch {
+            return nil
+        }
+        guard let data = try? JSONEncoder().encode(ticket) else { return nil }
+        let file = directory.appendingPathComponent(UUID().uuidString)
+        if !manager.createFile(atPath: file.path, contents: data, attributes: [.posixPermissions: 0o600]) {
+            return nil
+        }
+        return file
+    }
+
+    /// The ticket named `id`, if it passes every check. It is removed either way, but only after the
+    /// sender's pid was checked: the sender stays alive until the file is gone.
+    static func takeTicket(id: String) -> HandOffTicket? {
+        guard let uuid = UUID(uuidString: id) else { return nil }
+        let directory = CommandLineLaunch.handOffDirectory.path
+        var folder = stat()
+        guard lstat(directory, &folder) == 0,
+              folder.st_mode & S_IFMT == S_IFDIR,
+              folder.st_uid == getuid(),
+              folder.st_mode & 0o777 == 0o700 else { return nil }
+        let path = (directory as NSString).appendingPathComponent(uuid.uuidString)
+        var info = stat()
+        guard lstat(path, &info) == 0 else { return nil }
+        defer { unlink(path) }
+        let birth = info.st_birthtimespec
+        let createdAt = Date(timeIntervalSince1970: TimeInterval(birth.tv_sec) + TimeInterval(birth.tv_nsec) / 1_000_000_000)
+        let acceptable = ExternalOpen.handOffFileIsAcceptable(
+            isRegularFile: info.st_mode & S_IFMT == S_IFREG,
+            owner: info.st_uid,
+            currentUser: getuid(),
+            permissions: Int(info.st_mode & 0o777),
+            createdAt: createdAt,
+            now: Date()
+        )
+        guard acceptable,
+              let data = FileManager.default.contents(atPath: path),
+              let ticket = try? JSONDecoder().decode(HandOffTicket.self, from: data),
+              CommandLineLaunch.runsThisExecutable(pid: ticket.pid) else { return nil }
+        return ticket
+    }
+
+    private static func runsThisExecutable(pid: Int32) -> Bool {
+        if pid <= 0 || pid == ProcessInfo.processInfo.processIdentifier {
+            return false
+        }
+        guard let own = Bundle.main.executablePath else { return false }
+        var buffer = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        if proc_pidpath(pid, &buffer, UInt32(buffer.count)) <= 0 {
+            return false
+        }
+        let path = String(cString: buffer)
+        let theirs = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        let ours = URL(fileURLWithPath: own).resolvingSymlinksInPath().path
+        return theirs == ours
+    }
+
+    /// Absolute paths of the arguments after `-e` that exist right now, plus a bare folder argument
+    /// that already became the working directory.
+    static func existingCommandPaths() -> Set<String> {
+        let arguments = CommandLine.arguments
+        var paths: Set<String> = []
+        if let folder = ExternalOpen.positionalDirectory(in: arguments) {
+            paths.insert(folder)
+        }
+        guard let index = arguments.firstIndex(of: "-e") else { return paths }
+        let base = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+        for argument in arguments[(index + 1)...] {
+            let url = URL(fileURLWithPath: argument, relativeTo: base).standardizedFileURL
+            if FileManager.default.fileExists(atPath: url.path) {
+                paths.insert(url.path)
+            }
+        }
+        return paths
+    }
+}
+
+@main
+struct NattyApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    /// Menu key equivalents are read while `commands` is built; this rebuilds them when a shortcut changes.
+    @AppStorage(AppShortcuts.revisionKey) private var shortcutsRevision = 0
+
+    init() {
+        CommandLineLaunch.handOffIfAnotherInstanceRuns()
+        LegacyDefaultsMigration.runIfNeeded()
+        AppLanguage.synchronize()
+        // AppKit's own View → Enter Full Screen always shows 🌐F. View → Toggle Full Screen below replaces it,
+        // so its key follows `AppShortcuts`. Registered, not written, so the defaults domain is unchanged.
+        // A terminal never wants AutoFill guessing at its input; official Ghostty turns it off the same way.
+        UserDefaults.standard.register(defaults: [
+            "NSFullScreenMenuItemEverywhere": false,
+            "NSAutoFillHeuristicControllerEnabled": false,
+        ])
+    }
+
+    /// The main window is an AppKit window run by `MainWindowManager`.
+    /// The Settings scene only exists to give the app a scene; ⌘, is replaced below.
+    var body: some Scene {
+        Settings {
+            EmptyView()
+        }
+        .commands {
+            let _ = shortcutsRevision
+            CommandGroup(replacing: .newItem) {
+                Button("Close Window") {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    if NSApp.keyWindow?.identifier == SettingsWindowController.windowID {
+                        appDelegate.model.dismissSettings()
+                        return
+                    }
+                    guard let state = appDelegate.model.keyWindow else { return }
+                    MainWindowManager.shared.close(state)
+                }
+                    .keyboardShortcut(AppShortcuts.chord(for: .closeWindow).keyboardShortcut)
+                Button("New Terminal") { if !(NSApp.keyWindow is FamilyModalWindow), NSApp.keyWindow?.identifier != SettingsWindowController.windowID { appDelegate.model.newTab() } }
+                    .keyboardShortcut(AppShortcuts.chord(for: .newTab).keyboardShortcut)
+            }
+            CommandGroup(after: .sidebar) {
+                Button("Toggle Full Screen") {
+                    guard !(NSApp.keyWindow is FamilyModalWindow) else { return }
+                    AppDelegate.toggleFullScreenOfKeyWindow()
+                }
+                .keyboardShortcut(AppShortcuts.chord(for: .toggleFullScreen).keyboardShortcut)
+            }
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings") { if !(NSApp.keyWindow is FamilyModalWindow) { appDelegate.model.showSettings() } }
+                    .keyboardShortcut(AppShortcuts.chord(for: .settings).keyboardShortcut)
+            }
+            TerminalCommands(focus: FocusedTerminal.shared, model: appDelegate.model) {
+                if let state = appDelegate.model.keyWindow { appDelegate.model.toggleSplitZoom(in: state) }
+            }
+        }
+    }
+}

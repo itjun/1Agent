@@ -1,6 +1,6 @@
 import AppKit
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 /// 使用真实保存和恢复入口；隔离偏好，不启动 Shell 或 SSH。
 @main enum CommandSidebarRestorationTests {
@@ -19,11 +19,11 @@ import ObjectiveC
     }
 
     @MainActor static func run() async throws {
-        let home = ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"]!
-        precondition(home.hasPrefix("/private/tmp/oneagent-command-sidebar-restoration."))
+        let home = ProcessInfo.processInfo.environment["NATTY_TEST_HOME"]!
+        precondition(home.hasPrefix("/private/tmp/natty-command-sidebar-restoration."))
         precondition(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath()
                      == URL(fileURLWithPath: home).resolvingSymlinksInPath())
-        let suite = "oneagent.command-sidebar-restoration.\(UUID())"
+        let suite = "natty.command-sidebar-restoration.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)

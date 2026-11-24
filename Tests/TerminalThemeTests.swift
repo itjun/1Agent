@@ -2,7 +2,7 @@ import AppKit
 import GhosttyTerminal
 import QuartzCore
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 @MainActor
 enum TerminalThemeTests {
@@ -40,7 +40,7 @@ enum TerminalThemeTests {
                    "linear and corner colors share one opacity instead of brightening each other: " + name)
             expect((frameBackdrop.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua) == colors.isDark,
                    "frame material follows the palette brightness rather than a stale appearance: " + name)
-            let base = agent.RGBColor(ghosttyHex: colors.background)!
+            let base = Natty.RGBColor(ghosttyHex: colors.background)!
             for source in colors.gradientColors {
                 let composite = base.mixed(with: source, amount: Double(tint.opacity))
                 let sourceChannels = [source.red, source.green, source.blue]
@@ -145,16 +145,16 @@ enum TerminalThemeTests {
             expect(hexes.allSatisfy { $0.count == 6 && UInt32($0, radix: 16) != nil }, "complete palette: " + theme.name)
             expect(theme.configuration.light == theme.configuration.dark, "fixed theme independent of app appearance")
             let chrome = colors.applicationChrome()
-            func rgb(_ color: NSColor) -> agent.RGBColor {
+            func rgb(_ color: NSColor) -> Natty.RGBColor {
                 let value = color.usingColorSpace(.sRGB)!
-                return agent.RGBColor(red: value.redComponent, green: value.greenComponent, blue: value.blueComponent)
+                return Natty.RGBColor(red: value.redComponent, green: value.greenComponent, blue: value.blueComponent)
             }
             for surface in [chrome.background, chrome.sidebarBackground, chrome.elevated, chrome.accentFill] {
                 expect(rgb(NSColor(chrome.text)).contrastRatio(with: rgb(NSColor(surface))) >= 4.5,
                        "application text stays readable on every surface: " + theme.name)
             }
             expect(chrome.isDark == colors.isDark, "native controls follow theme brightness: " + theme.name)
-            let base = agent.RGBColor(ghosttyHex: colors.background)!
+            let base = Natty.RGBColor(ghosttyHex: colors.background)!
             expect(colors.gradientColors.count == 4, "theme supplies frame and corner colors")
             checkSoftFrame(colors, name: theme.name)
             let focused = colors.paneBackground(isFocused: true)
@@ -254,7 +254,7 @@ enum TerminalThemeTests {
             }
             // 表格右侧的空白也有 ANSI 背景，取样避开字形。
             let tableRows = [2, 6].map { slot in
-                let color = agent.RGBColor(ghosttyHex: candidate.ansi[slot])!.color
+                let color = Natty.RGBColor(ghosttyHex: candidate.ansi[slot])!.color
                 let expected = NSColor(color).usingColorSpace(bitmap.colorSpace)!
                 let matchingRows = (bitmap.pixelsHigh / 2..<bitmap.pixelsHigh).filter { y in
                     guard let pixel = bitmap.colorAt(x: x, y: y) else { return false }

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import ObjectiveC
-@testable import agent
+@testable import Natty
 
 @main enum QuickCommandSidebarTests {
     @MainActor static func main() {
@@ -22,10 +22,10 @@ import ObjectiveC
         if CommandLine.arguments.contains("--fail-missing-object") {
             let _: NSView = try unwrap(nil, "验证缺失对象正常退出")
         }
-        let home = try unwrap(ProcessInfo.processInfo.environment["ONEAGENT_TEST_HOME"], "缺少隔离测试目录")
-        try require(home.hasPrefix("/private/tmp/oneagent-quick-command-sidebar."))
+        let home = try unwrap(ProcessInfo.processInfo.environment["NATTY_TEST_HOME"], "缺少隔离测试目录")
+        try require(home.hasPrefix("/private/tmp/natty-quick-command-sidebar."))
         try require(URL(fileURLWithPath: NSHomeDirectory()).resolvingSymlinksInPath() == URL(fileURLWithPath: home).resolvingSymlinksInPath())
-        let suite = "oneagent.command-sidebar.\(UUID())"
+        let suite = "natty.command-sidebar.\(UUID())"
         let defaults = try unwrap(UserDefaults(suiteName: suite), "无法创建隔离偏好设置")
         let getter = try unwrap(class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults")))
         let previous = method_getImplementation(getter)
@@ -133,7 +133,7 @@ import ObjectiveC
                 .environment(\.windowChrome, WindowChrome(isDark: isDark)))
         }
         func capture(_ name: String) throws {
-            guard let directory = ProcessInfo.processInfo.environment["ONEAGENT_COMMAND_SIDEBAR_QA_DIR"] else { return }
+            guard let directory = ProcessInfo.processInfo.environment["NATTY_COMMAND_SIDEBAR_QA_DIR"] else { return }
             let view = try unwrap(native.contentView)
             view.layoutSubtreeIfNeeded()
             let bitmap = try unwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))

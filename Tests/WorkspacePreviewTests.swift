@@ -3,7 +3,7 @@ import Quartz
 import GhosttyTerminal
 import SwiftUI
 import WebKit
-@testable import agent
+@testable import Natty
 
 @main struct WorkspacePreviewTests {
     @MainActor static func main() {
@@ -16,7 +16,7 @@ import WebKit
     }
     @MainActor static func run() async throws {
         verifyPreviewPolicy()
-        let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ONEAGENT_PREVIEW_FIXTURE"]!)
+        let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["NATTY_PREVIEW_FIXTURE"]!)
         let location = GitLocation(directory: root.path)
         let snapshot = try await WorkspaceGit.snapshot(at: location)!
         let state = WindowState()
@@ -219,7 +219,7 @@ import WebKit
             try await Task.sleep(for: .milliseconds(20))
         }
         precondition(session.hasAttachedSurface)
-        session.receive(String(repeating: "\u{1b}[32m~/1Agent main\u{1b}[0m terminal preview resize regression\r\n", count: 100))
+        session.receive(String(repeating: "\u{1b}[32m~/Natty main\u{1b}[0m terminal preview resize regression\r\n", count: 100))
         session.waitForPendingOutput()
         try await Task.sleep(for: .seconds(1))
         var times: [Double] = []

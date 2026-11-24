@@ -12,7 +12,7 @@ import tempfile
 import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-HOST = ROOT / 'build/1AgentSessionHost'
+HOST = ROOT / 'build/NattySessionHost'
 FIXTURE = ROOT / 'Tests/session-host-fixture.py'
 
 def frame(kind, data=b''):

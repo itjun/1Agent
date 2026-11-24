@@ -1,12 +1,12 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 /// 切换工作区时，各栏共用整窗渐变；不启动终端或 SSH。
 @main enum SidebarAppearanceTests {
     @MainActor static func main() {
-        let suite = "oneagent.sidebar-appearance.\(UUID())"
+        let suite = "natty.sidebar-appearance.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
         let previous = method_getImplementation(getter)

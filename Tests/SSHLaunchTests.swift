@@ -10,11 +10,11 @@ enum SSHLaunchTests {
     static func main() throws {
         let ordinary = SSHCommand.arguments(alias: "example")
         expect(ordinary.suffix(2) == ["--", "example"], "ordinary SSH remains an interactive connection")
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("oneagent-ssh-launch-\(UUID().uuidString)")
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("natty-ssh-launch-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let marker = folder.appendingPathComponent("must-not-execute")
-        let tricky = folder.appendingPathComponent("project ' ; $(touch \"$ONEAGENT_TEST_MARKER\") `echo nope`")
+        let tricky = folder.appendingPathComponent("project ' ; $(touch \"$NATTY_TEST_MARKER\") `echo nope`")
         try FileManager.default.createDirectory(at: tricky, withIntermediateDirectories: true)
         let shell = folder.appendingPathComponent("probe-shell")
         try "#!/bin/sh\nprintf '%s\\n' \"$PWD\" \"$1\"\n".write(to: shell, atomically: true, encoding: .utf8)
@@ -25,7 +25,7 @@ enum SSHLaunchTests {
             process.executableURL = URL(fileURLWithPath: "/bin/sh")
             process.arguments = ["-c", command]
             process.environment = ["SHELL": shell.path, "HOME": NSHomeDirectory(), "PATH": "/usr/bin:/bin",
-                                   "ONEAGENT_TEST_MARKER": marker.path]
+                                   "NATTY_TEST_MARKER": marker.path]
             process.standardInput = FileHandle.nullDevice
             process.standardOutput = out
             process.standardError = err

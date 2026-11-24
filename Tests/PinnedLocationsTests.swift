@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 @main
 struct PinnedLocationsTests {
     @MainActor static func main() async throws {
-        let suite = "1agent.locations.tests." + UUID().uuidString
+        let suite = "natty.locations.tests." + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(suite)
         let a = root.appendingPathComponent("中文 项目")

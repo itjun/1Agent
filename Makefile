@@ -19,7 +19,7 @@ test-terminal-automation:
 
 test-terminal-compatibility:
 	bash scripts/test-terminal-windows.sh "" --compatibility
-	ONEAGENT_COMPATIBILITY_NO_FEATURES=1 bash scripts/test-terminal-windows.sh "" --shell-compatibility
+	NATTY_COMPATIBILITY_NO_FEATURES=1 bash scripts/test-terminal-windows.sh "" --shell-compatibility
 
 test-terminal-stress:
 	bash scripts/test-terminal-windows.sh "" --stress-compatibility
@@ -32,16 +32,16 @@ test-command-drag:
 	bash scripts/test-terminal-windows.sh "" --command-drag
 
 test-scripting-replies:
-	clang -fobjc-arc -framework Foundation -I Sources/OneAgent Sources/OneAgent/ScriptingReplyBridge.m Tests/ScriptingReplyBridgeTests.m -o /tmp/oneagent-scripting-reply-tests
-	/tmp/oneagent-scripting-reply-tests
+	clang -fobjc-arc -framework Foundation -I Sources/Natty Sources/Natty/ScriptingReplyBridge.m Tests/ScriptingReplyBridgeTests.m -o /tmp/natty-scripting-reply-tests
+	/tmp/natty-scripting-reply-tests
 
 test-system-integration:
-	swiftc -parse-as-library Sources/OneAgent/TerminalAssociations.swift Tests/TerminalAssociationsTests.swift -o /tmp/oneagent-system-integration-tests
-	/tmp/oneagent-system-integration-tests
+	swiftc -parse-as-library Sources/Natty/TerminalAssociations.swift Tests/TerminalAssociationsTests.swift -o /tmp/natty-system-integration-tests
+	/tmp/natty-system-integration-tests
 
 test-defaults-migration:
-	swiftc -parse-as-library Sources/OneAgent/LegacyDefaultsMigration.swift Tests/LegacyDefaultsMigrationTests.swift -o /tmp/oneagent-defaults-migration-tests
-	/tmp/oneagent-defaults-migration-tests
+	swiftc -parse-as-library Sources/Natty/LegacyDefaultsMigration.swift Tests/LegacyDefaultsMigrationTests.swift -o /tmp/natty-defaults-migration-tests
+	/tmp/natty-defaults-migration-tests
 
 test-command-transparency:
 	python3 scripts/test-command-transparency.py
@@ -52,7 +52,7 @@ ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
 endif
 
 CODE_SIGN_IDENTITY ?= -
-APP_BUNDLE = 1Agent.app
+APP_BUNDLE = Natty.app
 # ".noindex" keeps Spotlight/LaunchServices from listing the build copy next to /Applications.
 DERIVED_DATA = build/DerivedData.noindex
 APP_BUILT = $(DERIVED_DATA)/Build/Products/Debug/$(APP_BUNDLE)
@@ -75,7 +75,7 @@ test-app-update-restart:
 # Compile, then install into /Applications (quit → replace → relaunch if needed).
 build: gen
 	./scripts/build-libghostty.sh
-	set -o pipefail; xcodebuild -project 1Agent.xcodeproj -scheme 1Agent -configuration Debug -derivedDataPath $(DERIVED_DATA) -clonedSourcePackagesDirPath build/SourcePackages build CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" CODE_SIGN_STYLE=Manual -skipPackagePluginValidation | tee /tmp/1agent-build.log | tail -8
+	set -o pipefail; xcodebuild -project Natty.xcodeproj -scheme Natty -configuration Debug -derivedDataPath $(DERIVED_DATA) -clonedSourcePackagesDirPath build/SourcePackages build CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" CODE_SIGN_STYLE=Manual -skipPackagePluginValidation | tee /tmp/natty-build.log | tail -8
 	if [ "$(CODE_SIGN_IDENTITY)" = "-" ]; then ./scripts/local-codesign.sh "$(CURDIR)/$(APP_BUILT)"; fi
 	./scripts/install-app.sh "$(CURDIR)/$(APP_BUILT)"
 
@@ -89,67 +89,67 @@ run: build
 	open "/Applications/$(APP_BUNDLE)"
 
 test: test-release-signing test-ssh-configuration test-command-transparency test-system-integration test-scripting-replies test-defaults-migration
-	swiftc -O -parse-as-library -o /tmp/oneagent-terminal-output-store-tests Sources/OneAgent/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
-	/tmp/oneagent-terminal-output-store-tests
-	swiftc -parse-as-library -o /tmp/oneagent-remote-bridge-tests Sources/OneAgent/QuickCommand.swift Sources/OneAgent/CommandBridgeSocket.swift Sources/OneAgent/RemoteCommandBridge.swift Sources/OneAgent/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift
-	/tmp/oneagent-remote-bridge-tests
-	swiftc -parse-as-library -o /tmp/oneagent-local-bridge-tests Sources/OneAgent/QuickCommand.swift Sources/OneAgent/CommandBridgeSocket.swift Sources/OneAgent/LocalCommandBridge.swift Sources/OneAgent/TerminalSessionConnection.swift Tests/LocalCommandBridgeTests.swift
-	/tmp/oneagent-local-bridge-tests
-	swiftc -o /tmp/oneagent-remote-shell-tests Sources/OneAgent/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
-	/tmp/oneagent-remote-shell-tests
+	swiftc -O -parse-as-library -o /tmp/natty-terminal-output-store-tests Sources/Natty/LegacyDefaultsMigration.swift Sources/Natty/TerminalOutputStore.swift Tests/TerminalOutputStoreTests.swift
+	/tmp/natty-terminal-output-store-tests
+	swiftc -parse-as-library -o /tmp/natty-remote-bridge-tests Sources/Natty/QuickCommand.swift Sources/Natty/CommandBridgeSocket.swift Sources/Natty/RemoteCommandBridge.swift Sources/Natty/TerminalSessionConnection.swift Tests/RemoteCommandBridgeTests.swift
+	/tmp/natty-remote-bridge-tests
+	swiftc -parse-as-library -o /tmp/natty-local-bridge-tests Sources/Natty/QuickCommand.swift Sources/Natty/CommandBridgeSocket.swift Sources/Natty/LocalCommandBridge.swift Sources/Natty/TerminalSessionConnection.swift Tests/LocalCommandBridgeTests.swift
+	/tmp/natty-local-bridge-tests
+	swiftc -o /tmp/natty-remote-shell-tests Sources/Natty/RemoteShellIntegration.swift Tests/RemoteShellIntegrationTests.swift
+	/tmp/natty-remote-shell-tests
 	python3 scripts/test-remote-shell-cleanup.py
-	swiftc -parse-as-library -o /tmp/oneagent-remote-palette-tests Sources/OneAgent/ApplicationIcon.swift Sources/OneAgent/Theme.swift Tests/RemotePaletteTests.swift
-	/tmp/oneagent-remote-palette-tests
-	swiftc -parse-as-library -o /tmp/oneagent-app-update-tests Sources/OneAgent/AppUpdate.swift Tests/AppUpdateTests.swift
-	/tmp/oneagent-app-update-tests
-	ONEAGENT_REMOTE_INTEGRATION_TEST=1 python3 scripts/test-quick-command-bridge.py
-	swiftc -parse-as-library -o /tmp/oneagent-quick-command-tests Sources/OneAgent/QuickCommand.swift Sources/OneAgent/QuickCommandTransfer.swift Sources/OneAgent/QuickCommandStore.swift Sources/OneAgent/QuickCommandHistory.swift Sources/OneAgent/WorkspacePresentation.swift Tests/QuickCommandTests.swift
-	/tmp/oneagent-quick-command-tests
+	swiftc -parse-as-library -o /tmp/natty-remote-palette-tests Sources/Natty/ApplicationIcon.swift Sources/Natty/Theme.swift Tests/RemotePaletteTests.swift
+	/tmp/natty-remote-palette-tests
+	swiftc -parse-as-library -o /tmp/natty-app-update-tests Sources/Natty/AppUpdate.swift Tests/AppUpdateTests.swift
+	/tmp/natty-app-update-tests
+	NATTY_REMOTE_INTEGRATION_TEST=1 python3 scripts/test-quick-command-bridge.py
+	swiftc -parse-as-library -o /tmp/natty-quick-command-tests Sources/Natty/QuickCommand.swift Sources/Natty/QuickCommandTransfer.swift Sources/Natty/LegacyDefaultsMigration.swift Sources/Natty/QuickCommandStore.swift Sources/Natty/QuickCommandHistory.swift Sources/Natty/WorkspacePresentation.swift Tests/QuickCommandTests.swift
+	/tmp/natty-quick-command-tests
 	python3 scripts/test-quick-command-bridge.py
 	python3 scripts/test-quick-command-startup.py
-	swiftc -parse-as-library -o /tmp/oneagent-command-literal-editor-test Sources/OneAgent/CommandLiteralEditor.swift Tests/CommandLiteralEditorTests.swift
-	/tmp/oneagent-command-literal-editor-test
-	swiftc -parse-as-library -o /tmp/oneagent-family-dialog-tests Sources/OneAgent/Theme.swift Sources/OneAgent/ApplicationIcon.swift Sources/OneAgent/FocusRing.swift Sources/OneAgent/SheetLayout.swift Sources/OneAgent/FamilyModal.swift Sources/OneAgent/FamilyAlert.swift Tests/FamilyDialogTests.swift
-	/tmp/oneagent-family-dialog-tests
-	swiftc -parse-as-library -o /tmp/oneagent-family-menu-test Sources/OneAgent/Theme.swift Sources/OneAgent/ApplicationIcon.swift Sources/OneAgent/FamilyMenu.swift Tests/FamilyMenuTests.swift
-	/tmp/oneagent-family-menu-test
+	swiftc -parse-as-library -o /tmp/natty-command-literal-editor-test Sources/Natty/CommandLiteralEditor.swift Tests/CommandLiteralEditorTests.swift
+	/tmp/natty-command-literal-editor-test
+	swiftc -parse-as-library -o /tmp/natty-family-dialog-tests Sources/Natty/Theme.swift Sources/Natty/ApplicationIcon.swift Sources/Natty/FocusRing.swift Sources/Natty/SheetLayout.swift Sources/Natty/FamilyModal.swift Sources/Natty/FamilyAlert.swift Tests/FamilyDialogTests.swift
+	/tmp/natty-family-dialog-tests
+	swiftc -parse-as-library -o /tmp/natty-family-menu-test Sources/Natty/Theme.swift Sources/Natty/ApplicationIcon.swift Sources/Natty/FamilyMenu.swift Tests/FamilyMenuTests.swift
+	/tmp/natty-family-menu-test
 	bash scripts/test-preview-syntax.sh
-	swiftc -parse-as-library -o /tmp/oneagent-pinned-locations-test Sources/OneAgent/Files/PinnedLocations.swift Tests/PinnedLocationsTests.swift
-	/tmp/oneagent-pinned-locations-test
-	swiftc -o /tmp/oneagent-workspace-presentation-test Sources/OneAgent/WorkspacePresentation.swift Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Tests/WorkspacePresentationTests.swift
-	/tmp/oneagent-workspace-presentation-test
-	swiftc -o /tmp/oneagent-native-sidebar-test Sources/OneAgent/NativeSidebarSplit.swift Sources/OneAgent/WorkspacePresentation.swift Tests/NativeSidebarSplitTests.swift
-	/tmp/oneagent-native-sidebar-test
-	swiftc -o /tmp/oneagent-ssh-config-test Sources/OneAgent/SSHConfig.swift Tests/SSHConfigTests.swift
-	/tmp/oneagent-ssh-config-test
-	swiftc -framework AppKit -o /tmp/oneagent-external-open-test Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Sources/OneAgent/ExternalOpen.swift Tests/ExternalOpenTests.swift
-	/tmp/oneagent-external-open-test
-	swiftc -o /tmp/oneagent-pane-layout-test Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Tests/PaneLayoutTests.swift
-	/tmp/oneagent-pane-layout-test
-	swiftc -o /tmp/oneagent-workspace-board-test Sources/OneAgent/PaneLayout.swift Sources/OneAgent/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
-	/tmp/oneagent-workspace-board-test
-	swiftc -o /tmp/oneagent-main-window-frame-test Sources/OneAgent/MainWindowFrame.swift Tests/MainWindowFrameTests.swift
-	/tmp/oneagent-main-window-frame-test
-	swiftc -o /tmp/oneagent-terminal-settings-test Sources/OneAgent/TerminalSettings.swift Tests/TerminalSettingsTests.swift
-	/tmp/oneagent-terminal-settings-test
-	swiftc -o /tmp/oneagent-command-finished-policy-test Sources/OneAgent/TerminalSettings.swift Sources/OneAgent/CommandFinishedPolicy.swift Tests/CommandFinishedPolicyTests.swift
-	/tmp/oneagent-command-finished-policy-test
-	swiftc -o /tmp/oneagent-shell-escape-test Sources/OneAgent/ShellEscape.swift Tests/ShellEscapeTests.swift
-	/tmp/oneagent-shell-escape-test
-	swiftc -o /tmp/oneagent-shell-integration-test Sources/OneAgent/TerminalSettings.swift Sources/OneAgent/ShellIntegration.swift Tests/ShellIntegrationTests.swift
-	/tmp/oneagent-shell-integration-test
-	swiftc -o /tmp/oneagent-ghostty-config-importer-test Sources/OneAgent/TerminalSettings.swift Sources/OneAgent/GhosttyConfigImporter.swift Tests/GhosttyConfigImporterTests.swift
-	/tmp/oneagent-ghostty-config-importer-test
-	swiftc -o /tmp/oneagent-keyboard-shortcuts-test Sources/OneAgent/KeyboardShortcuts.swift Tests/KeyboardShortcutsTests.swift
-	/tmp/oneagent-keyboard-shortcuts-test
-	swiftc -o /tmp/oneagent-drop-zone-layout-test Sources/OneAgent/DropZoneLayout.swift Tests/DropZoneLayoutTests.swift
-	/tmp/oneagent-drop-zone-layout-test
-	swiftc -o /tmp/oneagent-file-rules-test Sources/OneAgent/Files/FileRules.swift Tests/FileRulesTests.swift
-	/tmp/oneagent-file-rules-test
-	swiftc -o /tmp/oneagent-text-file-test Sources/OneAgent/Files/TextFile.swift Tests/TextFileTests.swift
-	/tmp/oneagent-text-file-test
-	swiftc -o /tmp/oneagent-ssh-launch-test Sources/OneAgent/SSHLaunch.swift Tests/SSHLaunchTests.swift
-	/tmp/oneagent-ssh-launch-test
+	swiftc -parse-as-library -o /tmp/natty-pinned-locations-test Sources/Natty/Files/PinnedLocations.swift Tests/PinnedLocationsTests.swift
+	/tmp/natty-pinned-locations-test
+	swiftc -o /tmp/natty-workspace-presentation-test Sources/Natty/WorkspacePresentation.swift Sources/Natty/PaneLayout.swift Sources/Natty/WorkspaceBoard.swift Tests/WorkspacePresentationTests.swift
+	/tmp/natty-workspace-presentation-test
+	swiftc -o /tmp/natty-native-sidebar-test Sources/Natty/NativeSidebarSplit.swift Sources/Natty/WorkspacePresentation.swift Tests/NativeSidebarSplitTests.swift
+	/tmp/natty-native-sidebar-test
+	swiftc -o /tmp/natty-ssh-config-test Sources/Natty/SSHConfig.swift Tests/SSHConfigTests.swift
+	/tmp/natty-ssh-config-test
+	swiftc -framework AppKit -o /tmp/natty-external-open-test Sources/Natty/PaneLayout.swift Sources/Natty/WorkspaceBoard.swift Sources/Natty/ExternalOpen.swift Tests/ExternalOpenTests.swift
+	/tmp/natty-external-open-test
+	swiftc -o /tmp/natty-pane-layout-test Sources/Natty/PaneLayout.swift Sources/Natty/WorkspaceBoard.swift Tests/PaneLayoutTests.swift
+	/tmp/natty-pane-layout-test
+	swiftc -o /tmp/natty-workspace-board-test Sources/Natty/PaneLayout.swift Sources/Natty/WorkspaceBoard.swift Tests/WorkspaceBoardTests.swift
+	/tmp/natty-workspace-board-test
+	swiftc -o /tmp/natty-main-window-frame-test Sources/Natty/MainWindowFrame.swift Tests/MainWindowFrameTests.swift
+	/tmp/natty-main-window-frame-test
+	swiftc -o /tmp/natty-terminal-settings-test Sources/Natty/TerminalSettings.swift Tests/TerminalSettingsTests.swift
+	/tmp/natty-terminal-settings-test
+	swiftc -o /tmp/natty-command-finished-policy-test Sources/Natty/TerminalSettings.swift Sources/Natty/CommandFinishedPolicy.swift Tests/CommandFinishedPolicyTests.swift
+	/tmp/natty-command-finished-policy-test
+	swiftc -o /tmp/natty-shell-escape-test Sources/Natty/ShellEscape.swift Tests/ShellEscapeTests.swift
+	/tmp/natty-shell-escape-test
+	swiftc -o /tmp/natty-shell-integration-test Sources/Natty/TerminalSettings.swift Sources/Natty/ShellIntegration.swift Tests/ShellIntegrationTests.swift
+	/tmp/natty-shell-integration-test
+	swiftc -o /tmp/natty-ghostty-config-importer-test Sources/Natty/TerminalSettings.swift Sources/Natty/GhosttyConfigImporter.swift Tests/GhosttyConfigImporterTests.swift
+	/tmp/natty-ghostty-config-importer-test
+	swiftc -o /tmp/natty-keyboard-shortcuts-test Sources/Natty/KeyboardShortcuts.swift Tests/KeyboardShortcutsTests.swift
+	/tmp/natty-keyboard-shortcuts-test
+	swiftc -o /tmp/natty-drop-zone-layout-test Sources/Natty/DropZoneLayout.swift Tests/DropZoneLayoutTests.swift
+	/tmp/natty-drop-zone-layout-test
+	swiftc -o /tmp/natty-file-rules-test Sources/Natty/Files/FileRules.swift Tests/FileRulesTests.swift
+	/tmp/natty-file-rules-test
+	swiftc -o /tmp/natty-text-file-test Sources/Natty/Files/TextFile.swift Tests/TextFileTests.swift
+	/tmp/natty-text-file-test
+	swiftc -o /tmp/natty-ssh-launch-test Sources/Natty/SSHLaunch.swift Tests/SSHLaunchTests.swift
+	/tmp/natty-ssh-launch-test
 	./scripts/test-file-safety.sh
 	bash scripts/test-upload-check.sh
 
@@ -201,7 +201,7 @@ test-close-terminal-shortcut:
 	bash scripts/test-close-terminal-shortcut.sh
 
 clean:
-	rm -rf build 1Agent.xcodeproj
+	rm -rf build Natty.xcodeproj
 
 # Production transport replay with isolated preferences and no SSH/network access.
 test-remote-directory:
@@ -214,8 +214,8 @@ test-host-information:
 
 .PHONY: test-ssh-configuration
 test-ssh-configuration:
-	swiftc -parse-as-library Sources/OneAgent/SSHConfigurationResolver.swift Tests/SSHConfigurationResolverTests.swift -o /tmp/oneagent-ssh-resolution-tests
-	/tmp/oneagent-ssh-resolution-tests
+	swiftc -parse-as-library Sources/Natty/SSHConfigurationResolver.swift Tests/SSHConfigurationResolverTests.swift -o /tmp/natty-ssh-resolution-tests
+	/tmp/natty-ssh-resolution-tests
 
 # Production reconnect model and network recovery, isolated from user sessions.
 .PHONY: test-terminal-reconnect
@@ -224,12 +224,12 @@ test-terminal-reconnect:
 
 .PHONY: test-terminal-program test-session-host test-hosted-terminal
 test-terminal-program:
-	swiftc -parse-as-library Sources/OneAgent/TerminalProgram.swift Tests/TerminalProgramTests.swift -o /tmp/oneagent-program-tests
-	/tmp/oneagent-program-tests
+	swiftc -parse-as-library Sources/Natty/TerminalProgram.swift Tests/TerminalProgramTests.swift -o /tmp/natty-program-tests
+	/tmp/natty-program-tests
 
 test-session-host:
 	bash scripts/test-session-snapshot.sh
-	bash scripts/build-session-host.sh build/1AgentSessionHost
+	bash scripts/build-session-host.sh build/NattySessionHost
 	python3 scripts/test-session-host.py
 
 test-hosted-terminal:

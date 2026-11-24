@@ -1,7 +1,7 @@
 import AppKit
 import ObjectiveC
 import SwiftUI
-@testable import agent
+@testable import Natty
 
 @main enum AppNotificationTests {
     @MainActor static func main() {
@@ -15,7 +15,7 @@ import SwiftUI
     }
 
     @MainActor static func run() async {
-        let suite = "oneagent.notifications.\(UUID())"
+        let suite = "natty.notifications.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(["zh-Hans"], forKey: "AppleLanguages")
         let getter = class_getClassMethod(UserDefaults.self, NSSelectorFromString("standardUserDefaults"))!
@@ -103,7 +103,7 @@ import SwiftUI
         owner.makeFirstResponder(editor)
         let presenter = AppNotifications.presenter(for: owner)
         let messages: [AppNotificationLevel: String] = [.information: "后台任务已开始", .progress: "正在重连（1/3）", .success: "连接已恢复", .warning: "连接已断开，等待重试", .error: "重连失败，已重试 3 次"]
-        let screenshotDirectory = ProcessInfo.processInfo.environment["ONEAGENT_NOTIFICATION_SNAPSHOT_DIR"]
+        let screenshotDirectory = ProcessInfo.processInfo.environment["NATTY_NOTIFICATION_SNAPSHOT_DIR"]
         for isDark in [false, true] {
             defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             AppearanceDriver.shared.reapply()
