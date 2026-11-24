@@ -9,9 +9,9 @@ async function loadRelease() {
       throw new Error("Invalid release metadata");
     }
     const asset = release.assets.find(item =>
-      typeof item.name === "string" && /^1Agent-.+-mac-arm64\.dmg$/.test(item.name) &&
+      typeof item.name === "string" && /^(?:Natty|1Agent)-.+-mac-arm64\.dmg$/.test(item.name) &&
       typeof item.url === "string" &&
-      /^https:\/\/github\.com\/itjun\/1Agent\/releases\/download\/[^/?#]+\/1Agent-[^/?#]+-mac-arm64\.dmg$/.test(item.url)
+      /^https:\/\/github\.com\/itjun\/natty\/releases\/download\/[^/?#]+\/(?:Natty|1Agent)-[^/?#]+-mac-arm64\.dmg$/.test(item.url)
     );
     if (!asset) throw new Error("No macOS package in release");
     for (const element of document.querySelectorAll("[data-version]")) {
@@ -27,7 +27,7 @@ async function loadRelease() {
     if (status) {
       status.replaceChildren("安装包信息暂时不可用，请前往 ");
       const link = document.createElement("a");
-      link.href = "https://github.com/itjun/1Agent/releases/latest";
+      link.href = "https://github.com/itjun/natty/releases/latest";
       link.textContent = "GitHub 发布页";
       status.append(link, " 下载。");
     }
@@ -115,12 +115,12 @@ function setTheme(theme) {
   document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#151515" : "#ffffff";
 }
 try {
-  if (localStorage.getItem("oneagent-website-theme") === "dark") setTheme("dark");
+  if ((localStorage.getItem("natty-website-theme") ?? localStorage.getItem("oneagent-website-theme")) === "dark") setTheme("dark");
 } catch { /* 存储不可用时使用默认浅色外观。 */ }
 document.querySelectorAll("[data-theme-choice]").forEach(button => button.addEventListener("click", () => {
   const theme = button.dataset.themeChoice;
   setTheme(theme);
-  try { localStorage.setItem("oneagent-website-theme", theme); } catch { /* 外观仍在当前页面生效。 */ }
+  try { localStorage.setItem("natty-website-theme", theme); } catch { /* 外观仍在当前页面生效。 */ }
 }));
 
 loadRelease();
