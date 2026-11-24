@@ -70,17 +70,31 @@ def main():
     with tempfile.TemporaryDirectory(prefix='oneagent-transparency-', dir='/private/tmp') as directory:
         root = Path(directory)
         if args.installed:
-            folder = root / 'installed'; folder.mkdir(); fixture(folder)
+            folder = root / 'installed'
+            folder.mkdir()
+            fixture(folder)
+            ready = folder / 'ready'
+            # Use a real installed PTY with isolated rc files, so aliases cannot select real CLIs.
+            (folder / '.zshrc').write_text(
+                'oneagent_test_ready() { : > ' + shlex.quote(str(ready)) + '; }\n'
+                'zle -N zle-line-init oneagent_test_ready\n'
+            )
+            startup = 'exec ' + shlex.join(['/usr/bin/env', 'ZDOTDIR=' + str(folder), '/bin/zsh', '-d', '-i'])
             tab = apple('set cfg to new surface configuration\n'
                         'set initial working directory of cfg to ' + json.dumps(str(folder)) + '\n'
+                        'set command of cfg to ' + json.dumps(startup) + '\n'
                         'set created to new tab with configuration cfg\nreturn id of created')
             try:
-                # Input goes through the same PTY as keyboard input, after the user's rc files.
+                deadline = time.monotonic() + 8
+                while not ready.exists() and time.monotonic() < deadline:
+                    time.sleep(.05)
+                assert ready.exists(), 'The test shell did not reach its prompt'
                 apple('input text ' + json.dumps(command(folder), ensure_ascii=False) + ' to (focused terminal of tab id ' + json.dumps(tab) + ')\n'
                       'send key "enter" to (focused terminal of tab id ' + json.dumps(tab) + ')')
                 deadline = time.monotonic() + 15
                 while not (folder / 'done').exists() and time.monotonic() < deadline:
                     time.sleep(.05)
+                assert (folder / 'done').exists(), 'The installed PTY did not finish running the fixtures'
                 verify(folder)
                 print('PASS installed PTY: pi update and all five CLIs keep exact arguments and exit codes')
             finally:
