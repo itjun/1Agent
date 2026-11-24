@@ -21,6 +21,17 @@ struct TerminalCardFill: View {
     }
 }
 
+/// 只压暗侧栏底色，整窗渐变仍能透出，文字和选中行在这层之上绘制。
+struct WorkspaceSidebarFill: View {
+    let color: Color
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        TerminalCardFill(color: color)
+            .overlay(Color.black.opacity(colorScheme == .dark ? 0.12 : 0.045))
+    }
+}
+
 /// 只用于操作区；正文保持不透明，系统减少透明度时也使用同一主题实色。
 struct ThemeGlassSurface: ViewModifier {
     @Environment(\.windowChrome) private var chrome

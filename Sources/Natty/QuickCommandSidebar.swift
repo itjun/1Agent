@@ -102,7 +102,7 @@ struct QuickCommandSidebar: View {
         }
         }
         .foregroundStyle(chrome.text)
-        .background(TerminalCardFill(color: chrome.readingBackground))
+        .background(WorkspaceSidebarFill(color: chrome.readingBackground))
         .contentShape(Rectangle())
         .onTapGesture(perform: focusTerminal)
         .accessibilityElement(children: .contain)

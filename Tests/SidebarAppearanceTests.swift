@@ -31,6 +31,7 @@ import SwiftUI
         defer { window.orderOut(nil) }
         let driver = AppearanceDriver.shared
         checkTerminalCardFill()
+        checkWorkspaceSidebarFill()
         for isDark in [false, true] {
             defaults.set(isDark ? "dark" : "light", forKey: TerminalAppearance.storageKey)
             for preset in AppThemePreset.allCases {
@@ -105,6 +106,32 @@ import SwiftUI
         expect(ShellLayout.terminalCardOpacity(reduceTransparency: true, contrast: .standard) == 1 &&
                ShellLayout.terminalCardOpacity(reduceTransparency: false, contrast: .increased) == 1,
                "减少透明度和增强对比度均使用实色阅读底板")
+    }
+
+    @MainActor static func checkWorkspaceSidebarFill() {
+        let workspace = NSWorkspace.shared
+        for scheme in [ColorScheme.light, .dark] {
+            let base = Color(white: scheme == .dark ? 0.20 : 0.95)
+            let sample = HStack(spacing: 0) {
+                TerminalCardFill(color: base).frame(width: 16)
+                WorkspaceSidebarFill(color: base).frame(width: 16)
+            }
+            .frame(height: 32)
+            .background(LinearGradient(colors: [.blue, .orange], startPoint: .top, endPoint: .bottom))
+            .environment(\.colorScheme, scheme)
+            let bitmap = NSBitmapImageRep(cgImage: ImageRenderer(content: sample).cgImage!)
+            func red(_ x: Int, _ y: Int) -> CGFloat {
+                bitmap.colorAt(x: x, y: y)!.usingColorSpace(.sRGB)!.redComponent
+            }
+            for y in [4, 27] {
+                expect(red(24, y) < red(8, y), "左右侧栏的底色应略深于同处渐变上的终端")
+            }
+            if !workspace.accessibilityDisplayShouldReduceTransparency && !workspace.accessibilityDisplayShouldIncreaseContrast {
+                let terminalSpan = abs(red(8, 27) - red(8, 4))
+                let sidebarSpan = abs(red(24, 27) - red(24, 4))
+                expect(terminalSpan > 0.1 && sidebarSpan > terminalSpan * 0.8, "浅色和深色侧栏均可透出原窗渐变")
+            }
+        }
     }
 
     @MainActor static func views<T: NSView>(of type: T.Type, in view: NSView) -> [T] {

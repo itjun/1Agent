@@ -65,7 +65,7 @@ struct RootView: View {
                             .accessibilityHidden(true)
                         sidebar
                     }
-                    .background(TerminalCardFill(color: sidebarChrome.sidebarBackground))
+                    .background(WorkspaceSidebarFill(color: sidebarChrome.sidebarBackground))
                     .clipped()
                     .scrollIndicators(.never)
                     .environment(\.windowChrome, sidebarChrome)
