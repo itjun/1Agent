@@ -308,8 +308,11 @@ enum TerminalRestorationTests {
             window.setContentSize(NSSize(width: width, height: 900))
             try await settle()
             let card = previewFrame()
-            expect(card.width > 0 && window.convertToScreen(window.contentLayoutRect).contains(card),
-                   "Preview remains inside the resized file workspace")
+            let content = window.contentView!
+            // The full-size workspace extends under the title bar, above contentLayoutRect.
+            let contentFrame = window.convertToScreen(content.convert(content.bounds, to: nil))
+            expect(card.width > 0 && contentFrame.contains(card),
+                   "Preview remains inside the resized file workspace at width \(width), preview \(card), content \(contentFrame)")
             expect(element("files.preview.find") != nil && element("files.preview.close") != nil,
                    "Preview actions remain available after window resizing")
         }
