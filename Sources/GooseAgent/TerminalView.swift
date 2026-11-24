@@ -837,6 +837,7 @@ enum SSHTerminalRegistry {
     }
 }
 
+@MainActor
 enum TerminalCloseMenu {
     static func item(action: Selector, target: AnyObject) -> NSMenuItem {
         TerminalCloseMenu.item(
@@ -850,13 +851,7 @@ enum TerminalCloseMenu {
     static func item(title: String, action: Selector, target: AnyObject) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = target
-        item.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .foregroundColor: NSColor.systemRed,
-                .font: NSFont.menuFont(ofSize: 0),
-            ]
-        )
+        FamilyMenuPresenter.styleDestructiveTitle(item)
         return item
     }
 }

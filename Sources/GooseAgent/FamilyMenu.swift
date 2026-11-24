@@ -113,6 +113,13 @@ final class FamilyMenuPresenter {
         setter(item, selector, 1) // NSMenuItemImageVisibilityVisible
     }
 
+    static func styleDestructiveTitle(_ item: NSMenuItem) {
+        item.attributedTitle = NSAttributedString(
+            string: item.title,
+            attributes: [.foregroundColor: NSColor.systemRed, .font: NSFont.menuFont(ofSize: 0)]
+        )
+    }
+
     func dismiss() {
         activeMenu?.cancelTracking()
         activeMenu = nil
@@ -124,6 +131,7 @@ final class FamilyMenuPresenter {
         for command in commands {
             if command.isSeparator { menu.addItem(.separator()); continue }
             let item = NSMenuItem(title: command.title, action: nil, keyEquivalent: command.key)
+            if command.destructive { Self.styleDestructiveTitle(item) }
             item.image = command.image
             if command.image != nil { Self.forceMenuImageVisible(item) }
             item.keyEquivalentModifierMask = command.modifiers

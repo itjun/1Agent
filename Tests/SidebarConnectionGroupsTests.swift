@@ -289,9 +289,14 @@ import SwiftUI
                   "Selected and unselected terminals retain their file, split and close actions")
         let closeChord = KeyChord(key: "w", modifiers: [.command, .control])
         AppShortcuts.setChords([.closeTab: closeChord], store: .standard)
-        let closeItem = named("Close Terminal", in: items(local))!
-        try check(closeItem.key == closeChord.key && closeItem.modifiers == closeChord.menuModifierMask,
-                  "Sidebar close uses the current configured shortcut")
+        for id in [local, remote] {
+            let menu = FamilyMenuPresenter.menu(items(id))
+            let closeItem = menu.item(withTitle: String(localized: "Close Terminal"))!
+            try check(closeItem.attributedTitle?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == .systemRed,
+                      "Sidebar Close Terminal has a red title in the native menu")
+            try check(closeItem.keyEquivalent == closeChord.key && closeItem.keyEquivalentModifierMask == closeChord.menuModifierMask,
+                      "Sidebar close uses the current configured shortcut")
+        }
         let remoteItems = items(remote)
         try check(named("New Connection", in: remoteItems) != nil, "Remote connection action exists")
         try check(named("Reveal in Finder", in: remoteItems) == nil, "Remote row cannot reveal a local path")
