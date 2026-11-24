@@ -86,7 +86,7 @@ import SwiftUI
             }
             if collapsed {
                 try check(abs(before.minX - bounds.minX - inset) < 1,
-                          "Collapsing the sidebar keeps a 5pt left window gap")
+                          "Collapsing the sidebar keeps a 5pt left window gap (terminal \(before), content \(bounds), commands \(commandsOpen))")
             } else if let sidebar = window.relay?.sidebarAnchor {
                 let sidebarFrame = sidebar.convert(sidebar.bounds, to: nil)
                 try check(abs(sidebarFrame.minX - bounds.minX - inset) < 1

@@ -187,8 +187,11 @@ final class NativeSidebarSplitController<Sidebar: View, Detail: View>: NSSplitVi
         applying = true
         defer { applying = false }
         (splitView as? SidebarSplitView)?.isDividerHidden = isDividerHidden
-        if let split = splitView as? SidebarSplitView, split.customDividerWidth != dividerWidth {
-            split.customDividerWidth = dividerWidth
+        // The invisible gap belongs between visible panes. AppKit can still reserve its
+        // thickness for a collapsed sidebar, which doubles the window's outer inset.
+        let effectiveDividerWidth = collapsed && isDividerHidden ? 0 : dividerWidth
+        if let split = splitView as? SidebarSplitView, split.customDividerWidth != effectiveDividerWidth {
+            split.customDividerWidth = effectiveDividerWidth
             split.needsLayout = true
         }
         if #available(macOS 26.0, *) {
