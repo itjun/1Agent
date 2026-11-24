@@ -5,14 +5,12 @@ async function loadRelease() {
     const response = await fetch("release.json", { signal: AbortSignal.timeout(6000) });
     if (!response.ok) throw new Error(`Release metadata: ${response.status}`);
     const release = await response.json();
-    if (typeof release.version !== "string" || !Array.isArray(release.assets)) {
+    if (typeof release.version !== "string" || !/^v[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(release.version) || !Array.isArray(release.assets)) {
       throw new Error("Invalid release metadata");
     }
-    const asset = release.assets.find(item =>
-      typeof item.name === "string" && /^(?:Natty|1Agent)-.+-mac-arm64\.dmg$/.test(item.name) &&
-      typeof item.url === "string" &&
-      /^https:\/\/github\.com\/itjun\/natty\/releases\/download\/[^/?#]+\/(?:Natty|1Agent)-[^/?#]+-mac-arm64\.dmg$/.test(item.url)
-    );
+    const filename = `Natty-${release.version}-mac-arm64.dmg`;
+    const downloadURL = `https://github.com/itjun/natty/releases/download/${release.version}/${filename}`;
+    const asset = release.assets.find(item => item.name === filename && item.url === downloadURL);
     if (!asset) throw new Error("No macOS package in release");
     for (const element of document.querySelectorAll("[data-version]")) {
       element.textContent = release.version;
