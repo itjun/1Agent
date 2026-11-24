@@ -65,7 +65,7 @@ import ObjectiveC
         nativeWindow.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         let screenPoint = nativeWindow.convertPoint(toScreen: NSPoint(x: 200, y: 200))
-        try await Task.sleep(for: .milliseconds(150))
+        await wait { NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: 0) == nativeWindow.windowNumber }
         let drop = QuickCommandDragHandleView.dropDestination(at: screenPoint)
         precondition(drop?.window === nativeWindow)
         precondition(QuickCommandDragHandleView.terminal(at: drop!.point, in: drop!.window) === terminal)
@@ -75,7 +75,7 @@ import ObjectiveC
         cover.level = .popUpMenu
         cover.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 80, height: 80))
         cover.orderFrontRegardless()
-        try await Task.sleep(for: .milliseconds(100))
+        await wait { NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: 0) == cover.windowNumber }
         let blockedDrop = QuickCommandDragHandleView.dropDestination(at: screenPoint)
         precondition(blockedDrop?.window === cover, "不能穿过前方窗口执行后台终端命令")
         precondition(QuickCommandDragHandleView.terminal(at: blockedDrop!.point, in: blockedDrop!.window) == nil)
@@ -130,11 +130,14 @@ import ObjectiveC
             }
             let inspectPreview = Timer(timeInterval: 0.15, repeats: false) { _ in
                 MainActor.assumeIsolated {
-                    let preview = NSApp.windows.first { $0.isVisible && $0.level == .popUpMenu && $0.ignoresMouseEvents }
-                    precondition(preview != nil, "拖动途中必须显示预览")
+                    guard let preview = NSApp.windows.first(where: { $0.isVisible && $0.level == .popUpMenu && $0.ignoresMouseEvents }) else {
+                        preconditionFailure("拖动途中必须显示预览")
+                    }
                     let expected = NSPoint(x: screenPoint.x + 12, y: screenPoint.y - 36)
-                    precondition(hypot(preview!.frame.minX - expected.x, preview!.frame.minY - expected.y) < 2,
-                                 "预览必须跟随鼠标；实际 \(preview!.frame.origin)，期望 \(expected)")
+                    preview.contentView?.layoutSubtreeIfNeeded()
+                    precondition(preview.frame.height == 42, "首次布局后拖动预览应保持 42 点高度，实际 \(preview.frame.height)")
+                    precondition(hypot(preview.frame.minX - expected.x, preview.frame.minY - expected.y) < 2,
+                                 "预览必须跟随鼠标；实际 \(preview.frame.origin)，期望 \(expected)")
                     NSApp.postEvent(event(.leftMouseUp), atStart: true)
                 }
             }
@@ -144,6 +147,7 @@ import ObjectiveC
         }
         dragWithPreview(eventWindow: nativeWindow)
         precondition(deliveries == 2, "后续事件换窗后必须在正确终端投递")
+        dragHandle.title = item.alias
         dragWithPreview(eventWindow: nil)
         precondition(deliveries == 3, "屏幕坐标事件不能再次叠加起始窗口偏移")
         print("PASS moving preview and release after event-window changes and screen-coordinate events")

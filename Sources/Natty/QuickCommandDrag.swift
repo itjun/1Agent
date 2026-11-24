@@ -155,10 +155,14 @@ final class QuickCommandDragHandleView: NSView {
                 panel.hasShadow = true
                 panel.level = .popUpMenu
                 panel.ignoresMouseEvents = true
-                panel.contentView = NSHostingView(rootView:
+                let content = NSHostingView(rootView:
                     HStack { Text(verbatim: self.title).lineLimit(1); Spacer(minLength: 0) }
                         .font(Theme.Font.row).foregroundStyle(self.chrome.text).padding(10)
+                        .frame(maxHeight: .infinity)
                         .background(self.chrome.elevated).clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control)))
+                // 浮窗的尺寸由拖动手柄决定，避免标题布局改变浮窗高度和鼠标偏移。
+                content.sizingOptions = []
+                panel.contentView = content
                 preview = panel
             }
             guard dragging else { return }
