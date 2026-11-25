@@ -11,19 +11,21 @@ enum AppNotificationLevel: String, CaseIterable {
         case .information: "info.circle.fill"
         case .progress: "arrow.triangle.2.circlepath"
         case .success: "checkmark.circle.fill"
-        case .warning: "exclamationmark.triangle.fill"
+        case .warning: "exclamationmark.circle.fill"
         case .error: "exclamationmark.circle.fill"
         }
     }
 
-    func color(in chrome: WindowChrome) -> Color {
+    func colors(in chrome: WindowChrome) -> (icon: Color, background: Color) {
+        let pair: (UInt32, UInt32)
         switch self {
-        case .information: SystemTheme.color(.systemBlue, isDark: chrome.isDark)
-        case .progress: chrome.secondary
-        case .success: chrome.success
-        case .warning: chrome.warning
-        case .error: chrome.danger
+        case .information: pair = chrome.isDark ? (0x699EF5, 0x1B2F51) : (0x0052D9, 0xF2F3FF)
+        case .success: pair = chrome.isDark ? (0x46BF96, 0x193A2A) : (0x2BA471, 0xE3F9E9)
+        case .warning: pair = chrome.isDark ? (0xE8935C, 0x4F2A1D) : (0x954500, 0xFFF1E9)
+        case .error: pair = chrome.isDark ? (0xEC888E, 0x472324) : (0xAD352F, 0xFFF0ED)
+        case .progress: return (chrome.secondary, chrome.notificationBackground)
         }
+        return (Color(nsColor: Theme.hex(pair.0)), Color(nsColor: Theme.hex(pair.1)))
     }
 }
 
@@ -32,24 +34,30 @@ struct AppNotificationItem: Identifiable {
     var title: String
     var message: String
     var level: AppNotificationLevel
+    var detail: String? = nil
     var fraction: Double? = nil
     var actionTitle: String? = nil
     var actionHelp: String? = nil
     var action: (() -> Void)? = nil
     var terminalSessionID: String? = nil
+
+    var text: String {
+        [title, message].map { part in
+            var line = part.split(whereSeparator: \.isNewline).joined(separator: " ")
+                .trimmingCharacters(in: .whitespaces)
+            while let last = line.last, "，,。.!！?？:：;；…".contains(last) || last.isWhitespace {
+                line.removeLast()
+            }
+            return line
+        }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
 }
 
 enum AppNotificationLayout {
-    static let width: CGFloat = 340
-    static let height: CGFloat = 96
-    static let footerHeight: CGFloat = 30
-    static let inset: CGFloat = 20
-    static let cornerRadius: CGFloat = 6
-    static let lingerSeconds: Double = 4
-
-    static func height(for item: AppNotificationItem) -> CGFloat {
-        height + (item.fraction != nil || (item.actionTitle != nil && item.action != nil) ? footerHeight : 0)
-    }
+    static let maxWidth: CGFloat = 560
+    static let inset: CGFloat = 16
+    static let lingerSeconds: TimeInterval = 3
+    static let fadeSeconds: TimeInterval = 0.2
 }
 
 struct AppNotificationCard: View {
@@ -58,102 +66,90 @@ struct AppNotificationCard: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        let tint = item.level.color(in: chrome)
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 9) {
-                if item.level == .progress {
-                    ProgressView().controlSize(.small).frame(width: 18, height: 18)
-                        .accessibilityLabel("In Progress")
-                } else {
-                    Image(systemName: item.level.symbol)
-                        .font(.system(size: 20)).foregroundStyle(tint)
-                        .accessibilityHidden(true)
-                }
-                Text(verbatim: item.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(chrome.text).lineLimit(1).truncationMode(.middle)
-                Spacer(minLength: 0)
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .medium))
-                        .frame(width: 22, height: 22).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).foregroundStyle(chrome.secondary)
-                .help("Dismiss Notification").accessibilityLabel("Dismiss Notification")
+        let colors = item.level.colors(in: chrome)
+        HStack(spacing: 8) {
+            if item.level == .progress {
+                ProgressView().controlSize(.small).frame(width: 16)
+                    .accessibilityLabel("In Progress")
+            } else {
+                Image(systemName: item.level.symbol)
+                    .font(.system(size: 16)).foregroundStyle(colors.icon)
+                    .accessibilityHidden(true)
             }
-            Text(verbatim: item.message)
-                .font(.system(size: 14)).foregroundStyle(chrome.text)
-                .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                .help(item.message)
-            if item.fraction != nil || (item.actionTitle != nil && item.action != nil) {
-              HStack {
-                if let fraction = item.fraction {
-                    ProgressView(value: min(1, max(0, fraction)))
-                        .tint(tint).controlSize(.small)
-                        .accessibilityLabel("Transfer Progress")
-                }
-                Spacer(minLength: 8)
-                if let title = item.actionTitle, let action = item.action {
-                    Button(action: action) { Text(verbatim: title).font(.system(size: 13)).frame(minHeight: 22) }
-                        .buttonStyle(.bordered).controlSize(.regular)
-                        .foregroundStyle(chrome.text)
-                        .help(item.actionHelp ?? title)
-                }
-              }
+            Text(verbatim: item.text)
+                .font(Theme.Font.body).foregroundStyle(chrome.text)
+                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                .help(item.detail ?? item.text)
+            if let fraction = item.fraction {
+                ProgressView(value: min(1, max(0, fraction)))
+                    .frame(width: 56).controlSize(.small)
+                    .accessibilityLabel("Transfer Progress")
             }
+            if let title = item.actionTitle, let action = item.action {
+                Button(action: action) { Text(verbatim: title) }
+                    .controlSize(.small).help(item.actionHelp ?? title)
+            }
+            Button(action: onDismiss) {
+                Image(systemName: "xmark").font(.system(size: 12))
+                    .frame(width: 24, height: 24).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).foregroundStyle(chrome.secondary)
+            .help("Dismiss Notification").accessibilityLabel("Dismiss Notification")
         }
-        .padding(14)
-        .frame(maxWidth: .infinity)
-        .frame(height: AppNotificationLayout.height(for: item))
-        .background(chrome.notificationBackground, in: RoundedRectangle(cornerRadius: AppNotificationLayout.cornerRadius))
-        .overlay {
-            RoundedRectangle(cornerRadius: AppNotificationLayout.cornerRadius)
-                .strokeBorder(chrome.hairline, lineWidth: 1)
-                .allowsHitTesting(false)
-        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(colors.background, in: RoundedRectangle(cornerRadius: Theme.Radius.control))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app.notification.\(item.level.rawValue)")
     }
 }
 
-/// 一次只展示一张；更新同一任务不抢占新通知，关闭后可看到上一条待处理通知。
 @MainActor
 final class AppNotificationStore: ObservableObject {
-    @Published private(set) var items: [AppNotificationItem] = []
-    private var dismissed = Set<String>()
-    private var expiry: [String: Task<Void, Never>] = [:]
-    var current: AppNotificationItem? { items.last }
+    @Published private(set) var current: AppNotificationItem?
+    @Published private(set) var isFading = false
+    private var expiry: Task<Void, Never>?
+    private var delay: TimeInterval?
+    private var isHovered = false
 
     func show(_ item: AppNotificationItem, expiresAfter: TimeInterval? = nil, isNewEvent: Bool = true) {
-        if isNewEvent { dismissed.remove(item.id) }
-        guard !dismissed.contains(item.id) else { return }
-        expiry.removeValue(forKey: item.id)?.cancel()
-        if let index = items.firstIndex(where: { $0.id == item.id }) { items[index] = item }
-        else { items.append(item) }
-        // 防止后台事件无限积累，保留最近的二十条。
-        while items.count > 20 { remove(items[0].id) }
-        if let delay = expiresAfter {
-            expiry[item.id] = Task { [weak self] in
-                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
-                self?.remove(item.id)
-            }
+        // 新通知占用同一位置 旧传输的进度不能让已被替换或关闭的提醒再次出现
+        guard isNewEvent || current?.id == item.id else { return }
+        current = item
+        delay = expiresAfter ?? (item.level == .progress ? nil : AppNotificationLayout.lingerSeconds)
+        scheduleExpiry()
+    }
+
+    func setHovered(_ hovered: Bool) {
+        guard current != nil, isHovered != hovered else { return }
+        isHovered = hovered
+        scheduleExpiry()
+    }
+
+    private func scheduleExpiry() {
+        expiry?.cancel()
+        isFading = false
+        guard !isHovered, let delay else { return }
+        expiry = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+                self?.isFading = true
+                try await Task.sleep(for: .seconds(AppNotificationLayout.fadeSeconds))
+                self?.reset()
+            } catch { return }
         }
     }
 
     func dismiss(_ id: String) {
-        dismissed.insert(id)
-        remove(id)
-    }
-
-    func remove(_ id: String) {
-        expiry.removeValue(forKey: id)?.cancel()
-        items.removeAll { $0.id == id }
+        if current?.id == id { reset() }
     }
 
     func reset() {
-        for task in expiry.values { task.cancel() }
-        expiry.removeAll()
-        dismissed.removeAll()
-        items.removeAll()
+        expiry?.cancel()
+        expiry = nil
+        delay = nil
+        isHovered = false
+        isFading = false
+        current = nil
     }
 }
 
@@ -165,8 +161,7 @@ final class AppNotificationPresenter: NSObject {
     private var panel: NSPanel?
     private var observation: AnyCancellable?
     private var windowObservation: AnyCancellable?
-    private weak var anchor: NSView?
-    private var geometryObservers: [NSObjectProtocol] = []
+    private var host: NSHostingController<AppNotificationSurface>?
 
     init(window: NSWindow) {
         parent = window
@@ -187,13 +182,11 @@ final class AppNotificationPresenter: NSObject {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        geometryObservers.forEach(NotificationCenter.default.removeObserver)
     }
 
     @objc func layout() {
-        guard let parent, let item = store.current else {
+        guard let parent, store.current != nil else {
             if let panel { parent?.removeChildWindow(panel); panel.orderOut(nil) }
-            observeGeometry(of: nil)
             return
         }
         guard parent.isVisible, !parent.isMiniaturized else {
@@ -201,58 +194,22 @@ final class AppNotificationPresenter: NSObject {
             return
         }
         let panel = panel ?? makePanel()
-        let anchor = contentAnchor(in: parent, for: item)
-        observeGeometry(of: anchor)
-        let bounds = anchor.map { parent.convertToScreen($0.convert($0.visibleRect.intersection($0.bounds), to: nil)) } ?? parent.frame
-        let width = min(AppNotificationLayout.width, max(1, bounds.width - 2 * AppNotificationLayout.inset))
-        let height = AppNotificationLayout.height(for: item)
-        panel.setFrame(CGRect(x: bounds.midX - width / 2, y: bounds.midY - height / 2,
-                             width: width, height: height), display: true)
+        let bounds = parent.convertToScreen(parent.contentLayoutRect)
+        let maxWidth = min(AppNotificationLayout.maxWidth, max(1, bounds.width - 2 * AppNotificationLayout.inset))
+        guard let host else { return }
+        let size = host.sizeThatFits(in: CGSize(width: maxWidth, height: bounds.height))
+        let width = min(ceil(size.width), maxWidth)
+        let height = ceil(size.height)
+        let state = MainWindowManager.shared.state(for: parent)
+        let navigationHeight = state?.section == .files ? FileBrowserLayout.navigationHeight : 0
+        let top = bounds.maxY - navigationHeight - AppNotificationLayout.inset
+        panel.setFrame(CGRect(x: bounds.midX - width / 2, y: top - height, width: width, height: height), display: true)
         if panel.parent !== parent { parent.addChildWindow(panel, ordered: .above) }
-        panel.orderFront(nil)
-    }
-
-    /// 提醒位于所属终端正文中央；后台会话的提醒落在当前可见终端，标题仍标明来源。
-    private func contentAnchor(in window: NSWindow, for item: AppNotificationItem) -> NSView? {
-        guard let content = window.contentView else { return nil }
-        func terminals(in view: NSView) -> [SSHTerminalNSView] {
-            guard !view.isHidden, !view.visibleRect.isEmpty else { return [] }
-            if let terminal = view as? SSHTerminalNSView { return [terminal] }
-            return view.subviews.flatMap { terminals(in: $0) }
-        }
-        let visible = terminals(in: content)
-        if let sessionID = item.terminalSessionID,
-           let source = visible.first(where: { $0.sessionID == sessionID }) { return source }
-        if let model = TerminalActivity.shared.model,
-           let state = MainWindowManager.shared.state(for: window),
-           let selected = model.selectedTab(in: state),
-           let terminal = visible.first(where: { $0.sessionID == selected.sessionID }) { return terminal }
-        if let focused = window.firstResponder as? SSHTerminalNSView, visible.contains(focused) { return focused }
-        return visible.first ?? content
-    }
-
-    /// 拖动侧栏或分屏时，跟随终端及其容器的位置，不依赖窗口大小发生变化。
-    private func observeGeometry(of view: NSView?) {
-        guard anchor !== view else { return }
-        geometryObservers.forEach(NotificationCenter.default.removeObserver)
-        geometryObservers.removeAll()
-        anchor = view
-        var current = view
-        while let observed = current {
-            observed.postsFrameChangedNotifications = true
-            observed.postsBoundsChangedNotifications = true
-            for name in [NSView.frameDidChangeNotification, NSView.boundsDidChangeNotification] {
-                geometryObservers.append(NotificationCenter.default.addObserver(forName: name, object: observed, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.layout() }
-                })
-            }
-            current = observed.superview
-        }
+        if !panel.isVisible { panel.orderFront(nil) }
     }
 
     @objc private func close() {
         store.reset()
-        observeGeometry(of: nil)
         if let panel { parent?.removeChildWindow(panel); panel.orderOut(nil) }
     }
 
@@ -263,7 +220,10 @@ final class AppNotificationPresenter: NSObject {
         panel.hasShadow = false
         panel.isReleasedWhenClosed = false
         panel.identifier = NSUserInterfaceItemIdentifier("app.notification")
-        panel.contentView = NSHostingView(rootView: AppNotificationSurface(store: store))
+        let host = NSHostingController(rootView: AppNotificationSurface(store: store))
+        host.sizingOptions = []
+        panel.contentViewController = host
+        self.host = host
         self.panel = panel
         return panel
     }
@@ -278,12 +238,22 @@ private final class AppNotificationPanel: NSPanel {
 private struct AppNotificationSurface: View {
     @ObservedObject var store: AppNotificationStore
     @ObservedObject private var appearance = AppearanceDriver.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isPresented = false
 
     var body: some View {
         if let item = store.current {
             AppNotificationCard(item: item, onDismiss: { store.dismiss(item.id) })
                 .environment(\.windowChrome, WindowChrome.resolve(isDark: appearance.isDark))
                 .preferredColorScheme(appearance.interfaceColorScheme)
+                .onHover { store.setHovered($0) }
+                .opacity(isPresented && !store.isFading ? 1 : 0)
+                .onAppear {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) { isPresented = true }
+                }
+                .onDisappear { isPresented = false }
+                .animation(store.isFading && !reduceMotion ? .easeIn(duration: AppNotificationLayout.fadeSeconds) : nil,
+                           value: store.isFading)
         }
     }
 }
@@ -295,8 +265,8 @@ enum AppNotifications {
     static func show(title: String, message: String, level: AppNotificationLevel, in window: NSWindow? = nil) {
         guard let owner = window ?? NSApp.keyWindow ?? NSApp.mainWindow else { return }
         presenter(for: owner).store.show(
-            AppNotificationItem(id: UUID().uuidString, title: title, message: message, level: level),
-            expiresAfter: level == .information || level == .success ? AppNotificationLayout.lingerSeconds : nil)
+            AppNotificationItem(id: UUID().uuidString, title: "", message: title.isEmpty ? message : title,
+                                level: level, detail: message))
     }
 
     static func presenter(for window: NSWindow) -> AppNotificationPresenter {

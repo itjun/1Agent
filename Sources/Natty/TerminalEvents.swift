@@ -452,19 +452,24 @@ final class TerminalActivity: ObservableObject {
         guard actions.notify else { return }
         let subtitle: String
         let body: String
+        let banner: String
+        let source = tab.isLocal ? String(localized: "This Mac") : model.sessionTitle(tab)
         let took = TerminalActivity.durationText(duration)
         if let exitCode {
             if exitCode == 0 {
                 subtitle = String(localized: "Command Succeeded")
+                banner = String(format: String(localized: "%@ command succeeded"), source)
             } else {
                 subtitle = String(localized: "Command Failed")
+                banner = String(format: String(localized: "%@ command returned error code %lld"), source, Int64(exitCode))
             }
-            body = String(format: String(localized: "Took %@ and exited with code %lld."), took, exitCode)
+            body = String(format: String(localized: "Took %@ with exit code %lld"), took, exitCode)
         } else {
             subtitle = String(localized: "Command Finished")
-            body = String(format: String(localized: "Took %@."), took)
+            banner = String(format: String(localized: "%@ command finished"), source)
+            body = String(format: String(localized: "Took %@"), took)
         }
-        TerminalNotifications.shared.post(title: model.sessionTitle(tab), subtitle: subtitle, body: body, tabID: tab.id,
+        TerminalNotifications.shared.post(title: model.sessionTitle(tab), subtitle: subtitle, body: body, tabID: tab.id, banner: banner,
                                           level: exitCode.map { $0 == 0 ? .success : .error } ?? .information)
     }
 
@@ -547,17 +552,16 @@ final class TerminalNotifications: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
     }
 
-    func post(title: String, subtitle: String, body: String, tabID: UUID, level: AppNotificationLevel = .information) {
+    func post(title: String, subtitle: String, body: String, tabID: UUID, banner: String? = nil, level: AppNotificationLevel = .information) {
         if let model = TerminalActivity.shared.model,
            let state = model.window(containing: tabID),
            let window = MainWindowManager.shared.window(for: state) {
             AppNotifications.presenter(for: window).store.show(
-                AppNotificationItem(id: "terminal-\(tabID)", title: title,
-                                    message: [subtitle, body].filter { !$0.isEmpty }.joined(separator: "\n"), level: level,
-                                    terminalSessionID: model.tabs.first(where: { $0.id == tabID })?.sessionID),
-                expiresAfter: AppNotificationLayout.lingerSeconds)
+                AppNotificationItem(id: "terminal-\(tabID)", title: banner == nil ? title : "",
+                                    message: banner ?? [subtitle, body].filter { !$0.isEmpty }.joined(separator: "\n"), level: level,
+                                    terminalSessionID: model.tabs.first(where: { $0.id == tabID })?.sessionID))
         }
-        // 应用内在终端中央短暂提醒；切到其他应用后保留系统通知，便于返回会话。
+        // 应用内在窗口顶部短暂提醒；切到其他应用后保留系统通知，便于返回会话。
         guard !NSApp.isActive else { return }
         let content = UNMutableNotificationContent()
         content.title = title

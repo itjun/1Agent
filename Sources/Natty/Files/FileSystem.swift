@@ -70,7 +70,7 @@ struct LocalFileSystem: FileSystem {
             do {
                 urls = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: keys)
             } catch {
-                throw FileError.message(error.localizedDescription)
+                throw FileError.message(FileError.notificationMessage(for: error))
             }
             let entries = urls.map { item -> FileEntry in
                 let values = try? item.resourceValues(forKeys: Set(keys))
@@ -106,7 +106,7 @@ struct LocalFileSystem: FileSystem {
         do {
             try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: false)
         } catch {
-            throw FileError.message(error.localizedDescription)
+            throw FileError.message(FileError.notificationMessage(for: error))
         }
     }
 
@@ -132,7 +132,7 @@ struct LocalFileSystem: FileSystem {
                 do {
                     try FileManager.default.removeItem(atPath: path)
                 } catch {
-                    throw FileError.message(error.localizedDescription)
+                    throw FileError.message(FileError.notificationMessage(for: error))
                 }
             }
         }.value
@@ -150,7 +150,7 @@ struct LocalFileSystem: FileSystem {
         do {
             try data.write(to: URL(fileURLWithPath: path))
         } catch {
-            throw FileError.message(error.localizedDescription)
+            throw FileError.message(FileError.notificationMessage(for: error))
         }
     }
 
@@ -158,7 +158,7 @@ struct LocalFileSystem: FileSystem {
         do {
             try FileManager.default.copyItem(atPath: path, toPath: target)
         } catch {
-            throw FileError.message(error.localizedDescription)
+            throw FileError.message(FileError.notificationMessage(for: error))
         }
     }
 

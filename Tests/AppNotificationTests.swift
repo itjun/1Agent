@@ -44,7 +44,24 @@ import SwiftUI
         store.show(progress, isNewEvent: false)
         expect(store.current?.id == "connection", "older progress cannot steal newer notification")
         store.dismiss("connection")
-        expect(store.current?.id == "upload", "dismissing current reveals pending notification")
+        expect(store.current == nil, "dismissal never resurrects a replaced notification")
+        let error = AppNotificationItem(id: "failure", title: "", message: "找不到文件 cp。，", level: .error)
+        expect(error.text == "找不到文件 cp", "notification has no trailing sentence punctuation")
+        store.show(error, expiresAfter: 0.08)
+        store.setHovered(true)
+        try? await Task.sleep(for: .milliseconds(350))
+        expect(store.current != nil && !store.isFading, "hover pauses expiry")
+        store.setHovered(false)
+        try? await Task.sleep(for: .milliseconds(120))
+        expect(store.isFading, "leaving restarts countdown and begins fade")
+        store.show(progress)
+        try? await Task.sleep(for: .milliseconds(230))
+        expect(store.current?.id == progress.id && !store.isFading, "replacement cancels an in-flight fade")
+        store.reset()
+        let missing = NSError(domain: NSCocoaErrorDomain, code: NSFileNoSuchFileError,
+                              userInfo: [NSFilePathErrorKey: "/tmp/cp"])
+        expect(FileError.notificationMessage(for: missing) == String(format: String(localized: "Cannot find file %@"), "cp"),
+               "missing-file notice uses the filename without system error punctuation")
 
         let model = AppModel()
         MainWindowManager.shared.show(model.mainWindow, model: model)
@@ -119,8 +136,8 @@ import SwiftUI
                 let panel = owner.childWindows!.first { $0.identifier?.rawValue == "app.notification" }!
                 expect(!panel.canBecomeKey && owner.firstResponder === editor, "notification never steals terminal focus")
                 let bounds = owner.convertToScreen(owner.contentView!.convert(owner.contentView!.bounds, to: nil))
-                expect(abs(panel.frame.midX - bounds.midX) < 1 && abs(panel.frame.midY - bounds.midY) < 1,
-                       "notification centers in the content area")
+                expect(abs(panel.frame.midX - bounds.midX) < 1 && abs(panel.frame.maxY - bounds.maxY + AppNotificationLayout.inset) < 1,
+                       "banner is top centered below the window chrome")
                 expect(!panel.hasShadow, "flat notification has no floating window shadow")
                 if let directory = screenshotDirectory, let view = panel.contentView,
                    let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
@@ -130,35 +147,20 @@ import SwiftUI
                 }
             }
         }
-        // 模拟左右侧栏及两个分屏；通知只能对齐来源终端正文，不能对齐整个窗口。
-        let paneContainer = NSView(frame: CGRect(x: 160, y: 20, width: 560, height: 540))
-        editor.addSubview(paneContainer)
-        let firstTerminal = SSHTerminalNSView(frame: CGRect(x: 0, y: 0, width: 240, height: 540))
-        firstTerminal.sessionID = "notification-first"
-        let sourceTerminal = SSHTerminalNSView(frame: CGRect(x: 260, y: 0, width: 300, height: 540))
-        sourceTerminal.sessionID = "notification-source"
-        paneContainer.addSubview(firstTerminal)
-        paneContainer.addSubview(sourceTerminal)
-        presenter.store.show(AppNotificationItem(id: "terminal-fixture", title: "来源终端", message: "命令执行失败", level: .error,
-                                                terminalSessionID: sourceTerminal.sessionID))
+        // 分屏和侧栏不改变横向中心 缩放窗口后按新的内容宽度换行
+        presenter.store.show(AppNotificationItem(id: "terminal-fixture", title: "", message: "找不到文件 cp", level: .error,
+                                                 terminalSessionID: "split-terminal"))
         presenter.layout()
+        try? await Task.sleep(for: .milliseconds(100))
         let terminalPanel = owner.childWindows!.first!
-        func expectCentered(on view: NSView, _ message: String) {
-            let rect = owner.convertToScreen(view.convert(view.visibleRect.intersection(view.bounds), to: nil))
-            expect(abs(terminalPanel.frame.midX - rect.midX) < 1 && abs(terminalPanel.frame.midY - rect.midY) < 1, message)
-        }
-        expectCentered(on: sourceTerminal, "notification centers on its source split without including sidebars")
-        paneContainer.setFrameOrigin(CGPoint(x: 190, y: 30))
-        sourceTerminal.setFrameSize(CGSize(width: 270, height: 500))
-        expectCentered(on: sourceTerminal, "notification follows container movement and terminal resizing")
-        sourceTerminal.isHidden = true
-        presenter.layout()
-        expectCentered(on: firstTerminal, "hidden source falls back to a visible terminal")
-        paneContainer.removeFromSuperview()
+        expect(terminalPanel.frame.width < 220 && terminalPanel.frame.height == 40, "short banner fits its text in one row: \(terminalPanel.frame)")
         owner.setContentSize(CGSize(width: 300, height: 300))
+        presenter.store.show(AppNotificationItem(id: "long", title: "", message: String(repeating: "长文件名", count: 20), level: .error))
         presenter.layout()
-        let panel = owner.childWindows!.first!
-        expect(panel.frame.width == 260, "narrow window keeps the whole notification visible")
+        try? await Task.sleep(for: .milliseconds(100))
+        let bounds = owner.convertToScreen(owner.contentLayoutRect)
+        expect(terminalPanel.frame.width <= bounds.width - 32 && abs(terminalPanel.frame.midX - bounds.midX) < 1,
+               "narrow banners stay inside and centered on their window")
         let second = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
         second.isReleasedWhenClosed = false
         let firstTransfer = TransferToast.shared.begin("first", in: owner)
@@ -167,6 +169,19 @@ import SwiftUI
         expect(presenter.store.current?.message == "first done", "transfer completes in its originating window")
         expect(AppNotifications.presenter(for: second).store.current?.message == "second", "other window unaffected")
         TransferToast.shared.finish(secondTransfer, "second done")
+        let absent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("cp")
+        do {
+            try await LocalFileSystem().delete([absent.path])
+            fatalError("missing file deletion must report an error")
+        } catch {
+            TransferToast.shared.fail(nil, FileError.notificationMessage(for: error), in: owner)
+        }
+        let expected = String(format: String(localized: "Cannot find file %@"), "cp")
+        expect(presenter.store.current?.text == expected, "real file error becomes one short sentence ending in cp")
+        try? await Task.sleep(for: .milliseconds(2600))
+        expect(presenter.store.current?.level == .error, "file failure stays long enough to read")
+        try? await Task.sleep(for: .milliseconds(850))
+        expect(presenter.store.current == nil && terminalPanel.parent == nil, "file failure automatically fades and hides")
         owner.close()
         second.close()
         expect(presenter.store.current == nil, "closing window clears notifications and timers")

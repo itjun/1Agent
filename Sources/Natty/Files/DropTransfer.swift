@@ -39,7 +39,7 @@ enum DropTransfer {
                     SSHTerminalRegistry.paste(ShellEscape.dropText(paths: paths), into: sessionID)
                 }
             } catch {
-                TransferToast.shared.fail(nil, error.localizedDescription, in: window)
+                TransferToast.shared.fail(nil, FileError.notificationMessage(for: error), in: window)
             }
         }
     }

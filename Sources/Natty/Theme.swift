@@ -8,7 +8,7 @@ enum Theme {
         })
     }
 
-    private static func hex(_ value: UInt32, alpha: CGFloat = 1) -> NSColor {
+    static func hex(_ value: UInt32, alpha: CGFloat = 1) -> NSColor {
         NSColor(
             srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
             green: CGFloat((value >> 8) & 0xFF) / 255,

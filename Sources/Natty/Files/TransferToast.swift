@@ -1,6 +1,6 @@
 import AppKit
 
-/// 文件操作与终端通知共用右下角卡片。每次操作保留自己的窗口和编号，过期进度不会串到新任务。
+/// 文件操作与终端共用窗口顶部的提示条。每次操作保留自己的窗口和编号，过期进度不会串到新任务。
 @MainActor
 final class TransferToast {
     static let shared = TransferToast()
@@ -32,7 +32,7 @@ final class TransferToast {
         guard transfers[id]?.isRunning == true else { return }
         transfers[id]?.isRunning = false
         let level: AppNotificationLevel = text == String(localized: "Cancelled") ? .information : .success
-        show(id, text: text, level: level, expiresAfter: AppNotificationLayout.lingerSeconds)
+        show(id, text: text, level: level)
         transfers[id] = nil
     }
 
@@ -51,11 +51,11 @@ final class TransferToast {
     }
 
     private func show(_ id: Int, text: String, level: AppNotificationLevel, fraction: Double? = nil,
-                      expiresAfter: TimeInterval? = nil, isNewEvent: Bool = true) {
+                      isNewEvent: Bool = true) {
         guard let window = transfers[id]?.window else { return }
         AppNotifications.presenter(for: window).store.show(
-            AppNotificationItem(id: "transfer-\(id)", title: String(localized: "Files"), message: text,
+            AppNotificationItem(id: "transfer-\(id)", title: "", message: text,
                                 level: level, fraction: fraction),
-            expiresAfter: expiresAfter, isNewEvent: isNewEvent)
+            isNewEvent: isNewEvent)
     }
 }

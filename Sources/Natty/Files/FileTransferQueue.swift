@@ -145,11 +145,15 @@ final class FileTransferQueue: ObservableObject {
             if !shuttingDown {
                 switch result {
                 case .success:
-                    if let toast = request.toast { TransferToast.shared.finish(toast, String(localized: "Completed")) }
+                    if let toast = request.toast {
+                        let result = job.sourceHost == nil && job.targetHost == nil
+                            ? String(localized: "File copied") : String(localized: "Completed")
+                        TransferToast.shared.finish(toast, result)
+                    }
                 case .failure(let error):
                     if cancellation.isCancelled || error is CancellationError {
                         if let toast = request.toast { TransferToast.shared.finish(toast, String(localized: "Cancelled")) }
-                    } else { TransferToast.shared.fail(request.toast, error.localizedDescription, in: request.window) }
+                    } else { TransferToast.shared.fail(request.toast, FileError.notificationMessage(for: error), in: request.window) }
                 }
             }
             FileBrowserStore.shared.refresh(host: job.targetHost)

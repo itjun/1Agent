@@ -17,6 +17,16 @@ struct FileEntry: Identifiable, Hashable, Sendable {
 enum FileError: LocalizedError {
     case message(String)
 
+    static func notificationMessage(for error: Error) -> String {
+        let cocoa = error as NSError
+        if cocoa.domain == NSCocoaErrorDomain,
+           cocoa.code == NSFileNoSuchFileError || cocoa.code == NSFileReadNoSuchFileError,
+           let path = cocoa.userInfo[NSFilePathErrorKey] as? String ?? (cocoa.userInfo[NSURLErrorKey] as? URL)?.path {
+            return String(format: String(localized: "Cannot find file %@"), (path as NSString).lastPathComponent)
+        }
+        return error.localizedDescription
+    }
+
     var errorDescription: String? {
         switch self {
         case .message(let text): return text
