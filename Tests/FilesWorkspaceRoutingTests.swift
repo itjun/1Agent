@@ -1662,6 +1662,18 @@ private struct FilesWorkspaceRoutingTests {
         workspace.openRemote(host: "fixture-a", at: "/fixture")
         let remote = workspace.remoteColumn!
         try await settleDrawer()
+        guard let opened = element("files.openedTabs"),
+              let addHost = element("files.openedTabs.add"),
+              let localTab = element("files.tab." + local.id.uuidString),
+              let remoteTab = element("files.tab." + remote.id.uuidString) else {
+            throw TestFailure(description: "Missing opened file groups or tabs")
+        }
+        let labels = accessibilityLabels(opened)
+        try require(labels.contains(String(localized: "Local Folders")) && labels.contains(String(localized: "Remote Hosts")),
+                    "The file sidebar must name both local and remote groups")
+        try require(element("files.openLocalFolder") == nil, "The local group header has no folder picker")
+        try require(frame(localTab).midY < frame(addHost).midY && frame(addHost).midY < frame(remoteTab).midY,
+                    "Local folders must appear above the remote host picker and remote tabs")
         try require(element("files.remoteLocation") != nil && element("files.localLocation") == nil &&
                     element("files.preview.\(local.id)") == nil, "Browsing a host displays only that host")
         let remoteEntry = FileEntry(name: "remote.txt", path: "/fixture/remote.txt", isDirectory: false, size: 20, mode: "-rw-r--r--", modified: nil)

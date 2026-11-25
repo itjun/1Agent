@@ -319,8 +319,9 @@ struct FileTabButton: View {
 
     private var title: String {
         if let host = column.fileSystem.host { return host }
-        if column.directory.isEmpty { return column.title }
-        return column.directory == "/" ? "/" : (column.directory as NSString).lastPathComponent
+        guard let path = column.savedPath, !path.isEmpty else { return column.title }
+        if path == NSHomeDirectory() { return String(localized: "Home") }
+        return (path as NSString).lastPathComponent
     }
 
     private var fill: Color {
