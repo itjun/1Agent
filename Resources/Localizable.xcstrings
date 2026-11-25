@@ -1,10 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Expand Transfer" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "展开传输"}}}},
-    "Collapse Transfer" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "收起传输"}}}},
-    "Choose Transfer Host" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "选择传输主机"}}}},
-    "Local peer: %@" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "本机对端：%@"}}}},
     "Preview shows only the beginning of this file." : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "预览仅显示文件开头。"}}}},
     "Current program: %@" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current program: %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前程序：%@"}}}},
     "Could not connect to the background terminal session." : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Could not connect to the background terminal session."}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法连接后台终端会话。"}}}},
@@ -721,6 +717,8 @@
     "Local Folders" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "本机目录"}}}},
     "Remote Hosts" : {"localizations": {"zh-Hans": {"stringUnit": {"state": "translated", "value": "远程主机"}}}},
     "Open Folder %@" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open Folder %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开文件夹 %@"}}}},
+    "Open Folder" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open Folder"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开文件夹"}}}},
+    "Open Folder…" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Open Folder…"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开文件夹…"}}}},
     "Retry" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Retry"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "重试"}}}},
     "New Quick Command" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "New Command"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "新建命令"}}}},
     "Manage Command Library" : {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Manage Command Library"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "管理命令库"}}}},
@@ -2997,6 +2995,13 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "命令已成功完成" } }
       }
     },
+    "Cannot open directory %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cannot open directory %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法打开目录 %@"}}}},
+    "Cannot find file %@" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Cannot find file %@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "找不到文件 %@"}}}},
+    "File copied" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "File copied"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "文件已复制"}}}},
+    "%@ command returned error code %lld" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "%@ command returned error code %lld"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "%@命令返回错误码 %lld"}}}},
+    "%@ command succeeded" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "%@ command succeeded"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "%@命令执行成功"}}}},
+    "%@ command finished" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "%@ command finished"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "%@命令已结束"}}}},
+    "Took %@ with exit code %lld" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Took %@ with exit code %lld"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "耗时 %@ 退出码 %lld"}}}},
     "Command Failed" : {
       "extractionState" : "manual",
       "localizations" : {

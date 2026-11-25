@@ -60,13 +60,13 @@ final class FileColumn: ObservableObject, Identifiable {
     private var loadTask: Task<Void, Never>?
     /// The initial list can fail before `directory` has a successfully loaded value.
     private var attemptedPath: String?
+    var loadingPath: String? { loading ? attemptedPath ?? savedPath : nil }
     /// False until `start` has its first folder; an `open` before then replaces that folder.
     private var started = false
     private var startOverride: String?
     private var initialPath: String?
     var savedPath: String? { directory.isEmpty ? startOverride ?? initialPath : directory }
     var savedScrollAnchor: String? { restoredState?.scrollAnchor ?? scrollAnchor }
-    var savedPreviewPath: String? { preview?.entry.path ?? restoredState?.previewPath }
     var onDirectoryChange: ((String) -> Void)?
     var onStateChange: (() -> Void)?
 
@@ -78,7 +78,6 @@ final class FileColumn: ObservableObject, Identifiable {
         showHidden = state.showHidden ?? false
         sortKey = state.sortKey ?? .kind
         ascending = state.ascending ?? true
-        readingEncoding = state.readingEncoding
         backStack = state.backStack ?? []
         forwardStack = state.forwardStack ?? []
         scrollAnchor = state.scrollAnchor
@@ -221,9 +220,6 @@ final class FileColumn: ObservableObject, Identifiable {
                     selection = Set(restored.selection ?? []).intersection(Set(listed.map(\.path)))
                     filter = restored.filter ?? ""
                     scrollAnchor = restored.scrollAnchor
-                    if let path = restored.previewPath, let entry = listed.first(where: { $0.path == path }) {
-                        showPreview(entry, using: restored.readingEncoding)
-                    }
                 } else if changed || !keepSelection {
                     selection = []
                     anchor = nil
@@ -236,7 +232,10 @@ final class FileColumn: ObservableObject, Identifiable {
                 }
                 loading = false
                 reconcileScrollAnchor()
-                if changed { onDirectoryChange?(path) }
+                if changed {
+                    preview = nil
+                    onDirectoryChange?(path)
+                }
             } catch {
                 guard !Task.isCancelled else { return }
                 if let fallback {
@@ -394,7 +393,7 @@ final class FileColumn: ObservableObject, Identifiable {
                 preview?.download = download
                 preview?.quickLook = URL(fileURLWithPath: path)
             } catch {
-                TransferToast.shared.fail(toast, error.localizedDescription, in: window)
+                TransferToast.shared.fail(toast, FileError.notificationMessage(for: error), in: window)
                 guard previewRequest == request, preview?.entry == entry else { return }
                 preview?.error = error.localizedDescription
             }
@@ -472,9 +471,8 @@ final class FileWorkspace: ObservableObject {
     private(set) var remoteGroupID: UUID
     @Published private(set) var layout: PaneNode
     @Published private(set) var groups: [UUID: Group] = [:]
-    /// While transferring, remember which side to return to even if the other pane takes focus.
-    @Published private(set) var transferSourceGroupID: UUID?
-    @Published private var showsRemoteSplits = false
+    /// 单独打开本机文件夹时只显示本机，打开主机时显示完整分栏。
+    @Published private var isLocalBrowser = true
     private let loadsFiles: Bool
     /// The pane last clicked or opened. ⌘W closes its current tab.
     @Published private(set) var focusedGroupID: UUID
@@ -527,7 +525,8 @@ final class FileWorkspace: ObservableObject {
             focusedGroupID = restored.focusRemote && remote.active != nil ? remoteID : localID
         }
         if groups[focusedGroupID]?.active == nil { focusedGroupID = localID }
-        showsRemoteSplits = groups.count > 2
+        isLocalBrowser = remoteColumn == nil || saved.isLocalBrowser == true
+        if isLocalBrowser { focusedGroupID = localID }
         focusHistory = groupIDs.filter { $0 != focusedGroupID } + [focusedGroupID]
         for column in allTabs { observe(column) }
     }
@@ -540,15 +539,17 @@ final class FileWorkspace: ObservableObject {
     func browseRemote(host: String, at path: String? = nil) { openRemote(host: host, at: path) }
     func browseLocal(at path: String) { showLocal(path) }
 
+    func openBrowserTab(_ column: FileColumn) {
+        isLocalBrowser = !column.isRemote
+        activate(column)
+    }
+
     /// Panes in reading order.
     var groupIDs: [UUID] { WorkspaceBoard.leafIDs(layout) }
     /// All browsing locations, including inactive tabs in each pane.
     var allTabs: [FileColumn] { groupIDs.flatMap { groups[$0]?.tabs ?? [] } }
     var visibleLayout: PaneNode {
-        guard remoteColumn != nil, case .split(var root) = layout else { return .leaf(localGroupID) }
-        if !showsRemoteSplits { root.trailing = .leaf(remoteGroupID) }
-        if transferSourceGroupID != nil { return .split(root) }
-        return focusedGroupID == localGroupID ? root.leading : root.trailing
+        isLocalBrowser || remoteColumn == nil ? .leaf(localGroupID) : layout
     }
 
     var openColumns: [FileColumn] { WorkspaceBoard.leafIDs(visibleLayout).compactMap { groups[$0]?.active } }
@@ -576,7 +577,10 @@ final class FileWorkspace: ObservableObject {
         guard groups[id] != nil else { return }
         if let window = windowState { model?.focusFiles(in: window) }
         focusedGroupID = id
-        if id != localGroupID { remoteGroupID = id }
+        if id != localGroupID {
+            remoteGroupID = id
+            isLocalBrowser = false
+        }
         focusHistory.removeAll { $0 == id }
         focusHistory.append(id)
         save()
@@ -598,6 +602,18 @@ final class FileWorkspace: ObservableObject {
         return column
     }
 
+    /// 侧栏「本机目录」加号：已打开的同路径标签复用，否则新建标签。
+    func openLocalFolder(at path: String) {
+        let key = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        if let existing = localLocations.first(where: {
+            URL(fileURLWithPath: $0.savedPath ?? $0.directory).resolvingSymlinksInPath().path == key
+        }) {
+            openBrowserTab(existing)
+            return
+        }
+        addLocalTab(at: path)
+    }
+
     @discardableResult
     func addRemoteTab(host: String, at path: String? = nil, in groupID: UUID? = nil) -> FileColumn {
         let column = makeColumn(host: host, path: path)
@@ -611,7 +627,7 @@ final class FileWorkspace: ObservableObject {
     func openRemote(host: String, at path: String?, in groupID: UUID? = nil) {
         let candidates = ([remoteColumn].compactMap { $0 } + remoteTabs)
         if let existing = candidates.first(where: { $0.fileSystem.host == host }) {
-            activate(existing)
+            openBrowserTab(existing)
             if let path, !path.isEmpty {
                 existing.open(path)
             }
@@ -623,6 +639,7 @@ final class FileWorkspace: ObservableObject {
     /// A tab on this Mac moves to `path`: the focused pane's current tab, else another pane's
     /// current tab, else any; without any, a new tab.
     func showLocal(_ path: String?) {
+        isLocalBrowser = true
         let current = ([focusedGroupID] + focusHistory.reversed()).compactMap { groups[$0]?.active }
         guard let column = current.first(where: { !$0.isRemote }) ?? allTabs.first(where: { !$0.isRemote }) else {
             addLocalTab(at: path)
@@ -632,22 +649,6 @@ final class FileWorkspace: ObservableObject {
         if let path, !path.isEmpty {
             column.open(path)
         }
-    }
-
-    func showSingleEndpoint() {
-        transferSourceGroupID = nil
-        showsRemoteSplits = false
-    }
-
-    func expandTransfer(from source: UUID) {
-        guard remoteColumn != nil, groups[source]?.active != nil else { return }
-        transferSourceGroupID = source
-    }
-
-    func collapseTransfer() {
-        guard let source = transferSourceGroupID else { return }
-        transferSourceGroupID = nil
-        focusGroup(groups[source]?.active != nil ? source : localGroupID)
     }
 
     func activate(_ column: FileColumn) {
@@ -663,7 +664,7 @@ final class FileWorkspace: ObservableObject {
         if id == localGroupID, localLocations.count == 1 { return }
         detach(column, from: id)
         removeIfEmpty(id)
-        if remoteColumn == nil { transferSourceGroupID = nil }
+        if remoteColumn == nil { isLocalBrowser = true }
         if focusedGroupID == id, groups[id]?.active == nil { focusGroup(localGroupID) }
         save()
     }
@@ -703,7 +704,6 @@ final class FileWorkspace: ObservableObject {
         } else {
             let id = UUID()
             groups[id] = Group(id: id)
-            showsRemoteSplits = true
             layout = PaneLayout.split(layout, target: target, with: id, edge: edge)
             insert(column, into: id, at: nil)
         }
@@ -758,7 +758,6 @@ final class FileWorkspace: ObservableObject {
             remoteGroupID = focusHistory.reversed().first { $0 != localGroupID && groups[$0] != nil }
                 ?? groupIDs.first { $0 != localGroupID }!
         }
-        if transferSourceGroupID == id { transferSourceGroupID = remoteGroupID }
         if focusedGroupID == id { focusGroup(remoteGroupID) }
     }
 
@@ -788,7 +787,6 @@ final class FileWorkspace: ObservableObject {
             Saved.Tab(host: column.fileSystem.host, path: column.savedPath,
                       selection: Array(column.selection), filter: column.filter, showHidden: column.showHidden,
                       sortKey: column.sortKey, ascending: column.ascending,
-                      previewPath: column.savedPreviewPath, readingEncoding: column.readingEncoding,
                       backStack: column.backStack, forwardStack: column.forwardStack,
                       scrollAnchor: column.savedScrollAnchor)
         }
@@ -799,7 +797,8 @@ final class FileWorkspace: ObservableObject {
             return Saved.SavedGroup(id: id, tabs: group.tabs.map(saved),
                                     active: group.tabs.firstIndex { $0.id == group.activeID } ?? 0)
         }
-        state.focused = transferSourceGroupID ?? focusedGroupID
+        state.isLocalBrowser = isLocalBrowser
+        state.focused = focusedGroupID
         state.localGroupID = localGroupID
         state.remoteGroupID = remoteGroupID
         onChange?(state)
@@ -842,8 +841,7 @@ final class FileWorkspace: ObservableObject {
                 column.selection = [target]
                 column.refresh()
             } catch {
-                column.error = error.localizedDescription
-                TransferToast.shared.fail(nil, error.localizedDescription, in: window)
+                TransferToast.shared.fail(nil, FileError.notificationMessage(for: error), in: window)
             }
         }
     }
@@ -854,7 +852,6 @@ final class FileWorkspace: ObservableObject {
         for entry in entries {
             let home = column.isRemote ? nil : NSHomeDirectory()
             if let refusal = FileRules.deleteRefusal(entry.path, remote: column.isRemote, home: home) {
-                column.error = refusal
                 TransferToast.shared.fail(nil, refusal, in: window)
                 return
             }
@@ -868,8 +865,7 @@ final class FileWorkspace: ObservableObject {
                 TransferToast.shared.finish(toast, String(localized: "Deleted"))
                 column.refresh()
             } catch {
-                column.error = error.localizedDescription
-                TransferToast.shared.fail(nil, error.localizedDescription, in: window)
+                TransferToast.shared.fail(nil, FileError.notificationMessage(for: error), in: window)
             }
         }
     }
@@ -889,8 +885,7 @@ final class FileWorkspace: ObservableObject {
                 column.refresh()
                 column.selection = [path]
             } catch {
-                column.error = error.localizedDescription
-                TransferToast.shared.fail(nil, error.localizedDescription, in: window)
+                TransferToast.shared.fail(nil, FileError.notificationMessage(for: error), in: window)
             }
         }
     }

@@ -217,12 +217,14 @@ final class FileTabHandleView: NSView {
             item.isEnabled = entry.enabled
             menu.addItem(item)
         }
-        menu.addItem(.separator())
-        menu.addItem(TerminalCloseMenu.item(
-            title: String(localized: "Close Connection"),
-            action: #selector(requestClose),
-            target: self
-        ))
+        if closeWidth > 0 {
+            menu.addItem(.separator())
+            menu.addItem(TerminalCloseMenu.item(
+                title: String(localized: "Close Connection"),
+                action: #selector(requestClose),
+                target: self
+            ))
+        }
         FamilyMenuPresenter.shared.show(menu, with: event, for: self)
         return nil
     }
@@ -324,6 +326,8 @@ struct FileTabButton: View {
         return (path as NSString).lastPathComponent
     }
 
+    private var canClose: Bool { column.isRemote || workspace.localLocations.count > 1 }
+
     private var fill: Color {
         if dragging || active { return chrome.rowSelection(active: true) }
         return hovering ? chrome.elevated : Color.clear
@@ -354,7 +358,7 @@ struct FileTabButton: View {
             Image(systemName: "xmark")
                 .font(.system(size: 9, weight: .semibold))
                 .frame(width: Self.closeSize, height: Self.closeSize)
-                .opacity(hovering ? 1 : 0)
+                .opacity(hovering && canClose ? 1 : 0)
         }
         .foregroundStyle(chrome.text)
         .padding(.horizontal, SidebarLayout.contentInset)
@@ -367,9 +371,9 @@ struct FileTabButton: View {
             title: title,
             identifier: "files.tab." + column.id.uuidString,
             toolTip: title + ": " + (column.savedPath ?? ""),
-            closeWidth: Self.closeSize + 11 + Theme.Space.xs,
+            closeWidth: canClose ? Self.closeSize + 11 + Theme.Space.xs : 0,
             menu: menu,
-            onClick: { workspace.activate(column) },
+            onClick: { workspace.openBrowserTab(column) },
             onClose: { workspace.close(column) },
             onHover: { hovering = $0 },
             onDragMoved: { tabDrag.dragMoved(column, to: $0, in: workspace) },

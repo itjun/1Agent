@@ -190,7 +190,6 @@ private struct FileEndpointPanel: View {
     @Environment(\.isShellTransparent) private var isShellTransparent
 
     private var column: FileColumn? { workspace.groups[groupID]?.active }
-    private var local: Bool { groupID == workspace.localGroupID }
 
     private var chrome: WindowChrome {
         parentChrome
@@ -200,8 +199,7 @@ private struct FileEndpointPanel: View {
         VStack(spacing: 0) {
             if let column {
                 if showsHeader {
-                    FileColumnHeader(workspace: workspace, column: column, width: width,
-                                     showsTransferControl: workspace.transferSourceGroupID == nil || groupID == workspace.remoteGroupID) {
+                    FileColumnHeader(workspace: workspace, column: column, width: width) {
                         FileEndpointTitle(workspace: workspace, column: column)
                     }
                 }

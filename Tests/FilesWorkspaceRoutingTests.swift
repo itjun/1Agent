@@ -18,9 +18,13 @@ private final class UnclippedFileAnchor: NSView {
 /// Use a missing, isolated home to exercise a first-list failure without SSH or user data.
 private struct FolderLoadFixture: FileSystem {
     let folder: String
+    var listDelay: Duration = .zero
     var host: String? { nil }
     func home() async throws -> String { folder }
-    func list(_ directory: String) async throws -> [FileEntry] { try await LocalFileSystem().list(directory) }
+    func list(_ directory: String) async throws -> [FileEntry] {
+        if listDelay > .zero { try await Task.sleep(for: listDelay) }
+        return try await LocalFileSystem().list(directory)
+    }
     func existingNames(in directory: String, among names: [String]) async throws -> Set<String> { try await LocalFileSystem().existingNames(in: directory, among: names) }
     func makeDirectory(_ path: String) async throws { try await LocalFileSystem().makeDirectory(path) }
     func createFile(_ path: String) async throws { try await LocalFileSystem().createFile(path) }
@@ -124,6 +128,14 @@ private struct FilesWorkspaceRoutingTests {
             chromeWindow.contentView = nil
             return
         }
+        if environment["NATTY_TEST_LOCAL_LOADING"] == "1" {
+            try await verifyLocalLoadingIndicator(model: model, state: state, window: chromeWindow, home: home)
+            return
+        }
+        if environment["NATTY_TEST_LOCAL_FOLDER_ROUTING"] == "1" {
+            try await verifyLocalFolderRouting(model: model, state: state, home: home)
+            return
+        }
         if environment["NATTY_TEST_FILE_FILTER_HEADER"] == "1" {
             try await verifyFileHeaderFilterFocus(model: model, state: state, window: chromeWindow, home: home)
             chromeWindow.orderOut(nil)
@@ -221,8 +233,8 @@ private struct FilesWorkspaceRoutingTests {
         model.selectOnly(hostA.id, in: state)
         model.selectFilesLayout(.sideBySide, in: state)
         let workspace = model.fileWorkspace(for: state)
-        try require(workspace.visibleLayout == .leaf(workspace.remoteGroupID),
-                    "Opening Files from an SSH terminal must show only that server")
+        try require(WorkspaceBoard.leafIDs(workspace.visibleLayout) == [workspace.localGroupID, workspace.remoteGroupID],
+                    "Opening Files from SSH must show this Mac on the left and that server on the right")
         try await eventually("explicitly reveal host A cwd") {
             workspace.remoteColumn?.fileSystem.host == "fixture-a" && workspace.remoteColumn?.directory == "/remote/a-terminal"
         }
@@ -240,15 +252,14 @@ private struct FilesWorkspaceRoutingTests {
         }
         let remoteB = workspace.remoteColumn!
         try require(workspace.remoteTabs.contains { $0 === remoteA }, "Explicit navigation must retain other server locations")
-        workspace.expandTransfer(from: workspace.remoteGroupID)
         try await verifyFilePanePointerFocus(model: model, state: state, workspace: workspace, window: chromeWindow)
 
         model.hideFiles(in: state)
         model.selectOnly(local.id, in: state)
         model.noteWorkingDirectory(localB, forSession: local.sessionID)
         model.selectFilesLayout(.sideBySide, in: state)
-        try require(workspace.visibleLayout == .leaf(workspace.localGroupID) && workspace.transferSourceGroupID == nil,
-                    "Returning from a local terminal must hide the previously opened transfer peer")
+        try require(workspace.visibleLayout == .leaf(workspace.localGroupID),
+                    "Opening a local terminal folder must use the standalone local browser even with a saved server")
         try await eventually("explicitly reveal local terminal cwd") {
             workspace.focusedColumn === workspace.localColumn && workspace.localColumn.directory == localB
         }
@@ -285,7 +296,7 @@ private struct FilesWorkspaceRoutingTests {
         model.hideFiles(in: state)
         model.notePaneFocused(hostB.id, in: state)
         model.selectFilesLayout(.sideBySide, in: state)
-        try require(workspace.focusedColumn === remoteB && workspace.visibleLayout == .leaf(workspace.remoteGroupID)
+        try require(workspace.focusedColumn === remoteB && workspace.visibleLayout == workspace.layout
                     && remoteA.directory == "/remote/a-browsed",
                     "Opening Files uses the focused terminal pane and preserves inactive browsing locations")
 
@@ -343,12 +354,14 @@ private struct FilesWorkspaceRoutingTests {
         model.toggleSection(in: state)
         try await eventually("shortcut opens the selected terminal directory") {
             state.presentation.fullFilesWorkspace && remoteA.directory == "/remote/a-terminal"
-                && workspace.visibleLayout == .leaf(workspace.remoteGroupID)
+                && workspace.visibleLayout == workspace.layout
         }
         model.showFiles(for: hostA.id, in: state)
         try await eventually("Explicit host routing follows terminal cwd") { remoteA.directory == "/remote/a-terminal" }
 
         native.orderOut(nil)
+        try await verifyLocalFolderRouting(model: model, state: state, home: home)
+        try await verifyLocalLoadingIndicator(model: model, state: state, window: chromeWindow, home: home)
         try await verifyFileTabLayout(model: model, state: state)
         try await verifyTerminalAccessibility(model: model, state: state, window: chromeWindow)
         try await verifyHostPickerAccessibility(model: model, state: state, window: chromeWindow, home: home)
@@ -360,6 +373,72 @@ private struct FilesWorkspaceRoutingTests {
         print("ok: terminal menus omit history; file reveal targets its pane; switching panels/pages retains native terminal identity and size")
         print("ok: modal host accessibility connects the selection; Files browsing creates no terminal")
         print("ok: isolated defaults/home; fake remote responses; real SSH and network denied by sandbox")
+    }
+
+    @MainActor
+    private static func verifyLocalLoadingIndicator(model: AppModel, state: WindowState, window: NSWindow, home: String) async throws {
+        let workspace = model.fileWorkspace(for: state)
+        for delay in [Duration.milliseconds(220), .seconds(1)] {
+            let column = FileColumn(fileSystem: FolderLoadFixture(folder: home, listDelay: delay))
+            let view = NSHostingView(rootView: FileColumnView(workspace: workspace, column: column))
+            window.contentView = view
+            window.orderFront(nil)
+            try await settle()
+            func hasProgressBar() -> Bool {
+                view.layoutSubtreeIfNeeded()
+                return accessibilityElements(view).contains {
+                    accessibilityValue($0, "accessibilityIdentifier") as? String == "files.directoryLoading"
+                }
+            }
+            column.start(at: home)
+            try await eventually("local listing is ready for navigation") { !column.directory.isEmpty && !column.loading }
+            guard let folder = column.shown.first(where: { $0.isDirectory }) else { throw TestFailure(description: "Missing local folder") }
+            workspace.open(folder, in: column, window: window)
+            try await Task.sleep(for: .milliseconds(65))
+            try require(column.loading, "The fixture must still be loading during the early visual check")
+            let early = hasProgressBar()
+            try require(!early, "Quick local navigation must not flash a progress bar")
+            if delay == .seconds(1) {
+                try await Task.sleep(for: .milliseconds(500))
+                let visible = hasProgressBar()
+                try require(visible, "A sustained local directory read must still show progress")
+            }
+            try await eventually("finish loading the child directory") { !column.loading && column.directory == folder.path }
+            try await settle()
+            let visible = hasProgressBar()
+            try require(!visible, "The local progress bar must disappear when the directory is ready")
+        }
+        window.contentView = nil
+        print("ok: quick local directory changes stay quiet and sustained reads show progress")
+    }
+
+    @MainActor
+    private static func verifyLocalFolderRouting(model: AppModel, state: WindowState, home: String) async throws {
+        let workspace = FileWorkspace(saved: nil, model: model, window: state)
+        let local = workspace.localColumn
+        workspace.loadIfNeeded(local)
+        try await eventually("first local location is the user home") { local.directory == NSHomeDirectory() }
+        let root = home + "/local-folder-routing"
+        try FileManager.default.createDirectory(atPath: root + "/A", withIntermediateDirectories: true)
+        workspace.browseLocal(at: root)
+        try await eventually("local browser root") { local.directory == root }
+        let folder = local.shown.first { $0.name == "A" }!
+        local.click(folder, modifiers: [])
+        try require(local.directory == root && local.selection == [folder.path], "A folder can be selected before opening it")
+        workspace.open(folder, in: local, window: nil)
+        try await eventually("open the selected local folder") { local.directory == folder.path }
+        workspace.openRemote(host: "fixture-a", at: "/fixture")
+        try require(workspace.visibleLayout == workspace.layout && local.directory == root + "/A",
+                    "Opening a host must keep the previously browsed local folder on the left")
+        var saved: FileWorkspaceSnapshot?
+        workspace.onChange = { saved = $0 }
+        workspace.browseLocal(at: local.directory)
+        let restored = FileWorkspace(saved: saved, model: model, window: state, loadImmediately: false)
+        try require(restored.visibleLayout == .leaf(restored.localGroupID) && restored.localColumn.savedPath == local.directory,
+                    "An independent local folder and its path must survive restart with a remote tab available")
+        restored.openBrowserTab(restored.remoteColumn!)
+        try require(restored.visibleLayout == restored.layout && restored.localColumn.savedPath == local.directory,
+                    "Selecting an existing remote sidebar tab must open its saved local peer")
     }
 
     @MainActor
@@ -400,8 +479,8 @@ private struct FilesWorkspaceRoutingTests {
         guard let snapshot else { throw TestFailure(description: "Layout changes must be saved") }
         let roundtrip = try JSONDecoder().decode(FileWorkspaceSnapshot.self, from: JSONEncoder().encode(snapshot))
         let restored = FileWorkspace(saved: roundtrip, model: model, window: state, loadImmediately: false)
-        try require(roundtrip.hasRestorableLayout && restored.layout == files.layout && restored.groupIDs == files.groupIDs,
-                    "Restart must retain the split tree, pane identity and tab order")
+        try require(roundtrip.hasRestorableLayout && restored.visibleLayout == files.layout && restored.groupIDs == files.groupIDs,
+                    "Restart must show the entire saved split tree, preserving pane identity and tab order")
         try require(restored.remoteColumn?.fileSystem.host == "fixture-a" && restored.focusedColumn === restored.localColumn,
                     "Local focus must preserve the last remote destination across restart")
         files.drop(a, on: firstGroup, edge: .center, before: c)
@@ -920,18 +999,19 @@ private struct FilesWorkspaceRoutingTests {
                 NSApp.sendEvent(event)
                 try await settle()
             }
+            column.preview = nil
             column.click(rows[1], modifiers: [])
             try await arrow(true, shift: true)
             try require(column.selection == Set([rows[1].path, rows[2].path]), "Shift+Down extends the selection instead of replacing it")
+            try require(column.preview == nil, "Extending the selection must not open a preview")
             try require(column.focusedSelectionPath == rows[2].path, "Multi-selection retains exactly one keyboard cursor")
-            // Sample the actual row edges: model-only cursor checks cannot catch a missing
-            // cursor argument at the view's shared row-style call site.
+            // 列表用底色显示选区。取每行右侧的空白像素，核对实际高亮的行。
             guard let content = window.contentView,
                   let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds) else {
                 throw TestFailure(description: "File selection rendering must be capturable")
             }
             content.cacheDisplay(in: content.bounds, to: bitmap)
-            var outlined: [String] = []
+            var fills: [NSColor] = []
             for row in rows {
                 guard let element = accessibilityElements(content).first(where: {
                     accessibilityValue($0, "accessibilityIdentifier") as? String == "files.row.\(row.path)"
@@ -943,24 +1023,26 @@ private struct FilesWorkspaceRoutingTests {
                 let scaleX = CGFloat(bitmap.pixelsWide) / content.bounds.width
                 let scaleY = CGFloat(bitmap.pixelsHigh) / content.bounds.height
                 let y = Int((content.isFlipped ? local.midY : content.bounds.height - local.midY) * scaleY)
-                let edgeX = Int((local.maxX - 1) * scaleX)
-                let innerX = Int((local.maxX - 12) * scaleX)
-                guard let edge = bitmap.colorAt(x: edgeX, y: y)?.usingColorSpace(.deviceRGB),
-                      let inner = bitmap.colorAt(x: innerX, y: y)?.usingColorSpace(.deviceRGB) else {
+                let x = Int((local.maxX - 12) * scaleX)
+                guard let fill = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else {
                     throw TestFailure(description: "Rendered selection pixels must be readable")
                 }
-                let difference = max(abs(edge.redComponent - inner.redComponent),
-                                     abs(edge.greenComponent - inner.greenComponent),
-                                     abs(edge.blueComponent - inner.blueComponent))
-                if difference > 0.15 { outlined.append(row.path) }
+                fills.append(fill)
             }
-            try require(outlined == [rows[2].path], "Only the keyboard cursor row may render a focus outline; got \(outlined)")
+            let background = fills[0]
+            let highlighted = fills.indices.filter { i in
+                let fill = fills[i]
+                return max(abs(fill.redComponent - background.redComponent), abs(fill.greenComponent - background.greenComponent),
+                           abs(fill.blueComponent - background.blueComponent), abs(fill.alphaComponent - background.alphaComponent)) > 0.02
+            }
+            try require(highlighted == [1, 2], "Only the two selected rows should have a selection fill; got \(highlighted)")
             try await arrow(true, shift: true)
             try require(column.selection == Set(rows[1...3].map(\.path)), "Repeated Shift+Down keeps the initial anchor")
             try await arrow(false, shift: true)
             try require(column.selection == Set(rows[1...2].map(\.path)), "Shift+Up shrinks toward the anchor")
             try await arrow(false)
             try require(column.selection == [rows[1].path], "Plain arrow collapses the range at the keyboard cursor")
+            try await eventually("arrow selection previews the current file") { column.preview?.decoded?.text == rows[1].name }
             column.click(rows[3], modifiers: .command)
             try require(column.selection == Set([rows[1].path, rows[3].path]), "Command-click toggles independently")
             column.prepareContextMenu(for: rows[1])
@@ -968,10 +1050,11 @@ private struct FilesWorkspaceRoutingTests {
             column.clearSelection()
             try await arrow(true)
             try require(column.selection == [rows[0].path], "Arrow from an empty selection starts at first row")
+            try await eventually("keyboard navigation updates the preview") { column.preview?.decoded?.text == rows[0].name }
             column.selectAll()
             try require(column.focusedSelectionPath == rows[0].path, "Select All must preserve the keyboard position instead of jumping to the last row")
         }
-        print("ok: default light/dark rendered single focus outline, native Shift-arrow extension, reversal, plain arrows, Command-click and context selection")
+        print("ok: light/dark selection fills, one keyboard cursor, Shift ranges and single-selection previews")
     }
 
     @MainActor
@@ -1031,7 +1114,7 @@ private struct FilesWorkspaceRoutingTests {
     @MainActor
     private static func verifyFilePanePointerFocus(model: AppModel, state: WindowState, workspace: FileWorkspace, window: NSWindow) async throws {
         let local = workspace.localColumn
-        guard let remote = workspace.remoteColumn, let localEntry = local.shown.first, let remoteEntry = remote.shown.first else {
+        guard let remote = workspace.remoteColumn, let localEntry = local.shown.first(where: { !$0.isDirectory }), let remoteEntry = remote.shown.first else {
             throw TestFailure(description: "Pointer focus requires populated local and remote endpoints")
         }
         let localSelection = local.selection
@@ -1095,14 +1178,26 @@ private struct FilesWorkspaceRoutingTests {
         guard let row = elements("files.row.\(localEntry.path)").first else {
             throw TestFailure(description: "The local file row must be visible for the pointer probe")
         }
+        for key in ["name", "modified", "size", "kind"] {
+            try require(elements("files.sort." + key).count == 2, "Both wide browsers show the sortable \(key) column")
+        }
         let rowFrame = try frame(of: row)
         try await click(NSPoint(x: rowFrame.midX, y: rowFrame.midY), simulateFocusLoss: true)
         try require(local.selection == [localEntry.path], "The native click probe must select the actual local file row: \(rowFrame), expected \(localEntry.path), got \(local.selection)")
 
         if FilePreviewPolicy.kind(for: localEntry) != nil {
-            try require(local.preview?.entry == localEntry, "A plain click previews the selected file")
-            local.preview = nil  // The following pointer and filter checks use two full-width lists.
+            try require(local.preview?.entry == localEntry, "A single click previews the local file")
         }
+        guard let remoteRow = elements("files.row." + remoteEntry.path).first else {
+            throw TestFailure(description: "The remote file row must be visible")
+        }
+        let remoteFrame = try frame(of: remoteRow)
+        try await click(NSPoint(x: remoteFrame.midX, y: remoteFrame.midY))
+        try require(remote.selection == [remoteEntry.path] && remote.preview?.entry == remoteEntry,
+                    "A single click selects and previews the remote file")
+        local.preview = nil
+        remote.preview = nil
+        remote.clearSelection()
         local.selection = []
         try await settle()
         let contextPoint = window.convertPoint(fromScreen: NSPoint(x: rowFrame.midX, y: rowFrame.midY))
@@ -1166,7 +1261,7 @@ private struct FilesWorkspaceRoutingTests {
             try await settle()
         }
         print("ok: Back to Terminals opens the clicked local or SSH directory and preserves existing sessions")
-        local.selection = Set(local.shown.prefix(2).map(\.path))
+        local.selection = Set(local.shown.filter { !$0.isDirectory }.prefix(2).map(\.path))
         let multiple = local.selection
         try await settle()
         let multiMenuProbe = NativeMenuProbe()
@@ -1218,6 +1313,8 @@ private struct FilesWorkspaceRoutingTests {
                     "Clicking the right pane header must also move keyboard navigation to the right list")
         try await click(NSPoint(x: paths[0].midX, y: blankY))
         local.filter = originalFilter
+        try await settle()
+        remote.preview = nil
         try await settle()
         let editTargets = try elements("files.path.edit").map(frame).sorted { $0.minX < $1.minX }
         try require(editTargets.count == 2, "Each breadcrumb bar must retain a blank editing target")
@@ -1446,8 +1543,8 @@ private struct FilesWorkspaceRoutingTests {
         UserDefaults.standard.set(420.0, forKey: SidebarLayout.widthKey)
         model.selectFilesLayout(.sideBySide, in: state)
         let files = model.fileWorkspace(for: state)
-        files.showLocal(nil)
-        files.expandTransfer(from: files.localGroupID)
+        if let remote = files.remoteColumn { files.openBrowserTab(remote) }
+        else { files.showLocal(nil) }
         window.setContentSize(NSSize(width: 880, height: 620))
         state.presentation.sidebarCollapsed = true
         try await settle()
@@ -1580,7 +1677,9 @@ private struct FilesWorkspaceRoutingTests {
         let localPath = home + "/drawer-fixture.py"
         let localSource = "import os\n# local-drawer-marker 中文😀\nvalue = (42)\nprint(value)\n# " + String(repeating: "long-line ", count: 200)
         try Data(localSource.utf8).write(to: URL(fileURLWithPath: localPath))
-        local.filter = ""
+        // 前一个用例留下了滚动位置。让这次要点击的预览样本始终在可见区。
+        local.filter = "drawer-fixture.py"
+        defer { local.filter = "" }
         local.refresh()
         try await eventually("local drawer fixture") { local.entries.contains { $0.path == localPath } }
         let entry = local.entries.first { $0.path == localPath }!
@@ -1607,7 +1706,7 @@ private struct FilesWorkspaceRoutingTests {
         }
         let pageFrame = frame(filePage)
         func requireFullWidthBrowser(rowPath: String) throws {
-            guard let row = element("files.row." + rowPath) else { throw TestFailure(description: "Missing file row") }
+            guard let row = element("files.row." + rowPath) else { throw TestFailure(description: "Missing file row \(rowPath), local location \(local.directory), scroll anchor \(local.scrollAnchor ?? "-")") }
             let rect = frame(row)
             try require(abs(rect.minX - pageFrame.minX) < 2 && abs(rect.maxX - pageFrame.maxX) < 2,
                         "The closed preview must return both edges of the listing to the page: \(rect), page \(pageFrame)")
@@ -1648,14 +1747,11 @@ private struct FilesWorkspaceRoutingTests {
         try await settleDrawer()
         try requireEqualLocalPreview()
 
-        func toggleTransfer() async throws {
-            guard let button = element("files.toggleTransfer") else { throw TestFailure(description: "Missing transfer toggle") }
-            try require(accessibilityBool(button, "accessibilityPerformPress"), "Pressing the transfer toggle must work")
-            try await settleDrawer()
-        }
-        try await toggleTransfer()
-        try require(state.hostPickerPresented && state.hostPickerPurpose == .transfer && element("files.remoteLocation") == nil,
-                    "From this Mac, expansion must first ask which host to use")
+        try require(element("files.toggleTransfer") == nil, "The local header must not show a transfer toggle")
+        guard let addHost = element("files.openedTabs.add") else { throw TestFailure(description: "Missing sidebar host picker") }
+        try require(accessibilityBool(addHost, "accessibilityPerformPress"), "The sidebar plus opens the host picker")
+        try require(state.hostPickerPresented && state.hostPickerPurpose == .files && element("files.remoteLocation") == nil,
+                    "Choosing a host starts from the local browser")
         state.hostPickerPresented = false
         try await settleDrawer()
         try requireEqualLocalPreview()
@@ -1663,66 +1759,64 @@ private struct FilesWorkspaceRoutingTests {
         let remote = workspace.remoteColumn!
         try await settleDrawer()
         guard let opened = element("files.openedTabs"),
-              let addHost = element("files.openedTabs.add"),
+              let openRemote = element("files.openedTabs.add"),
               let localTab = element("files.tab." + local.id.uuidString),
               let remoteTab = element("files.tab." + remote.id.uuidString) else {
-            throw TestFailure(description: "Missing opened file groups or tabs")
+            throw TestFailure(description: "Missing opened file groups, actions or tabs")
         }
         let labels = accessibilityLabels(opened)
         try require(labels.contains(String(localized: "Local Folders")) && labels.contains(String(localized: "Remote Hosts")),
                     "The file sidebar must name both local and remote groups")
-        try require(element("files.openLocalFolder") == nil, "The local group header has no folder picker")
-        try require(frame(localTab).midY < frame(addHost).midY && frame(addHost).midY < frame(remoteTab).midY,
-                    "Local folders must appear above the remote host picker and remote tabs")
-        try require(element("files.remoteLocation") != nil && element("files.localLocation") == nil &&
-                    element("files.preview.\(local.id)") == nil, "Browsing a host displays only that host")
+        try require(element("files.openLocalFolder") != nil, "The local group header offers a folder picker")
+        try require(element("locations.edit") == nil, "Pinned locations no longer expose an edit mode")
+        try require(frame(localTab).midY > frame(openRemote).midY
+                    && frame(openRemote).midY > frame(remoteTab).midY,
+                    "The host picker belongs to the remote group, below the local tabs")
+        try require(element("files.remoteLocation") != nil && element("files.localLocation") != nil &&
+                    element("files.preview.\(local.id)") != nil, "Opening the first host must also show the local browser and its preview")
+        try require(element("files.toggleTransfer") == nil, "Neither file header should have a transfer toggle")
+        try await closeSinglePreview()
         let remoteEntry = FileEntry(name: "remote.txt", path: "/fixture/remote.txt", isDirectory: false, size: 20, mode: "-rw-r--r--", modified: nil)
         let remotePreview = FileColumn.Preview(entry: remoteEntry, decoded: .init(text: "remote-drawer-marker\n", encoding: .utf8, lineEnding: .lf), truncated: false, error: nil)
         remote.preview = remotePreview
         try await settleDrawer()
         guard let listing = element("files.remoteLocation"), let preview = element("files.preview.\(remote.id)") else {
-            throw TestFailure(description: "Missing remote folder or single-endpoint preview")
+            throw TestFailure(description: "Missing remote folder or preview")
         }
-        try require(frame(listing).maxX <= frame(preview).minX &&
-                    abs(frame(preview).width - pageFrame.width / 2) < 8 &&
+        try require(frame(listing).midX > pageFrame.midX && frame(listing).maxX <= frame(preview).minX &&
                     abs(frame(preview).maxX - pageFrame.maxX) < 8,
-                    "A single SSH browser opens its preview in the right half")
+                    "A remote preview opens beside its browser and keeps the local pane visible")
         let secondRemote = workspace.addRemoteTab(host: "fixture-b", at: "/fixture-other")
         try await settleDrawer()
-        try requireFullWidthBrowser(rowPath: "/fixture-other/fixture.txt")
-        workspace.activate(remote)
+        guard let remoteRow = element("files.row./fixture-other/fixture.txt") else { throw TestFailure(description: "Missing second host's file row") }
+        try require(element("files.preview.close") == nil && abs(frame(remoteRow).minX - pageFrame.midX) < 8 &&
+                    abs(frame(remoteRow).maxX - pageFrame.maxX) < 8, "Without a preview the list fills the remote pane")
+        workspace.openBrowserTab(remote)
         try await settleDrawer()
         try await closeSinglePreview()
-        try requireFullWidthBrowser(rowPath: "/fixture/fixture.txt")
         workspace.close(secondRemote)
+        workspace.open(entry, in: local, window: window)
         try await settleDrawer()
-        try await toggleTransfer()
-        try require(workspace.transferSourceGroupID == workspace.remoteGroupID,
-                    "SSH expansion must remember the remote source")
-        workspace.focus(local)
-        try await toggleTransfer()
-        try require(workspace.focusedColumn === remote && element("files.localLocation") == nil
-                    && local.selection == [localPath] && local.preview != nil,
-                    "Collapsing after clicking the peer must return to the remote browser and retain local state")
-        workspace.showLocal(nil)
-        try await settleDrawer()
-        try await toggleTransfer()
-        model.openFilesTabs(hosts: ["fixture-a"], in: state)
-        try await settleDrawer()
-        try require(workspace.transferSourceGroupID == workspace.localGroupID,
-                    "Choosing the transfer host must keep this Mac as the source")
-        try await toggleTransfer()
-        try require(element("files.remoteLocation") == nil && element("files.localLocation") != nil,
-                    "Collapsing after choosing a host must return to the local browser")
-        try await toggleTransfer()
-        model.openFilesTabs(hosts: ["fixture-a"], in: state)
-        try await settleDrawer()
+        try require(element("files.remoteLocation") != nil && local.selection == [localPath],
+                    "Working in the local pane keeps both browsers visible")
+        func selectSidebarTab(_ column: FileColumn) async throws {
+            guard let tab = element("files.tab." + column.id.uuidString),
+                  accessibilityBool(tab, "accessibilityPerformPress") else {
+                throw TestFailure(description: "Missing opened file tab")
+            }
+            try await settleDrawer()
+        }
+        try await selectSidebarTab(local)
+        try require(element("files.remoteLocation") == nil && element("files.toggleTransfer") == nil,
+                    "The local sidebar tab opens its standalone browser")
+        try requireEqualLocalPreview()
+        try await selectSidebarTab(remote)
         guard let previewBesideRemote = element("files.preview.\(local.id)") else {
             throw TestFailure(description: "Opening a remote tab must retain the local preview")
         }
         try require(element("files.remoteLocation") != nil
                     && abs(frame(previewBesideRemote).maxX - pageFrame.midX) < 1,
-                    "Expanding transfer places the remote pane to the right of the local browser and preview")
+                    "Selecting the host places it to the right of the local browser and preview")
         local.preview = nil
         try await settleDrawer()
 
@@ -1778,8 +1872,14 @@ private struct FilesWorkspaceRoutingTests {
         try await eventually("confirmed transfer starts") { sawQueuedTransfer }
         try await eventually("fixture transfer ends") { !FileTransferQueue.shared.hasActiveTransfers }
         observation.cancel()
+        try await eventually("transfer dialog closed and file lists ready") {
+            window.attachedSheet == nil && !local.loading && !remote.loading
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        try await settleDrawer()
+        local.clearSelection()
         let directory = local.directory
-        let selection = local.selection
         let layout = workspace.layout
 
         guard let row = element("files.row." + localPath) else { throw TestFailure(description: "Missing preview fixture row") }
@@ -1792,7 +1892,9 @@ private struct FilesWorkspaceRoutingTests {
             NSApp.sendEvent(event)
             try await settle()
         }
-        try await eventually("single click loads the actual file preview") { local.preview?.decoded?.text == localSource }
+        try await eventually("single click loads the selected file preview") {
+            local.selection == [localPath] && local.preview?.decoded?.text == localSource
+        }
         try await settleDrawer()
         guard let code = textViews(window.contentView!).first(where: { $0.string == localSource }) as? PreviewTextView else {
             throw TestFailure(description: "File drawer must mount the native code surface")
@@ -1822,8 +1924,8 @@ private struct FilesWorkspaceRoutingTests {
                     "Local preview fills the browser height")
         try require(element("files.localLocation") != nil && element("files.remoteLocation") != nil,
                     "Both file browsers remain accessible while preview is open")
-        try require(local.directory == directory && local.selection == selection && workspace.layout == layout,
-                    "Opening preview preserves browsing state and pane layout")
+        try require(local.directory == directory && local.selection == [localPath] && workspace.layout == layout,
+                    "Opening preview keeps the clicked row selected and preserves the directory and pane layout")
         try require(accessibilityBool(element("files.preview.close")!, "accessibilityPerformPress"), "Close button dismisses the drawer")
         try await settleDrawer()
         try require(element("files.preview.\(local.id)") == nil && local.preview == nil, "Closing leaves no stale card")
@@ -1855,7 +1957,7 @@ private struct FilesWorkspaceRoutingTests {
                     "Escape closes only the remote preview, preserving the local preview")
         try require(accessibilityBool(element("files.preview.close")!, "accessibilityPerformPress"), "Close the remaining local preview")
         try await settleDrawer()
-        try require(local.preview == nil && local.directory == directory && local.selection == selection && workspace.layout == layout,
+        try require(local.preview == nil && local.directory == directory && local.selection == [localPath] && workspace.layout == layout,
                     "Closing both previews preserves directories, selection and split layout")
         try require(abs(frame(element("workspace.files.content")!).height - pageFrame.height) < 2,
                     "Closing preview restores the exact full-height file page")

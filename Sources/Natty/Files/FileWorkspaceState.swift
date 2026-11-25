@@ -14,8 +14,6 @@ struct FileWorkspaceSnapshot: Codable {
         var showHidden: Bool? = nil
         var sortKey: FileSortKey? = nil
         var ascending: Bool? = nil
-        var previewPath: String? = nil
-        var readingEncoding: TextFile.Encoding? = nil
         var backStack: [String]? = nil
         var forwardStack: [String]? = nil
         var scrollAnchor: String? = nil
@@ -29,6 +27,7 @@ struct FileWorkspaceSnapshot: Codable {
 
     var layout: PaneNode?
     var groups: [SavedGroup] = []
+    var isLocalBrowser: Bool?
     var focused: UUID?
     var localGroupID: UUID?
     var remoteGroupID: UUID?
@@ -37,7 +36,7 @@ struct FileWorkspaceSnapshot: Codable {
     var sortVersion: Int = 1
 
     private enum CodingKeys: String, CodingKey {
-        case layout, groups, focused, version, sortVersion, localGroupID, remoteGroupID
+        case layout, groups, isLocalBrowser, focused, version, sortVersion, localGroupID, remoteGroupID
         case left, right, activeLeft, activeRight
         case local, remote, activeLocal, activeRemote
     }
@@ -62,6 +61,7 @@ struct FileWorkspaceSnapshot: Codable {
         if let groups = try values.decodeIfPresent([SavedGroup].self, forKey: .groups) {
             self.groups = groups
             layout = try values.decodeIfPresent(PaneNode.self, forKey: .layout)
+            isLocalBrowser = try values.decodeIfPresent(Bool.self, forKey: .isLocalBrowser)
             focused = try values.decodeIfPresent(UUID.self, forKey: .focused)
             localGroupID = try values.decodeIfPresent(UUID.self, forKey: .localGroupID)
             remoteGroupID = try values.decodeIfPresent(UUID.self, forKey: .remoteGroupID)
@@ -89,6 +89,7 @@ struct FileWorkspaceSnapshot: Codable {
         try values.encode(sortVersion, forKey: .sortVersion)
         try values.encodeIfPresent(layout, forKey: .layout)
         try values.encode(groups, forKey: .groups)
+        try values.encodeIfPresent(isLocalBrowser, forKey: .isLocalBrowser)
         try values.encodeIfPresent(focused, forKey: .focused)
         try values.encodeIfPresent(localGroupID, forKey: .localGroupID)
         try values.encodeIfPresent(remoteGroupID, forKey: .remoteGroupID)

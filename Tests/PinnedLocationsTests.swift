@@ -51,7 +51,12 @@ struct PinnedLocationsTests {
         let tracked = DropLifetimeProvider(item: a as NSURL, typeIdentifier: UTType.fileURL.identifier)
         PinnedLocations.requestDroppedURLs([tracked]) { _ in }
         precondition(tracked.started, "Finder payload reading must start before performDrop returns; deferring it loses access")
-        print("ok: presets removable, empty state persists, folder validation, deduplication, order/name persistence, unpin never deletes files")
+        let pasteboard = NSPasteboard(name: .init("natty.locations.drop." + UUID().uuidString))
+        pasteboard.clearContents()
+        precondition(pasteboard.writeObjects([a as NSURL]), "Finder pasteboard must accept a folder URL")
+        let boardURLs = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        precondition(boardURLs?.map(\.path) == [a.path], "Native pasteboard reading must keep Finder folder paths")
+        print("ok: presets removable, empty state persists, folder validation, deduplication, order/name persistence, unpin never deletes files, Finder pasteboard pins")
     }
 }
 

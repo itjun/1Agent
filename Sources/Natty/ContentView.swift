@@ -829,6 +829,7 @@ private struct FilesSidebar: View {
     var dragArea: PinnedLocationDragArea
     @Environment(\.windowChrome) private var chrome
     @Environment(\.isShellTransparent) private var isShellTransparent
+    @StateObject private var localFolderPicker = NativeFolderPicker()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -840,12 +841,20 @@ private struct FilesSidebar: View {
             PinnedLocationsSidebar(workspace: workspace, dragArea: dragArea) { model.focusFiles(in: window) }
         }
         .onDisappear { workspace.tabDrag.strips.removeAll() }
+        .background(NativeFolderPickerAnchor(picker: localFolderPicker))
     }
 
     private var openedTabs: some View {
         let remoteGroups = workspace.groupIDs.filter { $0 != workspace.localGroupID && workspace.groups[$0]?.tabs.isEmpty == false }
         return VStack(spacing: 0) {
-            sectionHeader("Local Folders")
+            sectionHeader("Local Folders") {
+                Button(action: chooseLocalFolders) {
+                    Image(systemName: "plus").frame(width: 22, height: 24)
+                }
+                .help(String(localized: "Open Folder…"))
+                .accessibilityLabel(Text("Open Folder…"))
+                .accessibilityIdentifier("files.openLocalFolder")
+            }
             tabRows(in: workspace.localGroupID)
             sectionHeader("Remote Hosts") {
                 Button { model.openHostPicker(in: window, purpose: .files) } label: {
@@ -868,6 +877,19 @@ private struct FilesSidebar: View {
         .padding(.horizontal, SidebarLayout.rowInset)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.openedTabs")
+    }
+
+    private func chooseLocalFolders() {
+        localFolderPicker.present(
+            directory: workspace.localColumn.savedPath ?? NSHomeDirectory(),
+            prompt: String(localized: "Open Folder"),
+            allowsMultipleSelection: true
+        ) { urls in
+            for url in urls {
+                workspace.openLocalFolder(at: url.standardizedFileURL.path)
+            }
+            model.focusFiles(in: window)
+        }
     }
 
     private func sectionHeader<Action: View>(_ title: LocalizedStringKey, @ViewBuilder action: () -> Action = { EmptyView() }) -> some View {

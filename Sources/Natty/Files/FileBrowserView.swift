@@ -15,7 +15,6 @@ struct FileColumnHeader<Endpoint: View>: View {
     @ObservedObject var workspace: FileWorkspace
     @ObservedObject var column: FileColumn
     var width: CGFloat
-    var showsTransferControl = false
     var isWindowToolbar = false
     var onFilterFocusChange: (Bool) -> Void = { _ in }
     @ViewBuilder var endpoint: () -> Endpoint
@@ -90,49 +89,11 @@ struct FileColumnHeader<Endpoint: View>: View {
             .fixedSize()
             .accessibilityLabel(Text("Actions"))
             .accessibilityIdentifier("files.actions")
-            if showsTransferControl {
-                if column.isRemote, width >= 680, workspace.transferSourceGroupID == nil {
-                    let path = workspace.localColumn.savedPath ?? NSHomeDirectory()
-                    Text(String(format: String(localized: "Local peer: %@"), path))
-                        .font(Theme.Font.rowMeta)
-                        .foregroundStyle(chrome.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: 220, alignment: .trailing)
-                        .help(path)
-                }
-                transferButton(width: width)
-            }
         }
         .padding(.horizontal, isWindowToolbar ? Theme.Space.xs : Theme.Space.m)
         .padding(.leading, titlebarLeadingInset)
         .frame(height: isWindowToolbar ? 28 : FileBrowserLayout.tabStripHeight)
         .background(WindowDragArea())
-    }
-
-    private func transferButton(width: CGFloat) -> some View {
-        let expanded = workspace.transferSourceGroupID != nil
-        let label = expanded ? String(localized: "Collapse Transfer") : String(localized: "Expand Transfer")
-        return Button {
-            if expanded {
-                workspace.collapseTransfer()
-            } else if column.isRemote, let group = workspace.groupID(of: column) {
-                workspace.expandTransfer(from: group)
-            } else if let window = workspace.windowState {
-                workspace.model?.openHostPicker(in: window, purpose: .transfer)
-            }
-        } label: {
-            if width < 320 {
-                Image(systemName: expanded ? "rectangle.compress.vertical" : "arrow.left.arrow.right")
-            } else {
-                Text(verbatim: label)
-            }
-        }
-        .buttonStyle(FamilyButtonStyle(kind: .secondary))
-        .fixedSize()
-        .help(label)
-        .accessibilityLabel(Text(verbatim: label))
-        .accessibilityIdentifier("files.toggleTransfer")
     }
 
     private func toolbarButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -169,6 +130,7 @@ struct FileColumnView: View {
     @State private var dropRefusal: String?
     @State private var hovered: String?
     @State private var pathHovered = false
+    @State private var slowLocalPath: String?
 
     private var window: NSWindow? { NSApp.keyWindow ?? NSApp.mainWindow }
 
@@ -199,8 +161,11 @@ struct FileColumnView: View {
                     rows(width: width)
                 }
                 .overlay(alignment: .top) {
-                    if column.loading {
+                    if column.loading && (column.isRemote || (slowLocalPath != nil && slowLocalPath == column.loadingPath)) {
                         Rectangle().fill(chrome.accent).frame(height: 2)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(Text("Loading…"))
+                            .accessibilityIdentifier("files.directoryLoading")
                     }
                 }
                 .overlay { dropHint }
@@ -210,10 +175,14 @@ struct FileColumnView: View {
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .simultaneousGesture(TapGesture().onEnded { workspace.focus(column) })
+        .task(id: column.loadingPath) {
+            slowLocalPath = nil
+            guard !column.isRemote, let path = column.loadingPath else { return }
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            slowLocalPath = path
+        }
         .onChange(of: column.preview?.entry.path) { previous, current in
-            if current != nil {
-                focused = false
-            } else if previous != nil, workspace.focusedColumn === column {
+            if current == nil, previous != nil, workspace.focusedColumn === column {
                 focused = true
             }
         }
@@ -423,6 +392,7 @@ struct FileColumnView: View {
                 .lineLimit(1)
         }
         .buttonStyle(FamilyButtonStyle())
+        .accessibilityIdentifier("files.sort.\(key.rawValue)")
     }
 
     private func rows(width: CGFloat) -> some View {
@@ -479,7 +449,7 @@ struct FileColumnView: View {
                 focused = true
             }
         }
-        .onKeyPress(phases: .down) { press in handleKey(press) }
+        .onKeyPress(phases: [.down, .repeat]) { press in handleKey(press) }
         .background(FilePointerObserver {
             if workspace.focusedColumn !== column { workspace.focus(column) }
             focused = true
@@ -564,10 +534,8 @@ struct FileColumnView: View {
             focused = true
             let modifiers = NSEvent.modifierFlags
             column.click(entry, modifiers: modifiers)
-            if modifiers.intersection([.command, .shift, .control]).isEmpty,
-               FilePreviewPolicy.kind(for: entry) != nil,
-               column.preview?.entry != entry || column.preview?.error != nil {
-                workspace.open(entry, in: column, window: window)
+            if modifiers.intersection([.command, .shift, .control]).isEmpty {
+                previewSelection(entry)
             }
         })
 
@@ -639,6 +607,11 @@ struct FileColumnView: View {
         column.selection.contains(entry.path) ? column.selectedEntries : [entry]
     }
 
+    private func previewSelection(_ entry: FileEntry) {
+        guard column.preview?.entry != entry || column.preview?.error != nil else { return }
+        column.showPreview(entry, window: window)
+    }
+
     // MARK: Keyboard
 
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
@@ -653,11 +626,22 @@ struct FileColumnView: View {
             return .handled
         }
         switch press.key {
-        case .upArrow:
-            column.moveSelection(by: -1, extending: press.modifiers.contains(.shift))
+        case .upArrow, .downArrow:
+            let extending = press.modifiers.contains(.shift)
+            if let entry = column.moveSelection(by: press.key == .upArrow ? -1 : 1, extending: extending),
+               !extending {
+                previewSelection(entry)
+            }
             return .handled
-        case .downArrow:
-            column.moveSelection(by: 1, extending: press.modifiers.contains(.shift))
+        case .rightArrow:
+            guard press.modifiers.intersection([.shift, .control, .command, .option]).isEmpty, column.selection.count == 1,
+                  let entry = column.selectedEntries.first, entry.isDirectory,
+                  FilePreviewPolicy.kind(for: entry) == nil else { return .ignored }
+            column.open(entry.path)
+            return .handled
+        case .leftArrow:
+            guard press.modifiers.intersection([.shift, .control, .command, .option]).isEmpty, !column.directory.isEmpty else { return .ignored }
+            column.open(FileRules.parent(of: column.directory))
             return .handled
         case .return:
             let selected = column.selectedEntries

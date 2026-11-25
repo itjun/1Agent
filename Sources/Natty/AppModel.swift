@@ -887,7 +887,6 @@ final class AppModel: ObservableObject {
         let target = mainWindow
         if request.destination == .files {
             let workspace = fileWorkspace(for: target)
-            workspace.showSingleEndpoint()
             for alias in aliases { workspace.openRemote(host: alias, at: request.path) }
             activate(target)
             showSection(.files, in: target)
@@ -1066,7 +1065,7 @@ final class AppModel: ObservableObject {
 
     private func reportInvalidDirectory(_ path: String) {
         activate(mainWindow)
-        AppNotifications.show(title: String(localized: "Cannot open this directory"), message: path, level: .error,
+        AppNotifications.show(title: "", message: String(format: String(localized: "Cannot open directory %@"), path), level: .error,
                               in: MainWindowManager.shared.window(for: mainWindow))
     }
 
@@ -1857,7 +1856,6 @@ final class AppModel: ObservableObject {
                 workspace.showLocal(localFolder(of: tab))
             }
         }
-        workspace.showSingleEndpoint()
         if id == nil { workspace.showLocal(nil) }
         showSection(.files, in: window)
     }
@@ -1866,7 +1864,6 @@ final class AppModel: ObservableObject {
     /// tab per host (an open one is reused), and a new tab for each terminal on this Mac.
     func openFiles(forTabs ids: [UUID], in group: UUID? = nil, window: WindowState) {
         let workspace = fileWorkspace(for: window)
-        if group == nil { workspace.showSingleEndpoint() }
         var seenHosts = Set<String>()
         for id in ids {
             guard let tab = tabs.first(where: { $0.id == id }) else { continue }
@@ -1875,6 +1872,7 @@ final class AppModel: ObservableObject {
                 workspace.openRemote(host: alias, at: tab.remoteDirectory, in: group)
             } else if let folder = localFolder(of: tab) {
                 workspace.addLocalTab(at: folder, in: group)
+                if group == nil { workspace.showLocal(nil) }
             }
         }
         showSection(.files, in: window)
@@ -1886,10 +1884,6 @@ final class AppModel: ObservableObject {
         let workspace = fileWorkspace(for: window)
         for alias in aliases {
             workspace.openRemote(host: alias, at: nil, in: workspace.pickerGroupID)
-        }
-        if window.hostPickerPurpose == .transfer, !aliases.isEmpty {
-            workspace.expandTransfer(from: workspace.localGroupID)
-            workspace.focusGroup(workspace.localGroupID)
         }
         showSection(.files, in: window)
     }

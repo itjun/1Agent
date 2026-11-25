@@ -89,6 +89,7 @@ struct PinnedLocationDragHandle: NSViewRepresentable {
     let area: PinnedLocationDragArea
     let chrome: WindowChrome
     let open: () -> Void
+    var dropFolders: ([URL]) -> Void = { _ in }
 
     func makeNSView(context: Context) -> PinnedLocationDragHandleView { PinnedLocationDragHandleView() }
 
@@ -99,6 +100,7 @@ struct PinnedLocationDragHandle: NSViewRepresentable {
         view.area = area
         view.chrome = chrome
         view.open = open
+        view.dropFolders = dropFolders
         area.rows[item.id] = view
     }
 
@@ -119,11 +121,41 @@ final class PinnedLocationDragHandleView: NSView {
     weak var area: PinnedLocationDragArea?
     var chrome = WindowChrome(isDark: false)
     var open: () -> Void = {}
+    var dropFolders: ([URL]) -> Void = { _ in }
 
     override var mouseDownCanMoveWindow: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? {
         bounds.intersection(visibleRect).contains(convert(point, from: superview)) ? self : nil
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // 行覆盖层会挡住 SwiftUI onDrop；在此接收访达拖入的本机文件夹。
+        registerForDraggedTypes([.fileURL])
+    }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        Self.canAccept(sender) ? .copy : []
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        Self.canAccept(sender) ? .copy : []
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        let urls = Self.urls(from: sender)
+        guard !urls.isEmpty else { return false }
+        dropFolders(urls)
+        return true
+    }
+
+    private static func canAccept(_ sender: any NSDraggingInfo) -> Bool {
+        sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+    }
+
+    private static func urls(from sender: any NSDraggingInfo) -> [URL] {
+        (sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
     }
 
     override func mouseDown(with event: NSEvent) {

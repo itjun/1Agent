@@ -28,8 +28,6 @@ struct FileWorkspaceStateTests {
         tab.showHidden = true
         tab.sortKey = .modified
         tab.ascending = false
-        tab.previewPath = "/srv/app/config.env"
-        tab.readingEncoding = .utf8
         tab.backStack = ["/srv", "/srv/previous"]
         tab.forwardStack = ["/srv/next"]
         tab.scrollAnchor = "/srv/app/config.env"
@@ -40,7 +38,6 @@ struct FileWorkspaceStateTests {
                 "directory, selection and filter roundtrip")
         require(restored.showHidden == true && restored.sortKey == .modified && restored.ascending == false,
                 "visibility and sort roundtrip")
-        require(restored.previewPath == tab.previewPath && restored.readingEncoding == .utf8, "preview context roundtrip")
         require(restored.backStack == tab.backStack && restored.forwardStack == tab.forwardStack && restored.scrollAnchor == tab.scrollAnchor,
                 "navigation history and the visible-row anchor roundtrip")
 
@@ -61,6 +58,12 @@ struct FileWorkspaceStateTests {
         let restoredManualSort = try JSONDecoder().decode(FileWorkspaceSnapshot.self, from: encoder.encode(manualSort))
         require(try encoder.encode(restoredManualSort) == encoder.encode(manualSort),
                 "later manual sorting survives relaunch without repeating the migration")
+
+        let oldPreview = Data(#"{"path":"/srv/app","selection":["/srv/app/config.env"],"previewPath":"/srv/app/config.env","readingEncoding":"utf8"}"#.utf8)
+        let reopened = try JSONDecoder().decode(FileWorkspaceSnapshot.Tab.self, from: oldPreview)
+        let savedTab = try JSONSerialization.jsonObject(with: encoder.encode(reopened)) as! [String: Any]
+        require(reopened.selection == tab.selection && savedTab["previewPath"] == nil,
+                "Restoring an older tab retains its selection and drops its automatically opened preview")
 
         let legacy = Data(#"{"local":[{"path":"/Users/test"}],"remote":[{"host":"old-host","path":"/opt/app"}],"activeLocal":0,"activeRemote":0}"#.utf8)
         let old = try JSONDecoder().decode(FileWorkspaceSnapshot.self, from: legacy).fixedColumns()

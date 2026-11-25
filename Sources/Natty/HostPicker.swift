@@ -86,7 +86,6 @@ struct HostPicker: View {
         switch window.hostPickerPurpose {
         case .terminal: return String(localized: "Servers")
         case .files: return String(localized: "Browse Server Files")
-        case .transfer: return String(localized: "Choose Transfer Host")
         }
     }
 
@@ -94,7 +93,6 @@ struct HostPicker: View {
         switch window.hostPickerPurpose {
         case .terminal: return String(localized: "New Terminal")
         case .files: return String(localized: "Browse Files")
-        case .transfer: return String(localized: "Expand Transfer")
         }
     }
 
@@ -328,7 +326,7 @@ struct HostPicker: View {
         .clickableCursor()
         .onTapGesture(count: 2) { open([host.alias]) }
         .onTapGesture {
-            if window.hostPickerPurpose != .transfer && NSEvent.modifierFlags.contains(.command) {
+            if NSEvent.modifierFlags.contains(.command) {
                 toggleTick(host.alias)
                 highlighted = host.alias
             } else {
